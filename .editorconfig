@@ -1,0 +1,32 @@
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+indent_style = space
+indent_size = 4
+
+[*.cs]
+# Wymuszane na buildzie (EnforceCodeStyleInBuild + TreatWarningsAsErrors)
+csharp_style_namespace_declarations = file_scoped:error
+
+# Reguły StyleCop sprzeczne ze stylem repo (usingi na górze, jeden typ na plik OK) — wyłączone.
+dotnet_diagnostic.SA1101.severity = none
+dotnet_diagnostic.SA1200.severity = none
+dotnet_diagnostic.SA1309.severity = none
+dotnet_diagnostic.SA1611.severity = none
+dotnet_diagnostic.SA1615.severity = none
+dotnet_diagnostic.SA1623.severity = none
+dotnet_diagnostic.SA1642.severity = none
+
+# Martwy kod jako błąd builda (Roslynator; reszta reguł RCS na domyślnych).
+dotnet_diagnostic.RCS1213.severity = error
+dotnet_diagnostic.RCS1163.severity = error
+
+# Sugestie dla IDE / dotnet format (nie blokują builda)
+csharp_style_var_when_type_is_apparent = true:suggestion
+csharp_style_expression_bodied_methods = when_on_single_line:suggestion
+csharp_style_prefer_primary_constructors = true:suggestion
+dotnet_style_qualification_for_field = false:suggestion
