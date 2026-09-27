@@ -8,6 +8,12 @@ public sealed class StubState : ICpuState<StubState>
     /// <summary>Akumulator 8-bit.</summary>
     public byte A { get; set; }
 
+    /// <summary>Przeniesienie/pożyczka z ostatniej operacji ALU.</summary>
+    public bool Carry { get; set; }
+
+    /// <summary>Nadmiar ze znaku z ostatniej operacji ALU.</summary>
+    public bool Overflow { get; set; }
+
     /// <inheritdoc/>
     public ushort ProgramCounter { get; set; }
 
@@ -16,5 +22,5 @@ public sealed class StubState : ICpuState<StubState>
 
     /// <inheritdoc/>
     public StubState Clone() =>
-        new() { A = A, ProgramCounter = ProgramCounter, Halted = Halted };
+        new() { A = A, Carry = Carry, Overflow = Overflow, ProgramCounter = ProgramCounter, Halted = Halted };
 }

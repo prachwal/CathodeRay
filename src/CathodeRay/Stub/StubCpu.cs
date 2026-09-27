@@ -94,6 +94,8 @@ public class StubCpu : ICpu<StubState>
     public void Reset()
     {
         State.A = 0;
+        State.Carry = false;
+        State.Overflow = false;
         State.ProgramCounter = 0;
         State.Halted = false;
         CycleCount = 0;
@@ -108,6 +110,8 @@ public class StubCpu : ICpu<StubState>
     public RegisterView CaptureRegisters() => new(
     [
         new RegisterEntry(new RegisterDefinition("A", 8, RegisterRole.Accumulator), State.A),
+        new RegisterEntry(new RegisterDefinition("C", 1, RegisterRole.Status), State.Carry ? 1UL : 0UL),
+        new RegisterEntry(new RegisterDefinition("V", 1, RegisterRole.Status), State.Overflow ? 1UL : 0UL),
         new RegisterEntry(new RegisterDefinition("PC", 16, RegisterRole.ProgramCounter), State.ProgramCounter),
     ]);
 
@@ -171,9 +175,21 @@ public class StubCpu : ICpu<StubState>
 
     private void Ldi(OpcodeContext ctx) => State.A = (byte)ctx.Operand;
 
-    private void Add(OpcodeContext ctx) => State.A = Alu.Add(State.A, (byte)ctx.Operand).Value;
+    private void Add(OpcodeContext ctx)
+    {
+        (byte value, bool carry, bool overflow) = Alu.Add(State.A, (byte)ctx.Operand);
+        State.A = value;
+        State.Carry = carry;
+        State.Overflow = overflow;
+    }
 
-    private void Sub(OpcodeContext ctx) => State.A = Alu.Subtract(State.A, (byte)ctx.Operand).Value;
+    private void Sub(OpcodeContext ctx)
+    {
+        (byte value, bool carry, bool overflow) = Alu.Subtract(State.A, (byte)ctx.Operand);
+        State.A = value;
+        State.Carry = carry;
+        State.Overflow = overflow;
+    }
 
     private void Inc(OpcodeContext ctx)
     {

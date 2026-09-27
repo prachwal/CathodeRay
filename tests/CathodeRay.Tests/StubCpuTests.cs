@@ -79,6 +79,52 @@ public sealed class StubCpuTests
     }
 
     [Fact]
+    public void Add_Sets_Carry()
+    {
+        var (cpu, _) = WithProgram(0x01, 0xFF, 0x02, 0x01);
+        cpu.Step();
+        cpu.Step();
+        cpu.State.A.Should().Be(0x00);
+        cpu.State.Carry.Should().BeTrue();
+        cpu.State.Overflow.Should().BeFalse();
+    }
+
+    [Fact]
+    public void Add_Sets_Overflow()
+    {
+        var (cpu, _) = WithProgram(0x01, 0x7F, 0x02, 0x01);
+        cpu.Step();
+        cpu.Step();
+        cpu.State.A.Should().Be(0x80);
+        cpu.State.Carry.Should().BeFalse();
+        cpu.State.Overflow.Should().BeTrue();
+    }
+
+    [Fact]
+    public void Sub_Sets_Carry_When_No_Borrow()
+    {
+        var (cpu, _) = WithProgram(0x01, 0x05, 0x07, 0x03);
+        cpu.Step();
+        cpu.Step();
+        cpu.State.A.Should().Be(0x02);
+        cpu.State.Carry.Should().BeTrue();
+        cpu.State.Overflow.Should().BeFalse();
+    }
+
+    [Fact]
+    public void Registers_Include_Flags()
+    {
+        var (cpu, _) = WithProgram(0x01, 0xFF, 0x02, 0x01);
+        cpu.Step();
+        cpu.Step();
+
+        RegisterView view = cpu.CaptureRegisters();
+        view["C"].Value.Should().Be(1);
+        view["C"].Role.Should().Be(RegisterRole.Status);
+        view["V"].Value.Should().Be(0);
+    }
+
+    [Fact]
     public void Inc_Increments()
     {
         var (cpu, _) = WithProgram(0x01, 0xFF, 0x03);
