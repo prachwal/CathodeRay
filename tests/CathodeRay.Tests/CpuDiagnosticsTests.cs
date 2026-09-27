@@ -14,7 +14,12 @@ public sealed class CpuDiagnosticsTests
 
         public Func<CpuDebugSnapshot, bool>? BreakWhen { get; set; }
 
+        public ushort? WatchAddress { get; set; }
+
         public bool ShouldBreak(CpuDebugSnapshot snapshot) => BreakWhen?.Invoke(snapshot) == true;
+
+        public bool ShouldBreakOnMemoryAccess(BusAccess access) =>
+            WatchAddress is not null && access.Address == WatchAddress;
 
         public void OnStepCompleted(CpuStepTrace trace) => Traces.Add(trace);
 
@@ -126,5 +131,44 @@ public sealed class CpuDiagnosticsTests
         trace.Cycles.Should().Be(3);
         trace.After.Should().Be(default(CpuDebugSnapshot));
         observer.Traces.Should().ContainSingle();
+    }
+
+    [Fact]
+    public void Watchpoint_Records_Hit()
+    {
+        var observer = new RecordingObserver { WatchAddress = 0x20 };
+        var bus = new WatchpointBus(new StubBus(), observer);
+        byte[] program = [0x01, 0x10, 0x05, 0x20, 0x00];
+        for (int i = 0; i < program.Length; i++)
+        {
+            bus.Write((ushort)i, program[i]);
+        }
+
+        var cpu = new StubCpu(Isa(), bus);
+        cpu.Step();
+        bus.LastHit.Should().BeNull();
+        cpu.Step();
+
+        bus.LastHit.Should().NotBeNull();
+        bus.LastHit!.Value.Address.Should().Be(0x20);
+        bus.LastHit!.Value.IsWrite.Should().BeTrue();
+    }
+
+    [Fact]
+    public void Watchpoint_No_Hit_When_Unwatched()
+    {
+        var observer = new RecordingObserver { WatchAddress = 0x99 };
+        var bus = new WatchpointBus(new StubBus(), observer);
+        byte[] program = [0x01, 0x10, 0x05, 0x20, 0x00];
+        for (int i = 0; i < program.Length; i++)
+        {
+            bus.Write((ushort)i, program[i]);
+        }
+
+        var cpu = new StubCpu(Isa(), bus);
+        cpu.Step();
+        cpu.Step();
+
+        bus.LastHit.Should().BeNull();
     }
 }
