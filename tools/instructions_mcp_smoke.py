@@ -17,9 +17,23 @@ from mcp.client.stdio import stdio_client
 
 REPO = Path(__file__).resolve().parent.parent
 EXPECTED = {
-    "processors", "add", "delete", "modify", "read", "list", "by-operand",
-    "search", "stats", "info", "schema", "validate", "coverage", "unverified",
-    "diff", "render", "import",
+    "processors",
+    "add",
+    "delete",
+    "modify",
+    "read",
+    "list",
+    "by-operand",
+    "search",
+    "stats",
+    "info",
+    "schema",
+    "validate",
+    "coverage",
+    "unverified",
+    "diff",
+    "render",
+    "import",
 }
 
 
@@ -38,14 +52,21 @@ async def main() -> int:
             names = {t.name for t in (await session.list_tools()).tools}
             missing, extra = EXPECTED - names, names - EXPECTED
             if missing or extra:
-                print(f"FAIL: brak={sorted(missing)} nadmiar={sorted(extra)}", file=sys.stderr)
+                print(
+                    f"FAIL: brak={sorted(missing)} nadmiar={sorted(extra)}",
+                    file=sys.stderr,
+                )
                 return 1
 
             async def call(tool: str, args: dict):
                 return await session.call_tool(tool, args)
 
             procs = as_json(await call("processors", {}))
-            if not procs["success"] or "6502" not in procs["processors"] or "1802" not in procs["processors"]:
+            if (
+                not procs["success"]
+                or "6502" not in procs["processors"]
+                or "1802" not in procs["processors"]
+            ):
                 print(f"FAIL: processors -> {procs}", file=sys.stderr)
                 return 1
 
@@ -60,7 +81,7 @@ async def main() -> int:
                 return 1
 
             validate = as_json(await call("validate", {}))
-            if not validate["success"] or validate["checked"] != 8:
+            if not validate["success"] or validate["checked"] != 9:
                 print(f"FAIL: validate -> {validate}", file=sys.stderr)
                 return 1
             bad = {k: v for k, v in validate["results"].items() if not v["ok"]}
@@ -88,14 +109,19 @@ async def main() -> int:
                 return 1
 
             render = await call("render", {"processor": "6800"})
-            render_text = getattr(render.content[0], "text", "") if render.content else ""
+            render_text = (
+                getattr(render.content[0], "text", "") if render.content else ""
+            )
             if "| Opcode |" not in render_text or "BRN" not in render_text:
                 print("FAIL: render 6800", file=sys.stderr)
                 return 1
 
             bad_import = as_json(await call("import", {"cpu": "z80"}))
             if "error" not in bad_import:
-                print(f"FAIL: import z80 powinien zwrócić błąd -> {bad_import}", file=sys.stderr)
+                print(
+                    f"FAIL: import z80 powinien zwrócić błąd -> {bad_import}",
+                    file=sys.stderr,
+                )
                 return 1
 
             print(

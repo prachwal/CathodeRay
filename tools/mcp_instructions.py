@@ -37,6 +37,7 @@ STORES = {
     "8080": REPO / "data/instructions/mcp_8080_instructions.json",
     "6800": REPO / "data/instructions/mcp_6800_instructions.json",
     "1802": REPO / "data/instructions/cosmac_vip_cdp1802_isa.json",
+    "stub": REPO / "data/instructions/mcp_stub_instructions.json",
 }
 
 ISA_SCHEMA = REPO / "data/instructions" / "isa.schema.json"
@@ -307,7 +308,9 @@ def validate_tool(processor: str | None = None) -> str:
     try:
         from jsonschema import Draft202012Validator
     except ImportError:
-        return _dump({"error": "brak jsonschema (pip install -r tools/requirements.txt)"})
+        return _dump(
+            {"error": "brak jsonschema (pip install -r tools/requirements.txt)"}
+        )
     validator = Draft202012Validator(json.loads(ISA_SCHEMA.read_text(encoding="utf-8")))
     targets = [processor] if processor else list(STORES)
     results: dict[str, Any] = {}
@@ -405,7 +408,14 @@ def diff_tool(a: str, b: str) -> str:
             if ia[op].get(f) != ib[op].get(f)
         }
         if fields:
-            changed.append({"opcode": op, "from": ia[op]["mnemonic"], "to": ib[op]["mnemonic"], "fields": fields})
+            changed.append(
+                {
+                    "opcode": op,
+                    "from": ia[op]["mnemonic"],
+                    "to": ib[op]["mnemonic"],
+                    "fields": fields,
+                }
+            )
     return _dump(
         {
             "success": True,
@@ -414,7 +424,11 @@ def diff_tool(a: str, b: str) -> str:
             "added": sorted(set(ib) - set(ia)),
             "removed": sorted(set(ia) - set(ib)),
             "changed": changed,
-            "counts": {"added": len(set(ib) - set(ia)), "removed": len(set(ia) - set(ib)), "changed": len(changed)},
+            "counts": {
+                "added": len(set(ib) - set(ia)),
+                "removed": len(set(ia) - set(ib)),
+                "changed": len(changed),
+            },
         }
     )
 
@@ -444,10 +458,14 @@ def render_tool(processor: str) -> str:
 def import_tool(cpu: str) -> str:
     """Uruchom importer (tools/import_isa_json.py) dla CPU i zwróć wynik."""
     if cpu not in IMPORT_CPUS:
-        return _dump({"error": f"brak adaptera dla {cpu}; dostępne: {', '.join(IMPORT_CPUS)}"})
+        return _dump(
+            {"error": f"brak adaptera dla {cpu}; dostępne: {', '.join(IMPORT_CPUS)}"}
+        )
     proc = subprocess.run(
         [sys.executable, str(REPO / "tools" / "import_isa_json.py"), cpu],
-        capture_output=True, text=True, cwd=str(REPO),
+        capture_output=True,
+        text=True,
+        cwd=str(REPO),
     )
     return _dump(
         {
