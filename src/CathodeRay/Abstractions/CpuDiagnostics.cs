@@ -27,9 +27,27 @@ public sealed class CpuDiagnostics
 
     /// <summary>Wykonuje jeden krok, buduje ślad i woła obserwatora (błąd kroku przekazuje do <see cref="ICpuExecutionObserver.OnStepFailed"/> i rzuca dalej).</summary>
     /// <returns>Ślad kroku.</returns>
-    public CpuStepTrace Step()
+    public CpuStepTrace Step() => StepFrom(Snapshot);
+
+    /// <summary>Wykonuje kroki aż do breakpointu (<see cref="ICpuExecutionObserver.ShouldBreak"/>) lub limitu.
+    /// Ślady trafiają do <see cref="ICpuExecutionObserver.OnStepCompleted"/> (nie są zbierane); snapshot "po" kroku służy jako "przed" następnego.</summary>
+    /// <param name="maxSteps">Maksymalna liczba kroków.</param>
+    /// <returns>Liczba wykonanych kroków.</returns>
+    public int Run(int maxSteps = int.MaxValue)
     {
-        CpuDebugSnapshot before = Snapshot;
+        int steps = 0;
+        CpuDebugSnapshot current = Snapshot;
+        while (steps < maxSteps && !_observer.ShouldBreak(current))
+        {
+            current = StepFrom(current).After;
+            steps++;
+        }
+
+        return steps;
+    }
+
+    private CpuStepTrace StepFrom(CpuDebugSnapshot before)
+    {
         int cycles;
         try
         {
@@ -44,19 +62,5 @@ public sealed class CpuDiagnostics
         var trace = new CpuStepTrace(before, Snapshot, cycles);
         _observer.OnStepCompleted(trace);
         return trace;
-    }
-
-    /// <summary>Wykonuje kroki aż do breakpointu (<see cref="ICpuExecutionObserver.ShouldBreak"/>) lub limitu.</summary>
-    /// <param name="maxSteps">Maksymalna liczba kroków.</param>
-    /// <returns>Zebrane ślady.</returns>
-    public IReadOnlyList<CpuStepTrace> Run(int maxSteps = int.MaxValue)
-    {
-        var traces = new List<CpuStepTrace>();
-        while (traces.Count < maxSteps && !ShouldBreak())
-        {
-            traces.Add(Step());
-        }
-
-        return traces;
     }
 }

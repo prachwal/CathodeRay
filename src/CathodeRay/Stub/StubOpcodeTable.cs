@@ -1,13 +1,13 @@
+using System.Diagnostics.CodeAnalysis;
+
 namespace CathodeRay.Stub;
 
-/// <summary>Rejestr opcode zaślepki (kształt jak <c>PetEmulator.Core.OpcodeTable</c>): Add (duplikat = wyjątek), Replace, Seal, Get/TryGet.</summary>
+/// <summary>Rejestr opcode zaślepki (kształt jak <c>PetEmulator.Core.OpcodeTable</c>): Add (duplikat = wyjątek), Replace, Seal, Get/TryGet.
+/// Tablica 256 wpisów indeksowana bajtem opcode.</summary>
 public sealed class StubOpcodeTable
 {
-    private readonly Dictionary<byte, StubOpcodeEntry> _entries = new();
+    private readonly StubOpcodeEntry?[] _entries = new StubOpcodeEntry?[256];
     private bool _sealed;
-
-    /// <summary>Zarejestrowane wpisy.</summary>
-    public IReadOnlyCollection<StubOpcodeEntry> Entries => _entries.Values;
 
     /// <summary>Czy rejestr zamknięty (<see cref="Seal"/>).</summary>
     public bool IsSealed => _sealed;
@@ -18,10 +18,12 @@ public sealed class StubOpcodeTable
     public void Add(byte opcode, StubOpcodeEntry entry)
     {
         EnsureMutable();
-        if (!_entries.TryAdd(opcode, entry))
+        if (_entries[opcode] is not null)
         {
             throw new InvalidOperationException($"Opcode 0x{opcode:X2} already registered.");
         }
+
+        _entries[opcode] = entry;
     }
 
     /// <summary>Dodaje lub nadpisuje wpis.</summary>
@@ -38,10 +40,12 @@ public sealed class StubOpcodeTable
     public void Remove(byte opcode)
     {
         EnsureMutable();
-        if (!_entries.Remove(opcode))
+        if (_entries[opcode] is null)
         {
             throw new InvalidOperationException($"Opcode 0x{opcode:X2} is not registered.");
         }
+
+        _entries[opcode] = null;
     }
 
     /// <summary>Zamraża rejestr — dalsze mutacje rzucają wyjątek.</summary>
@@ -57,15 +61,17 @@ public sealed class StubOpcodeTable
     /// <returns>Wpis.</returns>
     /// <exception cref="KeyNotFoundException">Brak wpisu dla opcode.</exception>
     public StubOpcodeEntry Get(byte opcode) =>
-        _entries.TryGetValue(opcode, out StubOpcodeEntry? entry)
-            ? entry
-            : throw new KeyNotFoundException($"Opcode 0x{opcode:X2} is not registered.");
+        _entries[opcode] ?? throw new KeyNotFoundException($"Opcode 0x{opcode:X2} is not registered.");
 
     /// <summary>Próbuje pobrać wpis.</summary>
     /// <param name="opcode">Klucz opcode.</param>
     /// <param name="entry">Wpis lub <see langword="null"/>.</param>
     /// <returns>Czy wpis istnieje.</returns>
-    public bool TryGet(byte opcode, out StubOpcodeEntry? entry) => _entries.TryGetValue(opcode, out entry);
+    public bool TryGet(byte opcode, [NotNullWhen(true)] out StubOpcodeEntry? entry)
+    {
+        entry = _entries[opcode];
+        return entry is not null;
+    }
 
     private void EnsureMutable()
     {

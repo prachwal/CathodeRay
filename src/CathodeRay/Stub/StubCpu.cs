@@ -7,6 +7,12 @@ namespace CathodeRay.Stub;
 /// Implementuje introspekcję (<see cref="ICpuStatus"/>), więc nadaje się do diagnostyki (<see cref="CpuDiagnostics"/>).</summary>
 public class StubCpu : ICpu<StubState>
 {
+    private static readonly RegisterLayout Registers = new(
+        new RegisterDefinition("A", 8, RegisterRole.Accumulator),
+        new RegisterDefinition("C", 1, RegisterRole.Status),
+        new RegisterDefinition("V", 1, RegisterRole.Status),
+        new RegisterDefinition("PC", 16, RegisterRole.ProgramCounter));
+
     private readonly IBus _bus;
     private readonly StubIsa _isa;
     private StubOpcodeTable? _opcodes;
@@ -63,7 +69,7 @@ public class StubCpu : ICpu<StubState>
         ushort pc = State.ProgramCounter;
         byte opcode = _bus.Read(pc);
         StubOpcodeTable opcodes = _opcodes ??= Build();
-        if (!opcodes.TryGet(opcode, out StubOpcodeEntry? entry) || entry is null)
+        if (!opcodes.TryGet(opcode, out StubOpcodeEntry? entry))
         {
             throw new InvalidOperationException($"Unknown opcode 0x{opcode:X2} at 0x{pc:X4}.");
         }
@@ -108,12 +114,8 @@ public class StubCpu : ICpu<StubState>
 
     /// <inheritdoc/>
     public RegisterView CaptureRegisters() => new(
-    [
-        new RegisterEntry(new RegisterDefinition("A", 8, RegisterRole.Accumulator), State.A),
-        new RegisterEntry(new RegisterDefinition("C", 1, RegisterRole.Status), State.Carry ? 1UL : 0UL),
-        new RegisterEntry(new RegisterDefinition("V", 1, RegisterRole.Status), State.Overflow ? 1UL : 0UL),
-        new RegisterEntry(new RegisterDefinition("PC", 16, RegisterRole.ProgramCounter), State.ProgramCounter),
-    ]);
+        Registers,
+        [State.A, State.Carry ? 1UL : 0UL, State.Overflow ? 1UL : 0UL, State.ProgramCounter]);
 
     /// <summary>Rejestruje wpis (metadane + handler) w tabeli.</summary>
     /// <param name="table">Rejestr docelowy.</param>

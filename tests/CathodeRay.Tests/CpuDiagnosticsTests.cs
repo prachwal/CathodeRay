@@ -89,7 +89,20 @@ public sealed class CpuDiagnosticsTests
         var observer = new RecordingObserver { BreakWhen = snapshot => snapshot.ProgramCounter >= 3 };
         var diagnostics = new CpuDiagnostics(Cpu(0x00, 0x00, 0x00, 0x00, 0x00), observer);
 
-        diagnostics.Run(10).Should().HaveCount(3);
+        diagnostics.Run(10).Should().Be(3);
+        observer.Traces.Should().HaveCount(3);
+        observer.Traces[1].Before.Should().Be(observer.Traces[0].After);
+        observer.Traces[2].Before.Should().Be(observer.Traces[1].After);
+    }
+
+    [Fact]
+    public void Run_Stops_At_MaxSteps()
+    {
+        var observer = new RecordingObserver();
+        var diagnostics = new CpuDiagnostics(Cpu(0x00, 0x00, 0x00, 0x00, 0x00), observer);
+
+        diagnostics.Run(2).Should().Be(2);
+        observer.Traces.Should().HaveCount(2);
     }
 
     [Fact]

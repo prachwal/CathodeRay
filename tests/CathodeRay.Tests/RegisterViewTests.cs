@@ -9,12 +9,9 @@ public sealed class RegisterViewTests
     private static readonly RegisterDefinition DefPc = new("PC", 16, RegisterRole.ProgramCounter);
     private static readonly RegisterDefinition DefNibble = new("Nibble", 4, RegisterRole.General);
 
-    private static RegisterView Sample() => new(
-    [
-        new RegisterEntry(DefA, 0x1F),
-        new RegisterEntry(DefPc, 0x1234),
-        new RegisterEntry(DefNibble, 0xA),
-    ]);
+    private static readonly RegisterLayout Layout = new(DefA, DefPc, DefNibble);
+
+    private static RegisterView Sample() => new(Layout, [0x1F, 0x1234, 0xA]);
 
     [Fact]
     public void Exposes_Names_And_Lookup()
@@ -53,9 +50,38 @@ public sealed class RegisterViewTests
     [Fact]
     public void Duplicate_Name_Throws()
     {
-        FluentActions.Invoking(() => new RegisterView(
-            [new RegisterEntry(DefA, 1), new RegisterEntry(DefA, 2)]))
+        FluentActions.Invoking(() => new RegisterLayout(DefA, DefA))
             .Should().Throw<ArgumentException>().WithMessage("*A*");
+    }
+
+    [Fact]
+    public void Value_Count_Must_Match_Layout()
+    {
+        FluentActions.Invoking(() => new RegisterView(Layout, [1, 2]))
+            .Should().Throw<ArgumentException>().WithMessage("*3*2*");
+    }
+
+    [Fact]
+    public void Unknown_Name_Throws_On_Indexer()
+    {
+        FluentActions.Invoking(() => Sample()["X"]).Should().Throw<KeyNotFoundException>();
+    }
+
+    [Fact]
+    public void Enumerates_Entries_In_Layout_Order()
+    {
+        Sample().Select(e => (e.Name, e.Value)).Should().Equal(("A", 0x1FUL), ("PC", 0x1234UL), ("Nibble", 0xAUL));
+    }
+
+    [Fact]
+    public void Views_Share_Layout_But_Not_Values()
+    {
+        var first = new RegisterView(Layout, [1, 2, 3]);
+        var second = new RegisterView(Layout, [4, 5, 6]);
+
+        first.Names.Should().BeSameAs(second.Names);
+        first["A"].Value.Should().Be(1);
+        second["A"].Value.Should().Be(4);
     }
 
     [Fact]
