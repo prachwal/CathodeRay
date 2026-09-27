@@ -79,7 +79,7 @@ def write_json(name: str, description: str, notes: str, instructions: list[dict]
 
 
 def entry(opcode: int, mnemonic: str, cycles: int, size: int, group: str, sem: str,
-          operands: list[dict] | None, encoding: str) -> dict:
+          operands: list[dict] | None, encoding: str, variants: str | None = None) -> dict:
     return {
         "opcode": f"{opcode:02X}",
         "mnemonic": mnemonic,
@@ -89,7 +89,7 @@ def entry(opcode: int, mnemonic: str, cycles: int, size: int, group: str, sem: s
         "group": group,
         "encoding": encoding,
         "operands": operands,
-        "variants": None,
+        "variants": variants,
     }
 
 
@@ -453,7 +453,129 @@ def import_6800() -> None:
     )
 
 
-ADAPTERS = {"6502": import_6502, "65c02": import_65c02, "8080": import_8080, "6800": import_6800}
+# --- RCA CDP1802 (COSMAC VIP) -----------------------------------------------
+# Pełne rozwinięcie 0x00-0xFF (bez wzorców). Cykle = machine cycles wg RCA:
+# 1-bajtowe = 2, 0xC0-0xCF = 3, długie skoki (3-bajtowe) = 3. 0x68 = niezdefiniowany.
+
+def build_cdp1802() -> list[dict]:
+    reg = [f"R{i:X}" for i in range(16)]
+    t: list[dict] = []
+
+    def add(op, mne, cyc, words, group, sem, variants=None):
+        t.append(entry(op, mne, cyc, words, group, sem, None, f"{op:02X}", variants))
+
+    add(0x00, "IDL", 2, 1, "control", "CPU w stan IDLE (czeka na DMA/przerwanie)")
+    for n in range(1, 16):
+        add(n, f"LDN {reg[n]}", 2, 1, "memory", f"D = M({reg[n]})")
+    for n in range(16):
+        add(0x10 + n, f"INC {reg[n]}", 2, 1, "register", f"{reg[n]} = {reg[n]} + 1 (mod 2^16)")
+        add(0x20 + n, f"DEC {reg[n]}", 2, 1, "register", f"{reg[n]} = {reg[n]} - 1 (mod 2^16)")
+    short = {0x30: "BR", 0x31: "BQ", 0x32: "BZ", 0x33: "BDF", 0x34: "B1", 0x35: "B2",
+             0x36: "B3", 0x37: "B4", 0x39: "BNQ", 0x3A: "BNZ", 0x3B: "BNF",
+             0x3C: "BN1", 0x3D: "BN2", 0x3E: "BN3", 0x3F: "BN4"}
+    for op, name in short.items():
+        add(op, name, 2, 2, "branch", f"krótka gałąź ({name})")
+    add(0x38, "SKP", 2, 1, "skip", "pomiń następną instrukcję", "NBR/SKP")
+    for n in range(16):
+        add(0x40 + n, f"LDA {reg[n]}", 2, 1, "memory", f"D = M({reg[n]}); {reg[n]}++")
+        add(0x50 + n, f"STR {reg[n]}", 2, 1, "memory", f"M({reg[n]}) = D")
+    add(0x60, "IRX", 2, 1, "register", "R(X) = R(X) + 1")
+    for n in range(1, 8):
+        add(0x60 + n, f"OUT {n}", 2, 1, "io", f"port {n} = M(R(X))")
+    add(0x68, "UNDEFINED", 2, 1, "undefined", "niezdefiniowany opcode")
+    for n in range(1, 8):
+        add(0x68 + n, f"INP {n}", 2, 1, "io", f"D = M(R(X)) = port {n}")
+    seventies = [
+        ("RET", 2, 1, "control", "powrót z podprogramu", None),
+        ("DIS", 2, 1, "interrupt", "wyłącz przerwania (IE=0)", None),
+        ("LDXA", 2, 1, "memory", "D = M(R(X)); R(X)++", None),
+        ("STXD", 2, 1, "memory", "M(R(X)) = D; R(X)--", None),
+        ("ADC", 2, 1, "arithmetic", "D = D + M(R(X)) + DF", None),
+        ("SDB", 2, 1, "arithmetic", "D = M(R(X)) - D - (NOT DF)", None),
+        ("SHRC", 2, 1, "arithmetic", "D = D ring-shift right (DF wchodzi)", "SHRC/RSHR"),
+        ("SMB", 2, 1, "arithmetic", "D = D - M(R(X)) - (NOT DF)", None),
+        ("SAV", 2, 1, "interrupt", "M(R(X)) = T", None),
+        ("MARK", 2, 1, "control", "push X,P; T = X,P", None),
+        ("REQ", 2, 1, "control", "Q = 0", None),
+        ("SEQ", 2, 1, "control", "Q = 1", None),
+        ("ADCI", 2, 2, "arithmetic", "D = D + data + DF", None),
+        ("SDBI", 2, 2, "arithmetic", "D = data - D - (NOT DF)", None),
+        ("SHLC", 2, 1, "arithmetic", "D = D ring-shift left (DF wchodzi)", "SHLC/RSHL"),
+        ("SMBI", 2, 2, "arithmetic", "D = D - data - (NOT DF)", None),
+    ]
+    for i, (mne, cyc, words, group, sem, var) in enumerate(seventies):
+        add(0x70 + i, mne, cyc, words, group, sem, var)
+    for n in range(16):
+        add(0x80 + n, f"GLO {reg[n]}", 2, 1, "register", f"D = low({reg[n]})")
+        add(0x90 + n, f"GHI {reg[n]}", 2, 1, "register", f"D = high({reg[n]})")
+        add(0xA0 + n, f"PLO {reg[n]}", 2, 1, "register", f"low({reg[n]}) = D")
+        add(0xB0 + n, f"PHI {reg[n]}", 2, 1, "register", f"high({reg[n]}) = D")
+    long = [
+        ("LBR", 3, 3, "branch", "bezwarunkowy długi skok", None),
+        ("LBQ", 3, 3, "branch", "długi skok gdy Q=1", None),
+        ("LBZ", 3, 3, "branch", "długi skok gdy D=0", None),
+        ("LBDF", 3, 3, "branch", "długi skok gdy DF=1", None),
+        ("NOP", 3, 1, "control", "brak operacji (3 machine cycles)", None),
+        ("LSNQ", 3, 1, "skip", "długi skip gdy Q=0", None),
+        ("LSNZ", 3, 1, "skip", "długi skip gdy D!=0", None),
+        ("LSNF", 3, 1, "skip", "długi skip gdy DF=0", None),
+        ("LSKP", 3, 1, "skip", "pomiń dwie instrukcje", "LSKP/NLBR"),
+        ("NLBR", 3, 3, "branch", "długi skok (jak LBR)", None),
+        ("LBNQ", 3, 3, "branch", "długi skok gdy Q=0", None),
+        ("LBNZ", 3, 3, "branch", "długi skok gdy D!=0", None),
+        ("LSIE", 3, 1, "skip", "długi skip gdy IE=1", None),
+        ("LSQ", 3, 1, "skip", "długi skip gdy Q=1", None),
+        ("LSZ", 3, 1, "skip", "długi skip gdy D=0", None),
+        ("LSDF", 3, 1, "skip", "długi skip gdy DF=1", None),
+    ]
+    for i, (mne, cyc, words, group, sem, var) in enumerate(long):
+        add(0xC0 + i, mne, cyc, words, group, sem, var)
+    for n in range(16):
+        add(0xD0 + n, f"SEP {reg[n]}", 2, 1, "control", f"P = {n}")
+        add(0xE0 + n, f"SEX {reg[n]}", 2, 1, "control", f"X = {n}")
+    finals = [
+        ("LDX", 2, 1, "memory", "D = M(R(X))", None),
+        ("OR", 2, 1, "arithmetic", "D = D | M(R(X))", None),
+        ("AND", 2, 1, "arithmetic", "D = D & M(R(X))", None),
+        ("XOR", 2, 1, "arithmetic", "D = D ^ M(R(X))", None),
+        ("ADD", 2, 1, "arithmetic", "D = D + M(R(X))", None),
+        ("SD", 2, 1, "arithmetic", "D = M(R(X)) - D", None),
+        ("SHR", 2, 1, "arithmetic", "D = D >> 1 (DF = bit0)", None),
+        ("SM", 2, 1, "arithmetic", "D = D - M(R(X))", None),
+        ("LDI", 2, 2, "memory", "D = data", None),
+        ("ORI", 2, 2, "arithmetic", "D = D | data", None),
+        ("ANI", 2, 2, "arithmetic", "D = D & data", None),
+        ("XRI", 2, 2, "arithmetic", "D = D ^ data", None),
+        ("ADI", 2, 2, "arithmetic", "D = D + data", None),
+        ("SDI", 2, 2, "arithmetic", "D = data - D", None),
+        ("SHL", 2, 1, "arithmetic", "D = D << 1", None),
+        ("SMI", 2, 2, "arithmetic", "D = D - data", None),
+    ]
+    for i, (mne, cyc, words, group, sem, var) in enumerate(finals):
+        add(0xF0 + i, mne, cyc, words, group, sem, var)
+    assert len(t) == 256 and len({i["opcode"] for i in t}) == 256, len(t)
+    return sorted(t, key=lambda i: int(i["opcode"], 16))
+
+
+def import_cdp1802() -> None:
+    path = OUT_DIR / "cosmac_vip_cdp1802_isa.json"
+    meta = {
+        "processor": "COSMAC VIP / RCA CDP1802",
+        "format_version": "1.0",
+        "description": "RCA COSMAC CDP1802 ISA (COSMAC VIP) — pełne rozwinięcie 0x00-0xFF.",
+        "notes": "Opcode'y rozwinięte do konkretnych 00-FF (bez wzorców); cykle = machine cycles wg RCA.",
+        "schema": None,
+    }
+    if path.exists():
+        old = json.loads(path.read_text(encoding="utf-8"))
+        meta = {k: v for k, v in old.items() if k != "instructions"}
+    meta["instructions"] = build_cdp1802()
+    path.write_text(json.dumps(meta, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    print(f"cdp1802: 256 opcodów -> {path.relative_to(REPO)}")
+
+
+ADAPTERS = {"6502": import_6502, "65c02": import_65c02, "8080": import_8080,
+            "6800": import_6800, "1802": import_cdp1802}
 
 
 def selftest() -> None:
@@ -494,6 +616,14 @@ def selftest() -> None:
     assert c02[0x1E]["cycles"] == 6 and c02[0x00]["words"] == 2
     assert c02[0x89]["semantics"].startswith("Z = (A & M) == 0")
     assert c02[0x04]["semantics"].startswith("Z = ((A & M) == 0)")
+    cdp = {int(i["opcode"], 16): i for i in build_cdp1802()}
+    assert len(cdp) == 256 and cdp[0x68]["mnemonic"] == "UNDEFINED"
+    assert cdp[0x61]["mnemonic"] == "OUT 1" and cdp[0x67]["mnemonic"] == "OUT 7"
+    assert cdp[0x69]["mnemonic"] == "INP 1" and cdp[0x6F]["mnemonic"] == "INP 7"
+    assert cdp[0x3D]["mnemonic"] == "BN2" and cdp[0x38]["words"] == 1
+    assert cdp[0x78]["semantics"] == "M(R(X)) = T"
+    assert cdp[0xC4]["cycles"] == 3 and cdp[0xC4]["words"] == 1
+    assert all(len(i["opcode"]) == 2 for i in cdp.values())
     print("selftest OK")
 
 
