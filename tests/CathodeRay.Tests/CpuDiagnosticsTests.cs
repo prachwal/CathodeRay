@@ -26,23 +26,6 @@ public sealed class CpuDiagnosticsTests
         public void OnStepFailed(CpuDebugSnapshot snapshot, Exception exception) => Failures.Add(exception);
     }
 
-    private sealed class PlainCpu : ICpu<StubState>
-    {
-        private readonly int _cycles;
-
-        public PlainCpu(int cycles) => _cycles = cycles;
-
-        public StubState State { get; } = new();
-
-        public int Step()
-        {
-            State.ProgramCounter++;
-            return _cycles;
-        }
-
-        public void Reset() => State.ProgramCounter = 0;
-    }
-
     private static StubIsa Isa()
     {
         DirectoryInfo? dir = new(AppContext.BaseDirectory);
@@ -118,15 +101,6 @@ public sealed class CpuDiagnosticsTests
         FluentActions.Invoking(diagnostics.Step).Should().Throw<InvalidOperationException>();
         observer.Failures.Should().ContainSingle();
         observer.Traces.Should().BeEmpty();
-    }
-
-    [Fact]
-    public void Requires_Status()
-    {
-        var observer = new RecordingObserver();
-
-        FluentActions.Invoking(() => new CpuDiagnostics(new PlainCpu(3), observer))
-            .Should().Throw<ArgumentException>().WithMessage("*ICpuStatus*");
     }
 
     [Fact]

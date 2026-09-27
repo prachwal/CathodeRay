@@ -4,8 +4,8 @@ namespace CathodeRay.Stub;
 
 /// <summary>Minimalna zaślepka CPU napędzana tabelą opcode z JSON — do testowania abstrakcji <see cref="ICpu{TState}"/> i <see cref="IBus"/>.
 /// Rejestrację opcode można nadpisać (<see cref="ConfigureOpcodes"/>) i dodać/poprawić/usunąć wpisy (delta CPU).
-/// Implementuje opcjonalny <see cref="ICpuStatus"/>, więc nadaje się do diagnostyki (<see cref="CpuDiagnostics"/>).</summary>
-public class StubCpu : ICpu<StubState>, ICpuStatus
+/// Implementuje introspekcję (<see cref="ICpuStatus"/>), więc nadaje się do diagnostyki (<see cref="CpuDiagnostics"/>).</summary>
+public class StubCpu : ICpu<StubState>
 {
     private readonly IBus _bus;
     private readonly StubIsa _isa;

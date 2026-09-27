@@ -1,30 +1,25 @@
 namespace CathodeRay.Abstractions;
 
 /// <summary>Runner diagnostyczny: dekoruje <see cref="ICpuCore"/>, zdejmuje snapshoty przed/po kroku i woła <see cref="ICpuExecutionObserver"/>.
-/// Wymaga <see cref="ICpuStatus"/> (introspekcja obowiązkowa) — brak zdolności to jawny błąd, nie ciche zerowe dane.</summary>
+/// Introspekcja jest częścią <see cref="ICpuCore"/>, więc brak statusu jest błędem kompilacji, nie runtime.</summary>
 public sealed class CpuDiagnostics
 {
     private readonly ICpuCore _cpu;
-    private readonly ICpuStatus _status;
     private readonly ICpuExecutionObserver _observer;
 
     /// <summary>Tworzy runner dla CPU i obserwatora.</summary>
-    /// <param name="cpu">CPU do dekorowania (musi implementować <see cref="ICpuStatus"/>).</param>
+    /// <param name="cpu">CPU do dekorowania.</param>
     /// <param name="observer">Obserwator (polityka breakpointów, log).</param>
-    /// <exception cref="ArgumentException">CPU nie implementuje <see cref="ICpuStatus"/>.</exception>
     public CpuDiagnostics(ICpuCore cpu, ICpuExecutionObserver observer)
     {
         ArgumentNullException.ThrowIfNull(cpu);
         ArgumentNullException.ThrowIfNull(observer);
         _cpu = cpu;
-        _status = cpu as ICpuStatus
-            ?? throw new ArgumentException(
-                $"CPU {cpu.GetType().Name} must implement {nameof(ICpuStatus)}.", nameof(cpu));
         _observer = observer;
     }
 
     /// <summary>Aktualny snapshot.</summary>
-    public CpuDebugSnapshot Snapshot => CpuDebugSnapshot.From(_status);
+    public CpuDebugSnapshot Snapshot => CpuDebugSnapshot.From(_cpu);
 
     /// <summary>Czy obserwator żąda przerwania przed krokiem.</summary>
     /// <returns>Czy przerwać.</returns>

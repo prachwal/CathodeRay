@@ -1,6 +1,7 @@
 namespace CathodeRay.Abstractions;
 
-/// <summary>Opcjonalna zdolność introspekcji CPU (poza <see cref="ICpu{TState}"/>) — panel/debugger/log rzutuje i degraduje się łagodnie, gdy CPU jej nie ma.</summary>
+/// <summary>Kontrakt introspekcji CPU: licznik programu, zatrzymanie, liczniki, ostatnia instrukcja i widok rejestrów.
+/// Część <see cref="ICpuCore"/> — każdy rdzeń jest introspekowalny (panel/debugger/log konsumują go wprost).</summary>
 public interface ICpuStatus
 {
     /// <summary>Licznik programu.</summary>
