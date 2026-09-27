@@ -46,7 +46,7 @@ public sealed class StubCpuTests
         var (cpu, _) = WithProgram(0x00, 0x00);
         cpu.Step().Should().Be(1);
         cpu.State.ProgramCounter.Should().Be(1);
-        cpu.TotalCycles.Should().Be(1);
+        cpu.CycleCount.Should().Be(1);
     }
 
     [Fact]
@@ -116,12 +116,12 @@ public sealed class StubCpuTests
         var (cpu, _) = WithProgram(0x01, 0x2A, 0xFF);
         cpu.Step();
         cpu.Step();
-        cpu.TotalCycles.Should().BeGreaterThan(0);
+        cpu.CycleCount.Should().BeGreaterThan(0);
         cpu.Reset();
         cpu.State.A.Should().Be(0);
         cpu.State.ProgramCounter.Should().Be(0);
         cpu.State.Halted.Should().BeFalse();
-        cpu.TotalCycles.Should().Be(0);
+        cpu.CycleCount.Should().Be(0);
     }
 
     [Fact]
@@ -137,13 +137,13 @@ public sealed class StubCpuTests
     }
 
     [Fact]
-    public void TotalCycles_Accumulates_Across_Steps()
+    public void CycleCount_Accumulates_Across_Steps()
     {
         var (cpu, _) = WithProgram(0x01, 0x01, 0x02, 0x02, 0x00);
         cpu.Step();
         cpu.Step();
         cpu.Step();
-        cpu.TotalCycles.Should().Be(2 + 2 + 1);
+        cpu.CycleCount.Should().Be(2 + 2 + 1);
     }
 
     [Fact]

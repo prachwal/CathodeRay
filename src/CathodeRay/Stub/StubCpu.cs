@@ -3,12 +3,14 @@ using CathodeRay.Abstractions;
 namespace CathodeRay.Stub;
 
 /// <summary>Minimalna zaślepka CPU napędzana tabelą opcode z JSON — do testowania abstrakcji <see cref="ICpu{TState}"/> i <see cref="IBus"/>.
-/// Rejestrację opcode można nadpisać (<see cref="ConfigureOpcodes"/>) i dodać/poprawić/usunąć wpisy (delta CPU).</summary>
-public class StubCpu : ICpu<StubState>
+/// Rejestrację opcode można nadpisać (<see cref="ConfigureOpcodes"/>) i dodać/poprawić/usunąć wpisy (delta CPU).
+/// Implementuje opcjonalny <see cref="ICpuStatus"/>, więc nadaje się do diagnostyki (<see cref="CpuDiagnostics{TState}"/>).</summary>
+public class StubCpu : ICpu<StubState>, ICpuStatus
 {
     private readonly IBus _bus;
     private readonly StubIsa _isa;
     private readonly StubOpcodeTable _opcodes;
+    private BusActivity _activity;
 
     /// <summary>Tworzy zaślepkę: rejestruje opcode'y z JSON (nieznany mnemonic = wyjątek już tutaj).</summary>
     /// <param name="isa">Tabela opcode wczytana z JSON.</param>
@@ -20,14 +22,33 @@ public class StubCpu : ICpu<StubState>
         _isa = isa;
         _bus = bus;
         State = new StubState();
+        LastOpcode = -1;
         _opcodes = Build();
     }
 
     /// <inheritdoc/>
     public StubState State { get; }
 
-    /// <summary>Suma cykli od ostatniego <see cref="Reset"/>.</summary>
-    public int TotalCycles { get; private set; }
+    /// <inheritdoc/>
+    public ulong CycleCount { get; private set; }
+
+    /// <inheritdoc/>
+    public ulong InstructionCount { get; private set; }
+
+    /// <inheritdoc/>
+    public BusActivity LastBusActivity { get; private set; }
+
+    /// <inheritdoc/>
+    public int LastOpcode { get; private set; }
+
+    /// <inheritdoc/>
+    public string? LastMnemonic { get; private set; }
+
+    /// <inheritdoc/>
+    ushort ICpuStatus.ProgramCounter => State.ProgramCounter;
+
+    /// <inheritdoc/>
+    bool ICpuStatus.Halted => State.Halted;
 
     /// <summary>Szyna pamięci dla handlerów podklas.</summary>
     protected IBus Bus => _bus;
@@ -53,9 +74,19 @@ public class StubCpu : ICpu<StubState>
             3 => _bus.Read((ushort)(pc + 1)) | (_bus.Read((ushort)(pc + 2)) << 8),
             _ => 0,
         };
+        _activity = BusActivity.Fetch;
+        if (entry.Words > 1)
+        {
+            _activity |= BusActivity.Read;
+        }
+
         State.ProgramCounter = (ushort)(pc + entry.Words);
         entry.Handler(new OpcodeContext(opcode, operand, pc));
-        TotalCycles += entry.Cycles;
+        LastBusActivity = _activity;
+        LastOpcode = opcode;
+        LastMnemonic = entry.Mnemonic;
+        CycleCount += (ulong)entry.Cycles;
+        InstructionCount++;
         return entry.Cycles;
     }
 
@@ -65,7 +96,12 @@ public class StubCpu : ICpu<StubState>
         State.A = 0;
         State.ProgramCounter = 0;
         State.Halted = false;
-        TotalCycles = 0;
+        CycleCount = 0;
+        InstructionCount = 0;
+        LastBusActivity = BusActivity.None;
+        LastOpcode = -1;
+        LastMnemonic = null;
+        _activity = BusActivity.None;
     }
 
     /// <summary>Rejestruje wpis (metadane + handler) w tabeli.</summary>
@@ -135,15 +171,24 @@ public class StubCpu : ICpu<StubState>
         State.A = (byte)(State.A + 1);
     }
 
-    private void Sta(OpcodeContext ctx) => _bus.Write((ushort)ctx.Operand, State.A);
+    private void Sta(OpcodeContext ctx)
+    {
+        _activity |= BusActivity.Write;
+        _bus.Write((ushort)ctx.Operand, State.A);
+    }
 
-    private void Lda(OpcodeContext ctx) => State.A = _bus.Read((ushort)ctx.Operand);
+    private void Lda(OpcodeContext ctx)
+    {
+        _activity |= BusActivity.Read;
+        State.A = _bus.Read((ushort)ctx.Operand);
+    }
 
     private void Jmp(OpcodeContext ctx) => State.ProgramCounter = (ushort)ctx.Operand;
 
     private void Hlt(OpcodeContext ctx)
     {
         _ = ctx;
+        _activity |= BusActivity.Halt;
         State.Halted = true;
     }
 }
