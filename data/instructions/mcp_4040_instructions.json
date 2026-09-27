@@ -1,4 +1,5 @@
 {
+  "$schema": "isa.schema.json",
   "processor": "Intel 4040",
   "format_version": "1.0",
   "description": "Full set: 46 inherited 4004 instructions (incl. WPM at E3) + 14 new 4040 instructions = 60 defined; 4040-only: HLT,BBS,LCR,OR4,OR5,AN6,AN7,DB0,DB1,SB0,SB1,EIN,DIN,RPM; undefined: 0F, FE, FF",

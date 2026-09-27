@@ -1,4 +1,5 @@
 {
+  "$schema": "isa.schema.json",
   "processor": "8080",
   "format_version": "1.0",
   "description": "Intel 8080 — pełna mapa ISA (256 opcodów; nieudokumentowane też zdefiniowane)",

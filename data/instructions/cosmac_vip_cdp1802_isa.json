@@ -33,6 +33,7 @@
     "dma_out": "External DMA request transfers M(R0) to the bus, then increments R0.",
     "reset": "Reset initializes the CPU control state according to the CDP1802 hardware specification."
   },
+  "$schema": "isa.schema.json",
   "instructions": [
     {
       "opcode": "00",

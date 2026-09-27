@@ -68,6 +68,7 @@ def write_json(name: str, description: str, notes: str, instructions: list[dict]
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     dest = OUT_DIR / f"mcp_{name}_instructions.json"
     data = {
+        "$schema": "isa.schema.json",
         "processor": name.upper(),
         "format_version": "1.0",
         "description": description,
@@ -560,6 +561,7 @@ def build_cdp1802() -> list[dict]:
 def import_cdp1802() -> None:
     path = OUT_DIR / "cosmac_vip_cdp1802_isa.json"
     meta = {
+        "$schema": "isa.schema.json",
         "processor": "COSMAC VIP / RCA CDP1802",
         "format_version": "1.0",
         "description": "RCA COSMAC CDP1802 ISA (COSMAC VIP) — pełne rozwinięcie 0x00-0xFF.",
@@ -569,6 +571,7 @@ def import_cdp1802() -> None:
     if path.exists():
         old = json.loads(path.read_text(encoding="utf-8"))
         meta = {k: v for k, v in old.items() if k != "instructions"}
+    meta.setdefault("$schema", "isa.schema.json")
     meta["instructions"] = build_cdp1802()
     path.write_text(json.dumps(meta, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
     print(f"cdp1802: 256 opcodów -> {path.relative_to(REPO)}")

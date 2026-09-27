@@ -1,4 +1,5 @@
 {
+  "$schema": "isa.schema.json",
   "processor": "65C02",
   "format_version": "1.0",
   "description": "WDC W65C02S (CMOS) — pełna mapa 256 opcodów (NMOS + CMOS + Rockwell R65C02S)",

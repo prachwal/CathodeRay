@@ -1,4 +1,5 @@
 {
+  "$schema": "isa.schema.json",
   "processor": "CHIP-8",
   "format_version": "1.0",
   "description": "35 standard CHIP-8 opcodes (16-bit). Semantics record VIP (COSMAC) defaults + configurable quirks — not one universal spec. Groups: system, display, timing, logic.",
