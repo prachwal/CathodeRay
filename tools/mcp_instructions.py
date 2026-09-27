@@ -11,6 +11,7 @@ MD renderuje tools/generate_opcode_tables.py. Ścieżki liczone od roota repo.
 from __future__ import annotations
 
 import json
+import subprocess
 import sys
 from pathlib import Path
 from typing import Any
@@ -37,6 +38,9 @@ STORES = {
     "6800": REPO / "data/instructions/mcp_6800_instructions.json",
     "1802": REPO / "data/instructions/cosmac_vip_cdp1802_isa.json",
 }
+
+ISA_SCHEMA = REPO / "data/instructions" / "isa.schema.json"
+IMPORT_CPUS = ("6502", "65c02", "8080", "6800", "1802")
 
 
 def _check(processor: str) -> Path:
@@ -295,6 +299,164 @@ def schema_tool(processor: str) -> str:
     if not data.get("schema"):
         return _dump({"error": f"No schema defined for {processor}"})
     return _dump({"success": True, "processor": processor, "schema": data["schema"]})
+
+
+@mcp.tool(name="validate")
+def validate_tool(processor: str | None = None) -> str:
+    """Waliduj pliki ISA: zgodność z isa.schema.json + unikalność opcode. Bez argumentu = wszystkie."""
+    try:
+        from jsonschema import Draft202012Validator
+    except ImportError:
+        return _dump({"error": "brak jsonschema (pip install -r tools/requirements.txt)"})
+    validator = Draft202012Validator(json.loads(ISA_SCHEMA.read_text(encoding="utf-8")))
+    targets = [processor] if processor else list(STORES)
+    results: dict[str, Any] = {}
+    ok = True
+    for name in targets:
+        if name not in STORES:
+            results[name] = {"ok": False, "errors": [f"unknown processor {name}"]}
+            ok = False
+            continue
+        try:
+            data = _load(name)
+        except (ValueError, FileNotFoundError) as e:
+            results[name] = {"ok": False, "errors": [str(e)]}
+            ok = False
+            continue
+        errors = [
+            f"[{'.'.join(map(str, e.path))}] {e.message}"
+            for e in validator.iter_errors(data)
+        ]
+        ops = [i.get("opcode") for i in data.get("instructions", [])]
+        dup = sorted({o for o in ops if ops.count(o) > 1})
+        if dup:
+            errors.append(f"duplikaty opcode: {', '.join(dup)}")
+        results[name] = {"ok": not errors, "errors": errors}
+        ok = ok and not errors
+    return _dump({"success": ok, "checked": len(targets), "results": results})
+
+
+@mcp.tool(name="coverage")
+def coverage_tool(processor: str) -> str:
+    """Pokrycie opcodów: 2-hex obecne vs brakujące 00-FF; wzorce (np. CHIP-8) raportowane osobno."""
+    try:
+        data = _load(processor)
+    except (ValueError, FileNotFoundError) as e:
+        return _dump({"error": str(e)})
+    ops = [i["opcode"] for i in data["instructions"]]
+    hexops = {o for o in ops if len(o) == 2}
+    patterns = sorted(o for o in ops if len(o) != 2)
+    present = {f"{int(o, 16):02X}" for o in hexops}
+    missing = sorted(f"{x:02X}" for x in range(256) if f"{x:02X}" not in present)
+    return _dump(
+        {
+            "success": True,
+            "processor": processor,
+            "total": len(ops),
+            "hex_opcodes": len(hexops),
+            "pattern_opcodes": len(patterns),
+            "patterns": patterns,
+            "missing": missing,
+            "complete": not missing,
+        }
+    )
+
+
+@mcp.tool(name="unverified")
+def unverified_tool(processor: str | None = None, limit: int = 100) -> str:
+    """Opcody bez prefiksu 'Verified:' w semantics (postęp implementacji). Bez argumentu = wszystkie."""
+    targets = [processor] if processor else list(STORES)
+    per: dict[str, Any] = {}
+    total = 0
+    for name in targets:
+        try:
+            data = _load(name)
+        except (ValueError, FileNotFoundError) as e:
+            per[name] = {"error": str(e)}
+            continue
+        items = [
+            {"opcode": i["opcode"], "mnemonic": i["mnemonic"]}
+            for i in data["instructions"]
+            if not str(i.get("semantics") or "").startswith("Verified:")
+        ]
+        per[name] = {
+            "unverified": len(items),
+            "total": len(data["instructions"]),
+            "items": items[:limit],
+            "truncated": len(items) > limit,
+        }
+        total += len(items)
+    return _dump({"success": True, "total_unverified": total, "processors": per})
+
+
+@mcp.tool(name="diff")
+def diff_tool(a: str, b: str) -> str:
+    """Porównaj dwa zestawy po opcode: dodane/usunięte/zmienione (mnemonic/cycles/words/group/semantics)."""
+    try:
+        ia = {i["opcode"]: i for i in _load(a)["instructions"]}
+        ib = {i["opcode"]: i for i in _load(b)["instructions"]}
+    except (ValueError, FileNotFoundError, KeyError) as e:
+        return _dump({"error": str(e)})
+    changed = []
+    for op in sorted(set(ia) & set(ib)):
+        fields = {
+            f: [ia[op].get(f), ib[op].get(f)]
+            for f in ("mnemonic", "cycles", "words", "group", "semantics")
+            if ia[op].get(f) != ib[op].get(f)
+        }
+        if fields:
+            changed.append({"opcode": op, "from": ia[op]["mnemonic"], "to": ib[op]["mnemonic"], "fields": fields})
+    return _dump(
+        {
+            "success": True,
+            "a": a,
+            "b": b,
+            "added": sorted(set(ib) - set(ia)),
+            "removed": sorted(set(ia) - set(ib)),
+            "changed": changed,
+            "counts": {"added": len(set(ib) - set(ia)), "removed": len(set(ia) - set(ib)), "changed": len(changed)},
+        }
+    )
+
+
+@mcp.tool(name="render")
+def render_tool(processor: str) -> str:
+    """Wyrenderuj tabelę Markdown instrukcji (opcode/mnemonic/cykle/słowa/grupa/semantyka)."""
+    try:
+        data = _load(processor)
+    except (ValueError, FileNotFoundError) as e:
+        return _dump({"error": str(e)})
+    lines = [
+        f"# {data.get('processor', processor)} — tabela opcodów",
+        "",
+        "| Opcode | Mnemonic | Cykle | Słowa | Grupa | Semantyka |",
+        "| --- | --- | --- | --- | --- | --- |",
+    ]
+    for i in data["instructions"]:
+        sem = str(i.get("semantics") or "").replace("|", "\\|")
+        lines.append(
+            f"| `{i['opcode']}` | `{i['mnemonic']}` | {i['cycles']} | {i['words']} | {i['group']} | {sem} |"
+        )
+    return "\n".join(lines)
+
+
+@mcp.tool(name="import")
+def import_tool(cpu: str) -> str:
+    """Uruchom importer (tools/import_isa_json.py) dla CPU i zwróć wynik."""
+    if cpu not in IMPORT_CPUS:
+        return _dump({"error": f"brak adaptera dla {cpu}; dostępne: {', '.join(IMPORT_CPUS)}"})
+    proc = subprocess.run(
+        [sys.executable, str(REPO / "tools" / "import_isa_json.py"), cpu],
+        capture_output=True, text=True, cwd=str(REPO),
+    )
+    return _dump(
+        {
+            "success": proc.returncode == 0,
+            "returncode": proc.returncode,
+            "stdout": proc.stdout.strip(),
+            "stderr": proc.stderr.strip(),
+        }
+    )
 
 
 if __name__ == "__main__":
