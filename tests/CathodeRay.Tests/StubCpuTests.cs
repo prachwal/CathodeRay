@@ -154,12 +154,13 @@ public sealed class StubCpuTests
     }
 
     [Fact]
-    public void Unknown_Mnemonic_Throws_At_Construction()
+    public void Unknown_Mnemonic_Throws_On_First_Step()
     {
         const string json = """{"instructions":[{"opcode":"00","mnemonic":"XYZ","cycles":1,"words":1}]}""";
         StubIsa isa = StubIsa.FromJson(new MemoryStream(Encoding.UTF8.GetBytes(json)));
+        var cpu = new StubCpu(isa, new StubBus());
 
-        FluentActions.Invoking(() => new StubCpu(isa, new StubBus()))
+        FluentActions.Invoking(() => cpu.Step())
             .Should().Throw<InvalidOperationException>().WithMessage("*XYZ*");
     }
 

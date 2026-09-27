@@ -4,12 +4,12 @@ namespace CathodeRay.Stub;
 
 /// <summary>Minimalna zaślepka CPU napędzana tabelą opcode z JSON — do testowania abstrakcji <see cref="ICpu{TState}"/> i <see cref="IBus"/>.
 /// Rejestrację opcode można nadpisać (<see cref="ConfigureOpcodes"/>) i dodać/poprawić/usunąć wpisy (delta CPU).
-/// Implementuje opcjonalny <see cref="ICpuStatus"/>, więc nadaje się do diagnostyki (<see cref="CpuDiagnostics{TState}"/>).</summary>
+/// Implementuje opcjonalny <see cref="ICpuStatus"/>, więc nadaje się do diagnostyki (<see cref="CpuDiagnostics"/>).</summary>
 public class StubCpu : ICpu<StubState>, ICpuStatus
 {
     private readonly IBus _bus;
     private readonly StubIsa _isa;
-    private readonly StubOpcodeTable _opcodes;
+    private StubOpcodeTable? _opcodes;
     private BusActivity _activity;
 
     /// <summary>Tworzy zaślepkę: rejestruje opcode'y z JSON (nieznany mnemonic = wyjątek już tutaj).</summary>
@@ -23,7 +23,6 @@ public class StubCpu : ICpu<StubState>, ICpuStatus
         _bus = bus;
         State = new StubState();
         LastOpcode = -1;
-        _opcodes = Build();
     }
 
     /// <inheritdoc/>
@@ -63,7 +62,8 @@ public class StubCpu : ICpu<StubState>, ICpuStatus
 
         ushort pc = State.ProgramCounter;
         byte opcode = _bus.Read(pc);
-        if (!_opcodes.TryGet(opcode, out StubOpcodeEntry? entry) || entry is null)
+        StubOpcodeTable opcodes = _opcodes ??= Build();
+        if (!opcodes.TryGet(opcode, out StubOpcodeEntry? entry) || entry is null)
         {
             throw new InvalidOperationException($"Unknown opcode 0x{opcode:X2} at 0x{pc:X4}.");
         }
