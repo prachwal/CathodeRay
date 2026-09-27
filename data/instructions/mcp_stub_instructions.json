@@ -1,0 +1,97 @@
+{
+  "$schema": "isa.schema.json",
+  "processor": "STUB",
+  "format_version": "1.0",
+  "description": "Minimalna ISA zaślepki CPU do testowania abstrakcji ICpu/IBus (nie model sprzętu).",
+  "notes": "Mnemonic mapowany na handler w CathodeRay.Stub.StubCpu; operandy: d8 = 1 bajt, a16 = 2 bajty LE.",
+  "instructions": [
+    {
+      "opcode": "00",
+      "mnemonic": "NOP",
+      "cycles": 1,
+      "words": 1,
+      "semantics": "brak operacji",
+      "group": "system",
+      "encoding": null,
+      "operands": null,
+      "variants": null
+    },
+    {
+      "opcode": "01",
+      "mnemonic": "LDI",
+      "cycles": 2,
+      "words": 2,
+      "semantics": "A = d8",
+      "group": "load",
+      "encoding": null,
+      "operands": [{ "name": "d8", "type": "immediate8" }],
+      "variants": null
+    },
+    {
+      "opcode": "02",
+      "mnemonic": "ADD",
+      "cycles": 2,
+      "words": 2,
+      "semantics": "A = A + d8 (mod 256)",
+      "group": "arithmetic",
+      "encoding": null,
+      "operands": [{ "name": "d8", "type": "immediate8" }],
+      "variants": null
+    },
+    {
+      "opcode": "03",
+      "mnemonic": "INC",
+      "cycles": 1,
+      "words": 1,
+      "semantics": "A = A + 1 (mod 256)",
+      "group": "arithmetic",
+      "encoding": null,
+      "operands": null,
+      "variants": null
+    },
+    {
+      "opcode": "04",
+      "mnemonic": "JMP",
+      "cycles": 3,
+      "words": 3,
+      "semantics": "PC = a16",
+      "group": "jump",
+      "encoding": null,
+      "operands": [{ "name": "a16", "type": "address16" }],
+      "variants": null
+    },
+    {
+      "opcode": "05",
+      "mnemonic": "STA",
+      "cycles": 3,
+      "words": 3,
+      "semantics": "M[a16] = A",
+      "group": "load",
+      "encoding": null,
+      "operands": [{ "name": "a16", "type": "address16" }],
+      "variants": null
+    },
+    {
+      "opcode": "06",
+      "mnemonic": "LDA",
+      "cycles": 3,
+      "words": 3,
+      "semantics": "A = M[a16]",
+      "group": "load",
+      "encoding": null,
+      "operands": [{ "name": "a16", "type": "address16" }],
+      "variants": null
+    },
+    {
+      "opcode": "FF",
+      "mnemonic": "HLT",
+      "cycles": 1,
+      "words": 1,
+      "semantics": "zatrzymanie CPU (Step zwraca 0)",
+      "group": "system",
+      "encoding": null,
+      "operands": null,
+      "variants": null
+    }
+  ]
+}
