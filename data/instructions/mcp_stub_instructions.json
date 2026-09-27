@@ -83,6 +83,17 @@
       "variants": null
     },
     {
+      "opcode": "07",
+      "mnemonic": "SUB",
+      "cycles": 2,
+      "words": 2,
+      "semantics": "A = A - d8 (mod 256)",
+      "group": "arithmetic",
+      "encoding": null,
+      "operands": [{ "name": "d8", "type": "immediate8" }],
+      "variants": null
+    },
+    {
       "opcode": "FF",
       "mnemonic": "HLT",
       "cycles": 1,

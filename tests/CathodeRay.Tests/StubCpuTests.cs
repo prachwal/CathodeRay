@@ -34,9 +34,10 @@ public sealed class StubCpuTests
     public void Isa_Loads_All_Opcodes()
     {
         StubIsa isa = LoadIsa();
-        isa.Opcodes.Should().HaveCount(8);
+        isa.Opcodes.Should().HaveCount(9);
         isa.Opcodes[0x01].Mnemonic.Should().Be("LDI");
         isa.Opcodes[0x01].Words.Should().Be(2);
+        isa.Opcodes[0x07].Mnemonic.Should().Be("SUB");
         isa.Opcodes[0xFF].Mnemonic.Should().Be("HLT");
     }
 
@@ -66,6 +67,15 @@ public sealed class StubCpuTests
         cpu.Step();
         cpu.State.A.Should().Be(0x15);
         cpu.State.ProgramCounter.Should().Be(4);
+    }
+
+    [Fact]
+    public void Sub_Subtracts_Immediate()
+    {
+        var (cpu, _) = WithProgram(0x01, 0x10, 0x07, 0x05);
+        cpu.Step();
+        cpu.Step();
+        cpu.State.A.Should().Be(0x0B);
     }
 
     [Fact]

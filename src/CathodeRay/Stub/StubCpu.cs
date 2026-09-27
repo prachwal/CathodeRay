@@ -151,6 +151,7 @@ public class StubCpu : ICpu<StubState>
         "NOP" => Nop,
         "LDI" => Ldi,
         "ADD" => Add,
+        "SUB" => Sub,
         "INC" => Inc,
         "STA" => Sta,
         "LDA" => Lda,
@@ -171,6 +172,8 @@ public class StubCpu : ICpu<StubState>
     private void Ldi(OpcodeContext ctx) => State.A = (byte)ctx.Operand;
 
     private void Add(OpcodeContext ctx) => State.A = Alu.Add(State.A, (byte)ctx.Operand).Value;
+
+    private void Sub(OpcodeContext ctx) => State.A = Alu.Subtract(State.A, (byte)ctx.Operand).Value;
 
     private void Inc(OpcodeContext ctx)
     {
