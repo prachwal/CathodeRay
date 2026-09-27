@@ -1,0 +1,1358 @@
+{
+  "processor": "COSMAC VIP / RCA CDP1802",
+  "format_version": "1.0",
+  "description": "RCA COSMAC CDP1802 instruction set used by the COSMAC VIP. 16-bit register architecture with 16 general-purpose 16-bit registers R0-RF, D accumulator, DF data flag, P program-counter selector, X data-pointer selector, Q output flip-flop, IE interrupt enable and T temporary register.",
+  "notes": "CDP1802 has a 16-bit address space (64 KiB), byte-addressable memory, 16 x 16-bit registers, 8-bit D register, 1-bit DF, 1-bit Q and 1-bit IE. Any R register can be selected as P (program counter) or X (data pointer). Most instructions require 2 machine cycles; long branch/long skip/NOP require 3. One machine cycle consists of 8 clock periods. COSMAC VIP adds system-specific hardware such as the CDP1861 video interface; this JSON describes the CPU ISA, not the VIP video hardware or CHIP-8 interpreter.",
+  "schema": {
+    "opcode": "hex string/pattern; 8-bit opcode with N/register, MM/page-byte or KK/immediate placeholders",
+    "mnemonic": "RCA COSMAC symbolic instruction name",
+    "cycles": "integer; machine cycles",
+    "words": "integer; number of program bytes consumed (1, 2 or 3)",
+    "semantics": "description of CPU behavior",
+    "group": "category such as memory, register, branch, arithmetic, control, interrupt, io or skip",
+    "encoding": "instruction format pattern",
+    "operands": "array of operand objects or null; each: {type, name, range, position}",
+    "variants": "optional; variant opcodes or parameters (null if none)"
+  },
+  "registers": {
+    "R0-RF": "16 x 16-bit scratchpad registers",
+    "D": "8-bit data register / accumulator",
+    "DF": "1-bit data flag; carry/no-borrow indicator for arithmetic",
+    "P": "4-bit selector identifying the program-counter register R(P)",
+    "X": "4-bit selector identifying the data-pointer register R(X)",
+    "N": "4-bit instruction register field selecting R(N)",
+    "I": "4-bit high opcode nibble",
+    "T": "8-bit temporary register used by interrupt/return mechanisms",
+    "IE": "1-bit interrupt-enable flip-flop",
+    "Q": "1-bit output flip-flop",
+    "EF1-EF4": "four external input flag lines"
+  },
+  "interrupts_and_dma": {
+    "interrupt": "On interrupt acceptance, T receives the current X/P state, X becomes 2, P becomes 1 and IE becomes 0.",
+    "dma_in": "External DMA request transfers bus data to M(R0), then increments R0.",
+    "dma_out": "External DMA request transfers M(R0) to the bus, then increments R0.",
+    "reset": "Reset initializes the CPU control state according to the CDP1802 hardware specification."
+  },
+  "instructions": [
+    {
+      "opcode": "00",
+      "mnemonic": "IDL",
+      "cycles": 2,
+      "words": 1,
+      "semantics": "Stops normal instruction execution and enters IDLE state; CPU waits for DMA or interrupt activity.",
+      "group": "control",
+      "encoding": "00",
+      "operands": null,
+      "variants": null
+    },
+    {
+      "opcode": "0N (N=1-F)",
+      "mnemonic": "LDN",
+      "cycles": 2,
+      "words": 1,
+      "semantics": "D = M(R(N)); for N=1-F, load the byte addressed by R(N) into D. R(N) is not changed.",
+      "group": "memory",
+      "encoding": "0N",
+      "operands": [
+        {
+          "type": "register",
+          "name": "N",
+          "range": "0-F (R0-RF)",
+          "position": "low_nibble"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "1N",
+      "mnemonic": "INC",
+      "cycles": 2,
+      "words": 1,
+      "semantics": "R(N) = R(N) + 1 modulo 16 bits.",
+      "group": "register",
+      "encoding": "1N",
+      "operands": [
+        {
+          "type": "register",
+          "name": "N",
+          "range": "0-F (R0-RF)",
+          "position": "low_nibble"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "2N",
+      "mnemonic": "DEC",
+      "cycles": 2,
+      "words": 1,
+      "semantics": "R(N) = R(N) - 1 modulo 16 bits.",
+      "group": "register",
+      "encoding": "2N",
+      "operands": [
+        {
+          "type": "register",
+          "name": "N",
+          "range": "0-F (R0-RF)",
+          "position": "low_nibble"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "30",
+      "mnemonic": "BR",
+      "cycles": 2,
+      "words": 2,
+      "semantics": "Branch unconditionally to MM in the current 256-byte page; low byte of R(P) is replaced by MM.",
+      "group": "branch",
+      "encoding": "30 MM",
+      "operands": [
+        {
+          "type": "address",
+          "name": "MM",
+          "range": "00-FF (8-bit page address)",
+          "position": "next_byte"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "31",
+      "mnemonic": "BQ",
+      "cycles": 2,
+      "words": 2,
+      "semantics": "Branch to MM if Q=1; otherwise continue sequentially.",
+      "group": "branch",
+      "encoding": "31 MM",
+      "operands": [
+        {
+          "type": "address",
+          "name": "MM",
+          "range": "00-FF (8-bit page address)",
+          "position": "next_byte"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "32",
+      "mnemonic": "BZ",
+      "cycles": 2,
+      "words": 2,
+      "semantics": "Branch to MM if D=00h; otherwise continue sequentially.",
+      "group": "branch",
+      "encoding": "32 MM",
+      "operands": [
+        {
+          "type": "address",
+          "name": "MM",
+          "range": "00-FF (8-bit page address)",
+          "position": "next_byte"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "33",
+      "mnemonic": "BDF",
+      "cycles": 2,
+      "words": 2,
+      "semantics": "Branch to MM if DF=1; otherwise continue sequentially.",
+      "group": "branch",
+      "encoding": "33 MM",
+      "operands": [
+        {
+          "type": "address",
+          "name": "MM",
+          "range": "00-FF (8-bit page address)",
+          "position": "next_byte"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "34",
+      "mnemonic": "B1",
+      "cycles": 2,
+      "words": 2,
+      "semantics": "Branch to MM if EF1=1; otherwise continue sequentially.",
+      "group": "branch",
+      "encoding": "34 MM",
+      "operands": [
+        {
+          "type": "address",
+          "name": "MM",
+          "range": "00-FF (8-bit page address)",
+          "position": "next_byte"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "35",
+      "mnemonic": "B2",
+      "cycles": 2,
+      "words": 2,
+      "semantics": "Branch to MM if EF2=1; otherwise continue sequentially.",
+      "group": "branch",
+      "encoding": "35 MM",
+      "operands": [
+        {
+          "type": "address",
+          "name": "MM",
+          "range": "00-FF (8-bit page address)",
+          "position": "next_byte"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "36",
+      "mnemonic": "B3",
+      "cycles": 2,
+      "words": 2,
+      "semantics": "Branch to MM if EF3=1; otherwise continue sequentially.",
+      "group": "branch",
+      "encoding": "36 MM",
+      "operands": [
+        {
+          "type": "address",
+          "name": "MM",
+          "range": "00-FF (8-bit page address)",
+          "position": "next_byte"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "37",
+      "mnemonic": "B4",
+      "cycles": 2,
+      "words": 2,
+      "semantics": "Branch to MM if EF4=1; otherwise continue sequentially.",
+      "group": "branch",
+      "encoding": "37 MM",
+      "operands": [
+        {
+          "type": "address",
+          "name": "MM",
+          "range": "00-FF (8-bit page address)",
+          "position": "next_byte"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "38",
+      "mnemonic": "SKP",
+      "cycles": 2,
+      "words": 2,
+      "semantics": "Skip the next byte unconditionally; R(P) is advanced by one additional byte.",
+      "group": "skip",
+      "encoding": "38 MM",
+      "operands": [
+        {
+          "type": "address",
+          "name": "MM",
+          "range": "00-FF (8-bit page address)",
+          "position": "next_byte"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "39",
+      "mnemonic": "BNQ",
+      "cycles": 2,
+      "words": 2,
+      "semantics": "Branch to MM if Q=0; otherwise continue sequentially.",
+      "group": "branch",
+      "encoding": "39 MM",
+      "operands": [
+        {
+          "type": "address",
+          "name": "MM",
+          "range": "00-FF (8-bit page address)",
+          "position": "next_byte"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "3A",
+      "mnemonic": "BNZ",
+      "cycles": 2,
+      "words": 2,
+      "semantics": "Branch to MM if D!=00h; otherwise continue sequentially.",
+      "group": "branch",
+      "encoding": "3A MM",
+      "operands": [
+        {
+          "type": "address",
+          "name": "MM",
+          "range": "00-FF (8-bit page address)",
+          "position": "next_byte"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "3B",
+      "mnemonic": "BNF",
+      "cycles": 2,
+      "words": 2,
+      "semantics": "Branch to MM if DF=0; otherwise continue sequentially.",
+      "group": "branch",
+      "encoding": "3B MM",
+      "operands": [
+        {
+          "type": "address",
+          "name": "MM",
+          "range": "00-FF (8-bit page address)",
+          "position": "next_byte"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "3C",
+      "mnemonic": "BN1",
+      "cycles": 2,
+      "words": 2,
+      "semantics": "Branch to MM if EF1=0; otherwise continue sequentially.",
+      "group": "branch",
+      "encoding": "3C MM",
+      "operands": [
+        {
+          "type": "address",
+          "name": "MM",
+          "range": "00-FF (8-bit page address)",
+          "position": "next_byte"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "3D",
+      "mnemonic": "BN2",
+      "cycles": 2,
+      "words": 2,
+      "semantics": "Branch to MM if EF2=0; otherwise continue sequentially.",
+      "group": "branch",
+      "encoding": "3D MM",
+      "operands": [
+        {
+          "type": "address",
+          "name": "MM",
+          "range": "00-FF (8-bit page address)",
+          "position": "next_byte"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "3E",
+      "mnemonic": "BN3",
+      "cycles": 2,
+      "words": 2,
+      "semantics": "Branch to MM if EF3=0; otherwise continue sequentially.",
+      "group": "branch",
+      "encoding": "3E MM",
+      "operands": [
+        {
+          "type": "address",
+          "name": "MM",
+          "range": "00-FF (8-bit page address)",
+          "position": "next_byte"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "3F",
+      "mnemonic": "BN4",
+      "cycles": 2,
+      "words": 2,
+      "semantics": "Branch to MM if EF4=0; otherwise continue sequentially.",
+      "group": "branch",
+      "encoding": "3F MM",
+      "operands": [
+        {
+          "type": "address",
+          "name": "MM",
+          "range": "00-FF (8-bit page address)",
+          "position": "next_byte"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "4N",
+      "mnemonic": "LDA",
+      "cycles": 2,
+      "words": 1,
+      "semantics": "D = M(R(N)); then R(N) = R(N) + 1 modulo 16 bits.",
+      "group": "memory",
+      "encoding": "4N",
+      "operands": [
+        {
+          "type": "register",
+          "name": "N",
+          "range": "0-F (R0-RF)",
+          "position": "low_nibble"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "5N",
+      "mnemonic": "STR",
+      "cycles": 2,
+      "words": 1,
+      "semantics": "M(R(N)) = D; R(N) is unchanged.",
+      "group": "memory",
+      "encoding": "5N",
+      "operands": [
+        {
+          "type": "register",
+          "name": "N",
+          "range": "0-F (R0-RF)",
+          "position": "low_nibble"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "60",
+      "mnemonic": "IRX",
+      "cycles": 2,
+      "words": 1,
+      "semantics": "R(X) = R(X) + 1 modulo 16 bits.",
+      "group": "register",
+      "encoding": "60",
+      "operands": null,
+      "variants": null
+    },
+    {
+      "opcode": "3D",
+      "mnemonic": "OUT 1",
+      "cycles": 2,
+      "words": 1,
+      "semantics": "Output M(R(X)) on the external bus using output device line 1; then R(X) = R(X) + 1.",
+      "group": "io",
+      "encoding": "3D",
+      "operands": null,
+      "variants": null
+    },
+    {
+      "opcode": "3E",
+      "mnemonic": "OUT 2",
+      "cycles": 2,
+      "words": 1,
+      "semantics": "Output M(R(X)) on the external bus using output device line 2; then R(X) = R(X) + 1.",
+      "group": "io",
+      "encoding": "3E",
+      "operands": null,
+      "variants": null
+    },
+    {
+      "opcode": "3F",
+      "mnemonic": "OUT 3",
+      "cycles": 2,
+      "words": 1,
+      "semantics": "Output M(R(X)) on the external bus using output device line 3; then R(X) = R(X) + 1.",
+      "group": "io",
+      "encoding": "3F",
+      "operands": null,
+      "variants": null
+    },
+    {
+      "opcode": "40",
+      "mnemonic": "OUT 4",
+      "cycles": 2,
+      "words": 1,
+      "semantics": "Output M(R(X)) on the external bus using output device line 4; then R(X) = R(X) + 1.",
+      "group": "io",
+      "encoding": "40",
+      "operands": null,
+      "variants": null
+    },
+    {
+      "opcode": "41",
+      "mnemonic": "OUT 5",
+      "cycles": 2,
+      "words": 1,
+      "semantics": "Output M(R(X)) on the external bus using output device line 5; then R(X) = R(X) + 1.",
+      "group": "io",
+      "encoding": "41",
+      "operands": null,
+      "variants": null
+    },
+    {
+      "opcode": "42",
+      "mnemonic": "OUT 6",
+      "cycles": 2,
+      "words": 1,
+      "semantics": "Output M(R(X)) on the external bus using output device line 6; then R(X) = R(X) + 1.",
+      "group": "io",
+      "encoding": "42",
+      "operands": null,
+      "variants": null
+    },
+    {
+      "opcode": "43",
+      "mnemonic": "OUT 7",
+      "cycles": 2,
+      "words": 1,
+      "semantics": "Output M(R(X)) on the external bus using output device line 7; then R(X) = R(X) + 1.",
+      "group": "io",
+      "encoding": "43",
+      "operands": null,
+      "variants": null
+    },
+    {
+      "opcode": "68",
+      "mnemonic": "UNDEFINED",
+      "cycles": 2,
+      "words": 1,
+      "semantics": "Unused/reserved opcode on RCA 1802; behavior is not defined by the documented instruction set.",
+      "group": "undefined",
+      "encoding": "68",
+      "operands": null,
+      "variants": null
+    },
+    {
+      "opcode": "69",
+      "mnemonic": "INP 1",
+      "cycles": 2,
+      "words": 1,
+      "semantics": "Read the external bus through input device line 1; store the bus byte in both M(R(X)) and D. R(X) is unchanged.",
+      "group": "io",
+      "encoding": "69",
+      "operands": null,
+      "variants": null
+    },
+    {
+      "opcode": "6A",
+      "mnemonic": "INP 2",
+      "cycles": 2,
+      "words": 1,
+      "semantics": "Read the external bus through input device line 2; store the bus byte in both M(R(X)) and D. R(X) is unchanged.",
+      "group": "io",
+      "encoding": "6A",
+      "operands": null,
+      "variants": null
+    },
+    {
+      "opcode": "6B",
+      "mnemonic": "INP 3",
+      "cycles": 2,
+      "words": 1,
+      "semantics": "Read the external bus through input device line 3; store the bus byte in both M(R(X)) and D. R(X) is unchanged.",
+      "group": "io",
+      "encoding": "6B",
+      "operands": null,
+      "variants": null
+    },
+    {
+      "opcode": "6C",
+      "mnemonic": "INP 4",
+      "cycles": 2,
+      "words": 1,
+      "semantics": "Read the external bus through input device line 4; store the bus byte in both M(R(X)) and D. R(X) is unchanged.",
+      "group": "io",
+      "encoding": "6C",
+      "operands": null,
+      "variants": null
+    },
+    {
+      "opcode": "6D",
+      "mnemonic": "INP 5",
+      "cycles": 2,
+      "words": 1,
+      "semantics": "Read the external bus through input device line 5; store the bus byte in both M(R(X)) and D. R(X) is unchanged.",
+      "group": "io",
+      "encoding": "6D",
+      "operands": null,
+      "variants": null
+    },
+    {
+      "opcode": "6E",
+      "mnemonic": "INP 6",
+      "cycles": 2,
+      "words": 1,
+      "semantics": "Read the external bus through input device line 6; store the bus byte in both M(R(X)) and D. R(X) is unchanged.",
+      "group": "io",
+      "encoding": "6E",
+      "operands": null,
+      "variants": null
+    },
+    {
+      "opcode": "6F",
+      "mnemonic": "INP 7",
+      "cycles": 2,
+      "words": 1,
+      "semantics": "Read the external bus through input device line 7; store the bus byte in both M(R(X)) and D. R(X) is unchanged.",
+      "group": "io",
+      "encoding": "6F",
+      "operands": null,
+      "variants": null
+    },
+    {
+      "opcode": "70",
+      "mnemonic": "RET",
+      "cycles": 2,
+      "words": 1,
+      "semantics": "Restore X and P from M(R(X)); then R(X)=R(X)+1 and IE=1.",
+      "group": "control",
+      "encoding": "70",
+      "operands": null,
+      "variants": null
+    },
+    {
+      "opcode": "71",
+      "mnemonic": "DIS",
+      "cycles": 2,
+      "words": 1,
+      "semantics": "Restore X and P from M(R(X)); then R(X)=R(X)+1 and IE=0.",
+      "group": "interrupt",
+      "encoding": "71",
+      "operands": null,
+      "variants": null
+    },
+    {
+      "opcode": "72",
+      "mnemonic": "LDXA",
+      "cycles": 2,
+      "words": 1,
+      "semantics": "D = M(R(X)); then R(X) = R(X) + 1.",
+      "group": "memory",
+      "encoding": "72",
+      "operands": null,
+      "variants": null
+    },
+    {
+      "opcode": "73",
+      "mnemonic": "STXD",
+      "cycles": 2,
+      "words": 1,
+      "semantics": "M(R(X)) = D; then R(X) = R(X) - 1.",
+      "group": "memory",
+      "encoding": "73",
+      "operands": null,
+      "variants": null
+    },
+    {
+      "opcode": "74",
+      "mnemonic": "ADC",
+      "cycles": 2,
+      "words": 1,
+      "semantics": "D = M(R(P)) + D + DF; DF receives the carry. R(P) = R(P) + 1.",
+      "group": "arithmetic",
+      "encoding": "74",
+      "operands": null,
+      "variants": null
+    },
+    {
+      "opcode": "75",
+      "mnemonic": "SDB",
+      "cycles": 2,
+      "words": 1,
+      "semantics": "D = M(R(P)) - D - (1-DF); DF indicates no-borrow/carry convention. R(P) = R(P) + 1.",
+      "group": "arithmetic",
+      "encoding": "75",
+      "operands": null,
+      "variants": null
+    },
+    {
+      "opcode": "76",
+      "mnemonic": "SHRC",
+      "cycles": 2,
+      "words": 1,
+      "semantics": "Shift D right through DF: old LSB -> DF, old DF -> MSB of D.",
+      "group": "arithmetic",
+      "encoding": "76",
+      "operands": null,
+      "variants": null
+    },
+    {
+      "opcode": "77",
+      "mnemonic": "SMB",
+      "cycles": 2,
+      "words": 1,
+      "semantics": "D = D - M(R(P)) - (1-DF); DF indicates no-borrow/carry convention. R(P) = R(P) + 1.",
+      "group": "arithmetic",
+      "encoding": "77",
+      "operands": null,
+      "variants": null
+    },
+    {
+      "opcode": "78",
+      "mnemonic": "SAV",
+      "cycles": 2,
+      "words": 1,
+      "semantics": "T = M(R(X)); save the interrupt return byte T from memory addressed by R(X).",
+      "group": "interrupt",
+      "encoding": "78",
+      "operands": null,
+      "variants": null
+    },
+    {
+      "opcode": "79",
+      "mnemonic": "MARK",
+      "cycles": 2,
+      "words": 1,
+      "semantics": "T = (X,P); store T at M(R(2)); then R(2)=R(2)-1 and X=P. Used to form the COSMAC call/return convention.",
+      "group": "control",
+      "encoding": "79",
+      "operands": null,
+      "variants": null
+    },
+    {
+      "opcode": "7A",
+      "mnemonic": "REQ",
+      "cycles": 2,
+      "words": 1,
+      "semantics": "Q = 0; reset the Q output flip-flop.",
+      "group": "control",
+      "encoding": "7A",
+      "operands": null,
+      "variants": null
+    },
+    {
+      "opcode": "7B",
+      "mnemonic": "SEQ",
+      "cycles": 2,
+      "words": 1,
+      "semantics": "Q = 1; set the Q output flip-flop.",
+      "group": "control",
+      "encoding": "7B",
+      "operands": null,
+      "variants": null
+    },
+    {
+      "opcode": "7C",
+      "mnemonic": "ADCI",
+      "cycles": 2,
+      "words": 2,
+      "semantics": "D = immediate_byte + D + DF; DF receives the carry. R(P) = R(P) + 1.",
+      "group": "arithmetic",
+      "encoding": "7C KK",
+      "operands": [
+        {
+          "type": "immediate",
+          "name": "KK/MM",
+          "range": "00-FF (8-bit)",
+          "position": "next_byte"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "7D",
+      "mnemonic": "SDBI",
+      "cycles": 2,
+      "words": 2,
+      "semantics": "D = immediate_byte - D - (1-DF); R(P) = R(P) + 1; DF follows the subtraction convention.",
+      "group": "arithmetic",
+      "encoding": "7D KK",
+      "operands": [
+        {
+          "type": "immediate",
+          "name": "KK/MM",
+          "range": "00-FF (8-bit)",
+          "position": "next_byte"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "7E",
+      "mnemonic": "SHLC",
+      "cycles": 2,
+      "words": 1,
+      "semantics": "Shift D left through DF: old MSB -> DF, old DF -> LSB of D.",
+      "group": "arithmetic",
+      "encoding": "7E",
+      "operands": null,
+      "variants": null
+    },
+    {
+      "opcode": "7F",
+      "mnemonic": "SMBI",
+      "cycles": 2,
+      "words": 2,
+      "semantics": "D = D - immediate_byte - (1-DF); R(P) = R(P) + 1; DF follows the subtraction convention.",
+      "group": "arithmetic",
+      "encoding": "7F KK",
+      "operands": [
+        {
+          "type": "immediate",
+          "name": "KK/MM",
+          "range": "00-FF (8-bit)",
+          "position": "next_byte"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "8N",
+      "mnemonic": "GLO",
+      "cycles": 2,
+      "words": 1,
+      "semantics": "D = low byte R(N).0.",
+      "group": "register",
+      "encoding": "8N",
+      "operands": [
+        {
+          "type": "register",
+          "name": "N",
+          "range": "0-F (R0-RF)",
+          "position": "low_nibble"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "9N",
+      "mnemonic": "GHI",
+      "cycles": 2,
+      "words": 1,
+      "semantics": "D = high byte R(N).1.",
+      "group": "register",
+      "encoding": "9N",
+      "operands": [
+        {
+          "type": "register",
+          "name": "N",
+          "range": "0-F (R0-RF)",
+          "position": "low_nibble"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "AN",
+      "mnemonic": "PLO",
+      "cycles": 2,
+      "words": 1,
+      "semantics": "low byte R(N).0 = D.",
+      "group": "register",
+      "encoding": "AN",
+      "operands": [
+        {
+          "type": "register",
+          "name": "N",
+          "range": "0-F (R0-RF)",
+          "position": "low_nibble"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "BN",
+      "mnemonic": "PHI",
+      "cycles": 2,
+      "words": 1,
+      "semantics": "high byte R(N).1 = D.",
+      "group": "register",
+      "encoding": "BN",
+      "operands": [
+        {
+          "type": "register",
+          "name": "N",
+          "range": "0-F (R0-RF)",
+          "position": "low_nibble"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "C0",
+      "mnemonic": "LBR",
+      "cycles": 3,
+      "words": 3,
+      "semantics": "Branch unconditionally to 16-bit address AAAA.",
+      "group": "branch",
+      "encoding": "C0 AAAA",
+      "operands": [
+        {
+          "type": "address",
+          "name": "AAAA",
+          "range": "0000-FFFF (16-bit)",
+          "position": "next_two_bytes"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "C1",
+      "mnemonic": "LBQ",
+      "cycles": 3,
+      "words": 3,
+      "semantics": "Long branch to AAAA if Q=1.",
+      "group": "branch",
+      "encoding": "C1 AAAA",
+      "operands": [
+        {
+          "type": "address",
+          "name": "AAAA",
+          "range": "0000-FFFF (16-bit)",
+          "position": "next_two_bytes"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "C2",
+      "mnemonic": "LBZ",
+      "cycles": 3,
+      "words": 3,
+      "semantics": "Long branch to AAAA if D=00h.",
+      "group": "branch",
+      "encoding": "C2 AAAA",
+      "operands": [
+        {
+          "type": "address",
+          "name": "AAAA",
+          "range": "0000-FFFF (16-bit)",
+          "position": "next_two_bytes"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "C3",
+      "mnemonic": "LBDF",
+      "cycles": 3,
+      "words": 3,
+      "semantics": "Long branch to AAAA if DF=1.",
+      "group": "branch",
+      "encoding": "C3 AAAA",
+      "operands": [
+        {
+          "type": "address",
+          "name": "AAAA",
+          "range": "0000-FFFF (16-bit)",
+          "position": "next_two_bytes"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "C4",
+      "mnemonic": "NOP",
+      "cycles": 3,
+      "words": 1,
+      "semantics": "No operation.",
+      "group": "control",
+      "encoding": "C4",
+      "operands": null,
+      "variants": null
+    },
+    {
+      "opcode": "C5",
+      "mnemonic": "LSNQ",
+      "cycles": 3,
+      "words": 1,
+      "semantics": "Long skip if Q=0; skip the following two bytes when condition is true.",
+      "group": "skip",
+      "encoding": "C5",
+      "operands": null,
+      "variants": null
+    },
+    {
+      "opcode": "C6",
+      "mnemonic": "LSNZ",
+      "cycles": 3,
+      "words": 1,
+      "semantics": "Long skip if D!=00h; skip the following two bytes when condition is true.",
+      "group": "skip",
+      "encoding": "C6",
+      "operands": null,
+      "variants": null
+    },
+    {
+      "opcode": "C7",
+      "mnemonic": "LSNF",
+      "cycles": 3,
+      "words": 1,
+      "semantics": "Long skip if DF=0; skip the following two bytes when condition is true.",
+      "group": "skip",
+      "encoding": "C7",
+      "operands": null,
+      "variants": null
+    },
+    {
+      "opcode": "C8",
+      "mnemonic": "LSKP",
+      "cycles": 3,
+      "words": 1,
+      "semantics": "Unconditional long skip; skip the following two bytes.",
+      "group": "skip",
+      "encoding": "C8",
+      "operands": null,
+      "variants": null
+    },
+    {
+      "opcode": "C9",
+      "mnemonic": "NLBR",
+      "cycles": 3,
+      "words": 3,
+      "semantics": "No long branch; consume the 16-bit operand but continue sequentially.",
+      "group": "branch",
+      "encoding": "C9 AAAA",
+      "operands": [
+        {
+          "type": "address",
+          "name": "AAAA",
+          "range": "0000-FFFF (16-bit)",
+          "position": "next_two_bytes"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "CA",
+      "mnemonic": "LBNQ",
+      "cycles": 3,
+      "words": 3,
+      "semantics": "Long branch to AAAA if Q=0.",
+      "group": "branch",
+      "encoding": "CA AAAA",
+      "operands": [
+        {
+          "type": "address",
+          "name": "AAAA",
+          "range": "0000-FFFF (16-bit)",
+          "position": "next_two_bytes"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "CB",
+      "mnemonic": "LBNZ",
+      "cycles": 3,
+      "words": 3,
+      "semantics": "Long branch to AAAA if D!=00h.",
+      "group": "branch",
+      "encoding": "CB AAAA",
+      "operands": [
+        {
+          "type": "address",
+          "name": "AAAA",
+          "range": "0000-FFFF (16-bit)",
+          "position": "next_two_bytes"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "CC",
+      "mnemonic": "LSIE",
+      "cycles": 3,
+      "words": 1,
+      "semantics": "Long skip if IE=1; skip the following two bytes when condition is true.",
+      "group": "skip",
+      "encoding": "CC",
+      "operands": null,
+      "variants": null
+    },
+    {
+      "opcode": "CD",
+      "mnemonic": "LSQ",
+      "cycles": 3,
+      "words": 1,
+      "semantics": "Long skip if Q=1; skip the following two bytes when condition is true.",
+      "group": "skip",
+      "encoding": "CD",
+      "operands": null,
+      "variants": null
+    },
+    {
+      "opcode": "CE",
+      "mnemonic": "LSZ",
+      "cycles": 3,
+      "words": 1,
+      "semantics": "Long skip if D=00h; skip the following two bytes when condition is true.",
+      "group": "skip",
+      "encoding": "CE",
+      "operands": null,
+      "variants": null
+    },
+    {
+      "opcode": "CF",
+      "mnemonic": "LSDF",
+      "cycles": 3,
+      "words": 1,
+      "semantics": "Long skip if DF=1; skip the following two bytes when condition is true.",
+      "group": "skip",
+      "encoding": "CF",
+      "operands": null,
+      "variants": null
+    },
+    {
+      "opcode": "DN",
+      "mnemonic": "SEP",
+      "cycles": 2,
+      "words": 1,
+      "semantics": "P = N; register R(N) becomes the program counter.",
+      "group": "control",
+      "encoding": "DN",
+      "operands": [
+        {
+          "type": "register",
+          "name": "N",
+          "range": "0-F (R0-RF)",
+          "position": "low_nibble"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "EN",
+      "mnemonic": "SEX",
+      "cycles": 2,
+      "words": 1,
+      "semantics": "X = N; register R(N) becomes the X/data pointer.",
+      "group": "control",
+      "encoding": "EN",
+      "operands": [
+        {
+          "type": "register",
+          "name": "N",
+          "range": "0-F (R0-RF)",
+          "position": "low_nibble"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "F0",
+      "mnemonic": "LDX",
+      "cycles": 2,
+      "words": 1,
+      "semantics": "D = M(R(X)); R(X) is unchanged.",
+      "group": "memory",
+      "encoding": "F0",
+      "operands": null,
+      "variants": null
+    },
+    {
+      "opcode": "F1",
+      "mnemonic": "OR",
+      "cycles": 2,
+      "words": 1,
+      "semantics": "D = M(R(X)) OR D.",
+      "group": "arithmetic",
+      "encoding": "F1",
+      "operands": null,
+      "variants": null
+    },
+    {
+      "opcode": "F2",
+      "mnemonic": "AND",
+      "cycles": 2,
+      "words": 1,
+      "semantics": "D = M(R(X)) AND D.",
+      "group": "arithmetic",
+      "encoding": "F2",
+      "operands": null,
+      "variants": null
+    },
+    {
+      "opcode": "F3",
+      "mnemonic": "XOR",
+      "cycles": 2,
+      "words": 1,
+      "semantics": "D = M(R(X)) XOR D.",
+      "group": "arithmetic",
+      "encoding": "F3",
+      "operands": null,
+      "variants": null
+    },
+    {
+      "opcode": "F4",
+      "mnemonic": "ADD",
+      "cycles": 2,
+      "words": 1,
+      "semantics": "D = M(R(X)) + D; DF receives the carry.",
+      "group": "arithmetic",
+      "encoding": "F4",
+      "operands": null,
+      "variants": null
+    },
+    {
+      "opcode": "F5",
+      "mnemonic": "SD",
+      "cycles": 2,
+      "words": 1,
+      "semantics": "D = M(R(X)) - D; DF indicates no borrow after subtraction.",
+      "group": "arithmetic",
+      "encoding": "F5",
+      "operands": null,
+      "variants": null
+    },
+    {
+      "opcode": "F6",
+      "mnemonic": "SHR",
+      "cycles": 2,
+      "words": 1,
+      "semantics": "Shift D right; old LSB -> DF and 0 -> MSB of D.",
+      "group": "arithmetic",
+      "encoding": "F6",
+      "operands": null,
+      "variants": null
+    },
+    {
+      "opcode": "F7",
+      "mnemonic": "SM",
+      "cycles": 2,
+      "words": 1,
+      "semantics": "D = D - M(R(X)); DF indicates no borrow after subtraction.",
+      "group": "arithmetic",
+      "encoding": "F7",
+      "operands": null,
+      "variants": null
+    },
+    {
+      "opcode": "F8",
+      "mnemonic": "LDI",
+      "cycles": 2,
+      "words": 2,
+      "semantics": "D = M(R(P)); then R(P) = R(P) + 1.",
+      "group": "memory",
+      "encoding": "F8 KK",
+      "operands": [
+        {
+          "type": "immediate",
+          "name": "KK/MM",
+          "range": "00-FF (8-bit)",
+          "position": "next_byte"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "F9",
+      "mnemonic": "ORI",
+      "cycles": 2,
+      "words": 2,
+      "semantics": "D = M(R(P)) OR D; then R(P) = R(P) + 1.",
+      "group": "arithmetic",
+      "encoding": "F9 KK",
+      "operands": [
+        {
+          "type": "immediate",
+          "name": "KK/MM",
+          "range": "00-FF (8-bit)",
+          "position": "next_byte"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "FA",
+      "mnemonic": "ANI",
+      "cycles": 2,
+      "words": 2,
+      "semantics": "D = M(R(P)) AND D; then R(P) = R(P) + 1.",
+      "group": "arithmetic",
+      "encoding": "FA KK",
+      "operands": [
+        {
+          "type": "immediate",
+          "name": "KK/MM",
+          "range": "00-FF (8-bit)",
+          "position": "next_byte"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "FB",
+      "mnemonic": "XRI",
+      "cycles": 2,
+      "words": 2,
+      "semantics": "D = M(R(P)) XOR D; then R(P) = R(P) + 1.",
+      "group": "arithmetic",
+      "encoding": "FB KK",
+      "operands": [
+        {
+          "type": "immediate",
+          "name": "KK/MM",
+          "range": "00-FF (8-bit)",
+          "position": "next_byte"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "FC",
+      "mnemonic": "ADI",
+      "cycles": 2,
+      "words": 2,
+      "semantics": "D = M(R(P)) + D; DF receives the carry; then R(P) = R(P) + 1.",
+      "group": "arithmetic",
+      "encoding": "FC KK",
+      "operands": [
+        {
+          "type": "immediate",
+          "name": "KK/MM",
+          "range": "00-FF (8-bit)",
+          "position": "next_byte"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "FD",
+      "mnemonic": "SDI",
+      "cycles": 2,
+      "words": 2,
+      "semantics": "D = M(R(P)) - D; DF indicates no borrow; then R(P) = R(P) + 1.",
+      "group": "arithmetic",
+      "encoding": "FD KK",
+      "operands": [
+        {
+          "type": "immediate",
+          "name": "KK/MM",
+          "range": "00-FF (8-bit)",
+          "position": "next_byte"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "FE",
+      "mnemonic": "SHL",
+      "cycles": 2,
+      "words": 1,
+      "semantics": "Shift D left; old MSB -> DF and 0 -> LSB of D.",
+      "group": "arithmetic",
+      "encoding": "FE",
+      "operands": null,
+      "variants": null
+    },
+    {
+      "opcode": "FF",
+      "mnemonic": "SMI",
+      "cycles": 2,
+      "words": 2,
+      "semantics": "D = D - M(R(P)); DF indicates no borrow; then R(P) = R(P) + 1.",
+      "group": "arithmetic",
+      "encoding": "FF KK",
+      "operands": [
+        {
+          "type": "immediate",
+          "name": "KK/MM",
+          "range": "00-FF (8-bit)",
+          "position": "next_byte"
+        }
+      ],
+      "variants": null
+    }
+  ]
+}

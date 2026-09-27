@@ -1,0 +1,4046 @@
+{
+  "processor": "65C02",
+  "format_version": "1.0",
+  "description": "WDC W65C02S (CMOS) — pełna mapa 256 opcodów (NMOS + CMOS + Rockwell R65C02S)",
+  "notes": "Zaimportowane z personal-004 PetEmulator.Cpu6502; warstwa R65C02S (RMB/SMB/BBR/BBS, WAI, STP) dodana; poprawki wg W65C02S: RMW abs,X = 6 cykli, BRK 2-bajtowy, BIT # tylko Z.",
+  "instructions": [
+    {
+      "opcode": "00",
+      "mnemonic": "BRK",
+      "cycles": 7,
+      "words": 2,
+      "semantics": "przerwanie SW; push PC+2, P; PC = [FFFE]",
+      "group": "system",
+      "encoding": "Implied",
+      "operands": null,
+      "variants": null
+    },
+    {
+      "opcode": "01",
+      "mnemonic": "ORA",
+      "cycles": 6,
+      "words": 2,
+      "semantics": "A = A | M",
+      "group": "logic",
+      "encoding": "IndirectX",
+      "operands": [
+        {
+          "name": "(zp,X)",
+          "type": "address8"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "02",
+      "mnemonic": "NOP",
+      "cycles": 2,
+      "words": 2,
+      "semantics": "brak operacji (dummy read)",
+      "group": "system",
+      "encoding": "Immediate",
+      "operands": [
+        {
+          "name": "d8",
+          "type": "immediate8"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "03",
+      "mnemonic": "NOP",
+      "cycles": 1,
+      "words": 1,
+      "semantics": "brak operacji (dummy read)",
+      "group": "system",
+      "encoding": "Implied",
+      "operands": null,
+      "variants": null
+    },
+    {
+      "opcode": "04",
+      "mnemonic": "TSB",
+      "cycles": 5,
+      "words": 2,
+      "semantics": "Z = ((A & M) == 0); M = M | A",
+      "group": "bits",
+      "encoding": "ZeroPage",
+      "operands": [
+        {
+          "name": "zp",
+          "type": "address8"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "05",
+      "mnemonic": "ORA",
+      "cycles": 3,
+      "words": 2,
+      "semantics": "A = A | M",
+      "group": "logic",
+      "encoding": "ZeroPage",
+      "operands": [
+        {
+          "name": "zp",
+          "type": "address8"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "06",
+      "mnemonic": "ASL",
+      "cycles": 5,
+      "words": 2,
+      "semantics": "M = M << 1 (C = bit7)",
+      "group": "shift",
+      "encoding": "ZeroPage",
+      "operands": [
+        {
+          "name": "zp",
+          "type": "address8"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "07",
+      "mnemonic": "RMB0",
+      "cycles": 5,
+      "words": 2,
+      "semantics": "M = M & ~(1 << 0)",
+      "group": "bits",
+      "encoding": "ZeroPage",
+      "operands": [
+        {
+          "name": "zp",
+          "type": "address8"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "08",
+      "mnemonic": "PHP",
+      "cycles": 3,
+      "words": 1,
+      "semantics": "push P",
+      "group": "stack",
+      "encoding": "Implied",
+      "operands": null,
+      "variants": null
+    },
+    {
+      "opcode": "09",
+      "mnemonic": "ORA",
+      "cycles": 2,
+      "words": 2,
+      "semantics": "A = A | M",
+      "group": "logic",
+      "encoding": "Immediate",
+      "operands": [
+        {
+          "name": "d8",
+          "type": "immediate8"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "0A",
+      "mnemonic": "ASL",
+      "cycles": 2,
+      "words": 1,
+      "semantics": "M = M << 1 (C = bit7)",
+      "group": "shift",
+      "encoding": "Accumulator",
+      "operands": null,
+      "variants": null
+    },
+    {
+      "opcode": "0B",
+      "mnemonic": "ANC",
+      "cycles": 2,
+      "words": 2,
+      "semantics": "A = A & M; C = bit7",
+      "group": "arithmetic",
+      "encoding": "Immediate",
+      "operands": [
+        {
+          "name": "d8",
+          "type": "immediate8"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "0C",
+      "mnemonic": "TSB",
+      "cycles": 6,
+      "words": 3,
+      "semantics": "Z = ((A & M) == 0); M = M | A",
+      "group": "bits",
+      "encoding": "Absolute",
+      "operands": [
+        {
+          "name": "a16",
+          "type": "address16"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "0D",
+      "mnemonic": "ORA",
+      "cycles": 4,
+      "words": 3,
+      "semantics": "A = A | M",
+      "group": "logic",
+      "encoding": "Absolute",
+      "operands": [
+        {
+          "name": "a16",
+          "type": "address16"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "0E",
+      "mnemonic": "ASL",
+      "cycles": 6,
+      "words": 3,
+      "semantics": "M = M << 1 (C = bit7)",
+      "group": "shift",
+      "encoding": "Absolute",
+      "operands": [
+        {
+          "name": "a16",
+          "type": "address16"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "0F",
+      "mnemonic": "BBR0",
+      "cycles": 5,
+      "words": 3,
+      "semantics": "skok gdy bit 0 M == 0",
+      "group": "branch",
+      "encoding": "ZeroPageRelative",
+      "operands": [
+        {
+          "name": "zp",
+          "type": "address8"
+        },
+        {
+          "name": "rel",
+          "type": "relative8"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "10",
+      "mnemonic": "BPL",
+      "cycles": 2,
+      "words": 2,
+      "semantics": "skok gdy N=0",
+      "group": "branch",
+      "encoding": "Relative",
+      "operands": [
+        {
+          "name": "rel",
+          "type": "relative8"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "11",
+      "mnemonic": "ORA",
+      "cycles": 5,
+      "words": 2,
+      "semantics": "A = A | M",
+      "group": "logic",
+      "encoding": "IndirectY",
+      "operands": [
+        {
+          "name": "(zp),Y",
+          "type": "address8"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "12",
+      "mnemonic": "ORA",
+      "cycles": 5,
+      "words": 2,
+      "semantics": "A = A | M",
+      "group": "logic",
+      "encoding": "ZeroPageIndirect",
+      "operands": [
+        {
+          "name": "(zp)",
+          "type": "address8"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "13",
+      "mnemonic": "NOP",
+      "cycles": 1,
+      "words": 1,
+      "semantics": "brak operacji (dummy read)",
+      "group": "system",
+      "encoding": "Implied",
+      "operands": null,
+      "variants": null
+    },
+    {
+      "opcode": "14",
+      "mnemonic": "TRB",
+      "cycles": 5,
+      "words": 2,
+      "semantics": "Z = ((A & M) == 0); M = M & ~A",
+      "group": "bits",
+      "encoding": "ZeroPage",
+      "operands": [
+        {
+          "name": "zp",
+          "type": "address8"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "15",
+      "mnemonic": "ORA",
+      "cycles": 4,
+      "words": 2,
+      "semantics": "A = A | M",
+      "group": "logic",
+      "encoding": "ZeroPageX",
+      "operands": [
+        {
+          "name": "zp",
+          "type": "address8"
+        },
+        {
+          "name": "X",
+          "type": "index"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "16",
+      "mnemonic": "ASL",
+      "cycles": 6,
+      "words": 2,
+      "semantics": "M = M << 1 (C = bit7)",
+      "group": "shift",
+      "encoding": "ZeroPageX",
+      "operands": [
+        {
+          "name": "zp",
+          "type": "address8"
+        },
+        {
+          "name": "X",
+          "type": "index"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "17",
+      "mnemonic": "RMB1",
+      "cycles": 5,
+      "words": 2,
+      "semantics": "M = M & ~(1 << 1)",
+      "group": "bits",
+      "encoding": "ZeroPage",
+      "operands": [
+        {
+          "name": "zp",
+          "type": "address8"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "18",
+      "mnemonic": "CLC",
+      "cycles": 2,
+      "words": 1,
+      "semantics": "C = 0",
+      "group": "flags",
+      "encoding": "Implied",
+      "operands": null,
+      "variants": null
+    },
+    {
+      "opcode": "19",
+      "mnemonic": "ORA",
+      "cycles": 4,
+      "words": 3,
+      "semantics": "A = A | M",
+      "group": "logic",
+      "encoding": "AbsoluteY",
+      "operands": [
+        {
+          "name": "a16",
+          "type": "address16"
+        },
+        {
+          "name": "Y",
+          "type": "index"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "1A",
+      "mnemonic": "INC",
+      "cycles": 2,
+      "words": 1,
+      "semantics": "M = M + 1",
+      "group": "arithmetic",
+      "encoding": "Accumulator",
+      "operands": null,
+      "variants": null
+    },
+    {
+      "opcode": "1B",
+      "mnemonic": "NOP",
+      "cycles": 1,
+      "words": 1,
+      "semantics": "brak operacji (dummy read)",
+      "group": "system",
+      "encoding": "Implied",
+      "operands": null,
+      "variants": null
+    },
+    {
+      "opcode": "1C",
+      "mnemonic": "TRB",
+      "cycles": 6,
+      "words": 3,
+      "semantics": "Z = ((A & M) == 0); M = M & ~A",
+      "group": "bits",
+      "encoding": "Absolute",
+      "operands": [
+        {
+          "name": "a16",
+          "type": "address16"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "1D",
+      "mnemonic": "ORA",
+      "cycles": 4,
+      "words": 3,
+      "semantics": "A = A | M",
+      "group": "logic",
+      "encoding": "AbsoluteX",
+      "operands": [
+        {
+          "name": "a16",
+          "type": "address16"
+        },
+        {
+          "name": "X",
+          "type": "index"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "1E",
+      "mnemonic": "ASL",
+      "cycles": 6,
+      "words": 3,
+      "semantics": "M = M << 1 (C = bit7)",
+      "group": "shift",
+      "encoding": "AbsoluteX",
+      "operands": [
+        {
+          "name": "a16",
+          "type": "address16"
+        },
+        {
+          "name": "X",
+          "type": "index"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "1F",
+      "mnemonic": "BBR1",
+      "cycles": 5,
+      "words": 3,
+      "semantics": "skok gdy bit 1 M == 0",
+      "group": "branch",
+      "encoding": "ZeroPageRelative",
+      "operands": [
+        {
+          "name": "zp",
+          "type": "address8"
+        },
+        {
+          "name": "rel",
+          "type": "relative8"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "20",
+      "mnemonic": "JSR",
+      "cycles": 6,
+      "words": 3,
+      "semantics": "push (PC-1); PC = operand",
+      "group": "jump",
+      "encoding": "Absolute",
+      "operands": [
+        {
+          "name": "a16",
+          "type": "address16"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "21",
+      "mnemonic": "AND",
+      "cycles": 6,
+      "words": 2,
+      "semantics": "A = A & M",
+      "group": "logic",
+      "encoding": "IndirectX",
+      "operands": [
+        {
+          "name": "(zp,X)",
+          "type": "address8"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "22",
+      "mnemonic": "NOP",
+      "cycles": 2,
+      "words": 2,
+      "semantics": "brak operacji (dummy read)",
+      "group": "system",
+      "encoding": "Immediate",
+      "operands": [
+        {
+          "name": "d8",
+          "type": "immediate8"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "23",
+      "mnemonic": "NOP",
+      "cycles": 1,
+      "words": 1,
+      "semantics": "brak operacji (dummy read)",
+      "group": "system",
+      "encoding": "Implied",
+      "operands": null,
+      "variants": null
+    },
+    {
+      "opcode": "24",
+      "mnemonic": "BIT",
+      "cycles": 3,
+      "words": 2,
+      "semantics": "Z = (A & M)==0; N = bit7(M); V = bit6(M)",
+      "group": "compare",
+      "encoding": "ZeroPage",
+      "operands": [
+        {
+          "name": "zp",
+          "type": "address8"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "25",
+      "mnemonic": "AND",
+      "cycles": 3,
+      "words": 2,
+      "semantics": "A = A & M",
+      "group": "logic",
+      "encoding": "ZeroPage",
+      "operands": [
+        {
+          "name": "zp",
+          "type": "address8"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "26",
+      "mnemonic": "ROL",
+      "cycles": 5,
+      "words": 2,
+      "semantics": "M = (M << 1) | C (C = bit7)",
+      "group": "shift",
+      "encoding": "ZeroPage",
+      "operands": [
+        {
+          "name": "zp",
+          "type": "address8"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "27",
+      "mnemonic": "RMB2",
+      "cycles": 5,
+      "words": 2,
+      "semantics": "M = M & ~(1 << 2)",
+      "group": "bits",
+      "encoding": "ZeroPage",
+      "operands": [
+        {
+          "name": "zp",
+          "type": "address8"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "28",
+      "mnemonic": "PLP",
+      "cycles": 4,
+      "words": 1,
+      "semantics": "P = pop",
+      "group": "stack",
+      "encoding": "Implied",
+      "operands": null,
+      "variants": null
+    },
+    {
+      "opcode": "29",
+      "mnemonic": "AND",
+      "cycles": 2,
+      "words": 2,
+      "semantics": "A = A & M",
+      "group": "logic",
+      "encoding": "Immediate",
+      "operands": [
+        {
+          "name": "d8",
+          "type": "immediate8"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "2A",
+      "mnemonic": "ROL",
+      "cycles": 2,
+      "words": 1,
+      "semantics": "M = (M << 1) | C (C = bit7)",
+      "group": "shift",
+      "encoding": "Accumulator",
+      "operands": null,
+      "variants": null
+    },
+    {
+      "opcode": "2B",
+      "mnemonic": "ANC",
+      "cycles": 2,
+      "words": 2,
+      "semantics": "A = A & M; C = bit7",
+      "group": "arithmetic",
+      "encoding": "Immediate",
+      "operands": [
+        {
+          "name": "d8",
+          "type": "immediate8"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "2C",
+      "mnemonic": "BIT",
+      "cycles": 4,
+      "words": 3,
+      "semantics": "Z = (A & M)==0; N = bit7(M); V = bit6(M)",
+      "group": "compare",
+      "encoding": "Absolute",
+      "operands": [
+        {
+          "name": "a16",
+          "type": "address16"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "2D",
+      "mnemonic": "AND",
+      "cycles": 4,
+      "words": 3,
+      "semantics": "A = A & M",
+      "group": "logic",
+      "encoding": "Absolute",
+      "operands": [
+        {
+          "name": "a16",
+          "type": "address16"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "2E",
+      "mnemonic": "ROL",
+      "cycles": 6,
+      "words": 3,
+      "semantics": "M = (M << 1) | C (C = bit7)",
+      "group": "shift",
+      "encoding": "Absolute",
+      "operands": [
+        {
+          "name": "a16",
+          "type": "address16"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "2F",
+      "mnemonic": "BBR2",
+      "cycles": 5,
+      "words": 3,
+      "semantics": "skok gdy bit 2 M == 0",
+      "group": "branch",
+      "encoding": "ZeroPageRelative",
+      "operands": [
+        {
+          "name": "zp",
+          "type": "address8"
+        },
+        {
+          "name": "rel",
+          "type": "relative8"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "30",
+      "mnemonic": "BMI",
+      "cycles": 2,
+      "words": 2,
+      "semantics": "skok gdy N=1",
+      "group": "branch",
+      "encoding": "Relative",
+      "operands": [
+        {
+          "name": "rel",
+          "type": "relative8"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "31",
+      "mnemonic": "AND",
+      "cycles": 5,
+      "words": 2,
+      "semantics": "A = A & M",
+      "group": "logic",
+      "encoding": "IndirectY",
+      "operands": [
+        {
+          "name": "(zp),Y",
+          "type": "address8"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "32",
+      "mnemonic": "AND",
+      "cycles": 5,
+      "words": 2,
+      "semantics": "A = A & M",
+      "group": "logic",
+      "encoding": "ZeroPageIndirect",
+      "operands": [
+        {
+          "name": "(zp)",
+          "type": "address8"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "33",
+      "mnemonic": "NOP",
+      "cycles": 1,
+      "words": 1,
+      "semantics": "brak operacji (dummy read)",
+      "group": "system",
+      "encoding": "Implied",
+      "operands": null,
+      "variants": null
+    },
+    {
+      "opcode": "34",
+      "mnemonic": "BIT",
+      "cycles": 4,
+      "words": 2,
+      "semantics": "Z = (A & M)==0; N = bit7(M); V = bit6(M)",
+      "group": "compare",
+      "encoding": "ZeroPageX",
+      "operands": [
+        {
+          "name": "zp",
+          "type": "address8"
+        },
+        {
+          "name": "X",
+          "type": "index"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "35",
+      "mnemonic": "AND",
+      "cycles": 4,
+      "words": 2,
+      "semantics": "A = A & M",
+      "group": "logic",
+      "encoding": "ZeroPageX",
+      "operands": [
+        {
+          "name": "zp",
+          "type": "address8"
+        },
+        {
+          "name": "X",
+          "type": "index"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "36",
+      "mnemonic": "ROL",
+      "cycles": 6,
+      "words": 2,
+      "semantics": "M = (M << 1) | C (C = bit7)",
+      "group": "shift",
+      "encoding": "ZeroPageX",
+      "operands": [
+        {
+          "name": "zp",
+          "type": "address8"
+        },
+        {
+          "name": "X",
+          "type": "index"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "37",
+      "mnemonic": "RMB3",
+      "cycles": 5,
+      "words": 2,
+      "semantics": "M = M & ~(1 << 3)",
+      "group": "bits",
+      "encoding": "ZeroPage",
+      "operands": [
+        {
+          "name": "zp",
+          "type": "address8"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "38",
+      "mnemonic": "SEC",
+      "cycles": 2,
+      "words": 1,
+      "semantics": "C = 1",
+      "group": "flags",
+      "encoding": "Implied",
+      "operands": null,
+      "variants": null
+    },
+    {
+      "opcode": "39",
+      "mnemonic": "AND",
+      "cycles": 4,
+      "words": 3,
+      "semantics": "A = A & M",
+      "group": "logic",
+      "encoding": "AbsoluteY",
+      "operands": [
+        {
+          "name": "a16",
+          "type": "address16"
+        },
+        {
+          "name": "Y",
+          "type": "index"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "3A",
+      "mnemonic": "DEC",
+      "cycles": 2,
+      "words": 1,
+      "semantics": "M = M - 1",
+      "group": "arithmetic",
+      "encoding": "Accumulator",
+      "operands": null,
+      "variants": null
+    },
+    {
+      "opcode": "3B",
+      "mnemonic": "NOP",
+      "cycles": 1,
+      "words": 1,
+      "semantics": "brak operacji (dummy read)",
+      "group": "system",
+      "encoding": "Implied",
+      "operands": null,
+      "variants": null
+    },
+    {
+      "opcode": "3C",
+      "mnemonic": "BIT",
+      "cycles": 4,
+      "words": 3,
+      "semantics": "Z = (A & M)==0; N = bit7(M); V = bit6(M)",
+      "group": "compare",
+      "encoding": "AbsoluteX",
+      "operands": [
+        {
+          "name": "a16",
+          "type": "address16"
+        },
+        {
+          "name": "X",
+          "type": "index"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "3D",
+      "mnemonic": "AND",
+      "cycles": 4,
+      "words": 3,
+      "semantics": "A = A & M",
+      "group": "logic",
+      "encoding": "AbsoluteX",
+      "operands": [
+        {
+          "name": "a16",
+          "type": "address16"
+        },
+        {
+          "name": "X",
+          "type": "index"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "3E",
+      "mnemonic": "ROL",
+      "cycles": 6,
+      "words": 3,
+      "semantics": "M = (M << 1) | C (C = bit7)",
+      "group": "shift",
+      "encoding": "AbsoluteX",
+      "operands": [
+        {
+          "name": "a16",
+          "type": "address16"
+        },
+        {
+          "name": "X",
+          "type": "index"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "3F",
+      "mnemonic": "BBR3",
+      "cycles": 5,
+      "words": 3,
+      "semantics": "skok gdy bit 3 M == 0",
+      "group": "branch",
+      "encoding": "ZeroPageRelative",
+      "operands": [
+        {
+          "name": "zp",
+          "type": "address8"
+        },
+        {
+          "name": "rel",
+          "type": "relative8"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "40",
+      "mnemonic": "RTI",
+      "cycles": 6,
+      "words": 1,
+      "semantics": "P = pop; PC = pop",
+      "group": "jump",
+      "encoding": "Implied",
+      "operands": null,
+      "variants": null
+    },
+    {
+      "opcode": "41",
+      "mnemonic": "EOR",
+      "cycles": 6,
+      "words": 2,
+      "semantics": "A = A ^ M",
+      "group": "logic",
+      "encoding": "IndirectX",
+      "operands": [
+        {
+          "name": "(zp,X)",
+          "type": "address8"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "42",
+      "mnemonic": "NOP",
+      "cycles": 2,
+      "words": 2,
+      "semantics": "brak operacji (dummy read)",
+      "group": "system",
+      "encoding": "Immediate",
+      "operands": [
+        {
+          "name": "d8",
+          "type": "immediate8"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "43",
+      "mnemonic": "NOP",
+      "cycles": 1,
+      "words": 1,
+      "semantics": "brak operacji (dummy read)",
+      "group": "system",
+      "encoding": "Implied",
+      "operands": null,
+      "variants": null
+    },
+    {
+      "opcode": "44",
+      "mnemonic": "NOP",
+      "cycles": 3,
+      "words": 2,
+      "semantics": "brak operacji (dummy read)",
+      "group": "system",
+      "encoding": "ZeroPage",
+      "operands": [
+        {
+          "name": "zp",
+          "type": "address8"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "45",
+      "mnemonic": "EOR",
+      "cycles": 3,
+      "words": 2,
+      "semantics": "A = A ^ M",
+      "group": "logic",
+      "encoding": "ZeroPage",
+      "operands": [
+        {
+          "name": "zp",
+          "type": "address8"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "46",
+      "mnemonic": "LSR",
+      "cycles": 5,
+      "words": 2,
+      "semantics": "M = M >> 1 (C = bit0)",
+      "group": "shift",
+      "encoding": "ZeroPage",
+      "operands": [
+        {
+          "name": "zp",
+          "type": "address8"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "47",
+      "mnemonic": "RMB4",
+      "cycles": 5,
+      "words": 2,
+      "semantics": "M = M & ~(1 << 4)",
+      "group": "bits",
+      "encoding": "ZeroPage",
+      "operands": [
+        {
+          "name": "zp",
+          "type": "address8"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "48",
+      "mnemonic": "PHA",
+      "cycles": 3,
+      "words": 1,
+      "semantics": "push A",
+      "group": "stack",
+      "encoding": "Implied",
+      "operands": null,
+      "variants": null
+    },
+    {
+      "opcode": "49",
+      "mnemonic": "EOR",
+      "cycles": 2,
+      "words": 2,
+      "semantics": "A = A ^ M",
+      "group": "logic",
+      "encoding": "Immediate",
+      "operands": [
+        {
+          "name": "d8",
+          "type": "immediate8"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "4A",
+      "mnemonic": "LSR",
+      "cycles": 2,
+      "words": 1,
+      "semantics": "M = M >> 1 (C = bit0)",
+      "group": "shift",
+      "encoding": "Accumulator",
+      "operands": null,
+      "variants": null
+    },
+    {
+      "opcode": "4B",
+      "mnemonic": "ALR",
+      "cycles": 2,
+      "words": 2,
+      "semantics": "A = (A & M) >> 1",
+      "group": "arithmetic",
+      "encoding": "Immediate",
+      "operands": [
+        {
+          "name": "d8",
+          "type": "immediate8"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "4C",
+      "mnemonic": "JMP",
+      "cycles": 3,
+      "words": 3,
+      "semantics": "PC = operand",
+      "group": "jump",
+      "encoding": "Absolute",
+      "operands": [
+        {
+          "name": "a16",
+          "type": "address16"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "4D",
+      "mnemonic": "EOR",
+      "cycles": 4,
+      "words": 3,
+      "semantics": "A = A ^ M",
+      "group": "logic",
+      "encoding": "Absolute",
+      "operands": [
+        {
+          "name": "a16",
+          "type": "address16"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "4E",
+      "mnemonic": "LSR",
+      "cycles": 6,
+      "words": 3,
+      "semantics": "M = M >> 1 (C = bit0)",
+      "group": "shift",
+      "encoding": "Absolute",
+      "operands": [
+        {
+          "name": "a16",
+          "type": "address16"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "4F",
+      "mnemonic": "BBR4",
+      "cycles": 5,
+      "words": 3,
+      "semantics": "skok gdy bit 4 M == 0",
+      "group": "branch",
+      "encoding": "ZeroPageRelative",
+      "operands": [
+        {
+          "name": "zp",
+          "type": "address8"
+        },
+        {
+          "name": "rel",
+          "type": "relative8"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "50",
+      "mnemonic": "BVC",
+      "cycles": 2,
+      "words": 2,
+      "semantics": "skok gdy V=0",
+      "group": "branch",
+      "encoding": "Relative",
+      "operands": [
+        {
+          "name": "rel",
+          "type": "relative8"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "51",
+      "mnemonic": "EOR",
+      "cycles": 5,
+      "words": 2,
+      "semantics": "A = A ^ M",
+      "group": "logic",
+      "encoding": "IndirectY",
+      "operands": [
+        {
+          "name": "(zp),Y",
+          "type": "address8"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "52",
+      "mnemonic": "EOR",
+      "cycles": 5,
+      "words": 2,
+      "semantics": "A = A ^ M",
+      "group": "logic",
+      "encoding": "ZeroPageIndirect",
+      "operands": [
+        {
+          "name": "(zp)",
+          "type": "address8"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "53",
+      "mnemonic": "NOP",
+      "cycles": 1,
+      "words": 1,
+      "semantics": "brak operacji (dummy read)",
+      "group": "system",
+      "encoding": "Implied",
+      "operands": null,
+      "variants": null
+    },
+    {
+      "opcode": "54",
+      "mnemonic": "NOP",
+      "cycles": 4,
+      "words": 2,
+      "semantics": "brak operacji (dummy read)",
+      "group": "system",
+      "encoding": "ZeroPageX",
+      "operands": [
+        {
+          "name": "zp",
+          "type": "address8"
+        },
+        {
+          "name": "X",
+          "type": "index"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "55",
+      "mnemonic": "EOR",
+      "cycles": 4,
+      "words": 2,
+      "semantics": "A = A ^ M",
+      "group": "logic",
+      "encoding": "ZeroPageX",
+      "operands": [
+        {
+          "name": "zp",
+          "type": "address8"
+        },
+        {
+          "name": "X",
+          "type": "index"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "56",
+      "mnemonic": "LSR",
+      "cycles": 6,
+      "words": 2,
+      "semantics": "M = M >> 1 (C = bit0)",
+      "group": "shift",
+      "encoding": "ZeroPageX",
+      "operands": [
+        {
+          "name": "zp",
+          "type": "address8"
+        },
+        {
+          "name": "X",
+          "type": "index"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "57",
+      "mnemonic": "RMB5",
+      "cycles": 5,
+      "words": 2,
+      "semantics": "M = M & ~(1 << 5)",
+      "group": "bits",
+      "encoding": "ZeroPage",
+      "operands": [
+        {
+          "name": "zp",
+          "type": "address8"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "58",
+      "mnemonic": "CLI",
+      "cycles": 2,
+      "words": 1,
+      "semantics": "I = 0",
+      "group": "flags",
+      "encoding": "Implied",
+      "operands": null,
+      "variants": null
+    },
+    {
+      "opcode": "59",
+      "mnemonic": "EOR",
+      "cycles": 4,
+      "words": 3,
+      "semantics": "A = A ^ M",
+      "group": "logic",
+      "encoding": "AbsoluteY",
+      "operands": [
+        {
+          "name": "a16",
+          "type": "address16"
+        },
+        {
+          "name": "Y",
+          "type": "index"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "5A",
+      "mnemonic": "PHY",
+      "cycles": 3,
+      "words": 1,
+      "semantics": "Implied",
+      "group": "stack",
+      "encoding": "Implied",
+      "operands": null,
+      "variants": null
+    },
+    {
+      "opcode": "5B",
+      "mnemonic": "NOP",
+      "cycles": 1,
+      "words": 1,
+      "semantics": "brak operacji (dummy read)",
+      "group": "system",
+      "encoding": "Implied",
+      "operands": null,
+      "variants": null
+    },
+    {
+      "opcode": "5C",
+      "mnemonic": "NOP",
+      "cycles": 8,
+      "words": 3,
+      "semantics": "brak operacji (dummy read)",
+      "group": "system",
+      "encoding": "AbsoluteX",
+      "operands": [
+        {
+          "name": "a16",
+          "type": "address16"
+        },
+        {
+          "name": "X",
+          "type": "index"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "5D",
+      "mnemonic": "EOR",
+      "cycles": 4,
+      "words": 3,
+      "semantics": "A = A ^ M",
+      "group": "logic",
+      "encoding": "AbsoluteX",
+      "operands": [
+        {
+          "name": "a16",
+          "type": "address16"
+        },
+        {
+          "name": "X",
+          "type": "index"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "5E",
+      "mnemonic": "LSR",
+      "cycles": 6,
+      "words": 3,
+      "semantics": "M = M >> 1 (C = bit0)",
+      "group": "shift",
+      "encoding": "AbsoluteX",
+      "operands": [
+        {
+          "name": "a16",
+          "type": "address16"
+        },
+        {
+          "name": "X",
+          "type": "index"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "5F",
+      "mnemonic": "BBR5",
+      "cycles": 5,
+      "words": 3,
+      "semantics": "skok gdy bit 5 M == 0",
+      "group": "branch",
+      "encoding": "ZeroPageRelative",
+      "operands": [
+        {
+          "name": "zp",
+          "type": "address8"
+        },
+        {
+          "name": "rel",
+          "type": "relative8"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "60",
+      "mnemonic": "RTS",
+      "cycles": 6,
+      "words": 1,
+      "semantics": "PC = pop + 1",
+      "group": "jump",
+      "encoding": "Implied",
+      "operands": null,
+      "variants": null
+    },
+    {
+      "opcode": "61",
+      "mnemonic": "ADC",
+      "cycles": 6,
+      "words": 2,
+      "semantics": "A = A + M + C",
+      "group": "arithmetic",
+      "encoding": "IndirectX",
+      "operands": [
+        {
+          "name": "(zp,X)",
+          "type": "address8"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "62",
+      "mnemonic": "NOP",
+      "cycles": 2,
+      "words": 2,
+      "semantics": "brak operacji (dummy read)",
+      "group": "system",
+      "encoding": "Immediate",
+      "operands": [
+        {
+          "name": "d8",
+          "type": "immediate8"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "63",
+      "mnemonic": "NOP",
+      "cycles": 1,
+      "words": 1,
+      "semantics": "brak operacji (dummy read)",
+      "group": "system",
+      "encoding": "Implied",
+      "operands": null,
+      "variants": null
+    },
+    {
+      "opcode": "64",
+      "mnemonic": "STZ",
+      "cycles": 3,
+      "words": 2,
+      "semantics": "M = 0 (nie zmienia flag)",
+      "group": "load",
+      "encoding": "ZeroPage",
+      "operands": [
+        {
+          "name": "zp",
+          "type": "address8"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "65",
+      "mnemonic": "ADC",
+      "cycles": 3,
+      "words": 2,
+      "semantics": "A = A + M + C",
+      "group": "arithmetic",
+      "encoding": "ZeroPage",
+      "operands": [
+        {
+          "name": "zp",
+          "type": "address8"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "66",
+      "mnemonic": "ROR",
+      "cycles": 5,
+      "words": 2,
+      "semantics": "M = (M >> 1) | (C << 7) (C = bit0)",
+      "group": "shift",
+      "encoding": "ZeroPage",
+      "operands": [
+        {
+          "name": "zp",
+          "type": "address8"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "67",
+      "mnemonic": "RMB6",
+      "cycles": 5,
+      "words": 2,
+      "semantics": "M = M & ~(1 << 6)",
+      "group": "bits",
+      "encoding": "ZeroPage",
+      "operands": [
+        {
+          "name": "zp",
+          "type": "address8"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "68",
+      "mnemonic": "PLA",
+      "cycles": 4,
+      "words": 1,
+      "semantics": "A = pop",
+      "group": "stack",
+      "encoding": "Implied",
+      "operands": null,
+      "variants": null
+    },
+    {
+      "opcode": "69",
+      "mnemonic": "ADC",
+      "cycles": 2,
+      "words": 2,
+      "semantics": "A = A + M + C",
+      "group": "arithmetic",
+      "encoding": "Immediate",
+      "operands": [
+        {
+          "name": "d8",
+          "type": "immediate8"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "6A",
+      "mnemonic": "ROR",
+      "cycles": 2,
+      "words": 1,
+      "semantics": "M = (M >> 1) | (C << 7) (C = bit0)",
+      "group": "shift",
+      "encoding": "Accumulator",
+      "operands": null,
+      "variants": null
+    },
+    {
+      "opcode": "6B",
+      "mnemonic": "ARR",
+      "cycles": 2,
+      "words": 2,
+      "semantics": "A = ((A & M) >> 1) | (C << 7)",
+      "group": "arithmetic",
+      "encoding": "Immediate",
+      "operands": [
+        {
+          "name": "d8",
+          "type": "immediate8"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "6C",
+      "mnemonic": "JMP",
+      "cycles": 5,
+      "words": 3,
+      "semantics": "PC = operand",
+      "group": "jump",
+      "encoding": "Indirect",
+      "operands": [
+        {
+          "name": "a16",
+          "type": "address16"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "6D",
+      "mnemonic": "ADC",
+      "cycles": 4,
+      "words": 3,
+      "semantics": "A = A + M + C",
+      "group": "arithmetic",
+      "encoding": "Absolute",
+      "operands": [
+        {
+          "name": "a16",
+          "type": "address16"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "6E",
+      "mnemonic": "ROR",
+      "cycles": 6,
+      "words": 3,
+      "semantics": "M = (M >> 1) | (C << 7) (C = bit0)",
+      "group": "shift",
+      "encoding": "Absolute",
+      "operands": [
+        {
+          "name": "a16",
+          "type": "address16"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "6F",
+      "mnemonic": "BBR6",
+      "cycles": 5,
+      "words": 3,
+      "semantics": "skok gdy bit 6 M == 0",
+      "group": "branch",
+      "encoding": "ZeroPageRelative",
+      "operands": [
+        {
+          "name": "zp",
+          "type": "address8"
+        },
+        {
+          "name": "rel",
+          "type": "relative8"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "70",
+      "mnemonic": "BVS",
+      "cycles": 2,
+      "words": 2,
+      "semantics": "skok gdy V=1",
+      "group": "branch",
+      "encoding": "Relative",
+      "operands": [
+        {
+          "name": "rel",
+          "type": "relative8"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "71",
+      "mnemonic": "ADC",
+      "cycles": 5,
+      "words": 2,
+      "semantics": "A = A + M + C",
+      "group": "arithmetic",
+      "encoding": "IndirectY",
+      "operands": [
+        {
+          "name": "(zp),Y",
+          "type": "address8"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "72",
+      "mnemonic": "ADC",
+      "cycles": 5,
+      "words": 2,
+      "semantics": "A = A + M + C",
+      "group": "arithmetic",
+      "encoding": "ZeroPageIndirect",
+      "operands": [
+        {
+          "name": "(zp)",
+          "type": "address8"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "73",
+      "mnemonic": "NOP",
+      "cycles": 1,
+      "words": 1,
+      "semantics": "brak operacji (dummy read)",
+      "group": "system",
+      "encoding": "Implied",
+      "operands": null,
+      "variants": null
+    },
+    {
+      "opcode": "74",
+      "mnemonic": "STZ",
+      "cycles": 4,
+      "words": 2,
+      "semantics": "M = 0 (nie zmienia flag)",
+      "group": "load",
+      "encoding": "ZeroPageX",
+      "operands": [
+        {
+          "name": "zp",
+          "type": "address8"
+        },
+        {
+          "name": "X",
+          "type": "index"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "75",
+      "mnemonic": "ADC",
+      "cycles": 4,
+      "words": 2,
+      "semantics": "A = A + M + C",
+      "group": "arithmetic",
+      "encoding": "ZeroPageX",
+      "operands": [
+        {
+          "name": "zp",
+          "type": "address8"
+        },
+        {
+          "name": "X",
+          "type": "index"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "76",
+      "mnemonic": "ROR",
+      "cycles": 6,
+      "words": 2,
+      "semantics": "M = (M >> 1) | (C << 7) (C = bit0)",
+      "group": "shift",
+      "encoding": "ZeroPageX",
+      "operands": [
+        {
+          "name": "zp",
+          "type": "address8"
+        },
+        {
+          "name": "X",
+          "type": "index"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "77",
+      "mnemonic": "RMB7",
+      "cycles": 5,
+      "words": 2,
+      "semantics": "M = M & ~(1 << 7)",
+      "group": "bits",
+      "encoding": "ZeroPage",
+      "operands": [
+        {
+          "name": "zp",
+          "type": "address8"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "78",
+      "mnemonic": "SEI",
+      "cycles": 2,
+      "words": 1,
+      "semantics": "I = 1",
+      "group": "flags",
+      "encoding": "Implied",
+      "operands": null,
+      "variants": null
+    },
+    {
+      "opcode": "79",
+      "mnemonic": "ADC",
+      "cycles": 4,
+      "words": 3,
+      "semantics": "A = A + M + C",
+      "group": "arithmetic",
+      "encoding": "AbsoluteY",
+      "operands": [
+        {
+          "name": "a16",
+          "type": "address16"
+        },
+        {
+          "name": "Y",
+          "type": "index"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "7A",
+      "mnemonic": "PLY",
+      "cycles": 4,
+      "words": 1,
+      "semantics": "Implied",
+      "group": "stack",
+      "encoding": "Implied",
+      "operands": null,
+      "variants": null
+    },
+    {
+      "opcode": "7B",
+      "mnemonic": "NOP",
+      "cycles": 1,
+      "words": 1,
+      "semantics": "brak operacji (dummy read)",
+      "group": "system",
+      "encoding": "Implied",
+      "operands": null,
+      "variants": null
+    },
+    {
+      "opcode": "7C",
+      "mnemonic": "JMP",
+      "cycles": 6,
+      "words": 3,
+      "semantics": "PC = operand",
+      "group": "jump",
+      "encoding": "Indirect",
+      "operands": [
+        {
+          "name": "a16",
+          "type": "address16"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "7D",
+      "mnemonic": "ADC",
+      "cycles": 4,
+      "words": 3,
+      "semantics": "A = A + M + C",
+      "group": "arithmetic",
+      "encoding": "AbsoluteX",
+      "operands": [
+        {
+          "name": "a16",
+          "type": "address16"
+        },
+        {
+          "name": "X",
+          "type": "index"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "7E",
+      "mnemonic": "ROR",
+      "cycles": 6,
+      "words": 3,
+      "semantics": "M = (M >> 1) | (C << 7) (C = bit0)",
+      "group": "shift",
+      "encoding": "AbsoluteX",
+      "operands": [
+        {
+          "name": "a16",
+          "type": "address16"
+        },
+        {
+          "name": "X",
+          "type": "index"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "7F",
+      "mnemonic": "BBR7",
+      "cycles": 5,
+      "words": 3,
+      "semantics": "skok gdy bit 7 M == 0",
+      "group": "branch",
+      "encoding": "ZeroPageRelative",
+      "operands": [
+        {
+          "name": "zp",
+          "type": "address8"
+        },
+        {
+          "name": "rel",
+          "type": "relative8"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "80",
+      "mnemonic": "BRA",
+      "cycles": 2,
+      "words": 2,
+      "semantics": "Relative",
+      "group": "branch",
+      "encoding": "Relative",
+      "operands": [
+        {
+          "name": "rel",
+          "type": "relative8"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "81",
+      "mnemonic": "STA",
+      "cycles": 6,
+      "words": 2,
+      "semantics": "M = A",
+      "group": "load",
+      "encoding": "IndirectX",
+      "operands": [
+        {
+          "name": "(zp,X)",
+          "type": "address8"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "82",
+      "mnemonic": "NOP",
+      "cycles": 2,
+      "words": 1,
+      "semantics": "brak operacji (dummy read)",
+      "group": "system",
+      "encoding": "Implied",
+      "operands": null,
+      "variants": null
+    },
+    {
+      "opcode": "83",
+      "mnemonic": "NOP",
+      "cycles": 1,
+      "words": 1,
+      "semantics": "brak operacji (dummy read)",
+      "group": "system",
+      "encoding": "Implied",
+      "operands": null,
+      "variants": null
+    },
+    {
+      "opcode": "84",
+      "mnemonic": "STY",
+      "cycles": 3,
+      "words": 2,
+      "semantics": "M = Y",
+      "group": "load",
+      "encoding": "ZeroPage",
+      "operands": [
+        {
+          "name": "zp",
+          "type": "address8"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "85",
+      "mnemonic": "STA",
+      "cycles": 3,
+      "words": 2,
+      "semantics": "M = A",
+      "group": "load",
+      "encoding": "ZeroPage",
+      "operands": [
+        {
+          "name": "zp",
+          "type": "address8"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "86",
+      "mnemonic": "STX",
+      "cycles": 3,
+      "words": 2,
+      "semantics": "M = X",
+      "group": "load",
+      "encoding": "ZeroPage",
+      "operands": [
+        {
+          "name": "zp",
+          "type": "address8"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "87",
+      "mnemonic": "SMB0",
+      "cycles": 5,
+      "words": 2,
+      "semantics": "M = M | (1 << 0)",
+      "group": "bits",
+      "encoding": "ZeroPage",
+      "operands": [
+        {
+          "name": "zp",
+          "type": "address8"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "88",
+      "mnemonic": "DEY",
+      "cycles": 2,
+      "words": 1,
+      "semantics": "Y = Y - 1",
+      "group": "arithmetic",
+      "encoding": "Implied",
+      "operands": null,
+      "variants": null
+    },
+    {
+      "opcode": "89",
+      "mnemonic": "BIT",
+      "cycles": 2,
+      "words": 2,
+      "semantics": "Z = (A & M) == 0 (N/V niezmienione; BIT #)",
+      "group": "compare",
+      "encoding": "Immediate",
+      "operands": [
+        {
+          "name": "d8",
+          "type": "immediate8"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "8A",
+      "mnemonic": "TXA",
+      "cycles": 2,
+      "words": 1,
+      "semantics": "A = X",
+      "group": "load",
+      "encoding": "Accumulator",
+      "operands": null,
+      "variants": null
+    },
+    {
+      "opcode": "8B",
+      "mnemonic": "NOP",
+      "cycles": 1,
+      "words": 1,
+      "semantics": "brak operacji (dummy read)",
+      "group": "system",
+      "encoding": "Implied",
+      "operands": null,
+      "variants": null
+    },
+    {
+      "opcode": "8C",
+      "mnemonic": "STY",
+      "cycles": 4,
+      "words": 3,
+      "semantics": "M = Y",
+      "group": "load",
+      "encoding": "Absolute",
+      "operands": [
+        {
+          "name": "a16",
+          "type": "address16"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "8D",
+      "mnemonic": "STA",
+      "cycles": 4,
+      "words": 3,
+      "semantics": "M = A",
+      "group": "load",
+      "encoding": "Absolute",
+      "operands": [
+        {
+          "name": "a16",
+          "type": "address16"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "8E",
+      "mnemonic": "STX",
+      "cycles": 4,
+      "words": 3,
+      "semantics": "M = X",
+      "group": "load",
+      "encoding": "Absolute",
+      "operands": [
+        {
+          "name": "a16",
+          "type": "address16"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "8F",
+      "mnemonic": "BBS0",
+      "cycles": 5,
+      "words": 3,
+      "semantics": "skok gdy bit 0 M == 1",
+      "group": "branch",
+      "encoding": "ZeroPageRelative",
+      "operands": [
+        {
+          "name": "zp",
+          "type": "address8"
+        },
+        {
+          "name": "rel",
+          "type": "relative8"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "90",
+      "mnemonic": "BCC",
+      "cycles": 2,
+      "words": 2,
+      "semantics": "skok gdy C=0",
+      "group": "branch",
+      "encoding": "Relative",
+      "operands": [
+        {
+          "name": "rel",
+          "type": "relative8"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "91",
+      "mnemonic": "STA",
+      "cycles": 6,
+      "words": 2,
+      "semantics": "M = A",
+      "group": "load",
+      "encoding": "IndirectY",
+      "operands": [
+        {
+          "name": "(zp),Y",
+          "type": "address8"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "92",
+      "mnemonic": "STA",
+      "cycles": 5,
+      "words": 2,
+      "semantics": "M = A",
+      "group": "load",
+      "encoding": "ZeroPageIndirect",
+      "operands": [
+        {
+          "name": "(zp)",
+          "type": "address8"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "93",
+      "mnemonic": "NOP",
+      "cycles": 1,
+      "words": 1,
+      "semantics": "brak operacji (dummy read)",
+      "group": "system",
+      "encoding": "Implied",
+      "operands": null,
+      "variants": null
+    },
+    {
+      "opcode": "94",
+      "mnemonic": "STY",
+      "cycles": 4,
+      "words": 2,
+      "semantics": "M = Y",
+      "group": "load",
+      "encoding": "ZeroPageX",
+      "operands": [
+        {
+          "name": "zp",
+          "type": "address8"
+        },
+        {
+          "name": "X",
+          "type": "index"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "95",
+      "mnemonic": "STA",
+      "cycles": 4,
+      "words": 2,
+      "semantics": "M = A",
+      "group": "load",
+      "encoding": "ZeroPageX",
+      "operands": [
+        {
+          "name": "zp",
+          "type": "address8"
+        },
+        {
+          "name": "X",
+          "type": "index"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "96",
+      "mnemonic": "STX",
+      "cycles": 4,
+      "words": 2,
+      "semantics": "M = X",
+      "group": "load",
+      "encoding": "ZeroPageX",
+      "operands": [
+        {
+          "name": "zp",
+          "type": "address8"
+        },
+        {
+          "name": "X",
+          "type": "index"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "97",
+      "mnemonic": "SMB1",
+      "cycles": 5,
+      "words": 2,
+      "semantics": "M = M | (1 << 1)",
+      "group": "bits",
+      "encoding": "ZeroPage",
+      "operands": [
+        {
+          "name": "zp",
+          "type": "address8"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "98",
+      "mnemonic": "TYA",
+      "cycles": 2,
+      "words": 1,
+      "semantics": "A = Y",
+      "group": "load",
+      "encoding": "Implied",
+      "operands": null,
+      "variants": null
+    },
+    {
+      "opcode": "99",
+      "mnemonic": "STA",
+      "cycles": 5,
+      "words": 3,
+      "semantics": "M = A",
+      "group": "load",
+      "encoding": "AbsoluteY",
+      "operands": [
+        {
+          "name": "a16",
+          "type": "address16"
+        },
+        {
+          "name": "Y",
+          "type": "index"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "9A",
+      "mnemonic": "TXS",
+      "cycles": 2,
+      "words": 1,
+      "semantics": "SP = X",
+      "group": "load",
+      "encoding": "Implied",
+      "operands": null,
+      "variants": null
+    },
+    {
+      "opcode": "9B",
+      "mnemonic": "NOP",
+      "cycles": 1,
+      "words": 1,
+      "semantics": "brak operacji (dummy read)",
+      "group": "system",
+      "encoding": "Implied",
+      "operands": null,
+      "variants": null
+    },
+    {
+      "opcode": "9C",
+      "mnemonic": "STZ",
+      "cycles": 4,
+      "words": 3,
+      "semantics": "M = 0 (nie zmienia flag)",
+      "group": "load",
+      "encoding": "Absolute",
+      "operands": [
+        {
+          "name": "a16",
+          "type": "address16"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "9D",
+      "mnemonic": "STA",
+      "cycles": 5,
+      "words": 3,
+      "semantics": "M = A",
+      "group": "load",
+      "encoding": "AbsoluteX",
+      "operands": [
+        {
+          "name": "a16",
+          "type": "address16"
+        },
+        {
+          "name": "X",
+          "type": "index"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "9E",
+      "mnemonic": "STZ",
+      "cycles": 5,
+      "words": 3,
+      "semantics": "M = 0 (nie zmienia flag)",
+      "group": "load",
+      "encoding": "AbsoluteX",
+      "operands": [
+        {
+          "name": "a16",
+          "type": "address16"
+        },
+        {
+          "name": "X",
+          "type": "index"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "9F",
+      "mnemonic": "BBS1",
+      "cycles": 5,
+      "words": 3,
+      "semantics": "skok gdy bit 1 M == 1",
+      "group": "branch",
+      "encoding": "ZeroPageRelative",
+      "operands": [
+        {
+          "name": "zp",
+          "type": "address8"
+        },
+        {
+          "name": "rel",
+          "type": "relative8"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "A0",
+      "mnemonic": "LDY",
+      "cycles": 2,
+      "words": 2,
+      "semantics": "Y = M",
+      "group": "load",
+      "encoding": "Immediate",
+      "operands": [
+        {
+          "name": "d8",
+          "type": "immediate8"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "A1",
+      "mnemonic": "LDA",
+      "cycles": 6,
+      "words": 2,
+      "semantics": "A = M",
+      "group": "load",
+      "encoding": "IndirectX",
+      "operands": [
+        {
+          "name": "(zp,X)",
+          "type": "address8"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "A2",
+      "mnemonic": "LDX",
+      "cycles": 2,
+      "words": 2,
+      "semantics": "X = M",
+      "group": "load",
+      "encoding": "Immediate",
+      "operands": [
+        {
+          "name": "d8",
+          "type": "immediate8"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "A3",
+      "mnemonic": "NOP",
+      "cycles": 1,
+      "words": 1,
+      "semantics": "brak operacji (dummy read)",
+      "group": "system",
+      "encoding": "Implied",
+      "operands": null,
+      "variants": null
+    },
+    {
+      "opcode": "A4",
+      "mnemonic": "LDY",
+      "cycles": 3,
+      "words": 2,
+      "semantics": "Y = M",
+      "group": "load",
+      "encoding": "ZeroPage",
+      "operands": [
+        {
+          "name": "zp",
+          "type": "address8"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "A5",
+      "mnemonic": "LDA",
+      "cycles": 3,
+      "words": 2,
+      "semantics": "A = M",
+      "group": "load",
+      "encoding": "ZeroPage",
+      "operands": [
+        {
+          "name": "zp",
+          "type": "address8"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "A6",
+      "mnemonic": "LDX",
+      "cycles": 3,
+      "words": 2,
+      "semantics": "X = M",
+      "group": "load",
+      "encoding": "ZeroPage",
+      "operands": [
+        {
+          "name": "zp",
+          "type": "address8"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "A7",
+      "mnemonic": "SMB2",
+      "cycles": 5,
+      "words": 2,
+      "semantics": "M = M | (1 << 2)",
+      "group": "bits",
+      "encoding": "ZeroPage",
+      "operands": [
+        {
+          "name": "zp",
+          "type": "address8"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "A8",
+      "mnemonic": "TAY",
+      "cycles": 2,
+      "words": 1,
+      "semantics": "Y = A",
+      "group": "load",
+      "encoding": "Implied",
+      "operands": null,
+      "variants": null
+    },
+    {
+      "opcode": "A9",
+      "mnemonic": "LDA",
+      "cycles": 2,
+      "words": 2,
+      "semantics": "A = M",
+      "group": "load",
+      "encoding": "Immediate",
+      "operands": [
+        {
+          "name": "d8",
+          "type": "immediate8"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "AA",
+      "mnemonic": "TAX",
+      "cycles": 2,
+      "words": 1,
+      "semantics": "X = A",
+      "group": "load",
+      "encoding": "Implied",
+      "operands": null,
+      "variants": null
+    },
+    {
+      "opcode": "AB",
+      "mnemonic": "NOP",
+      "cycles": 1,
+      "words": 1,
+      "semantics": "brak operacji (dummy read)",
+      "group": "system",
+      "encoding": "Implied",
+      "operands": null,
+      "variants": null
+    },
+    {
+      "opcode": "AC",
+      "mnemonic": "LDY",
+      "cycles": 4,
+      "words": 3,
+      "semantics": "Y = M",
+      "group": "load",
+      "encoding": "Absolute",
+      "operands": [
+        {
+          "name": "a16",
+          "type": "address16"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "AD",
+      "mnemonic": "LDA",
+      "cycles": 4,
+      "words": 3,
+      "semantics": "A = M",
+      "group": "load",
+      "encoding": "Absolute",
+      "operands": [
+        {
+          "name": "a16",
+          "type": "address16"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "AE",
+      "mnemonic": "LDX",
+      "cycles": 4,
+      "words": 3,
+      "semantics": "X = M",
+      "group": "load",
+      "encoding": "Absolute",
+      "operands": [
+        {
+          "name": "a16",
+          "type": "address16"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "AF",
+      "mnemonic": "BBS2",
+      "cycles": 5,
+      "words": 3,
+      "semantics": "skok gdy bit 2 M == 1",
+      "group": "branch",
+      "encoding": "ZeroPageRelative",
+      "operands": [
+        {
+          "name": "zp",
+          "type": "address8"
+        },
+        {
+          "name": "rel",
+          "type": "relative8"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "B0",
+      "mnemonic": "BCS",
+      "cycles": 2,
+      "words": 2,
+      "semantics": "skok gdy C=1",
+      "group": "branch",
+      "encoding": "Relative",
+      "operands": [
+        {
+          "name": "rel",
+          "type": "relative8"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "B1",
+      "mnemonic": "LDA",
+      "cycles": 5,
+      "words": 2,
+      "semantics": "A = M",
+      "group": "load",
+      "encoding": "IndirectY",
+      "operands": [
+        {
+          "name": "(zp),Y",
+          "type": "address8"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "B2",
+      "mnemonic": "LDA",
+      "cycles": 5,
+      "words": 2,
+      "semantics": "A = M",
+      "group": "load",
+      "encoding": "ZeroPageIndirect",
+      "operands": [
+        {
+          "name": "(zp)",
+          "type": "address8"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "B3",
+      "mnemonic": "NOP",
+      "cycles": 1,
+      "words": 1,
+      "semantics": "brak operacji (dummy read)",
+      "group": "system",
+      "encoding": "Implied",
+      "operands": null,
+      "variants": null
+    },
+    {
+      "opcode": "B4",
+      "mnemonic": "LDY",
+      "cycles": 4,
+      "words": 2,
+      "semantics": "Y = M",
+      "group": "load",
+      "encoding": "ZeroPageX",
+      "operands": [
+        {
+          "name": "zp",
+          "type": "address8"
+        },
+        {
+          "name": "X",
+          "type": "index"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "B5",
+      "mnemonic": "LDA",
+      "cycles": 4,
+      "words": 2,
+      "semantics": "A = M",
+      "group": "load",
+      "encoding": "ZeroPageX",
+      "operands": [
+        {
+          "name": "zp",
+          "type": "address8"
+        },
+        {
+          "name": "X",
+          "type": "index"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "B6",
+      "mnemonic": "LDX",
+      "cycles": 4,
+      "words": 2,
+      "semantics": "X = M",
+      "group": "load",
+      "encoding": "ZeroPageX",
+      "operands": [
+        {
+          "name": "zp",
+          "type": "address8"
+        },
+        {
+          "name": "X",
+          "type": "index"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "B7",
+      "mnemonic": "SMB3",
+      "cycles": 5,
+      "words": 2,
+      "semantics": "M = M | (1 << 3)",
+      "group": "bits",
+      "encoding": "ZeroPage",
+      "operands": [
+        {
+          "name": "zp",
+          "type": "address8"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "B8",
+      "mnemonic": "CLV",
+      "cycles": 2,
+      "words": 1,
+      "semantics": "V = 0",
+      "group": "flags",
+      "encoding": "Implied",
+      "operands": null,
+      "variants": null
+    },
+    {
+      "opcode": "B9",
+      "mnemonic": "LDA",
+      "cycles": 4,
+      "words": 3,
+      "semantics": "A = M",
+      "group": "load",
+      "encoding": "AbsoluteY",
+      "operands": [
+        {
+          "name": "a16",
+          "type": "address16"
+        },
+        {
+          "name": "Y",
+          "type": "index"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "BA",
+      "mnemonic": "TSX",
+      "cycles": 2,
+      "words": 1,
+      "semantics": "X = SP",
+      "group": "load",
+      "encoding": "Implied",
+      "operands": null,
+      "variants": null
+    },
+    {
+      "opcode": "BB",
+      "mnemonic": "NOP",
+      "cycles": 1,
+      "words": 1,
+      "semantics": "brak operacji (dummy read)",
+      "group": "system",
+      "encoding": "Implied",
+      "operands": null,
+      "variants": null
+    },
+    {
+      "opcode": "BC",
+      "mnemonic": "LDY",
+      "cycles": 4,
+      "words": 3,
+      "semantics": "Y = M",
+      "group": "load",
+      "encoding": "AbsoluteX",
+      "operands": [
+        {
+          "name": "a16",
+          "type": "address16"
+        },
+        {
+          "name": "X",
+          "type": "index"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "BD",
+      "mnemonic": "LDA",
+      "cycles": 4,
+      "words": 3,
+      "semantics": "A = M",
+      "group": "load",
+      "encoding": "AbsoluteX",
+      "operands": [
+        {
+          "name": "a16",
+          "type": "address16"
+        },
+        {
+          "name": "X",
+          "type": "index"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "BE",
+      "mnemonic": "LDX",
+      "cycles": 4,
+      "words": 3,
+      "semantics": "X = M",
+      "group": "load",
+      "encoding": "AbsoluteX",
+      "operands": [
+        {
+          "name": "a16",
+          "type": "address16"
+        },
+        {
+          "name": "X",
+          "type": "index"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "BF",
+      "mnemonic": "BBS3",
+      "cycles": 5,
+      "words": 3,
+      "semantics": "skok gdy bit 3 M == 1",
+      "group": "branch",
+      "encoding": "ZeroPageRelative",
+      "operands": [
+        {
+          "name": "zp",
+          "type": "address8"
+        },
+        {
+          "name": "rel",
+          "type": "relative8"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "C0",
+      "mnemonic": "CPY",
+      "cycles": 2,
+      "words": 1,
+      "semantics": "flagi z Y - M",
+      "group": "compare",
+      "encoding": "Implied",
+      "operands": null,
+      "variants": null
+    },
+    {
+      "opcode": "C1",
+      "mnemonic": "CMP",
+      "cycles": 6,
+      "words": 2,
+      "semantics": "flagi z A - M",
+      "group": "compare",
+      "encoding": "IndirectX",
+      "operands": [
+        {
+          "name": "(zp,X)",
+          "type": "address8"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "C2",
+      "mnemonic": "NOP",
+      "cycles": 2,
+      "words": 1,
+      "semantics": "brak operacji (dummy read)",
+      "group": "system",
+      "encoding": "Implied",
+      "operands": null,
+      "variants": null
+    },
+    {
+      "opcode": "C3",
+      "mnemonic": "NOP",
+      "cycles": 1,
+      "words": 1,
+      "semantics": "brak operacji (dummy read)",
+      "group": "system",
+      "encoding": "Implied",
+      "operands": null,
+      "variants": null
+    },
+    {
+      "opcode": "C4",
+      "mnemonic": "CPY",
+      "cycles": 3,
+      "words": 2,
+      "semantics": "flagi z Y - M",
+      "group": "compare",
+      "encoding": "ZeroPage",
+      "operands": [
+        {
+          "name": "zp",
+          "type": "address8"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "C5",
+      "mnemonic": "CMP",
+      "cycles": 3,
+      "words": 2,
+      "semantics": "flagi z A - M",
+      "group": "compare",
+      "encoding": "ZeroPage",
+      "operands": [
+        {
+          "name": "zp",
+          "type": "address8"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "C6",
+      "mnemonic": "DEC",
+      "cycles": 5,
+      "words": 2,
+      "semantics": "M = M - 1",
+      "group": "arithmetic",
+      "encoding": "ZeroPage",
+      "operands": [
+        {
+          "name": "zp",
+          "type": "address8"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "C7",
+      "mnemonic": "SMB4",
+      "cycles": 5,
+      "words": 2,
+      "semantics": "M = M | (1 << 4)",
+      "group": "bits",
+      "encoding": "ZeroPage",
+      "operands": [
+        {
+          "name": "zp",
+          "type": "address8"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "C8",
+      "mnemonic": "INY",
+      "cycles": 2,
+      "words": 1,
+      "semantics": "Y = Y + 1",
+      "group": "arithmetic",
+      "encoding": "Implied",
+      "operands": null,
+      "variants": null
+    },
+    {
+      "opcode": "C9",
+      "mnemonic": "CMP",
+      "cycles": 2,
+      "words": 2,
+      "semantics": "flagi z A - M",
+      "group": "compare",
+      "encoding": "Immediate",
+      "operands": [
+        {
+          "name": "d8",
+          "type": "immediate8"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "CA",
+      "mnemonic": "DEX",
+      "cycles": 2,
+      "words": 1,
+      "semantics": "X = X - 1",
+      "group": "arithmetic",
+      "encoding": "Accumulator",
+      "operands": null,
+      "variants": null
+    },
+    {
+      "opcode": "CB",
+      "mnemonic": "WAI",
+      "cycles": 3,
+      "words": 1,
+      "semantics": "czekaj na przerwanie (RDY=1)",
+      "group": "system",
+      "encoding": "Implied",
+      "operands": null,
+      "variants": null
+    },
+    {
+      "opcode": "CC",
+      "mnemonic": "CPY",
+      "cycles": 4,
+      "words": 3,
+      "semantics": "flagi z Y - M",
+      "group": "compare",
+      "encoding": "Absolute",
+      "operands": [
+        {
+          "name": "a16",
+          "type": "address16"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "CD",
+      "mnemonic": "CMP",
+      "cycles": 4,
+      "words": 3,
+      "semantics": "flagi z A - M",
+      "group": "compare",
+      "encoding": "Absolute",
+      "operands": [
+        {
+          "name": "a16",
+          "type": "address16"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "CE",
+      "mnemonic": "DEC",
+      "cycles": 6,
+      "words": 3,
+      "semantics": "M = M - 1",
+      "group": "arithmetic",
+      "encoding": "Absolute",
+      "operands": [
+        {
+          "name": "a16",
+          "type": "address16"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "CF",
+      "mnemonic": "BBS4",
+      "cycles": 5,
+      "words": 3,
+      "semantics": "skok gdy bit 4 M == 1",
+      "group": "branch",
+      "encoding": "ZeroPageRelative",
+      "operands": [
+        {
+          "name": "zp",
+          "type": "address8"
+        },
+        {
+          "name": "rel",
+          "type": "relative8"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "D0",
+      "mnemonic": "BNE",
+      "cycles": 2,
+      "words": 2,
+      "semantics": "skok gdy Z=0",
+      "group": "branch",
+      "encoding": "Relative",
+      "operands": [
+        {
+          "name": "rel",
+          "type": "relative8"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "D1",
+      "mnemonic": "CMP",
+      "cycles": 5,
+      "words": 2,
+      "semantics": "flagi z A - M",
+      "group": "compare",
+      "encoding": "IndirectY",
+      "operands": [
+        {
+          "name": "(zp),Y",
+          "type": "address8"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "D2",
+      "mnemonic": "CMP",
+      "cycles": 5,
+      "words": 2,
+      "semantics": "flagi z A - M",
+      "group": "compare",
+      "encoding": "ZeroPageIndirect",
+      "operands": [
+        {
+          "name": "(zp)",
+          "type": "address8"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "D3",
+      "mnemonic": "NOP",
+      "cycles": 1,
+      "words": 1,
+      "semantics": "brak operacji (dummy read)",
+      "group": "system",
+      "encoding": "Implied",
+      "operands": null,
+      "variants": null
+    },
+    {
+      "opcode": "D4",
+      "mnemonic": "NOP",
+      "cycles": 4,
+      "words": 2,
+      "semantics": "brak operacji (dummy read)",
+      "group": "system",
+      "encoding": "ZeroPageX",
+      "operands": [
+        {
+          "name": "zp",
+          "type": "address8"
+        },
+        {
+          "name": "X",
+          "type": "index"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "D5",
+      "mnemonic": "CMP",
+      "cycles": 4,
+      "words": 2,
+      "semantics": "flagi z A - M",
+      "group": "compare",
+      "encoding": "ZeroPageX",
+      "operands": [
+        {
+          "name": "zp",
+          "type": "address8"
+        },
+        {
+          "name": "X",
+          "type": "index"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "D6",
+      "mnemonic": "DEC",
+      "cycles": 6,
+      "words": 2,
+      "semantics": "M = M - 1",
+      "group": "arithmetic",
+      "encoding": "ZeroPageX",
+      "operands": [
+        {
+          "name": "zp",
+          "type": "address8"
+        },
+        {
+          "name": "X",
+          "type": "index"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "D7",
+      "mnemonic": "SMB5",
+      "cycles": 5,
+      "words": 2,
+      "semantics": "M = M | (1 << 5)",
+      "group": "bits",
+      "encoding": "ZeroPage",
+      "operands": [
+        {
+          "name": "zp",
+          "type": "address8"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "D8",
+      "mnemonic": "CLD",
+      "cycles": 2,
+      "words": 1,
+      "semantics": "D = 0",
+      "group": "flags",
+      "encoding": "Implied",
+      "operands": null,
+      "variants": null
+    },
+    {
+      "opcode": "D9",
+      "mnemonic": "CMP",
+      "cycles": 4,
+      "words": 3,
+      "semantics": "flagi z A - M",
+      "group": "compare",
+      "encoding": "AbsoluteY",
+      "operands": [
+        {
+          "name": "a16",
+          "type": "address16"
+        },
+        {
+          "name": "Y",
+          "type": "index"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "DA",
+      "mnemonic": "PHX",
+      "cycles": 3,
+      "words": 1,
+      "semantics": "Implied",
+      "group": "stack",
+      "encoding": "Implied",
+      "operands": null,
+      "variants": null
+    },
+    {
+      "opcode": "DB",
+      "mnemonic": "STP",
+      "cycles": 3,
+      "words": 1,
+      "semantics": "zatrzymanie zegara (STP)",
+      "group": "system",
+      "encoding": "Implied",
+      "operands": null,
+      "variants": null
+    },
+    {
+      "opcode": "DC",
+      "mnemonic": "NOP",
+      "cycles": 4,
+      "words": 3,
+      "semantics": "brak operacji (dummy read)",
+      "group": "system",
+      "encoding": "AbsoluteX",
+      "operands": [
+        {
+          "name": "a16",
+          "type": "address16"
+        },
+        {
+          "name": "X",
+          "type": "index"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "DD",
+      "mnemonic": "CMP",
+      "cycles": 4,
+      "words": 3,
+      "semantics": "flagi z A - M",
+      "group": "compare",
+      "encoding": "AbsoluteX",
+      "operands": [
+        {
+          "name": "a16",
+          "type": "address16"
+        },
+        {
+          "name": "X",
+          "type": "index"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "DE",
+      "mnemonic": "DEC",
+      "cycles": 6,
+      "words": 3,
+      "semantics": "M = M - 1",
+      "group": "arithmetic",
+      "encoding": "AbsoluteX",
+      "operands": [
+        {
+          "name": "a16",
+          "type": "address16"
+        },
+        {
+          "name": "X",
+          "type": "index"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "DF",
+      "mnemonic": "BBS5",
+      "cycles": 5,
+      "words": 3,
+      "semantics": "skok gdy bit 5 M == 1",
+      "group": "branch",
+      "encoding": "ZeroPageRelative",
+      "operands": [
+        {
+          "name": "zp",
+          "type": "address8"
+        },
+        {
+          "name": "rel",
+          "type": "relative8"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "E0",
+      "mnemonic": "CPX",
+      "cycles": 2,
+      "words": 2,
+      "semantics": "flagi z X - M",
+      "group": "compare",
+      "encoding": "Immediate",
+      "operands": [
+        {
+          "name": "d8",
+          "type": "immediate8"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "E1",
+      "mnemonic": "SBC",
+      "cycles": 6,
+      "words": 2,
+      "semantics": "A = A - M - (1 - C)",
+      "group": "arithmetic",
+      "encoding": "IndirectX",
+      "operands": [
+        {
+          "name": "(zp,X)",
+          "type": "address8"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "E2",
+      "mnemonic": "NOP",
+      "cycles": 2,
+      "words": 2,
+      "semantics": "brak operacji (dummy read)",
+      "group": "system",
+      "encoding": "Immediate",
+      "operands": [
+        {
+          "name": "d8",
+          "type": "immediate8"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "E3",
+      "mnemonic": "NOP",
+      "cycles": 1,
+      "words": 1,
+      "semantics": "brak operacji (dummy read)",
+      "group": "system",
+      "encoding": "Implied",
+      "operands": null,
+      "variants": null
+    },
+    {
+      "opcode": "E4",
+      "mnemonic": "CPX",
+      "cycles": 3,
+      "words": 2,
+      "semantics": "flagi z X - M",
+      "group": "compare",
+      "encoding": "ZeroPage",
+      "operands": [
+        {
+          "name": "zp",
+          "type": "address8"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "E5",
+      "mnemonic": "SBC",
+      "cycles": 3,
+      "words": 2,
+      "semantics": "A = A - M - (1 - C)",
+      "group": "arithmetic",
+      "encoding": "ZeroPage",
+      "operands": [
+        {
+          "name": "zp",
+          "type": "address8"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "E6",
+      "mnemonic": "INC",
+      "cycles": 5,
+      "words": 2,
+      "semantics": "M = M + 1",
+      "group": "arithmetic",
+      "encoding": "ZeroPage",
+      "operands": [
+        {
+          "name": "zp",
+          "type": "address8"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "E7",
+      "mnemonic": "SMB6",
+      "cycles": 5,
+      "words": 2,
+      "semantics": "M = M | (1 << 6)",
+      "group": "bits",
+      "encoding": "ZeroPage",
+      "operands": [
+        {
+          "name": "zp",
+          "type": "address8"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "E8",
+      "mnemonic": "INX",
+      "cycles": 2,
+      "words": 1,
+      "semantics": "X = X + 1",
+      "group": "arithmetic",
+      "encoding": "Implied",
+      "operands": null,
+      "variants": null
+    },
+    {
+      "opcode": "E9",
+      "mnemonic": "SBC",
+      "cycles": 2,
+      "words": 2,
+      "semantics": "A = A - M - (1 - C)",
+      "group": "arithmetic",
+      "encoding": "Immediate",
+      "operands": [
+        {
+          "name": "d8",
+          "type": "immediate8"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "EA",
+      "mnemonic": "NOP",
+      "cycles": 2,
+      "words": 1,
+      "semantics": "brak operacji (dummy read)",
+      "group": "system",
+      "encoding": "Implied",
+      "operands": null,
+      "variants": null
+    },
+    {
+      "opcode": "EB",
+      "mnemonic": "NOP",
+      "cycles": 1,
+      "words": 1,
+      "semantics": "brak operacji (dummy read)",
+      "group": "system",
+      "encoding": "Implied",
+      "operands": null,
+      "variants": null
+    },
+    {
+      "opcode": "EC",
+      "mnemonic": "CPX",
+      "cycles": 4,
+      "words": 3,
+      "semantics": "flagi z X - M",
+      "group": "compare",
+      "encoding": "Absolute",
+      "operands": [
+        {
+          "name": "a16",
+          "type": "address16"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "ED",
+      "mnemonic": "SBC",
+      "cycles": 4,
+      "words": 3,
+      "semantics": "A = A - M - (1 - C)",
+      "group": "arithmetic",
+      "encoding": "Absolute",
+      "operands": [
+        {
+          "name": "a16",
+          "type": "address16"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "EE",
+      "mnemonic": "INC",
+      "cycles": 6,
+      "words": 3,
+      "semantics": "M = M + 1",
+      "group": "arithmetic",
+      "encoding": "Absolute",
+      "operands": [
+        {
+          "name": "a16",
+          "type": "address16"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "EF",
+      "mnemonic": "BBS6",
+      "cycles": 5,
+      "words": 3,
+      "semantics": "skok gdy bit 6 M == 1",
+      "group": "branch",
+      "encoding": "ZeroPageRelative",
+      "operands": [
+        {
+          "name": "zp",
+          "type": "address8"
+        },
+        {
+          "name": "rel",
+          "type": "relative8"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "F0",
+      "mnemonic": "BEQ",
+      "cycles": 2,
+      "words": 2,
+      "semantics": "skok gdy Z=1",
+      "group": "branch",
+      "encoding": "Relative",
+      "operands": [
+        {
+          "name": "rel",
+          "type": "relative8"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "F1",
+      "mnemonic": "SBC",
+      "cycles": 5,
+      "words": 2,
+      "semantics": "A = A - M - (1 - C)",
+      "group": "arithmetic",
+      "encoding": "IndirectY",
+      "operands": [
+        {
+          "name": "(zp),Y",
+          "type": "address8"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "F2",
+      "mnemonic": "SBC",
+      "cycles": 5,
+      "words": 2,
+      "semantics": "A = A - M - (1 - C)",
+      "group": "arithmetic",
+      "encoding": "ZeroPageIndirect",
+      "operands": [
+        {
+          "name": "(zp)",
+          "type": "address8"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "F3",
+      "mnemonic": "NOP",
+      "cycles": 1,
+      "words": 1,
+      "semantics": "brak operacji (dummy read)",
+      "group": "system",
+      "encoding": "Implied",
+      "operands": null,
+      "variants": null
+    },
+    {
+      "opcode": "F4",
+      "mnemonic": "NOP",
+      "cycles": 4,
+      "words": 2,
+      "semantics": "brak operacji (dummy read)",
+      "group": "system",
+      "encoding": "ZeroPageX",
+      "operands": [
+        {
+          "name": "zp",
+          "type": "address8"
+        },
+        {
+          "name": "X",
+          "type": "index"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "F5",
+      "mnemonic": "SBC",
+      "cycles": 4,
+      "words": 2,
+      "semantics": "A = A - M - (1 - C)",
+      "group": "arithmetic",
+      "encoding": "ZeroPageX",
+      "operands": [
+        {
+          "name": "zp",
+          "type": "address8"
+        },
+        {
+          "name": "X",
+          "type": "index"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "F6",
+      "mnemonic": "INC",
+      "cycles": 6,
+      "words": 2,
+      "semantics": "M = M + 1",
+      "group": "arithmetic",
+      "encoding": "ZeroPageX",
+      "operands": [
+        {
+          "name": "zp",
+          "type": "address8"
+        },
+        {
+          "name": "X",
+          "type": "index"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "F7",
+      "mnemonic": "SMB7",
+      "cycles": 5,
+      "words": 2,
+      "semantics": "M = M | (1 << 7)",
+      "group": "bits",
+      "encoding": "ZeroPage",
+      "operands": [
+        {
+          "name": "zp",
+          "type": "address8"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "F8",
+      "mnemonic": "SED",
+      "cycles": 2,
+      "words": 1,
+      "semantics": "D = 1",
+      "group": "flags",
+      "encoding": "Implied",
+      "operands": null,
+      "variants": null
+    },
+    {
+      "opcode": "F9",
+      "mnemonic": "SBC",
+      "cycles": 4,
+      "words": 3,
+      "semantics": "A = A - M - (1 - C)",
+      "group": "arithmetic",
+      "encoding": "AbsoluteY",
+      "operands": [
+        {
+          "name": "a16",
+          "type": "address16"
+        },
+        {
+          "name": "Y",
+          "type": "index"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "FA",
+      "mnemonic": "PLX",
+      "cycles": 4,
+      "words": 1,
+      "semantics": "Implied",
+      "group": "stack",
+      "encoding": "Implied",
+      "operands": null,
+      "variants": null
+    },
+    {
+      "opcode": "FB",
+      "mnemonic": "NOP",
+      "cycles": 1,
+      "words": 1,
+      "semantics": "brak operacji (dummy read)",
+      "group": "system",
+      "encoding": "Implied",
+      "operands": null,
+      "variants": null
+    },
+    {
+      "opcode": "FC",
+      "mnemonic": "NOP",
+      "cycles": 4,
+      "words": 3,
+      "semantics": "brak operacji (dummy read)",
+      "group": "system",
+      "encoding": "AbsoluteX",
+      "operands": [
+        {
+          "name": "a16",
+          "type": "address16"
+        },
+        {
+          "name": "X",
+          "type": "index"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "FD",
+      "mnemonic": "SBC",
+      "cycles": 4,
+      "words": 3,
+      "semantics": "A = A - M - (1 - C)",
+      "group": "arithmetic",
+      "encoding": "AbsoluteX",
+      "operands": [
+        {
+          "name": "a16",
+          "type": "address16"
+        },
+        {
+          "name": "X",
+          "type": "index"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "FE",
+      "mnemonic": "INC",
+      "cycles": 6,
+      "words": 3,
+      "semantics": "M = M + 1",
+      "group": "arithmetic",
+      "encoding": "AbsoluteX",
+      "operands": [
+        {
+          "name": "a16",
+          "type": "address16"
+        },
+        {
+          "name": "X",
+          "type": "index"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "FF",
+      "mnemonic": "BBS7",
+      "cycles": 5,
+      "words": 3,
+      "semantics": "skok gdy bit 7 M == 1",
+      "group": "branch",
+      "encoding": "ZeroPageRelative",
+      "operands": [
+        {
+          "name": "zp",
+          "type": "address8"
+        },
+        {
+          "name": "rel",
+          "type": "relative8"
+        }
+      ],
+      "variants": null
+    }
+  ]
+}

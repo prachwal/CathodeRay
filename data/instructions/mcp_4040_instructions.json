@@ -1,0 +1,1058 @@
+{
+  "processor": "Intel 4040",
+  "format_version": "1.0",
+  "description": "Full set: 46 inherited 4004 instructions (incl. WPM at E3) + 14 new 4040 instructions = 60 defined; 4040-only: HLT,BBS,LCR,OR4,OR5,AN6,AN7,DB0,DB1,SB0,SB1,EIN,DIN,RPM; undefined: 0F, FE, FF",
+  "notes": "MCS-40 successor to 4004 (1974, 3000T, 10um PMOS): 8KB ROM w/ bank switch, 24 index regs (2 banks), 7-level stack, interrupts, halt/stop. Spec: MCS-225 Advance Spec Sep74 Sec 4; 4040 datasheet; MCS-40 User Manual Nov74 Ch 1. Encoding: new group OPR=0000/OPA=0001-1110; E3=WPM; 0F/FE/FF remain undefined. CPU implemented (src/BrassLantern.4040, 2026-09-26): 63/63 Verified; modeling notes — interrupt ack consumes the step (2 cycles), vector 003 in current bank, DB immediate (HW: 3rd cycle), LCR~=RamBank, RPM/WPM nibble at (E<<4|O)>>1 without 4289.",
+  "schema": {
+    "opcode": "hex string (00-FF); primary instruction code or base for variants",
+    "mnemonic": "symbolic name (e.g. NOP, JUN, ADD)",
+    "cycles": "integer; CPU cycles to execute",
+    "words": "integer; ROM words consumed (1 or 2)",
+    "semantics": "description of behavior; prefix 'Verified:' after test pass (test-driven definition)",
+    "group": "category (basic, jump, load, arithmetic, io, accumulator, logic, addressing, memory, system, undefined)",
+    "encoding": "instruction format string (e.g. '80+R', '1C XX' for 2-word, implicit operands noted)",
+    "operands": "array of operand objects or null if none; each: {type, name, range, position, implicit}",
+    "variants": "array of variant opcodes (e.g. [80, 81, ..., 8F] for ADD R0-R15), or null if single opcode"
+  },
+  "instructions": [
+    {
+      "opcode": "00",
+      "mnemonic": "NOP",
+      "cycles": 1,
+      "words": 1,
+      "semantics": "Verified: brak operacji; PC+1, 1 cykl",
+      "group": "basic",
+      "variants": null,
+      "encoding": "0000 0000",
+      "operands": null
+    },
+    {
+      "opcode": "01",
+      "mnemonic": "HLT",
+      "cycles": 1,
+      "words": 1,
+      "semantics": "Verified: Halted=true (krok=1 NOP-timing, PC stoi); budzi kwitowane przerwanie (ack wraca do wykonania, forced JMS 003 za 2 cykle). Testy: Step_Hlt_FreezesPcUntilInterrupt, Step_Hlt_WakesOnAcknowledgedInterrupt",
+      "group": "system",
+      "variants": null,
+      "encoding": "0000 0001 (fixed opcode 01)",
+      "operands": null
+    },
+    {
+      "opcode": "02",
+      "mnemonic": "BBS",
+      "cycles": 1,
+      "words": 1,
+      "semantics": "Verified: pop 13-bit bank:PC ze stosu, SRC=kopii z ack, koniec serwisu (InterruptInService=false, EIN wygaszone do EIN). Test: Step_Interrupt_ForcesJmsToVector_AndBbsReturns",
+      "group": "system",
+      "variants": null,
+      "encoding": "0000 0010 (fixed opcode 02)",
+      "operands": null
+    },
+    {
+      "opcode": "03",
+      "mnemonic": "LCR",
+      "cycles": 1,
+      "words": 1,
+      "semantics": "Verified: ACC=RamBank&0xF (przybliżenie rejestru komend CM — model trzyma tylko bank DCL). Test: Step_Lcr_LoadsRamBank",
+      "group": "system",
+      "variants": null,
+      "encoding": "0000 0011 (fixed opcode 03)",
+      "operands": null
+    },
+    {
+      "opcode": "04",
+      "mnemonic": "OR4",
+      "cycles": 1,
+      "words": 1,
+      "semantics": "Verified: ACC|=R4 (rejestr logiczny — z banku), CY nietknięte. Test: Step_FixedLogicOp_UsesFixedRegister (Theory)",
+      "group": "logic",
+      "variants": null,
+      "encoding": "0000 0100 (fixed opcode 04)",
+      "operands": null
+    },
+    {
+      "opcode": "05",
+      "mnemonic": "OR5",
+      "cycles": 1,
+      "words": 1,
+      "semantics": "Verified: ACC|=R5 (rejestr logiczny — z banku), CY nietknięte. Test: Step_FixedLogicOp_UsesFixedRegister (Theory)",
+      "group": "logic",
+      "variants": null,
+      "encoding": "0000 0101 (fixed opcode 05)",
+      "operands": null
+    },
+    {
+      "opcode": "06",
+      "mnemonic": "AN6",
+      "cycles": 1,
+      "words": 1,
+      "semantics": "Verified: ACC&=R6 (rejestr logiczny — z banku), CY nietknięte. Test: Step_FixedLogicOp_UsesFixedRegister (Theory)",
+      "group": "logic",
+      "variants": null,
+      "encoding": "0000 0110 (fixed opcode 06)",
+      "operands": null
+    },
+    {
+      "opcode": "07",
+      "mnemonic": "AN7",
+      "cycles": 1,
+      "words": 1,
+      "semantics": "Verified: ACC&=R7 (rejestr logiczny — z banku), CY nietknięte. Test: Step_FixedLogicOp_UsesFixedRegister (Theory)",
+      "group": "logic",
+      "variants": null,
+      "encoding": "0000 0111 (fixed opcode 07)",
+      "operands": null
+    },
+    {
+      "opcode": "08",
+      "mnemonic": "DB0",
+      "cycles": 1,
+      "words": 1,
+      "semantics": "Verified: RomBank=0 natychmiast (krzem aktywuje w 3. cyklu — uproszczenie). Test: Step_DesignateBank_SwitchesFetchBank (wariant DB1)",
+      "group": "addressing",
+      "variants": null,
+      "encoding": "0000 1000 (fixed opcode 08)",
+      "operands": null
+    },
+    {
+      "opcode": "09",
+      "mnemonic": "DB1",
+      "cycles": 1,
+      "words": 1,
+      "semantics": "Verified: RomBank=1 natychmiast (krzem aktywuje w 3. cyklu — uproszczenie); fetch spod bank:PC. Test: Step_DesignateBank_SwitchesFetchBank",
+      "group": "addressing",
+      "variants": null,
+      "encoding": "0000 1001 (fixed opcode 09)",
+      "operands": null
+    },
+    {
+      "opcode": "0A",
+      "mnemonic": "SB0",
+      "cycles": 1,
+      "words": 1,
+      "semantics": "Verified: RegisterBank=false (logiczne R0-R15 z fizycznych 0-15). Test: Step_SelectBank_SwapsLowRegisters",
+      "group": "addressing",
+      "variants": null,
+      "encoding": "0000 1010 (fixed opcode 0A)",
+      "operands": null
+    },
+    {
+      "opcode": "0B",
+      "mnemonic": "SB1",
+      "cycles": 1,
+      "words": 1,
+      "semantics": "Verified: RegisterBank=true (logiczne R0-R7 z fizycznych R16-R23, R8-R15 bez zmian). Test: Step_SelectBank_SwapsLowRegisters",
+      "group": "addressing",
+      "variants": null,
+      "encoding": "0000 1011 (fixed opcode 0B)",
+      "operands": null
+    },
+    {
+      "opcode": "0C",
+      "mnemonic": "EIN",
+      "cycles": 1,
+      "words": 1,
+      "semantics": "Verified: InterruptsEnabled=true (kwitowanie: forced JMS 003 za 2 cykle kroku). Test: Step_EnableDisableInterrupt_FlipsFlag + testy przerwań",
+      "group": "system",
+      "variants": null,
+      "encoding": "0000 1100 (fixed opcode 0C)",
+      "operands": null
+    },
+    {
+      "opcode": "0D",
+      "mnemonic": "DIN",
+      "cycles": 1,
+      "words": 1,
+      "semantics": "Verified: InterruptsEnabled=false. Test: Step_EnableDisableInterrupt_FlipsFlag",
+      "group": "system",
+      "variants": null,
+      "encoding": "0000 1101 (fixed opcode 0D)",
+      "operands": null
+    },
+    {
+      "opcode": "0E",
+      "mnemonic": "RPM",
+      "cycles": 1,
+      "words": 1,
+      "semantics": "Verified: nibble spod adresu SRC ((E<<4|O)>>1 w banku, high/low wg F/L), F/L toggle co RPM; bez układu 4289 (czytanie wprost z szyny). Test: Step_WriteThenReadProgramMemory_RoundTripsBothHalves",
+      "group": "memory",
+      "variants": null,
+      "encoding": "0000 1110 (fixed opcode 0E)",
+      "operands": null
+    },
+    {
+      "opcode": "0F",
+      "mnemonic": "UNDEFINED",
+      "cycles": 1,
+      "words": 1,
+      "semantics": "Verified: NOP przy TreatUndefinedAsNop (domyślnie), inaczej InvalidOperationException. Test: Step_UndefinedGroupZero_NopsByDefault + InstructionTableTests",
+      "group": "undefined",
+      "variants": null,
+      "encoding": "0000 1111 (fixed opcode 0F)",
+      "operands": null
+    },
+    {
+      "opcode": "1C",
+      "mnemonic": "JCN",
+      "cycles": 2,
+      "words": 2,
+      "semantics": "Verified: JUMP=C1 xor S, S=(ACC=0)C2+(CY=1)C3+(TEST=0)C4; cel w stronie, wyjatek 254/255->nastepna strona",
+      "group": "jump",
+      "variants": [
+        "10",
+        "11",
+        "12",
+        "13",
+        "14",
+        "15",
+        "16",
+        "17",
+        "18",
+        "19",
+        "1A",
+        "1B",
+        "1C",
+        "1D",
+        "1E",
+        "1F"
+      ],
+      "encoding": "0001 CCCC | AAAA AAAA (2 words: cond in lower nibble, 8-bit in-page addr second)",
+      "operands": [
+        {
+          "type": "condition",
+          "name": "C",
+          "range": "0-15 (C1=invert, C2:ACC=0, C3:CY=1, C4:TEST=0)",
+          "position": "lower_nibble_first_word"
+        },
+        {
+          "type": "address",
+          "name": "addr",
+          "range": "0-255 (in-page)",
+          "position": "second_word"
+        }
+      ]
+    },
+    {
+      "opcode": "20",
+      "mnemonic": "FIM",
+      "cycles": 2,
+      "words": 2,
+      "semantics": "Verified: R[2P]=starszy nibbel, R[2P+1]=mlodszy z 2. slowa",
+      "group": "load",
+      "variants": [
+        "20",
+        "22",
+        "24",
+        "26",
+        "28",
+        "2A",
+        "2C",
+        "2E"
+      ],
+      "encoding": "0010 RRR0 | DDDD DDDD (2 words: pair in bits 3-1, 8-bit data second)",
+      "operands": [
+        {
+          "type": "pair",
+          "name": "P",
+          "range": "0-7 (P0-P7)",
+          "position": "bits_3_1_first_word"
+        },
+        {
+          "type": "immediate",
+          "name": "data",
+          "range": "0-255 (8-bit)",
+          "position": "second_word"
+        }
+      ]
+    },
+    {
+      "opcode": "21",
+      "mnemonic": "SRC",
+      "cycles": 1,
+      "words": 1,
+      "semantics": "Verified: latch pary (even->uklad/rejestr RAM i uklad ROM, odd->znak); bank z DCL",
+      "group": "addressing",
+      "variants": [
+        "21",
+        "23",
+        "25",
+        "27",
+        "29",
+        "2B",
+        "2D",
+        "2F"
+      ],
+      "encoding": "0010 RRR1 (pair in bits 3-1)",
+      "operands": [
+        {
+          "type": "pair",
+          "name": "P",
+          "range": "0-7 (P0-P7)",
+          "position": "bits_3_1_first_word"
+        }
+      ]
+    },
+    {
+      "opcode": "30",
+      "mnemonic": "FIN",
+      "cycles": 2,
+      "words": 1,
+      "semantics": "Verified: para P=ROM[strona FIN | R0R1]; wyjatek FIN@xFF->nastepna strona; 2 cykle mimo 1 slowa",
+      "group": "load",
+      "variants": [
+        "30",
+        "32",
+        "34",
+        "36",
+        "38",
+        "3A",
+        "3C",
+        "3E"
+      ],
+      "encoding": "0011 RRR0 (pair in bits 3-1)",
+      "operands": [
+        {
+          "type": "pair",
+          "name": "P",
+          "range": "0-7 (P0-P7)",
+          "position": "bits_3_1_first_word"
+        }
+      ]
+    },
+    {
+      "opcode": "31",
+      "mnemonic": "JIN",
+      "cycles": 1,
+      "words": 1,
+      "semantics": "Verified: PC=(strona JIN)|para P",
+      "group": "jump",
+      "variants": [
+        "31",
+        "33",
+        "35",
+        "37",
+        "39",
+        "3B",
+        "3D",
+        "3F"
+      ],
+      "encoding": "0011 RRR1 (pair in bits 3-1)",
+      "operands": [
+        {
+          "type": "pair",
+          "name": "P",
+          "range": "0-7 (P0-P7)",
+          "position": "bits_3_1_first_word"
+        }
+      ]
+    },
+    {
+      "opcode": "4A",
+      "mnemonic": "JUN",
+      "cycles": 2,
+      "words": 2,
+      "semantics": "Verified: PC=A3A2A1 (pelne 12 bitow)",
+      "group": "jump",
+      "variants": [
+        "40",
+        "41",
+        "42",
+        "43",
+        "44",
+        "45",
+        "46",
+        "47",
+        "48",
+        "49",
+        "4A",
+        "4B",
+        "4C",
+        "4D",
+        "4E",
+        "4F"
+      ],
+      "encoding": "0100 AAAA | BBBB CCCC (2 words: A=addr bits 11-8 in lower nibble, BC=bits 7-0 second)",
+      "operands": [
+        {
+          "type": "address",
+          "name": "addr",
+          "range": "0-4095 (12-bit)",
+          "position": "lower_nibble_first_word+second_word"
+        }
+      ]
+    },
+    {
+      "opcode": "5A",
+      "mnemonic": "JMS",
+      "cycles": 2,
+      "words": 2,
+      "semantics": "Verified: push 13-bit bank:PC (stos 7-poziomowy, 8. gubi najstarszy); PC=cel 12-bit w bieżącym banku. Testy: różnicowy 4004-vs-4040 + Step_SevenNestedCalls_AllReturn",
+      "group": "jump",
+      "variants": [
+        "50",
+        "51",
+        "52",
+        "53",
+        "54",
+        "55",
+        "56",
+        "57",
+        "58",
+        "59",
+        "5A",
+        "5B",
+        "5C",
+        "5D",
+        "5E",
+        "5F"
+      ],
+      "encoding": "0101 AAAA | BBBB CCCC (2 words: A=addr bits 11-8 in lower nibble, BC=bits 7-0 second)",
+      "operands": [
+        {
+          "type": "address",
+          "name": "addr",
+          "range": "0-4095 (12-bit)",
+          "position": "lower_nibble_first_word+second_word"
+        }
+      ]
+    },
+    {
+      "opcode": "60",
+      "mnemonic": "INC",
+      "cycles": 1,
+      "words": 1,
+      "semantics": "Verified: R=(R+1)&F; ACC/CY nietkniete",
+      "group": "arithmetic",
+      "variants": [
+        "60",
+        "61",
+        "62",
+        "63",
+        "64",
+        "65",
+        "66",
+        "67",
+        "68",
+        "69",
+        "6A",
+        "6B",
+        "6C",
+        "6D",
+        "6E",
+        "6F"
+      ],
+      "encoding": "0110 RRRR where RRRR=0-F (R0-R15)",
+      "operands": [
+        {
+          "type": "register",
+          "name": "R",
+          "range": "0-15 (R0-R15)",
+          "position": "lower_nibble"
+        }
+      ]
+    },
+    {
+      "opcode": "70",
+      "mnemonic": "ISZ",
+      "cycles": 2,
+      "words": 2,
+      "semantics": "Verified: R=(R+1)&F; 0->dalej, nie-zero->skok w stronie (wyjatek 254/255->nastepna)",
+      "group": "jump",
+      "variants": [
+        "70",
+        "71",
+        "72",
+        "73",
+        "74",
+        "75",
+        "76",
+        "77",
+        "78",
+        "79",
+        "7A",
+        "7B",
+        "7C",
+        "7D",
+        "7E",
+        "7F"
+      ],
+      "encoding": "0111 RRRR | AAAA AAAA (2 words: register in lower nibble, 8-bit in-page addr second)",
+      "operands": [
+        {
+          "type": "register",
+          "name": "R",
+          "range": "0-15 (R0-R15)",
+          "position": "lower_nibble_first_word"
+        },
+        {
+          "type": "address",
+          "name": "addr",
+          "range": "0-255 (in-page)",
+          "position": "second_word"
+        }
+      ]
+    },
+    {
+      "opcode": "80",
+      "mnemonic": "ADD",
+      "cycles": 1,
+      "words": 1,
+      "semantics": "Verified: ACC+=R+CY; CY=przeniesienie",
+      "group": "arithmetic",
+      "variants": [
+        "80",
+        "81",
+        "82",
+        "83",
+        "84",
+        "85",
+        "86",
+        "87",
+        "88",
+        "89",
+        "8A",
+        "8B",
+        "8C",
+        "8D",
+        "8E",
+        "8F"
+      ],
+      "encoding": "1000 RRRR where RRRR=0-F (R0-R15)",
+      "operands": [
+        {
+          "type": "register",
+          "name": "R",
+          "range": "0-15 (R0-R15)",
+          "position": "lower_nibble"
+        }
+      ]
+    },
+    {
+      "opcode": "90",
+      "mnemonic": "SUB",
+      "cycles": 1,
+      "words": 1,
+      "semantics": "Verified: ACC-=R+(CY?0:1); CY=1 gdy brak pozyczki",
+      "group": "arithmetic",
+      "variants": [
+        "90",
+        "91",
+        "92",
+        "93",
+        "94",
+        "95",
+        "96",
+        "97",
+        "98",
+        "99",
+        "9A",
+        "9B",
+        "9C",
+        "9D",
+        "9E",
+        "9F"
+      ],
+      "encoding": "1001 RRRR where RRRR=0-F (R0-R15)",
+      "operands": [
+        {
+          "type": "register",
+          "name": "R",
+          "range": "0-15 (R0-R15)",
+          "position": "lower_nibble"
+        }
+      ]
+    },
+    {
+      "opcode": "A0",
+      "mnemonic": "LD",
+      "cycles": 1,
+      "words": 1,
+      "semantics": "Verified: ACC=R; CY nietkniete",
+      "group": "load",
+      "variants": [
+        "A0",
+        "A1",
+        "A2",
+        "A3",
+        "A4",
+        "A5",
+        "A6",
+        "A7",
+        "A8",
+        "A9",
+        "AA",
+        "AB",
+        "AC",
+        "AD",
+        "AE",
+        "AF"
+      ],
+      "encoding": "1010 RRRR where RRRR=0-F (R0-R15)",
+      "operands": [
+        {
+          "type": "register",
+          "name": "R",
+          "range": "0-15 (R0-R15)",
+          "position": "lower_nibble"
+        }
+      ]
+    },
+    {
+      "opcode": "B0",
+      "mnemonic": "XCH",
+      "cycles": 1,
+      "words": 1,
+      "semantics": "Verified: swap ACC,R; CY nietkniete",
+      "group": "arithmetic",
+      "variants": [
+        "B0",
+        "B1",
+        "B2",
+        "B3",
+        "B4",
+        "B5",
+        "B6",
+        "B7",
+        "B8",
+        "B9",
+        "BA",
+        "BB",
+        "BC",
+        "BD",
+        "BE",
+        "BF"
+      ],
+      "encoding": "1011 RRRR where RRRR=0-F (R0-R15)",
+      "operands": [
+        {
+          "type": "register",
+          "name": "R",
+          "range": "0-15 (R0-R15)",
+          "position": "lower_nibble"
+        }
+      ]
+    },
+    {
+      "opcode": "C0",
+      "mnemonic": "BBL",
+      "cycles": 1,
+      "words": 1,
+      "semantics": "Verified: pop->PC (pusty stos=PC bez zmian); ACC=D",
+      "group": "jump",
+      "variants": [
+        "C0",
+        "C1",
+        "C2",
+        "C3",
+        "C4",
+        "C5",
+        "C6",
+        "C7",
+        "C8",
+        "C9",
+        "CA",
+        "CB",
+        "CC",
+        "CD",
+        "CE",
+        "CF"
+      ],
+      "encoding": "1100 DDDD where DDDD=0-F (data)",
+      "operands": [
+        {
+          "type": "immediate",
+          "name": "D",
+          "range": "0-15 (4-bit)",
+          "position": "lower_nibble"
+        }
+      ]
+    },
+    {
+      "opcode": "D0",
+      "mnemonic": "LDM",
+      "cycles": 1,
+      "words": 1,
+      "semantics": "Verified: ACC=D; CY nietkniete",
+      "group": "load",
+      "variants": [
+        "D0",
+        "D1",
+        "D2",
+        "D3",
+        "D4",
+        "D5",
+        "D6",
+        "D7",
+        "D8",
+        "D9",
+        "DA",
+        "DB",
+        "DC",
+        "DD",
+        "DE",
+        "DF"
+      ],
+      "encoding": "1101 DDDD where DDDD=0-F (data)",
+      "operands": [
+        {
+          "type": "immediate",
+          "name": "D",
+          "range": "0-15 (4-bit)",
+          "position": "lower_nibble"
+        }
+      ]
+    },
+    {
+      "opcode": "E0",
+      "mnemonic": "WRM",
+      "cycles": 1,
+      "words": 1,
+      "semantics": "Verified: Main[bank,uklad,rejestr,znak]=ACC",
+      "group": "io",
+      "variants": null,
+      "encoding": "1110 0000 (fixed opcode E0)",
+      "operands": null
+    },
+    {
+      "opcode": "E1",
+      "mnemonic": "WMP",
+      "cycles": 1,
+      "words": 1,
+      "semantics": "Verified: RamPort[uklad]=ACC",
+      "group": "io",
+      "variants": null,
+      "encoding": "1110 0001 (fixed opcode E1)",
+      "operands": null
+    },
+    {
+      "opcode": "E2",
+      "mnemonic": "WRR",
+      "cycles": 1,
+      "words": 1,
+      "semantics": "Verified: RomPort[even]=ACC",
+      "group": "io",
+      "variants": null,
+      "encoding": "1110 0010 (fixed opcode E2)",
+      "operands": null
+    },
+    {
+      "opcode": "E4",
+      "mnemonic": "WR0",
+      "cycles": 1,
+      "words": 1,
+      "semantics": "Verified: Status[uklad,rejestr,0]=ACC",
+      "group": "io",
+      "variants": null,
+      "encoding": "1110 0100 (fixed opcode E4)",
+      "operands": null
+    },
+    {
+      "opcode": "E5",
+      "mnemonic": "WR1",
+      "cycles": 1,
+      "words": 1,
+      "semantics": "Verified: Status[uklad,rejestr,1]=ACC",
+      "group": "io",
+      "variants": null,
+      "encoding": "1110 0101 (fixed opcode E5)",
+      "operands": null
+    },
+    {
+      "opcode": "E6",
+      "mnemonic": "WR2",
+      "cycles": 1,
+      "words": 1,
+      "semantics": "Verified: Status[uklad,rejestr,2]=ACC",
+      "group": "io",
+      "variants": null,
+      "encoding": "1110 0110 (fixed opcode E6)",
+      "operands": null
+    },
+    {
+      "opcode": "E7",
+      "mnemonic": "WR3",
+      "cycles": 1,
+      "words": 1,
+      "semantics": "Verified: Status[uklad,rejestr,3]=ACC",
+      "group": "io",
+      "variants": null,
+      "encoding": "1110 0111 (fixed opcode E7)",
+      "operands": null
+    },
+    {
+      "opcode": "E8",
+      "mnemonic": "SBM",
+      "cycles": 1,
+      "words": 1,
+      "semantics": "Verified: ACC=(M)-ACC-(CY?0:1); CY=1 gdy brak pozyczki",
+      "group": "io",
+      "variants": null,
+      "encoding": "1110 1000 (fixed opcode E8)",
+      "operands": null
+    },
+    {
+      "opcode": "E9",
+      "mnemonic": "RDM",
+      "cycles": 1,
+      "words": 1,
+      "semantics": "Verified: ACC=(M)",
+      "group": "io",
+      "variants": null,
+      "encoding": "1110 1001 (fixed opcode E9)",
+      "operands": null
+    },
+    {
+      "opcode": "EA",
+      "mnemonic": "RDR",
+      "cycles": 1,
+      "words": 1,
+      "semantics": "Verified: ACC=RomPort[even]",
+      "group": "io",
+      "variants": null,
+      "encoding": "1110 1010 (fixed opcode EA)",
+      "operands": null
+    },
+    {
+      "opcode": "EB",
+      "mnemonic": "ADM",
+      "cycles": 1,
+      "words": 1,
+      "semantics": "Verified: ACC+=(M)+CY; CY=przeniesienie",
+      "group": "io",
+      "variants": null,
+      "encoding": "1110 1011 (fixed opcode EB)",
+      "operands": null
+    },
+    {
+      "opcode": "EC",
+      "mnemonic": "RD0",
+      "cycles": 1,
+      "words": 1,
+      "semantics": "Verified: ACC=Status[uklad,rejestr,0]",
+      "group": "io",
+      "variants": null,
+      "encoding": "1110 1100 (fixed opcode EC)",
+      "operands": null
+    },
+    {
+      "opcode": "ED",
+      "mnemonic": "RD1",
+      "cycles": 1,
+      "words": 1,
+      "semantics": "Verified: ACC=Status[uklad,rejestr,1]",
+      "group": "io",
+      "variants": null,
+      "encoding": "1110 1101 (fixed opcode ED)",
+      "operands": null
+    },
+    {
+      "opcode": "EE",
+      "mnemonic": "RD2",
+      "cycles": 1,
+      "words": 1,
+      "semantics": "Verified: ACC=Status[uklad,rejestr,2]",
+      "group": "io",
+      "variants": null,
+      "encoding": "1110 1110 (fixed opcode EE)",
+      "operands": null
+    },
+    {
+      "opcode": "EF",
+      "mnemonic": "RD3",
+      "cycles": 1,
+      "words": 1,
+      "semantics": "Verified: ACC=Status[uklad,rejestr,3]",
+      "group": "io",
+      "variants": null,
+      "encoding": "1110 1111 (fixed opcode EF)",
+      "operands": null
+    },
+    {
+      "opcode": "F0",
+      "mnemonic": "CLB",
+      "cycles": 1,
+      "words": 1,
+      "semantics": "Verified: ACC=0; CY=0",
+      "group": "accumulator",
+      "variants": null,
+      "encoding": "1111 0000 (fixed opcode F0)",
+      "operands": null
+    },
+    {
+      "opcode": "F1",
+      "mnemonic": "CLC",
+      "cycles": 1,
+      "words": 1,
+      "semantics": "Verified: CY=0",
+      "group": "accumulator",
+      "variants": null,
+      "encoding": "1111 0001 (fixed opcode F1)",
+      "operands": null
+    },
+    {
+      "opcode": "F2",
+      "mnemonic": "IAC",
+      "cycles": 1,
+      "words": 1,
+      "semantics": "Verified: ACC=(ACC+1)&F; CY=1 gdy byl F",
+      "group": "accumulator",
+      "variants": null,
+      "encoding": "1111 0010 (fixed opcode F2)",
+      "operands": null
+    },
+    {
+      "opcode": "F3",
+      "mnemonic": "CMC",
+      "cycles": 1,
+      "words": 1,
+      "semantics": "Verified: CY=~CY",
+      "group": "accumulator",
+      "variants": null,
+      "encoding": "1111 0011 (fixed opcode F3)",
+      "operands": null
+    },
+    {
+      "opcode": "F4",
+      "mnemonic": "CMA",
+      "cycles": 1,
+      "words": 1,
+      "semantics": "Verified: ACC=~ACC",
+      "group": "accumulator",
+      "variants": null,
+      "encoding": "1111 0100 (fixed opcode F4)",
+      "operands": null
+    },
+    {
+      "opcode": "F5",
+      "mnemonic": "RAL",
+      "cycles": 1,
+      "words": 1,
+      "semantics": "Verified: ACC=(ACC<<1)|CY; CY=stary ACC[3]",
+      "group": "accumulator",
+      "variants": null,
+      "encoding": "1111 0101 (fixed opcode F5)",
+      "operands": null
+    },
+    {
+      "opcode": "F6",
+      "mnemonic": "RAR",
+      "cycles": 1,
+      "words": 1,
+      "semantics": "Verified: ACC=(ACC>>1)|(CY<<3); CY=stary ACC[0]",
+      "group": "accumulator",
+      "variants": null,
+      "encoding": "1111 0110 (fixed opcode F6)",
+      "operands": null
+    },
+    {
+      "opcode": "F7",
+      "mnemonic": "TCC",
+      "cycles": 1,
+      "words": 1,
+      "semantics": "Verified: ACC=CY; CY=0",
+      "group": "accumulator",
+      "variants": null,
+      "encoding": "1111 0111 (fixed opcode F7)",
+      "operands": null
+    },
+    {
+      "opcode": "F8",
+      "mnemonic": "DAC",
+      "cycles": 1,
+      "words": 1,
+      "semantics": "Verified: ACC=(ACC-1)&F; CY=0 gdy pozyczka (bylo 0)",
+      "group": "accumulator",
+      "variants": null,
+      "encoding": "1111 1000 (fixed opcode F8)",
+      "operands": null
+    },
+    {
+      "opcode": "F9",
+      "mnemonic": "TCS",
+      "cycles": 1,
+      "words": 1,
+      "semantics": "Verified: ACC=9+CY; CY bez zmian",
+      "group": "accumulator",
+      "variants": null,
+      "encoding": "1111 1001 (fixed opcode F9)",
+      "operands": null
+    },
+    {
+      "opcode": "FA",
+      "mnemonic": "STC",
+      "cycles": 1,
+      "words": 1,
+      "semantics": "Verified: CY=1",
+      "group": "accumulator",
+      "variants": null,
+      "encoding": "1111 1010 (fixed opcode FA)",
+      "operands": null
+    },
+    {
+      "opcode": "FB",
+      "mnemonic": "DAA",
+      "cycles": 1,
+      "words": 1,
+      "semantics": "Verified: gdy ACC>9 lub CY: ACC+=6, CY=1; sens tylko po ADD",
+      "group": "accumulator",
+      "variants": null,
+      "encoding": "1111 1011 (fixed opcode FB)",
+      "operands": null
+    },
+    {
+      "opcode": "FC",
+      "mnemonic": "KBP",
+      "cycles": 1,
+      "words": 1,
+      "semantics": "Verified: 0->0,1->1,2->2,4->3,8->4, reszta->F",
+      "group": "accumulator",
+      "variants": null,
+      "encoding": "1111 1100 (fixed opcode FC)",
+      "operands": null
+    },
+    {
+      "opcode": "FD",
+      "mnemonic": "DCL",
+      "cycles": 1,
+      "words": 1,
+      "semantics": "Verified: CM-RAM=ACC&7 (3 LSB ACC wybierają linię/bank; CY bez zmian); model uproszczony",
+      "group": "accumulator",
+      "variants": null,
+      "encoding": "1111 1101 (fixed opcode FD)",
+      "operands": null
+    },
+    {
+      "opcode": "E3",
+      "mnemonic": "WPM",
+      "cycles": 1,
+      "words": 1,
+      "semantics": "Verified: read-modify-write połówki bajta spod adresu SRC (adresowanie jak RPM, F/L toggle; parowanie połówek i zapis DATA RAM nie modelowane — tylko program-bus; brak modelu 4289). Test: Step_WriteThenReadProgramMemory_RoundTripsBothHalves",
+      "group": "memory",
+      "variants": null,
+      "encoding": "1110 0011 (fixed opcode E3)",
+      "operands": null
+    },
+    {
+      "opcode": "FE",
+      "mnemonic": "UNDEFINED",
+      "cycles": 1,
+      "words": 1,
+      "semantics": "Verified: niezdefiniowany; quirk TreatUndefinedAsNop=true->NOP, false->InvalidOperationException",
+      "group": "undefined",
+      "variants": null,
+      "encoding": "1111 1110 (fixed opcode FE)",
+      "operands": null
+    },
+    {
+      "opcode": "FF",
+      "mnemonic": "UNDEFINED",
+      "cycles": 1,
+      "words": 1,
+      "semantics": "Verified: niezdefiniowany; quirk TreatUndefinedAsNop=true->NOP, false->InvalidOperationException",
+      "group": "undefined",
+      "variants": null,
+      "encoding": "1111 1111 (fixed opcode FF)",
+      "operands": null
+    }
+  ]
+}

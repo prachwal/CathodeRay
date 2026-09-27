@@ -1,0 +1,743 @@
+{
+  "processor": "CHIP-8",
+  "format_version": "1.0",
+  "description": "35 standard CHIP-8 opcodes (16-bit). Semantics record VIP (COSMAC) defaults + configurable quirks — not one universal spec. Groups: system, display, timing, logic.",
+  "notes": "Interpreter VM (1970s COSMAC VIP). 16 8-bit registers (V0-VF), 4KB memory, 64x32 pixel display, 16-key keypad, sound/delay timers. Opcode format: XYNN (X=register, Y=register, N=4-bit value). Semantics = VIP/default emulator behavior; each instruction notes its quirk (shift source, VF on logic ops, jump base, I on mem ops, clip vs wrap).",
+  "schema": {
+    "opcode": "hex string (0NNN-FZZZ); 16-bit instruction code with placeholders X/Y/N/Z",
+    "mnemonic": "symbolic name (e.g. CALL, DRAW, LOAD)",
+    "cycles": "integer; execution time (typically 1)",
+    "words": "integer; always 2 (16-bit)",
+    "semantics": "description of behavior; prefix 'Verified:' after test pass (test-driven definition)",
+    "group": "category (system, display, timing, logic, memory, etc)",
+    "encoding": "instruction format pattern (X=register nibble, Y=register nibble, N=4-bit value, NN=byte, NNN=12-bit address)",
+    "operands": "array of operand objects or null if none; each: {type, name, range, position}",
+    "variants": "optional; variant opcodes or parameters (null if none)"
+  },
+  "instructions": [
+    {
+      "opcode": "0NNN",
+      "mnemonic": "SYS",
+      "cycles": 1,
+      "words": 2,
+      "semantics": "Verified: ignorowany (NOP, PC+2); efekt mają tylko 00E0/00EE. Test: Step_SysOpcode_IgnoresAndAdvances",
+      "group": "system",
+      "encoding": "0NNN",
+      "operands": [
+        {
+          "type": "address",
+          "name": "NNN",
+          "range": "0-4095 (12-bit)",
+          "position": "nibbles_2_4"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "00E0",
+      "mnemonic": "CLS",
+      "cycles": 1,
+      "words": 2,
+      "semantics": "Verified: zeruje 2048-bit framebuffer (64x32 = 256 B), PC+2. Test: Step_Cls_ClearsFramebuffer; ROM-y splash/IBM-logo diff=0/2048",
+      "group": "display",
+      "encoding": "00E0",
+      "operands": null,
+      "variants": null
+    },
+    {
+      "opcode": "00EE",
+      "mnemonic": "RET",
+      "cycles": 1,
+      "words": 2,
+      "semantics": "Verified: SP--, PC=stos[SP]. Test: Step_Ret_PopsAndReturns; ROM corax+ diff=0/2048",
+      "group": "jump",
+      "encoding": "00EE",
+      "operands": null,
+      "variants": null
+    },
+    {
+      "opcode": "1NNN",
+      "mnemonic": "JP",
+      "cycles": 1,
+      "words": 2,
+      "semantics": "Verified: PC=NNN. Test: Step_Jp_SetsPc; ROM IBM-logo diff=0/2048",
+      "group": "jump",
+      "encoding": "1NNN",
+      "operands": [
+        {
+          "type": "address",
+          "name": "NNN",
+          "range": "0-4095 (12-bit)",
+          "position": "nibbles_2_4"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "2NNN",
+      "mnemonic": "CALL",
+      "cycles": 1,
+      "words": 2,
+      "semantics": "Verified: stos[SP]=PC, SP++, PC=NNN. Test: Step_Call_PushesReturnAndJumps; ROM corax+ diff=0/2048",
+      "group": "jump",
+      "encoding": "2NNN",
+      "operands": [
+        {
+          "type": "address",
+          "name": "NNN",
+          "range": "0-4095 (12-bit)",
+          "position": "nibbles_2_4"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "3XNN",
+      "mnemonic": "SE",
+      "cycles": 1,
+      "words": 2,
+      "semantics": "Verified: VX==NN to PC+4, inaczej PC+2. Testy Theory Step_SeVx_SkipsOnEquality; ROM corax+ diff=0/2048",
+      "group": "skip",
+      "encoding": "3XNN",
+      "operands": [
+        {
+          "type": "register",
+          "name": "X",
+          "range": "0-15 (V0-VF)",
+          "position": "nibble_2"
+        },
+        {
+          "type": "immediate",
+          "name": "NN",
+          "range": "0-255 (8-bit)",
+          "position": "byte_2"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "4XNN",
+      "mnemonic": "SNE",
+      "cycles": 1,
+      "words": 2,
+      "semantics": "Verified: VX!=NN to PC+4, inaczej PC+2. Testy Theory Step_SneVx_SkipsOnInequality; ROM corax+ diff=0/2048",
+      "group": "skip",
+      "encoding": "4XNN",
+      "operands": [
+        {
+          "type": "register",
+          "name": "X",
+          "range": "0-15 (V0-VF)",
+          "position": "nibble_2"
+        },
+        {
+          "type": "immediate",
+          "name": "NN",
+          "range": "0-255 (8-bit)",
+          "position": "byte_2"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "5XY0",
+      "mnemonic": "SE",
+      "cycles": 1,
+      "words": 2,
+      "semantics": "Verified: VX==VY to PC+4 (dolny nibble nie sprawdzany — tolerancja interpretera; klasycznie N=0). Testy Theory Step_SeVxVy_SkipsOnEquality; ROM corax+ diff=0/2048",
+      "group": "skip",
+      "encoding": "5XY0",
+      "operands": [
+        {
+          "type": "register",
+          "name": "X",
+          "range": "0-15 (V0-VF)",
+          "position": "nibble_2"
+        },
+        {
+          "type": "register",
+          "name": "Y",
+          "range": "0-15 (V0-VF)",
+          "position": "nibble_3"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "6XNN",
+      "mnemonic": "LD",
+      "cycles": 1,
+      "words": 2,
+      "semantics": "Verified: VX=NN. Test: Step_LdVx_SetsRegister; ROM splash diff=0/2048",
+      "group": "load",
+      "encoding": "6XNN",
+      "operands": [
+        {
+          "type": "register",
+          "name": "X",
+          "range": "0-15 (V0-VF)",
+          "position": "nibble_2"
+        },
+        {
+          "type": "immediate",
+          "name": "NN",
+          "range": "0-255 (8-bit)",
+          "position": "byte_2"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "7XNN",
+      "mnemonic": "ADD",
+      "cycles": 1,
+      "words": 2,
+      "semantics": "Verified: VX+=NN modulo 256, VF nietknięte. Test: Step_AddVx_PreservesFlag; ROM flags diff=0/2048",
+      "group": "arithmetic",
+      "encoding": "7XNN",
+      "operands": [
+        {
+          "type": "register",
+          "name": "X",
+          "range": "0-15 (V0-VF)",
+          "position": "nibble_2"
+        },
+        {
+          "type": "immediate",
+          "name": "NN",
+          "range": "0-255 (8-bit)",
+          "position": "byte_2"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "8XY0",
+      "mnemonic": "LD",
+      "cycles": 1,
+      "words": 2,
+      "semantics": "Verified: VX=VY, VF nietknięte. Test Theory Step_Alu_ComputesResultAndFlag (0x8010); ROM corax+ diff=0/2048",
+      "group": "load",
+      "encoding": "8XY0",
+      "operands": [
+        {
+          "type": "register",
+          "name": "X",
+          "range": "0-15 (V0-VF)",
+          "position": "nibble_2"
+        },
+        {
+          "type": "register",
+          "name": "Y",
+          "range": "0-15 (V0-VF)",
+          "position": "nibble_3"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "8XY1",
+      "mnemonic": "OR",
+      "cycles": 1,
+      "words": 2,
+      "semantics": "Verified: VX|=VY; VF=0 przy LogicResetsFlag (domyślnie VIP). Testy: Theory Step_Alu + Step_LogicOp_ResetsFlagByDefault/PreservesFlagWhenQuirkOff; ROM flags diff=0/2048",
+      "group": "arithmetic",
+      "encoding": "8XY1",
+      "operands": [
+        {
+          "type": "register",
+          "name": "X",
+          "range": "0-15 (V0-VF)",
+          "position": "nibble_2"
+        },
+        {
+          "type": "register",
+          "name": "Y",
+          "range": "0-15 (V0-VF)",
+          "position": "nibble_3"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "8XY2",
+      "mnemonic": "AND",
+      "cycles": 1,
+      "words": 2,
+      "semantics": "Verified: VX&=VY; VF=0 przy LogicResetsFlag (domyślnie VIP). Testy: Theory Step_Alu + Step_LogicOp_*; ROM flags diff=0/2048",
+      "group": "arithmetic",
+      "encoding": "8XY2",
+      "operands": [
+        {
+          "type": "register",
+          "name": "X",
+          "range": "0-15 (V0-VF)",
+          "position": "nibble_2"
+        },
+        {
+          "type": "register",
+          "name": "Y",
+          "range": "0-15 (V0-VF)",
+          "position": "nibble_3"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "8XY3",
+      "mnemonic": "XOR",
+      "cycles": 1,
+      "words": 2,
+      "semantics": "Verified: VX^=VY; VF=0 przy LogicResetsFlag (domyślnie VIP). Testy: Theory Step_Alu + Step_LogicOp_*; ROM flags diff=0/2048",
+      "group": "arithmetic",
+      "encoding": "8XY3",
+      "operands": [
+        {
+          "type": "register",
+          "name": "X",
+          "range": "0-15 (V0-VF)",
+          "position": "nibble_2"
+        },
+        {
+          "type": "register",
+          "name": "Y",
+          "range": "0-15 (V0-VF)",
+          "position": "nibble_3"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "8XY4",
+      "mnemonic": "ADD",
+      "cycles": 1,
+      "words": 2,
+      "semantics": "Verified: VX+=VY modulo 256, VF=przeniesienie (suma>0xFF). Testy Theory Step_Alu (0x8014); ROM flags diff=0/2048",
+      "group": "arithmetic",
+      "encoding": "8XY4",
+      "operands": [
+        {
+          "type": "register",
+          "name": "X",
+          "range": "0-15 (V0-VF)",
+          "position": "nibble_2"
+        },
+        {
+          "type": "register",
+          "name": "Y",
+          "range": "0-15 (V0-VF)",
+          "position": "nibble_3"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "8XY5",
+      "mnemonic": "SUB",
+      "cycles": 1,
+      "words": 2,
+      "semantics": "Verified: VX-=VY modulo 256, VF=(VX>=VY, brak pożyczki). Testy Theory Step_Alu (0x8015); ROM flags diff=0/2048",
+      "group": "arithmetic",
+      "encoding": "8XY5",
+      "operands": [
+        {
+          "type": "register",
+          "name": "X",
+          "range": "0-15 (V0-VF)",
+          "position": "nibble_2"
+        },
+        {
+          "type": "register",
+          "name": "Y",
+          "range": "0-15 (V0-VF)",
+          "position": "nibble_3"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "8XY6",
+      "mnemonic": "SHR",
+      "cycles": 1,
+      "words": 2,
+      "semantics": "Verified: źródło VY (VIP; quirk ShiftFromSource=false bierze VX), VX=źródło>>1, VF=LSB źródła. Testy: Step_ShiftRightVip_ShiftsSourceIntoTarget, Step_ShiftQuirk_ShiftsTargetItself, Step_ShiftFlagRegister_FlagWinsOverResult; ROM quirks diff=0/2048",
+      "group": "arithmetic",
+      "encoding": "8XY6",
+      "operands": [
+        {
+          "type": "register",
+          "name": "X",
+          "range": "0-15 (V0-VF)",
+          "position": "nibble_2"
+        },
+        {
+          "type": "register",
+          "name": "Y",
+          "range": "0-15 (V0-VF)",
+          "position": "nibble_3"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "8XY7",
+      "mnemonic": "SUBN",
+      "cycles": 1,
+      "words": 2,
+      "semantics": "Verified: VX=VY-VX modulo 256, VF=(VY>=VX, brak pożyczki). Testy Theory Step_Alu (0x8017); ROM corax+ diff=0/2048",
+      "group": "arithmetic",
+      "encoding": "8XY7",
+      "operands": [
+        {
+          "type": "register",
+          "name": "X",
+          "range": "0-15 (V0-VF)",
+          "position": "nibble_2"
+        },
+        {
+          "type": "register",
+          "name": "Y",
+          "range": "0-15 (V0-VF)",
+          "position": "nibble_3"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "8XYE",
+      "mnemonic": "SHL",
+      "cycles": 1,
+      "words": 2,
+      "semantics": "Verified: źródło VY (VIP; quirk ShiftFromSource=false bierze VX), VX=źródło<<1, VF=MSB źródła. Testy: Step_ShiftLeftVip_ShiftsSourceIntoTarget, Step_ShiftQuirk_ShiftsTargetItself; ROM quirks diff=0/2048",
+      "group": "arithmetic",
+      "encoding": "8XYE",
+      "operands": [
+        {
+          "type": "register",
+          "name": "X",
+          "range": "0-15 (V0-VF)",
+          "position": "nibble_2"
+        },
+        {
+          "type": "register",
+          "name": "Y",
+          "range": "0-15 (V0-VF)",
+          "position": "nibble_3"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "9XY0",
+      "mnemonic": "SNE",
+      "cycles": 1,
+      "words": 2,
+      "semantics": "Verified: VX!=VY to PC+4 (dolny nibble nie sprawdzany — tolerancja interpretera; klasycznie N=0). Testy Theory Step_SneVxVy_SkipsOnInequality; ROM corax+ diff=0/2048",
+      "group": "skip",
+      "encoding": "9XY0",
+      "operands": [
+        {
+          "type": "register",
+          "name": "X",
+          "range": "0-15 (V0-VF)",
+          "position": "nibble_2"
+        },
+        {
+          "type": "register",
+          "name": "Y",
+          "range": "0-15 (V0-VF)",
+          "position": "nibble_3"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "ANNN",
+      "mnemonic": "LD",
+      "cycles": 1,
+      "words": 2,
+      "semantics": "Verified: I=NNN. Test: Step_LdI_SetsIndex; ROM splash diff=0/2048",
+      "group": "load",
+      "encoding": "ANNN",
+      "operands": [
+        {
+          "type": "address",
+          "name": "NNN",
+          "range": "0-4095 (12-bit)",
+          "position": "nibbles_2_4"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "BNNN",
+      "mnemonic": "JP",
+      "cycles": 1,
+      "words": 2,
+      "semantics": "Verified: PC=NNN+V0 (VIP; quirk JumpFromV0=false: NNN+VX). Testy: Step_JumpOffsetVip_AddsV0, Step_JumpQuirk_AddsIndexedRegister; ROM quirks diff=0/2048",
+      "group": "jump",
+      "encoding": "BNNN",
+      "operands": [
+        {
+          "type": "address",
+          "name": "NNN",
+          "range": "0-4095 (12-bit)",
+          "position": "nibbles_2_4"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "CXNN",
+      "mnemonic": "RND",
+      "cycles": 1,
+      "words": 2,
+      "semantics": "Verified: VX=losowy_bajt&NN (testy wstrzykują stałą). Test: Step_Rnd_MasksRandomByte",
+      "group": "random",
+      "encoding": "CXNN",
+      "operands": [
+        {
+          "type": "register",
+          "name": "X",
+          "range": "0-15 (V0-VF)",
+          "position": "nibble_2"
+        },
+        {
+          "type": "immediate",
+          "name": "NN",
+          "range": "0-255 (8-bit)",
+          "position": "byte_2"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "DXYN",
+      "mnemonic": "DRW",
+      "cycles": 1,
+      "words": 2,
+      "semantics": "Verified: początek (VX%64, VY%32), N wierszy sprite'a od I, XOR; pixele za ekranem ucięte (quirk: clip; alternatywa wrap-around); VF=kolizja; stall do vblank (1 sprite/klatkę). Testy: Step_Draw_* (6 testów); ROM-y splash/IBM-logo/chip8-logo diff=0/2048",
+      "group": "display",
+      "encoding": "DXYN",
+      "operands": [
+        {
+          "type": "register",
+          "name": "X",
+          "range": "0-15 (V0-VF)",
+          "position": "nibble_2"
+        },
+        {
+          "type": "register",
+          "name": "Y",
+          "range": "0-15 (V0-VF)",
+          "position": "nibble_3"
+        },
+        {
+          "type": "immediate",
+          "name": "N",
+          "range": "0-15 (4-bit height)",
+          "position": "nibble_4"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "EX9E",
+      "mnemonic": "SKP",
+      "cycles": 1,
+      "words": 2,
+      "semantics": "Verified: klawisz (VX&0x0F) wciśnięty to PC+4. Test: Step_KeySkip_SkipsOnKeyState; ROM keypad-DOWN diff=0/2048",
+      "group": "input",
+      "encoding": "EX9E",
+      "operands": [
+        {
+          "type": "register",
+          "name": "X",
+          "range": "0-15 (V0-VF)",
+          "position": "nibble_2"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "EXA1",
+      "mnemonic": "SKNP",
+      "cycles": 1,
+      "words": 2,
+      "semantics": "Verified: klawisz (VX&0x0F) niewciśnięty to PC+4. Test: Step_KeySkip_SkipsOnKeyState; ROM keypad-UP diff=0/2048",
+      "group": "input",
+      "encoding": "EXA1",
+      "operands": [
+        {
+          "type": "register",
+          "name": "X",
+          "range": "0-15 (V0-VF)",
+          "position": "nibble_2"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "FX07",
+      "mnemonic": "LD",
+      "cycles": 1,
+      "words": 2,
+      "semantics": "Verified: VX=DT. Test: Step_LdVxDt_ReadsDelayTimer; ROM quirks diff=0/2048",
+      "group": "timer",
+      "encoding": "FX07",
+      "operands": [
+        {
+          "type": "register",
+          "name": "X",
+          "range": "0-15 (V0-VF)",
+          "position": "nibble_2"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "FX0A",
+      "mnemonic": "LD",
+      "cycles": 1,
+      "words": 2,
+      "semantics": "Verified: blokuje CPU (PC stoi, krok=0); latch najniższego wciśniętego klawisza, VX=latch dopiero po zwolnieniu wszystkich. Testy: Step_WaitForKey_LatchesPressAndResumesOnRelease/StallsWithoutKey; ROM keypad-GETKEY diff=0/2048",
+      "group": "input",
+      "encoding": "FX0A",
+      "operands": [
+        {
+          "type": "register",
+          "name": "X",
+          "range": "0-15 (V0-VF)",
+          "position": "nibble_2"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "FX15",
+      "mnemonic": "LD",
+      "cycles": 1,
+      "words": 2,
+      "semantics": "Verified: DT=VX. Test: Step_LdDtVx_WritesDelayTimer; ROM beep diff=0/2048",
+      "group": "timer",
+      "encoding": "FX15",
+      "operands": [
+        {
+          "type": "register",
+          "name": "X",
+          "range": "0-15 (V0-VF)",
+          "position": "nibble_2"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "FX18",
+      "mnemonic": "LD",
+      "cycles": 1,
+      "words": 2,
+      "semantics": "Verified: ST=VX. Test: Step_LdStVx_WritesSoundTimer; ROM beep diff=0/2048",
+      "group": "timer",
+      "encoding": "FX18",
+      "operands": [
+        {
+          "type": "register",
+          "name": "X",
+          "range": "0-15 (V0-VF)",
+          "position": "nibble_2"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "FX1E",
+      "mnemonic": "ADD",
+      "cycles": 1,
+      "words": 2,
+      "semantics": "Verified: I+=VX, VF nietknięte (brak flagi przepełnienia). Test: Step_AddIVx_PreservesFlag",
+      "group": "memory",
+      "encoding": "FX1E",
+      "operands": [
+        {
+          "type": "register",
+          "name": "X",
+          "range": "0-15 (V0-VF)",
+          "position": "nibble_2"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "FX29",
+      "mnemonic": "LD",
+      "cycles": 1,
+      "words": 2,
+      "semantics": "Verified: I=FontBase+(VX&0x0F)*5 (sprite cyfry). Test: Step_LdFVx_PointsAtDigitSprite; ROM splash diff=0/2048",
+      "group": "memory",
+      "encoding": "FX29",
+      "operands": [
+        {
+          "type": "register",
+          "name": "X",
+          "range": "0-15 (V0-VF)",
+          "position": "nibble_2"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "FX33",
+      "mnemonic": "LD",
+      "cycles": 1,
+      "words": 2,
+      "semantics": "Verified: BCD z VX: [I]=setki, [I+1]=dziesiątki, [I+2]=jedności. Test: Step_LdBVx_StoresBcd; ROM corax+ diff=0/2048",
+      "group": "memory",
+      "encoding": "FX33",
+      "operands": [
+        {
+          "type": "register",
+          "name": "X",
+          "range": "0-15 (V0-VF)",
+          "position": "nibble_2"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "FX55",
+      "mnemonic": "LD",
+      "cycles": 1,
+      "words": 2,
+      "semantics": "Verified: zapis V0..VX od I; I+=X+1 przy MemoryStepsIndex (domyślnie VIP). Testy: Step_StoreRegistersVip_*, Step_MemoryQuirk_LeavesIndexUntouched; ROM corax+/quirks diff=0/2048",
+      "group": "memory",
+      "encoding": "FX55",
+      "operands": [
+        {
+          "type": "register",
+          "name": "X",
+          "range": "0-15 (V0-VF)",
+          "position": "nibble_2"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "FX65",
+      "mnemonic": "LD",
+      "cycles": 1,
+      "words": 2,
+      "semantics": "Verified: odczyt V0..VX od I; I+=X+1 przy MemoryStepsIndex (domyślnie VIP). Testy: Step_LoadRegistersVip_*, Step_MemoryQuirk_*; ROM corax+/quirks diff=0/2048",
+      "group": "memory",
+      "encoding": "FX65",
+      "operands": [
+        {
+          "type": "register",
+          "name": "X",
+          "range": "0-15 (V0-VF)",
+          "position": "nibble_2"
+        }
+      ],
+      "variants": null
+    }
+  ]
+}

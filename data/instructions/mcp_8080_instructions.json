@@ -1,0 +1,4239 @@
+{
+  "processor": "8080",
+  "format_version": "1.0",
+  "description": "Intel 8080 — pełna mapa ISA (256 opcodów; nieudokumentowane też zdefiniowane)",
+  "notes": "Wygenerowane z cpu-vibe-008/docs/8080/opcodes.md (Intel 8080 Complete Opcode Reference) + Intel manual cycles. Rejestry: B=0..A=7; M=[HL]. Dla Ccc/Rcc cykle bazowe (11/5), wzięte w semantics.",
+  "instructions": [
+    {
+      "opcode": "00",
+      "mnemonic": "NOP",
+      "cycles": 4,
+      "words": 1,
+      "semantics": "brak operacji",
+      "group": "basic",
+      "encoding": "00",
+      "operands": null,
+      "variants": null
+    },
+    {
+      "opcode": "01",
+      "mnemonic": "LXI B,d16",
+      "cycles": 10,
+      "words": 3,
+      "semantics": "BC=d16",
+      "group": "load",
+      "encoding": "01 d16 (LE)",
+      "operands": [
+        {
+          "name": "B",
+          "type": "register pair"
+        },
+        {
+          "name": "d16",
+          "type": "immediate16"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "02",
+      "mnemonic": "STAX B",
+      "cycles": 7,
+      "words": 1,
+      "semantics": "[BC]=A",
+      "group": "load",
+      "encoding": "02",
+      "operands": [
+        {
+          "name": "B",
+          "type": "register"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "03",
+      "mnemonic": "INX B",
+      "cycles": 5,
+      "words": 1,
+      "semantics": "BC=BC+1",
+      "group": "arithmetic",
+      "encoding": "03",
+      "operands": [
+        {
+          "name": "B",
+          "type": "register pair"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "04",
+      "mnemonic": "INR B",
+      "cycles": 5,
+      "words": 1,
+      "semantics": "B=B+1",
+      "group": "arithmetic",
+      "encoding": "04",
+      "operands": [
+        {
+          "name": "B",
+          "type": "register"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "05",
+      "mnemonic": "DCR B",
+      "cycles": 5,
+      "words": 1,
+      "semantics": "B=B-1",
+      "group": "arithmetic",
+      "encoding": "05",
+      "operands": [
+        {
+          "name": "B",
+          "type": "register"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "06",
+      "mnemonic": "MVI B,d8",
+      "cycles": 7,
+      "words": 2,
+      "semantics": "B=d8",
+      "group": "load",
+      "encoding": "06 d8",
+      "operands": [
+        {
+          "name": "B",
+          "type": "register"
+        },
+        {
+          "name": "d8",
+          "type": "immediate8"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "07",
+      "mnemonic": "RLC",
+      "cycles": 4,
+      "words": 1,
+      "semantics": "A=rotacja lewo; CY=stary bit7, bit0=stary bit7",
+      "group": "accumulator",
+      "encoding": "07",
+      "operands": null,
+      "variants": null
+    },
+    {
+      "opcode": "08",
+      "mnemonic": "NOP",
+      "cycles": 4,
+      "words": 1,
+      "semantics": "NOP (nieudokumentowany)",
+      "group": "basic",
+      "encoding": "08",
+      "operands": null,
+      "variants": null
+    },
+    {
+      "opcode": "09",
+      "mnemonic": "DAD B",
+      "cycles": 10,
+      "words": 1,
+      "semantics": "HL=HL+BC; tylko CY",
+      "group": "arithmetic",
+      "encoding": "09",
+      "operands": [
+        {
+          "name": "B",
+          "type": "register pair"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "0A",
+      "mnemonic": "LDAX B",
+      "cycles": 7,
+      "words": 1,
+      "semantics": "A=[BC]",
+      "group": "load",
+      "encoding": "0A",
+      "operands": [
+        {
+          "name": "B",
+          "type": "register"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "0B",
+      "mnemonic": "DCX B",
+      "cycles": 5,
+      "words": 1,
+      "semantics": "BC=BC-1",
+      "group": "arithmetic",
+      "encoding": "0B",
+      "operands": [
+        {
+          "name": "B",
+          "type": "register pair"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "0C",
+      "mnemonic": "INR C",
+      "cycles": 5,
+      "words": 1,
+      "semantics": "C=C+1",
+      "group": "arithmetic",
+      "encoding": "0C",
+      "operands": [
+        {
+          "name": "C",
+          "type": "register"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "0D",
+      "mnemonic": "DCR C",
+      "cycles": 5,
+      "words": 1,
+      "semantics": "C=C-1",
+      "group": "arithmetic",
+      "encoding": "0D",
+      "operands": [
+        {
+          "name": "C",
+          "type": "register"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "0E",
+      "mnemonic": "MVI C,d8",
+      "cycles": 7,
+      "words": 2,
+      "semantics": "C=d8",
+      "group": "load",
+      "encoding": "0E d8",
+      "operands": [
+        {
+          "name": "C",
+          "type": "register"
+        },
+        {
+          "name": "d8",
+          "type": "immediate8"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "0F",
+      "mnemonic": "RRC",
+      "cycles": 4,
+      "words": 1,
+      "semantics": "A=rotacja prawo; CY=stary bit0, bit7=stary bit0",
+      "group": "accumulator",
+      "encoding": "0F",
+      "operands": null,
+      "variants": null
+    },
+    {
+      "opcode": "10",
+      "mnemonic": "NOP",
+      "cycles": 4,
+      "words": 1,
+      "semantics": "NOP (nieudokumentowany)",
+      "group": "basic",
+      "encoding": "10",
+      "operands": null,
+      "variants": null
+    },
+    {
+      "opcode": "11",
+      "mnemonic": "LXI D,d16",
+      "cycles": 10,
+      "words": 3,
+      "semantics": "DE=d16",
+      "group": "load",
+      "encoding": "11 d16 (LE)",
+      "operands": [
+        {
+          "name": "D",
+          "type": "register pair"
+        },
+        {
+          "name": "d16",
+          "type": "immediate16"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "12",
+      "mnemonic": "STAX D",
+      "cycles": 7,
+      "words": 1,
+      "semantics": "[DE]=A",
+      "group": "load",
+      "encoding": "12",
+      "operands": [
+        {
+          "name": "D",
+          "type": "register"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "13",
+      "mnemonic": "INX D",
+      "cycles": 5,
+      "words": 1,
+      "semantics": "DE=DE+1",
+      "group": "arithmetic",
+      "encoding": "13",
+      "operands": [
+        {
+          "name": "D",
+          "type": "register pair"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "14",
+      "mnemonic": "INR D",
+      "cycles": 5,
+      "words": 1,
+      "semantics": "D=D+1",
+      "group": "arithmetic",
+      "encoding": "14",
+      "operands": [
+        {
+          "name": "D",
+          "type": "register"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "15",
+      "mnemonic": "DCR D",
+      "cycles": 5,
+      "words": 1,
+      "semantics": "D=D-1",
+      "group": "arithmetic",
+      "encoding": "15",
+      "operands": [
+        {
+          "name": "D",
+          "type": "register"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "16",
+      "mnemonic": "MVI D,d8",
+      "cycles": 7,
+      "words": 2,
+      "semantics": "D=d8",
+      "group": "load",
+      "encoding": "16 d8",
+      "operands": [
+        {
+          "name": "D",
+          "type": "register"
+        },
+        {
+          "name": "d8",
+          "type": "immediate8"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "17",
+      "mnemonic": "RAL",
+      "cycles": 4,
+      "words": 1,
+      "semantics": "A=rotacja lewo przez CY; bit0=stary CY, CY=stary bit7",
+      "group": "accumulator",
+      "encoding": "17",
+      "operands": null,
+      "variants": null
+    },
+    {
+      "opcode": "18",
+      "mnemonic": "NOP",
+      "cycles": 4,
+      "words": 1,
+      "semantics": "NOP (nieudokumentowany)",
+      "group": "basic",
+      "encoding": "18",
+      "operands": null,
+      "variants": null
+    },
+    {
+      "opcode": "19",
+      "mnemonic": "DAD D",
+      "cycles": 10,
+      "words": 1,
+      "semantics": "HL=HL+DE; tylko CY",
+      "group": "arithmetic",
+      "encoding": "19",
+      "operands": [
+        {
+          "name": "D",
+          "type": "register pair"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "1A",
+      "mnemonic": "LDAX D",
+      "cycles": 7,
+      "words": 1,
+      "semantics": "A=[DE]",
+      "group": "load",
+      "encoding": "1A",
+      "operands": [
+        {
+          "name": "D",
+          "type": "register"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "1B",
+      "mnemonic": "DCX D",
+      "cycles": 5,
+      "words": 1,
+      "semantics": "DE=DE-1",
+      "group": "arithmetic",
+      "encoding": "1B",
+      "operands": [
+        {
+          "name": "D",
+          "type": "register pair"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "1C",
+      "mnemonic": "INR E",
+      "cycles": 5,
+      "words": 1,
+      "semantics": "E=E+1",
+      "group": "arithmetic",
+      "encoding": "1C",
+      "operands": [
+        {
+          "name": "E",
+          "type": "register"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "1D",
+      "mnemonic": "DCR E",
+      "cycles": 5,
+      "words": 1,
+      "semantics": "E=E-1",
+      "group": "arithmetic",
+      "encoding": "1D",
+      "operands": [
+        {
+          "name": "E",
+          "type": "register"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "1E",
+      "mnemonic": "MVI E,d8",
+      "cycles": 7,
+      "words": 2,
+      "semantics": "E=d8",
+      "group": "load",
+      "encoding": "1E d8",
+      "operands": [
+        {
+          "name": "E",
+          "type": "register"
+        },
+        {
+          "name": "d8",
+          "type": "immediate8"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "1F",
+      "mnemonic": "RAR",
+      "cycles": 4,
+      "words": 1,
+      "semantics": "A=rotacja prawo przez CY; bit7=stary CY, CY=stary bit0",
+      "group": "accumulator",
+      "encoding": "1F",
+      "operands": null,
+      "variants": null
+    },
+    {
+      "opcode": "20",
+      "mnemonic": "NOP",
+      "cycles": 4,
+      "words": 1,
+      "semantics": "NOP (nieudokumentowany)",
+      "group": "basic",
+      "encoding": "20",
+      "operands": null,
+      "variants": null
+    },
+    {
+      "opcode": "21",
+      "mnemonic": "LXI H,d16",
+      "cycles": 10,
+      "words": 3,
+      "semantics": "HL=d16",
+      "group": "load",
+      "encoding": "21 d16 (LE)",
+      "operands": [
+        {
+          "name": "H",
+          "type": "register pair"
+        },
+        {
+          "name": "d16",
+          "type": "immediate16"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "22",
+      "mnemonic": "SHLD a16",
+      "cycles": 16,
+      "words": 3,
+      "semantics": "[a16]=L,[a16+1]=H",
+      "group": "load",
+      "encoding": "22 d16 (LE)",
+      "operands": [
+        {
+          "name": "a16",
+          "type": "address16"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "23",
+      "mnemonic": "INX H",
+      "cycles": 5,
+      "words": 1,
+      "semantics": "HL=HL+1",
+      "group": "arithmetic",
+      "encoding": "23",
+      "operands": [
+        {
+          "name": "H",
+          "type": "register pair"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "24",
+      "mnemonic": "INR H",
+      "cycles": 5,
+      "words": 1,
+      "semantics": "H=H+1",
+      "group": "arithmetic",
+      "encoding": "24",
+      "operands": [
+        {
+          "name": "H",
+          "type": "register"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "25",
+      "mnemonic": "DCR H",
+      "cycles": 5,
+      "words": 1,
+      "semantics": "H=H-1",
+      "group": "arithmetic",
+      "encoding": "25",
+      "operands": [
+        {
+          "name": "H",
+          "type": "register"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "26",
+      "mnemonic": "MVI H,d8",
+      "cycles": 7,
+      "words": 2,
+      "semantics": "H=d8",
+      "group": "load",
+      "encoding": "26 d8",
+      "operands": [
+        {
+          "name": "H",
+          "type": "register"
+        },
+        {
+          "name": "d8",
+          "type": "immediate8"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "27",
+      "mnemonic": "DAA",
+      "cycles": 4,
+      "words": 1,
+      "semantics": "korekta dziesiętna A po ADD/ADC",
+      "group": "accumulator",
+      "encoding": "27",
+      "operands": null,
+      "variants": null
+    },
+    {
+      "opcode": "28",
+      "mnemonic": "NOP",
+      "cycles": 4,
+      "words": 1,
+      "semantics": "NOP (nieudokumentowany)",
+      "group": "basic",
+      "encoding": "28",
+      "operands": null,
+      "variants": null
+    },
+    {
+      "opcode": "29",
+      "mnemonic": "DAD H",
+      "cycles": 10,
+      "words": 1,
+      "semantics": "HL=HL+HL; tylko CY",
+      "group": "arithmetic",
+      "encoding": "29",
+      "operands": [
+        {
+          "name": "H",
+          "type": "register pair"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "2A",
+      "mnemonic": "LHLD a16",
+      "cycles": 16,
+      "words": 3,
+      "semantics": "L=[a16],H=[a16+1]",
+      "group": "load",
+      "encoding": "2A d16 (LE)",
+      "operands": [
+        {
+          "name": "a16",
+          "type": "address16"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "2B",
+      "mnemonic": "DCX H",
+      "cycles": 5,
+      "words": 1,
+      "semantics": "HL=HL-1",
+      "group": "arithmetic",
+      "encoding": "2B",
+      "operands": [
+        {
+          "name": "H",
+          "type": "register pair"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "2C",
+      "mnemonic": "INR L",
+      "cycles": 5,
+      "words": 1,
+      "semantics": "L=L+1",
+      "group": "arithmetic",
+      "encoding": "2C",
+      "operands": [
+        {
+          "name": "L",
+          "type": "register"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "2D",
+      "mnemonic": "DCR L",
+      "cycles": 5,
+      "words": 1,
+      "semantics": "L=L-1",
+      "group": "arithmetic",
+      "encoding": "2D",
+      "operands": [
+        {
+          "name": "L",
+          "type": "register"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "2E",
+      "mnemonic": "MVI L,d8",
+      "cycles": 7,
+      "words": 2,
+      "semantics": "L=d8",
+      "group": "load",
+      "encoding": "2E d8",
+      "operands": [
+        {
+          "name": "L",
+          "type": "register"
+        },
+        {
+          "name": "d8",
+          "type": "immediate8"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "2F",
+      "mnemonic": "CMA",
+      "cycles": 4,
+      "words": 1,
+      "semantics": "A=~A (bez flag)",
+      "group": "accumulator",
+      "encoding": "2F",
+      "operands": null,
+      "variants": null
+    },
+    {
+      "opcode": "30",
+      "mnemonic": "NOP",
+      "cycles": 4,
+      "words": 1,
+      "semantics": "NOP (nieudokumentowany)",
+      "group": "basic",
+      "encoding": "30",
+      "operands": null,
+      "variants": null
+    },
+    {
+      "opcode": "31",
+      "mnemonic": "LXI SP,d16",
+      "cycles": 10,
+      "words": 3,
+      "semantics": "SP=d16",
+      "group": "load",
+      "encoding": "31 d16 (LE)",
+      "operands": [
+        {
+          "name": "SP",
+          "type": "register pair"
+        },
+        {
+          "name": "d16",
+          "type": "immediate16"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "32",
+      "mnemonic": "STA a16",
+      "cycles": 13,
+      "words": 3,
+      "semantics": "[a16]=A",
+      "group": "load",
+      "encoding": "32 d16 (LE)",
+      "operands": [
+        {
+          "name": "a16",
+          "type": "address16"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "33",
+      "mnemonic": "INX SP",
+      "cycles": 5,
+      "words": 1,
+      "semantics": "SP=SP+1",
+      "group": "arithmetic",
+      "encoding": "33",
+      "operands": [
+        {
+          "name": "SP",
+          "type": "register pair"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "34",
+      "mnemonic": "INR M",
+      "cycles": 10,
+      "words": 1,
+      "semantics": "M=M+1",
+      "group": "arithmetic",
+      "encoding": "34",
+      "operands": [
+        {
+          "name": "M",
+          "type": "memory"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "35",
+      "mnemonic": "DCR M",
+      "cycles": 10,
+      "words": 1,
+      "semantics": "M=M-1",
+      "group": "arithmetic",
+      "encoding": "35",
+      "operands": [
+        {
+          "name": "M",
+          "type": "memory"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "36",
+      "mnemonic": "MVI M,d8",
+      "cycles": 10,
+      "words": 2,
+      "semantics": "M=d8",
+      "group": "load",
+      "encoding": "36 d8",
+      "operands": [
+        {
+          "name": "M",
+          "type": "memory"
+        },
+        {
+          "name": "d8",
+          "type": "immediate8"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "37",
+      "mnemonic": "STC",
+      "cycles": 4,
+      "words": 1,
+      "semantics": "CY=1",
+      "group": "accumulator",
+      "encoding": "37",
+      "operands": null,
+      "variants": null
+    },
+    {
+      "opcode": "38",
+      "mnemonic": "NOP",
+      "cycles": 4,
+      "words": 1,
+      "semantics": "NOP (nieudokumentowany)",
+      "group": "basic",
+      "encoding": "38",
+      "operands": null,
+      "variants": null
+    },
+    {
+      "opcode": "39",
+      "mnemonic": "DAD SP",
+      "cycles": 10,
+      "words": 1,
+      "semantics": "HL=HL+SP; tylko CY",
+      "group": "arithmetic",
+      "encoding": "39",
+      "operands": [
+        {
+          "name": "SP",
+          "type": "register pair"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "3A",
+      "mnemonic": "LDA a16",
+      "cycles": 13,
+      "words": 3,
+      "semantics": "A=[a16]",
+      "group": "load",
+      "encoding": "3A d16 (LE)",
+      "operands": [
+        {
+          "name": "a16",
+          "type": "address16"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "3B",
+      "mnemonic": "DCX SP",
+      "cycles": 5,
+      "words": 1,
+      "semantics": "SP=SP-1",
+      "group": "arithmetic",
+      "encoding": "3B",
+      "operands": [
+        {
+          "name": "SP",
+          "type": "register pair"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "3C",
+      "mnemonic": "INR A",
+      "cycles": 5,
+      "words": 1,
+      "semantics": "A=A+1",
+      "group": "arithmetic",
+      "encoding": "3C",
+      "operands": [
+        {
+          "name": "A",
+          "type": "register"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "3D",
+      "mnemonic": "DCR A",
+      "cycles": 5,
+      "words": 1,
+      "semantics": "A=A-1",
+      "group": "arithmetic",
+      "encoding": "3D",
+      "operands": [
+        {
+          "name": "A",
+          "type": "register"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "3E",
+      "mnemonic": "MVI A,d8",
+      "cycles": 7,
+      "words": 2,
+      "semantics": "A=d8",
+      "group": "load",
+      "encoding": "3E d8",
+      "operands": [
+        {
+          "name": "A",
+          "type": "register"
+        },
+        {
+          "name": "d8",
+          "type": "immediate8"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "3F",
+      "mnemonic": "CMC",
+      "cycles": 4,
+      "words": 1,
+      "semantics": "CY=~CY",
+      "group": "accumulator",
+      "encoding": "3F",
+      "operands": null,
+      "variants": null
+    },
+    {
+      "opcode": "40",
+      "mnemonic": "MOV B,B",
+      "cycles": 5,
+      "words": 1,
+      "semantics": "B=B",
+      "group": "load",
+      "encoding": "40",
+      "operands": [
+        {
+          "name": "B",
+          "type": "register"
+        },
+        {
+          "name": "B",
+          "type": "register"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "41",
+      "mnemonic": "MOV B,C",
+      "cycles": 5,
+      "words": 1,
+      "semantics": "B=C",
+      "group": "load",
+      "encoding": "41",
+      "operands": [
+        {
+          "name": "B",
+          "type": "register"
+        },
+        {
+          "name": "C",
+          "type": "register"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "42",
+      "mnemonic": "MOV B,D",
+      "cycles": 5,
+      "words": 1,
+      "semantics": "B=D",
+      "group": "load",
+      "encoding": "42",
+      "operands": [
+        {
+          "name": "B",
+          "type": "register"
+        },
+        {
+          "name": "D",
+          "type": "register"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "43",
+      "mnemonic": "MOV B,E",
+      "cycles": 5,
+      "words": 1,
+      "semantics": "B=E",
+      "group": "load",
+      "encoding": "43",
+      "operands": [
+        {
+          "name": "B",
+          "type": "register"
+        },
+        {
+          "name": "E",
+          "type": "register"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "44",
+      "mnemonic": "MOV B,H",
+      "cycles": 5,
+      "words": 1,
+      "semantics": "B=H",
+      "group": "load",
+      "encoding": "44",
+      "operands": [
+        {
+          "name": "B",
+          "type": "register"
+        },
+        {
+          "name": "H",
+          "type": "register"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "45",
+      "mnemonic": "MOV B,L",
+      "cycles": 5,
+      "words": 1,
+      "semantics": "B=L",
+      "group": "load",
+      "encoding": "45",
+      "operands": [
+        {
+          "name": "B",
+          "type": "register"
+        },
+        {
+          "name": "L",
+          "type": "register"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "46",
+      "mnemonic": "MOV B,M",
+      "cycles": 7,
+      "words": 1,
+      "semantics": "B=M",
+      "group": "load",
+      "encoding": "46",
+      "operands": [
+        {
+          "name": "B",
+          "type": "register"
+        },
+        {
+          "name": "M",
+          "type": "memory"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "47",
+      "mnemonic": "MOV B,A",
+      "cycles": 5,
+      "words": 1,
+      "semantics": "B=A",
+      "group": "load",
+      "encoding": "47",
+      "operands": [
+        {
+          "name": "B",
+          "type": "register"
+        },
+        {
+          "name": "A",
+          "type": "register"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "48",
+      "mnemonic": "MOV C,B",
+      "cycles": 5,
+      "words": 1,
+      "semantics": "C=B",
+      "group": "load",
+      "encoding": "48",
+      "operands": [
+        {
+          "name": "C",
+          "type": "register"
+        },
+        {
+          "name": "B",
+          "type": "register"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "49",
+      "mnemonic": "MOV C,C",
+      "cycles": 5,
+      "words": 1,
+      "semantics": "C=C",
+      "group": "load",
+      "encoding": "49",
+      "operands": [
+        {
+          "name": "C",
+          "type": "register"
+        },
+        {
+          "name": "C",
+          "type": "register"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "4A",
+      "mnemonic": "MOV C,D",
+      "cycles": 5,
+      "words": 1,
+      "semantics": "C=D",
+      "group": "load",
+      "encoding": "4A",
+      "operands": [
+        {
+          "name": "C",
+          "type": "register"
+        },
+        {
+          "name": "D",
+          "type": "register"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "4B",
+      "mnemonic": "MOV C,E",
+      "cycles": 5,
+      "words": 1,
+      "semantics": "C=E",
+      "group": "load",
+      "encoding": "4B",
+      "operands": [
+        {
+          "name": "C",
+          "type": "register"
+        },
+        {
+          "name": "E",
+          "type": "register"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "4C",
+      "mnemonic": "MOV C,H",
+      "cycles": 5,
+      "words": 1,
+      "semantics": "C=H",
+      "group": "load",
+      "encoding": "4C",
+      "operands": [
+        {
+          "name": "C",
+          "type": "register"
+        },
+        {
+          "name": "H",
+          "type": "register"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "4D",
+      "mnemonic": "MOV C,L",
+      "cycles": 5,
+      "words": 1,
+      "semantics": "C=L",
+      "group": "load",
+      "encoding": "4D",
+      "operands": [
+        {
+          "name": "C",
+          "type": "register"
+        },
+        {
+          "name": "L",
+          "type": "register"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "4E",
+      "mnemonic": "MOV C,M",
+      "cycles": 7,
+      "words": 1,
+      "semantics": "C=M",
+      "group": "load",
+      "encoding": "4E",
+      "operands": [
+        {
+          "name": "C",
+          "type": "register"
+        },
+        {
+          "name": "M",
+          "type": "memory"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "4F",
+      "mnemonic": "MOV C,A",
+      "cycles": 5,
+      "words": 1,
+      "semantics": "C=A",
+      "group": "load",
+      "encoding": "4F",
+      "operands": [
+        {
+          "name": "C",
+          "type": "register"
+        },
+        {
+          "name": "A",
+          "type": "register"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "50",
+      "mnemonic": "MOV D,B",
+      "cycles": 5,
+      "words": 1,
+      "semantics": "D=B",
+      "group": "load",
+      "encoding": "50",
+      "operands": [
+        {
+          "name": "D",
+          "type": "register"
+        },
+        {
+          "name": "B",
+          "type": "register"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "51",
+      "mnemonic": "MOV D,C",
+      "cycles": 5,
+      "words": 1,
+      "semantics": "D=C",
+      "group": "load",
+      "encoding": "51",
+      "operands": [
+        {
+          "name": "D",
+          "type": "register"
+        },
+        {
+          "name": "C",
+          "type": "register"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "52",
+      "mnemonic": "MOV D,D",
+      "cycles": 5,
+      "words": 1,
+      "semantics": "D=D",
+      "group": "load",
+      "encoding": "52",
+      "operands": [
+        {
+          "name": "D",
+          "type": "register"
+        },
+        {
+          "name": "D",
+          "type": "register"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "53",
+      "mnemonic": "MOV D,E",
+      "cycles": 5,
+      "words": 1,
+      "semantics": "D=E",
+      "group": "load",
+      "encoding": "53",
+      "operands": [
+        {
+          "name": "D",
+          "type": "register"
+        },
+        {
+          "name": "E",
+          "type": "register"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "54",
+      "mnemonic": "MOV D,H",
+      "cycles": 5,
+      "words": 1,
+      "semantics": "D=H",
+      "group": "load",
+      "encoding": "54",
+      "operands": [
+        {
+          "name": "D",
+          "type": "register"
+        },
+        {
+          "name": "H",
+          "type": "register"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "55",
+      "mnemonic": "MOV D,L",
+      "cycles": 5,
+      "words": 1,
+      "semantics": "D=L",
+      "group": "load",
+      "encoding": "55",
+      "operands": [
+        {
+          "name": "D",
+          "type": "register"
+        },
+        {
+          "name": "L",
+          "type": "register"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "56",
+      "mnemonic": "MOV D,M",
+      "cycles": 7,
+      "words": 1,
+      "semantics": "D=M",
+      "group": "load",
+      "encoding": "56",
+      "operands": [
+        {
+          "name": "D",
+          "type": "register"
+        },
+        {
+          "name": "M",
+          "type": "memory"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "57",
+      "mnemonic": "MOV D,A",
+      "cycles": 5,
+      "words": 1,
+      "semantics": "D=A",
+      "group": "load",
+      "encoding": "57",
+      "operands": [
+        {
+          "name": "D",
+          "type": "register"
+        },
+        {
+          "name": "A",
+          "type": "register"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "58",
+      "mnemonic": "MOV E,B",
+      "cycles": 5,
+      "words": 1,
+      "semantics": "E=B",
+      "group": "load",
+      "encoding": "58",
+      "operands": [
+        {
+          "name": "E",
+          "type": "register"
+        },
+        {
+          "name": "B",
+          "type": "register"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "59",
+      "mnemonic": "MOV E,C",
+      "cycles": 5,
+      "words": 1,
+      "semantics": "E=C",
+      "group": "load",
+      "encoding": "59",
+      "operands": [
+        {
+          "name": "E",
+          "type": "register"
+        },
+        {
+          "name": "C",
+          "type": "register"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "5A",
+      "mnemonic": "MOV E,D",
+      "cycles": 5,
+      "words": 1,
+      "semantics": "E=D",
+      "group": "load",
+      "encoding": "5A",
+      "operands": [
+        {
+          "name": "E",
+          "type": "register"
+        },
+        {
+          "name": "D",
+          "type": "register"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "5B",
+      "mnemonic": "MOV E,E",
+      "cycles": 5,
+      "words": 1,
+      "semantics": "E=E",
+      "group": "load",
+      "encoding": "5B",
+      "operands": [
+        {
+          "name": "E",
+          "type": "register"
+        },
+        {
+          "name": "E",
+          "type": "register"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "5C",
+      "mnemonic": "MOV E,H",
+      "cycles": 5,
+      "words": 1,
+      "semantics": "E=H",
+      "group": "load",
+      "encoding": "5C",
+      "operands": [
+        {
+          "name": "E",
+          "type": "register"
+        },
+        {
+          "name": "H",
+          "type": "register"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "5D",
+      "mnemonic": "MOV E,L",
+      "cycles": 5,
+      "words": 1,
+      "semantics": "E=L",
+      "group": "load",
+      "encoding": "5D",
+      "operands": [
+        {
+          "name": "E",
+          "type": "register"
+        },
+        {
+          "name": "L",
+          "type": "register"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "5E",
+      "mnemonic": "MOV E,M",
+      "cycles": 7,
+      "words": 1,
+      "semantics": "E=M",
+      "group": "load",
+      "encoding": "5E",
+      "operands": [
+        {
+          "name": "E",
+          "type": "register"
+        },
+        {
+          "name": "M",
+          "type": "memory"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "5F",
+      "mnemonic": "MOV E,A",
+      "cycles": 5,
+      "words": 1,
+      "semantics": "E=A",
+      "group": "load",
+      "encoding": "5F",
+      "operands": [
+        {
+          "name": "E",
+          "type": "register"
+        },
+        {
+          "name": "A",
+          "type": "register"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "60",
+      "mnemonic": "MOV H,B",
+      "cycles": 5,
+      "words": 1,
+      "semantics": "H=B",
+      "group": "load",
+      "encoding": "60",
+      "operands": [
+        {
+          "name": "H",
+          "type": "register"
+        },
+        {
+          "name": "B",
+          "type": "register"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "61",
+      "mnemonic": "MOV H,C",
+      "cycles": 5,
+      "words": 1,
+      "semantics": "H=C",
+      "group": "load",
+      "encoding": "61",
+      "operands": [
+        {
+          "name": "H",
+          "type": "register"
+        },
+        {
+          "name": "C",
+          "type": "register"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "62",
+      "mnemonic": "MOV H,D",
+      "cycles": 5,
+      "words": 1,
+      "semantics": "H=D",
+      "group": "load",
+      "encoding": "62",
+      "operands": [
+        {
+          "name": "H",
+          "type": "register"
+        },
+        {
+          "name": "D",
+          "type": "register"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "63",
+      "mnemonic": "MOV H,E",
+      "cycles": 5,
+      "words": 1,
+      "semantics": "H=E",
+      "group": "load",
+      "encoding": "63",
+      "operands": [
+        {
+          "name": "H",
+          "type": "register"
+        },
+        {
+          "name": "E",
+          "type": "register"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "64",
+      "mnemonic": "MOV H,H",
+      "cycles": 5,
+      "words": 1,
+      "semantics": "H=H",
+      "group": "load",
+      "encoding": "64",
+      "operands": [
+        {
+          "name": "H",
+          "type": "register"
+        },
+        {
+          "name": "H",
+          "type": "register"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "65",
+      "mnemonic": "MOV H,L",
+      "cycles": 5,
+      "words": 1,
+      "semantics": "H=L",
+      "group": "load",
+      "encoding": "65",
+      "operands": [
+        {
+          "name": "H",
+          "type": "register"
+        },
+        {
+          "name": "L",
+          "type": "register"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "66",
+      "mnemonic": "MOV H,M",
+      "cycles": 7,
+      "words": 1,
+      "semantics": "H=M",
+      "group": "load",
+      "encoding": "66",
+      "operands": [
+        {
+          "name": "H",
+          "type": "register"
+        },
+        {
+          "name": "M",
+          "type": "memory"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "67",
+      "mnemonic": "MOV H,A",
+      "cycles": 5,
+      "words": 1,
+      "semantics": "H=A",
+      "group": "load",
+      "encoding": "67",
+      "operands": [
+        {
+          "name": "H",
+          "type": "register"
+        },
+        {
+          "name": "A",
+          "type": "register"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "68",
+      "mnemonic": "MOV L,B",
+      "cycles": 5,
+      "words": 1,
+      "semantics": "L=B",
+      "group": "load",
+      "encoding": "68",
+      "operands": [
+        {
+          "name": "L",
+          "type": "register"
+        },
+        {
+          "name": "B",
+          "type": "register"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "69",
+      "mnemonic": "MOV L,C",
+      "cycles": 5,
+      "words": 1,
+      "semantics": "L=C",
+      "group": "load",
+      "encoding": "69",
+      "operands": [
+        {
+          "name": "L",
+          "type": "register"
+        },
+        {
+          "name": "C",
+          "type": "register"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "6A",
+      "mnemonic": "MOV L,D",
+      "cycles": 5,
+      "words": 1,
+      "semantics": "L=D",
+      "group": "load",
+      "encoding": "6A",
+      "operands": [
+        {
+          "name": "L",
+          "type": "register"
+        },
+        {
+          "name": "D",
+          "type": "register"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "6B",
+      "mnemonic": "MOV L,E",
+      "cycles": 5,
+      "words": 1,
+      "semantics": "L=E",
+      "group": "load",
+      "encoding": "6B",
+      "operands": [
+        {
+          "name": "L",
+          "type": "register"
+        },
+        {
+          "name": "E",
+          "type": "register"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "6C",
+      "mnemonic": "MOV L,H",
+      "cycles": 5,
+      "words": 1,
+      "semantics": "L=H",
+      "group": "load",
+      "encoding": "6C",
+      "operands": [
+        {
+          "name": "L",
+          "type": "register"
+        },
+        {
+          "name": "H",
+          "type": "register"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "6D",
+      "mnemonic": "MOV L,L",
+      "cycles": 5,
+      "words": 1,
+      "semantics": "L=L",
+      "group": "load",
+      "encoding": "6D",
+      "operands": [
+        {
+          "name": "L",
+          "type": "register"
+        },
+        {
+          "name": "L",
+          "type": "register"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "6E",
+      "mnemonic": "MOV L,M",
+      "cycles": 7,
+      "words": 1,
+      "semantics": "L=M",
+      "group": "load",
+      "encoding": "6E",
+      "operands": [
+        {
+          "name": "L",
+          "type": "register"
+        },
+        {
+          "name": "M",
+          "type": "memory"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "6F",
+      "mnemonic": "MOV L,A",
+      "cycles": 5,
+      "words": 1,
+      "semantics": "L=A",
+      "group": "load",
+      "encoding": "6F",
+      "operands": [
+        {
+          "name": "L",
+          "type": "register"
+        },
+        {
+          "name": "A",
+          "type": "register"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "70",
+      "mnemonic": "MOV M,B",
+      "cycles": 7,
+      "words": 1,
+      "semantics": "M=B",
+      "group": "load",
+      "encoding": "70",
+      "operands": [
+        {
+          "name": "M",
+          "type": "memory"
+        },
+        {
+          "name": "B",
+          "type": "register"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "71",
+      "mnemonic": "MOV M,C",
+      "cycles": 7,
+      "words": 1,
+      "semantics": "M=C",
+      "group": "load",
+      "encoding": "71",
+      "operands": [
+        {
+          "name": "M",
+          "type": "memory"
+        },
+        {
+          "name": "C",
+          "type": "register"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "72",
+      "mnemonic": "MOV M,D",
+      "cycles": 7,
+      "words": 1,
+      "semantics": "M=D",
+      "group": "load",
+      "encoding": "72",
+      "operands": [
+        {
+          "name": "M",
+          "type": "memory"
+        },
+        {
+          "name": "D",
+          "type": "register"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "73",
+      "mnemonic": "MOV M,E",
+      "cycles": 7,
+      "words": 1,
+      "semantics": "M=E",
+      "group": "load",
+      "encoding": "73",
+      "operands": [
+        {
+          "name": "M",
+          "type": "memory"
+        },
+        {
+          "name": "E",
+          "type": "register"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "74",
+      "mnemonic": "MOV M,H",
+      "cycles": 7,
+      "words": 1,
+      "semantics": "M=H",
+      "group": "load",
+      "encoding": "74",
+      "operands": [
+        {
+          "name": "M",
+          "type": "memory"
+        },
+        {
+          "name": "H",
+          "type": "register"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "75",
+      "mnemonic": "MOV M,L",
+      "cycles": 7,
+      "words": 1,
+      "semantics": "M=L",
+      "group": "load",
+      "encoding": "75",
+      "operands": [
+        {
+          "name": "M",
+          "type": "memory"
+        },
+        {
+          "name": "L",
+          "type": "register"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "76",
+      "mnemonic": "HLT",
+      "cycles": 7,
+      "words": 1,
+      "semantics": "zatrzymanie; wzbudzenie przerwaniem",
+      "group": "system",
+      "encoding": "76",
+      "operands": null,
+      "variants": null
+    },
+    {
+      "opcode": "77",
+      "mnemonic": "MOV M,A",
+      "cycles": 7,
+      "words": 1,
+      "semantics": "M=A",
+      "group": "load",
+      "encoding": "77",
+      "operands": [
+        {
+          "name": "M",
+          "type": "memory"
+        },
+        {
+          "name": "A",
+          "type": "register"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "78",
+      "mnemonic": "MOV A,B",
+      "cycles": 5,
+      "words": 1,
+      "semantics": "A=B",
+      "group": "load",
+      "encoding": "78",
+      "operands": [
+        {
+          "name": "A",
+          "type": "register"
+        },
+        {
+          "name": "B",
+          "type": "register"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "79",
+      "mnemonic": "MOV A,C",
+      "cycles": 5,
+      "words": 1,
+      "semantics": "A=C",
+      "group": "load",
+      "encoding": "79",
+      "operands": [
+        {
+          "name": "A",
+          "type": "register"
+        },
+        {
+          "name": "C",
+          "type": "register"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "7A",
+      "mnemonic": "MOV A,D",
+      "cycles": 5,
+      "words": 1,
+      "semantics": "A=D",
+      "group": "load",
+      "encoding": "7A",
+      "operands": [
+        {
+          "name": "A",
+          "type": "register"
+        },
+        {
+          "name": "D",
+          "type": "register"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "7B",
+      "mnemonic": "MOV A,E",
+      "cycles": 5,
+      "words": 1,
+      "semantics": "A=E",
+      "group": "load",
+      "encoding": "7B",
+      "operands": [
+        {
+          "name": "A",
+          "type": "register"
+        },
+        {
+          "name": "E",
+          "type": "register"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "7C",
+      "mnemonic": "MOV A,H",
+      "cycles": 5,
+      "words": 1,
+      "semantics": "A=H",
+      "group": "load",
+      "encoding": "7C",
+      "operands": [
+        {
+          "name": "A",
+          "type": "register"
+        },
+        {
+          "name": "H",
+          "type": "register"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "7D",
+      "mnemonic": "MOV A,L",
+      "cycles": 5,
+      "words": 1,
+      "semantics": "A=L",
+      "group": "load",
+      "encoding": "7D",
+      "operands": [
+        {
+          "name": "A",
+          "type": "register"
+        },
+        {
+          "name": "L",
+          "type": "register"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "7E",
+      "mnemonic": "MOV A,M",
+      "cycles": 7,
+      "words": 1,
+      "semantics": "A=M",
+      "group": "load",
+      "encoding": "7E",
+      "operands": [
+        {
+          "name": "A",
+          "type": "register"
+        },
+        {
+          "name": "M",
+          "type": "memory"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "7F",
+      "mnemonic": "MOV A,A",
+      "cycles": 5,
+      "words": 1,
+      "semantics": "A=A",
+      "group": "load",
+      "encoding": "7F",
+      "operands": [
+        {
+          "name": "A",
+          "type": "register"
+        },
+        {
+          "name": "A",
+          "type": "register"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "80",
+      "mnemonic": "ADD B",
+      "cycles": 4,
+      "words": 1,
+      "semantics": "A=A+B",
+      "group": "arithmetic",
+      "encoding": "80",
+      "operands": [
+        {
+          "name": "B",
+          "type": "register"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "81",
+      "mnemonic": "ADD C",
+      "cycles": 4,
+      "words": 1,
+      "semantics": "A=A+C",
+      "group": "arithmetic",
+      "encoding": "81",
+      "operands": [
+        {
+          "name": "C",
+          "type": "register"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "82",
+      "mnemonic": "ADD D",
+      "cycles": 4,
+      "words": 1,
+      "semantics": "A=A+D",
+      "group": "arithmetic",
+      "encoding": "82",
+      "operands": [
+        {
+          "name": "D",
+          "type": "register"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "83",
+      "mnemonic": "ADD E",
+      "cycles": 4,
+      "words": 1,
+      "semantics": "A=A+E",
+      "group": "arithmetic",
+      "encoding": "83",
+      "operands": [
+        {
+          "name": "E",
+          "type": "register"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "84",
+      "mnemonic": "ADD H",
+      "cycles": 4,
+      "words": 1,
+      "semantics": "A=A+H",
+      "group": "arithmetic",
+      "encoding": "84",
+      "operands": [
+        {
+          "name": "H",
+          "type": "register"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "85",
+      "mnemonic": "ADD L",
+      "cycles": 4,
+      "words": 1,
+      "semantics": "A=A+L",
+      "group": "arithmetic",
+      "encoding": "85",
+      "operands": [
+        {
+          "name": "L",
+          "type": "register"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "86",
+      "mnemonic": "ADD M",
+      "cycles": 7,
+      "words": 1,
+      "semantics": "A=A+M",
+      "group": "arithmetic",
+      "encoding": "86",
+      "operands": [
+        {
+          "name": "M",
+          "type": "memory"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "87",
+      "mnemonic": "ADD A",
+      "cycles": 4,
+      "words": 1,
+      "semantics": "A=A+A",
+      "group": "arithmetic",
+      "encoding": "87",
+      "operands": [
+        {
+          "name": "A",
+          "type": "register"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "88",
+      "mnemonic": "ADC B",
+      "cycles": 4,
+      "words": 1,
+      "semantics": "A=A+B+CY",
+      "group": "arithmetic",
+      "encoding": "88",
+      "operands": [
+        {
+          "name": "B",
+          "type": "register"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "89",
+      "mnemonic": "ADC C",
+      "cycles": 4,
+      "words": 1,
+      "semantics": "A=A+C+CY",
+      "group": "arithmetic",
+      "encoding": "89",
+      "operands": [
+        {
+          "name": "C",
+          "type": "register"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "8A",
+      "mnemonic": "ADC D",
+      "cycles": 4,
+      "words": 1,
+      "semantics": "A=A+D+CY",
+      "group": "arithmetic",
+      "encoding": "8A",
+      "operands": [
+        {
+          "name": "D",
+          "type": "register"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "8B",
+      "mnemonic": "ADC E",
+      "cycles": 4,
+      "words": 1,
+      "semantics": "A=A+E+CY",
+      "group": "arithmetic",
+      "encoding": "8B",
+      "operands": [
+        {
+          "name": "E",
+          "type": "register"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "8C",
+      "mnemonic": "ADC H",
+      "cycles": 4,
+      "words": 1,
+      "semantics": "A=A+H+CY",
+      "group": "arithmetic",
+      "encoding": "8C",
+      "operands": [
+        {
+          "name": "H",
+          "type": "register"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "8D",
+      "mnemonic": "ADC L",
+      "cycles": 4,
+      "words": 1,
+      "semantics": "A=A+L+CY",
+      "group": "arithmetic",
+      "encoding": "8D",
+      "operands": [
+        {
+          "name": "L",
+          "type": "register"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "8E",
+      "mnemonic": "ADC M",
+      "cycles": 7,
+      "words": 1,
+      "semantics": "A=A+M+CY",
+      "group": "arithmetic",
+      "encoding": "8E",
+      "operands": [
+        {
+          "name": "M",
+          "type": "memory"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "8F",
+      "mnemonic": "ADC A",
+      "cycles": 4,
+      "words": 1,
+      "semantics": "A=A+A+CY",
+      "group": "arithmetic",
+      "encoding": "8F",
+      "operands": [
+        {
+          "name": "A",
+          "type": "register"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "90",
+      "mnemonic": "SUB B",
+      "cycles": 4,
+      "words": 1,
+      "semantics": "A=A-B",
+      "group": "arithmetic",
+      "encoding": "90",
+      "operands": [
+        {
+          "name": "B",
+          "type": "register"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "91",
+      "mnemonic": "SUB C",
+      "cycles": 4,
+      "words": 1,
+      "semantics": "A=A-C",
+      "group": "arithmetic",
+      "encoding": "91",
+      "operands": [
+        {
+          "name": "C",
+          "type": "register"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "92",
+      "mnemonic": "SUB D",
+      "cycles": 4,
+      "words": 1,
+      "semantics": "A=A-D",
+      "group": "arithmetic",
+      "encoding": "92",
+      "operands": [
+        {
+          "name": "D",
+          "type": "register"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "93",
+      "mnemonic": "SUB E",
+      "cycles": 4,
+      "words": 1,
+      "semantics": "A=A-E",
+      "group": "arithmetic",
+      "encoding": "93",
+      "operands": [
+        {
+          "name": "E",
+          "type": "register"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "94",
+      "mnemonic": "SUB H",
+      "cycles": 4,
+      "words": 1,
+      "semantics": "A=A-H",
+      "group": "arithmetic",
+      "encoding": "94",
+      "operands": [
+        {
+          "name": "H",
+          "type": "register"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "95",
+      "mnemonic": "SUB L",
+      "cycles": 4,
+      "words": 1,
+      "semantics": "A=A-L",
+      "group": "arithmetic",
+      "encoding": "95",
+      "operands": [
+        {
+          "name": "L",
+          "type": "register"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "96",
+      "mnemonic": "SUB M",
+      "cycles": 7,
+      "words": 1,
+      "semantics": "A=A-M",
+      "group": "arithmetic",
+      "encoding": "96",
+      "operands": [
+        {
+          "name": "M",
+          "type": "memory"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "97",
+      "mnemonic": "SUB A",
+      "cycles": 4,
+      "words": 1,
+      "semantics": "A=A-A",
+      "group": "arithmetic",
+      "encoding": "97",
+      "operands": [
+        {
+          "name": "A",
+          "type": "register"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "98",
+      "mnemonic": "SBB B",
+      "cycles": 4,
+      "words": 1,
+      "semantics": "A=A-B-CY",
+      "group": "arithmetic",
+      "encoding": "98",
+      "operands": [
+        {
+          "name": "B",
+          "type": "register"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "99",
+      "mnemonic": "SBB C",
+      "cycles": 4,
+      "words": 1,
+      "semantics": "A=A-C-CY",
+      "group": "arithmetic",
+      "encoding": "99",
+      "operands": [
+        {
+          "name": "C",
+          "type": "register"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "9A",
+      "mnemonic": "SBB D",
+      "cycles": 4,
+      "words": 1,
+      "semantics": "A=A-D-CY",
+      "group": "arithmetic",
+      "encoding": "9A",
+      "operands": [
+        {
+          "name": "D",
+          "type": "register"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "9B",
+      "mnemonic": "SBB E",
+      "cycles": 4,
+      "words": 1,
+      "semantics": "A=A-E-CY",
+      "group": "arithmetic",
+      "encoding": "9B",
+      "operands": [
+        {
+          "name": "E",
+          "type": "register"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "9C",
+      "mnemonic": "SBB H",
+      "cycles": 4,
+      "words": 1,
+      "semantics": "A=A-H-CY",
+      "group": "arithmetic",
+      "encoding": "9C",
+      "operands": [
+        {
+          "name": "H",
+          "type": "register"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "9D",
+      "mnemonic": "SBB L",
+      "cycles": 4,
+      "words": 1,
+      "semantics": "A=A-L-CY",
+      "group": "arithmetic",
+      "encoding": "9D",
+      "operands": [
+        {
+          "name": "L",
+          "type": "register"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "9E",
+      "mnemonic": "SBB M",
+      "cycles": 7,
+      "words": 1,
+      "semantics": "A=A-M-CY",
+      "group": "arithmetic",
+      "encoding": "9E",
+      "operands": [
+        {
+          "name": "M",
+          "type": "memory"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "9F",
+      "mnemonic": "SBB A",
+      "cycles": 4,
+      "words": 1,
+      "semantics": "A=A-A-CY",
+      "group": "arithmetic",
+      "encoding": "9F",
+      "operands": [
+        {
+          "name": "A",
+          "type": "register"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "A0",
+      "mnemonic": "ANA B",
+      "cycles": 4,
+      "words": 1,
+      "semantics": "A=A&B; CY=0",
+      "group": "logic",
+      "encoding": "A0",
+      "operands": [
+        {
+          "name": "B",
+          "type": "register"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "A1",
+      "mnemonic": "ANA C",
+      "cycles": 4,
+      "words": 1,
+      "semantics": "A=A&C; CY=0",
+      "group": "logic",
+      "encoding": "A1",
+      "operands": [
+        {
+          "name": "C",
+          "type": "register"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "A2",
+      "mnemonic": "ANA D",
+      "cycles": 4,
+      "words": 1,
+      "semantics": "A=A&D; CY=0",
+      "group": "logic",
+      "encoding": "A2",
+      "operands": [
+        {
+          "name": "D",
+          "type": "register"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "A3",
+      "mnemonic": "ANA E",
+      "cycles": 4,
+      "words": 1,
+      "semantics": "A=A&E; CY=0",
+      "group": "logic",
+      "encoding": "A3",
+      "operands": [
+        {
+          "name": "E",
+          "type": "register"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "A4",
+      "mnemonic": "ANA H",
+      "cycles": 4,
+      "words": 1,
+      "semantics": "A=A&H; CY=0",
+      "group": "logic",
+      "encoding": "A4",
+      "operands": [
+        {
+          "name": "H",
+          "type": "register"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "A5",
+      "mnemonic": "ANA L",
+      "cycles": 4,
+      "words": 1,
+      "semantics": "A=A&L; CY=0",
+      "group": "logic",
+      "encoding": "A5",
+      "operands": [
+        {
+          "name": "L",
+          "type": "register"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "A6",
+      "mnemonic": "ANA M",
+      "cycles": 7,
+      "words": 1,
+      "semantics": "A=A&M; CY=0",
+      "group": "logic",
+      "encoding": "A6",
+      "operands": [
+        {
+          "name": "M",
+          "type": "memory"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "A7",
+      "mnemonic": "ANA A",
+      "cycles": 4,
+      "words": 1,
+      "semantics": "A=A&A; CY=0",
+      "group": "logic",
+      "encoding": "A7",
+      "operands": [
+        {
+          "name": "A",
+          "type": "register"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "A8",
+      "mnemonic": "XRA B",
+      "cycles": 4,
+      "words": 1,
+      "semantics": "A=A^B; CY=0",
+      "group": "logic",
+      "encoding": "A8",
+      "operands": [
+        {
+          "name": "B",
+          "type": "register"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "A9",
+      "mnemonic": "XRA C",
+      "cycles": 4,
+      "words": 1,
+      "semantics": "A=A^C; CY=0",
+      "group": "logic",
+      "encoding": "A9",
+      "operands": [
+        {
+          "name": "C",
+          "type": "register"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "AA",
+      "mnemonic": "XRA D",
+      "cycles": 4,
+      "words": 1,
+      "semantics": "A=A^D; CY=0",
+      "group": "logic",
+      "encoding": "AA",
+      "operands": [
+        {
+          "name": "D",
+          "type": "register"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "AB",
+      "mnemonic": "XRA E",
+      "cycles": 4,
+      "words": 1,
+      "semantics": "A=A^E; CY=0",
+      "group": "logic",
+      "encoding": "AB",
+      "operands": [
+        {
+          "name": "E",
+          "type": "register"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "AC",
+      "mnemonic": "XRA H",
+      "cycles": 4,
+      "words": 1,
+      "semantics": "A=A^H; CY=0",
+      "group": "logic",
+      "encoding": "AC",
+      "operands": [
+        {
+          "name": "H",
+          "type": "register"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "AD",
+      "mnemonic": "XRA L",
+      "cycles": 4,
+      "words": 1,
+      "semantics": "A=A^L; CY=0",
+      "group": "logic",
+      "encoding": "AD",
+      "operands": [
+        {
+          "name": "L",
+          "type": "register"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "AE",
+      "mnemonic": "XRA M",
+      "cycles": 7,
+      "words": 1,
+      "semantics": "A=A^M; CY=0",
+      "group": "logic",
+      "encoding": "AE",
+      "operands": [
+        {
+          "name": "M",
+          "type": "memory"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "AF",
+      "mnemonic": "XRA A",
+      "cycles": 4,
+      "words": 1,
+      "semantics": "A=A^A; CY=0",
+      "group": "logic",
+      "encoding": "AF",
+      "operands": [
+        {
+          "name": "A",
+          "type": "register"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "B0",
+      "mnemonic": "ORA B",
+      "cycles": 4,
+      "words": 1,
+      "semantics": "A=A|B; CY=0",
+      "group": "logic",
+      "encoding": "B0",
+      "operands": [
+        {
+          "name": "B",
+          "type": "register"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "B1",
+      "mnemonic": "ORA C",
+      "cycles": 4,
+      "words": 1,
+      "semantics": "A=A|C; CY=0",
+      "group": "logic",
+      "encoding": "B1",
+      "operands": [
+        {
+          "name": "C",
+          "type": "register"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "B2",
+      "mnemonic": "ORA D",
+      "cycles": 4,
+      "words": 1,
+      "semantics": "A=A|D; CY=0",
+      "group": "logic",
+      "encoding": "B2",
+      "operands": [
+        {
+          "name": "D",
+          "type": "register"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "B3",
+      "mnemonic": "ORA E",
+      "cycles": 4,
+      "words": 1,
+      "semantics": "A=A|E; CY=0",
+      "group": "logic",
+      "encoding": "B3",
+      "operands": [
+        {
+          "name": "E",
+          "type": "register"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "B4",
+      "mnemonic": "ORA H",
+      "cycles": 4,
+      "words": 1,
+      "semantics": "A=A|H; CY=0",
+      "group": "logic",
+      "encoding": "B4",
+      "operands": [
+        {
+          "name": "H",
+          "type": "register"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "B5",
+      "mnemonic": "ORA L",
+      "cycles": 4,
+      "words": 1,
+      "semantics": "A=A|L; CY=0",
+      "group": "logic",
+      "encoding": "B5",
+      "operands": [
+        {
+          "name": "L",
+          "type": "register"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "B6",
+      "mnemonic": "ORA M",
+      "cycles": 7,
+      "words": 1,
+      "semantics": "A=A|M; CY=0",
+      "group": "logic",
+      "encoding": "B6",
+      "operands": [
+        {
+          "name": "M",
+          "type": "memory"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "B7",
+      "mnemonic": "ORA A",
+      "cycles": 4,
+      "words": 1,
+      "semantics": "A=A|A; CY=0",
+      "group": "logic",
+      "encoding": "B7",
+      "operands": [
+        {
+          "name": "A",
+          "type": "register"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "B8",
+      "mnemonic": "CMP B",
+      "cycles": 4,
+      "words": 1,
+      "semantics": "flagi A-B; A bez zmian",
+      "group": "logic",
+      "encoding": "B8",
+      "operands": [
+        {
+          "name": "B",
+          "type": "register"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "B9",
+      "mnemonic": "CMP C",
+      "cycles": 4,
+      "words": 1,
+      "semantics": "flagi A-C; A bez zmian",
+      "group": "logic",
+      "encoding": "B9",
+      "operands": [
+        {
+          "name": "C",
+          "type": "register"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "BA",
+      "mnemonic": "CMP D",
+      "cycles": 4,
+      "words": 1,
+      "semantics": "flagi A-D; A bez zmian",
+      "group": "logic",
+      "encoding": "BA",
+      "operands": [
+        {
+          "name": "D",
+          "type": "register"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "BB",
+      "mnemonic": "CMP E",
+      "cycles": 4,
+      "words": 1,
+      "semantics": "flagi A-E; A bez zmian",
+      "group": "logic",
+      "encoding": "BB",
+      "operands": [
+        {
+          "name": "E",
+          "type": "register"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "BC",
+      "mnemonic": "CMP H",
+      "cycles": 4,
+      "words": 1,
+      "semantics": "flagi A-H; A bez zmian",
+      "group": "logic",
+      "encoding": "BC",
+      "operands": [
+        {
+          "name": "H",
+          "type": "register"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "BD",
+      "mnemonic": "CMP L",
+      "cycles": 4,
+      "words": 1,
+      "semantics": "flagi A-L; A bez zmian",
+      "group": "logic",
+      "encoding": "BD",
+      "operands": [
+        {
+          "name": "L",
+          "type": "register"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "BE",
+      "mnemonic": "CMP M",
+      "cycles": 7,
+      "words": 1,
+      "semantics": "flagi A-M; A bez zmian",
+      "group": "logic",
+      "encoding": "BE",
+      "operands": [
+        {
+          "name": "M",
+          "type": "memory"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "BF",
+      "mnemonic": "CMP A",
+      "cycles": 4,
+      "words": 1,
+      "semantics": "flagi A-A; A bez zmian",
+      "group": "logic",
+      "encoding": "BF",
+      "operands": [
+        {
+          "name": "A",
+          "type": "register"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "C0",
+      "mnemonic": "RNZ",
+      "cycles": 5,
+      "words": 1,
+      "semantics": "powrót gdy NZ; cykle 5/11",
+      "group": "jump",
+      "encoding": "C0",
+      "operands": null,
+      "variants": null
+    },
+    {
+      "opcode": "C1",
+      "mnemonic": "POP B",
+      "cycles": 10,
+      "words": 1,
+      "semantics": "B=stos",
+      "group": "load",
+      "encoding": "C1",
+      "operands": [
+        {
+          "name": "B",
+          "type": "register pair"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "C2",
+      "mnemonic": "JNZ a16",
+      "cycles": 10,
+      "words": 3,
+      "semantics": "skok gdy NZ",
+      "group": "jump",
+      "encoding": "C2 d16 (LE)",
+      "operands": [
+        {
+          "name": "a16",
+          "type": "address16"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "C3",
+      "mnemonic": "JMP a16",
+      "cycles": 10,
+      "words": 3,
+      "semantics": "PC=a16",
+      "group": "jump",
+      "encoding": "C3 d16 (LE)",
+      "operands": [
+        {
+          "name": "a16",
+          "type": "address16"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "C4",
+      "mnemonic": "CNZ a16",
+      "cycles": 11,
+      "words": 3,
+      "semantics": "call gdy NZ; cykle 11/17",
+      "group": "jump",
+      "encoding": "C4 d16 (LE)",
+      "operands": [
+        {
+          "name": "a16",
+          "type": "address16"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "C5",
+      "mnemonic": "PUSH B",
+      "cycles": 11,
+      "words": 1,
+      "semantics": "stos=B",
+      "group": "load",
+      "encoding": "C5",
+      "operands": [
+        {
+          "name": "B",
+          "type": "register pair"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "C6",
+      "mnemonic": "ADI d8",
+      "cycles": 7,
+      "words": 2,
+      "semantics": "A=A+d8",
+      "group": "arithmetic",
+      "encoding": "C6 d8",
+      "operands": [
+        {
+          "name": "d8",
+          "type": "immediate8"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "C7",
+      "mnemonic": "RST 0",
+      "cycles": 11,
+      "words": 1,
+      "semantics": "push PC; PC=0x00",
+      "group": "jump",
+      "encoding": "C7",
+      "operands": [
+        {
+          "name": "0",
+          "type": "restart vector"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "C8",
+      "mnemonic": "RZ",
+      "cycles": 5,
+      "words": 1,
+      "semantics": "powrót gdy Z; cykle 5/11",
+      "group": "jump",
+      "encoding": "C8",
+      "operands": null,
+      "variants": null
+    },
+    {
+      "opcode": "C9",
+      "mnemonic": "RET",
+      "cycles": 10,
+      "words": 1,
+      "semantics": "PC=pop",
+      "group": "jump",
+      "encoding": "C9",
+      "operands": null,
+      "variants": null
+    },
+    {
+      "opcode": "CA",
+      "mnemonic": "JZ a16",
+      "cycles": 10,
+      "words": 3,
+      "semantics": "skok gdy Z",
+      "group": "jump",
+      "encoding": "CA d16 (LE)",
+      "operands": [
+        {
+          "name": "a16",
+          "type": "address16"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "CB",
+      "mnemonic": "JMP a16",
+      "cycles": 10,
+      "words": 3,
+      "semantics": "nieudokumentowany (jak JMP a16)",
+      "group": "jump",
+      "encoding": "CB d16 (LE)",
+      "operands": [
+        {
+          "name": "a16",
+          "type": "address16"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "CC",
+      "mnemonic": "CZ a16",
+      "cycles": 11,
+      "words": 3,
+      "semantics": "call gdy Z; cykle 11/17",
+      "group": "jump",
+      "encoding": "CC d16 (LE)",
+      "operands": [
+        {
+          "name": "a16",
+          "type": "address16"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "CD",
+      "mnemonic": "CALL a16",
+      "cycles": 17,
+      "words": 3,
+      "semantics": "push PC; PC=a16",
+      "group": "jump",
+      "encoding": "CD d16 (LE)",
+      "operands": [
+        {
+          "name": "a16",
+          "type": "address16"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "CE",
+      "mnemonic": "ACI d8",
+      "cycles": 7,
+      "words": 2,
+      "semantics": "A=A+d8+CY",
+      "group": "arithmetic",
+      "encoding": "CE d8",
+      "operands": [
+        {
+          "name": "d8",
+          "type": "immediate8"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "CF",
+      "mnemonic": "RST 1",
+      "cycles": 11,
+      "words": 1,
+      "semantics": "push PC; PC=0x08",
+      "group": "jump",
+      "encoding": "CF",
+      "operands": [
+        {
+          "name": "1",
+          "type": "restart vector"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "D0",
+      "mnemonic": "RNC",
+      "cycles": 5,
+      "words": 1,
+      "semantics": "powrót gdy NC; cykle 5/11",
+      "group": "jump",
+      "encoding": "D0",
+      "operands": null,
+      "variants": null
+    },
+    {
+      "opcode": "D1",
+      "mnemonic": "POP D",
+      "cycles": 10,
+      "words": 1,
+      "semantics": "D=stos",
+      "group": "load",
+      "encoding": "D1",
+      "operands": [
+        {
+          "name": "D",
+          "type": "register pair"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "D2",
+      "mnemonic": "JNC a16",
+      "cycles": 10,
+      "words": 3,
+      "semantics": "skok gdy NC",
+      "group": "jump",
+      "encoding": "D2 d16 (LE)",
+      "operands": [
+        {
+          "name": "a16",
+          "type": "address16"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "D3",
+      "mnemonic": "OUT d8",
+      "cycles": 10,
+      "words": 2,
+      "semantics": "port[d8]=A",
+      "group": "io",
+      "encoding": "D3 d8",
+      "operands": [
+        {
+          "name": "d8",
+          "type": "immediate8"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "D4",
+      "mnemonic": "CNC a16",
+      "cycles": 11,
+      "words": 3,
+      "semantics": "call gdy NC; cykle 11/17",
+      "group": "jump",
+      "encoding": "D4 d16 (LE)",
+      "operands": [
+        {
+          "name": "a16",
+          "type": "address16"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "D5",
+      "mnemonic": "PUSH D",
+      "cycles": 11,
+      "words": 1,
+      "semantics": "stos=D",
+      "group": "load",
+      "encoding": "D5",
+      "operands": [
+        {
+          "name": "D",
+          "type": "register pair"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "D6",
+      "mnemonic": "SUI d8",
+      "cycles": 7,
+      "words": 2,
+      "semantics": "A=A-d8",
+      "group": "arithmetic",
+      "encoding": "D6 d8",
+      "operands": [
+        {
+          "name": "d8",
+          "type": "immediate8"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "D7",
+      "mnemonic": "RST 2",
+      "cycles": 11,
+      "words": 1,
+      "semantics": "push PC; PC=0x10",
+      "group": "jump",
+      "encoding": "D7",
+      "operands": [
+        {
+          "name": "2",
+          "type": "restart vector"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "D8",
+      "mnemonic": "RC",
+      "cycles": 5,
+      "words": 1,
+      "semantics": "powrót gdy C; cykle 5/11",
+      "group": "jump",
+      "encoding": "D8",
+      "operands": null,
+      "variants": null
+    },
+    {
+      "opcode": "D9",
+      "mnemonic": "RET",
+      "cycles": 10,
+      "words": 1,
+      "semantics": "nieudokumentowany (jak RET)",
+      "group": "jump",
+      "encoding": "D9",
+      "operands": null,
+      "variants": null
+    },
+    {
+      "opcode": "DA",
+      "mnemonic": "JC a16",
+      "cycles": 10,
+      "words": 3,
+      "semantics": "skok gdy C",
+      "group": "jump",
+      "encoding": "DA d16 (LE)",
+      "operands": [
+        {
+          "name": "a16",
+          "type": "address16"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "DB",
+      "mnemonic": "IN d8",
+      "cycles": 10,
+      "words": 2,
+      "semantics": "A=port[d8]",
+      "group": "io",
+      "encoding": "DB d8",
+      "operands": [
+        {
+          "name": "d8",
+          "type": "immediate8"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "DC",
+      "mnemonic": "CC a16",
+      "cycles": 11,
+      "words": 3,
+      "semantics": "call gdy C; cykle 11/17",
+      "group": "jump",
+      "encoding": "DC d16 (LE)",
+      "operands": [
+        {
+          "name": "a16",
+          "type": "address16"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "DD",
+      "mnemonic": "CALL a16",
+      "cycles": 17,
+      "words": 3,
+      "semantics": "nieudokumentowany (jak CALL a16)",
+      "group": "jump",
+      "encoding": "DD d16 (LE)",
+      "operands": [
+        {
+          "name": "a16",
+          "type": "address16"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "DE",
+      "mnemonic": "SBI d8",
+      "cycles": 7,
+      "words": 2,
+      "semantics": "A=A-d8-CY",
+      "group": "arithmetic",
+      "encoding": "DE d8",
+      "operands": [
+        {
+          "name": "d8",
+          "type": "immediate8"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "DF",
+      "mnemonic": "RST 3",
+      "cycles": 11,
+      "words": 1,
+      "semantics": "push PC; PC=0x18",
+      "group": "jump",
+      "encoding": "DF",
+      "operands": [
+        {
+          "name": "3",
+          "type": "restart vector"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "E0",
+      "mnemonic": "RPO",
+      "cycles": 5,
+      "words": 1,
+      "semantics": "powrót gdy PO; cykle 5/11",
+      "group": "jump",
+      "encoding": "E0",
+      "operands": null,
+      "variants": null
+    },
+    {
+      "opcode": "E1",
+      "mnemonic": "POP H",
+      "cycles": 10,
+      "words": 1,
+      "semantics": "H=stos",
+      "group": "load",
+      "encoding": "E1",
+      "operands": [
+        {
+          "name": "H",
+          "type": "register pair"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "E2",
+      "mnemonic": "JPO a16",
+      "cycles": 10,
+      "words": 3,
+      "semantics": "skok gdy PO",
+      "group": "jump",
+      "encoding": "E2 d16 (LE)",
+      "operands": [
+        {
+          "name": "a16",
+          "type": "address16"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "E3",
+      "mnemonic": "XTHL",
+      "cycles": 18,
+      "words": 1,
+      "semantics": "swap HL ze szczytem stosu",
+      "group": "load",
+      "encoding": "E3",
+      "operands": null,
+      "variants": null
+    },
+    {
+      "opcode": "E4",
+      "mnemonic": "CPO a16",
+      "cycles": 11,
+      "words": 3,
+      "semantics": "call gdy PO; cykle 11/17",
+      "group": "jump",
+      "encoding": "E4 d16 (LE)",
+      "operands": [
+        {
+          "name": "a16",
+          "type": "address16"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "E5",
+      "mnemonic": "PUSH H",
+      "cycles": 11,
+      "words": 1,
+      "semantics": "stos=H",
+      "group": "load",
+      "encoding": "E5",
+      "operands": [
+        {
+          "name": "H",
+          "type": "register pair"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "E6",
+      "mnemonic": "ANI d8",
+      "cycles": 7,
+      "words": 2,
+      "semantics": "A=A&d8; CY=0",
+      "group": "logic",
+      "encoding": "E6 d8",
+      "operands": [
+        {
+          "name": "d8",
+          "type": "immediate8"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "E7",
+      "mnemonic": "RST 4",
+      "cycles": 11,
+      "words": 1,
+      "semantics": "push PC; PC=0x20",
+      "group": "jump",
+      "encoding": "E7",
+      "operands": [
+        {
+          "name": "4",
+          "type": "restart vector"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "E8",
+      "mnemonic": "RPE",
+      "cycles": 5,
+      "words": 1,
+      "semantics": "powrót gdy PE; cykle 5/11",
+      "group": "jump",
+      "encoding": "E8",
+      "operands": null,
+      "variants": null
+    },
+    {
+      "opcode": "E9",
+      "mnemonic": "PCHL",
+      "cycles": 5,
+      "words": 1,
+      "semantics": "PC=HL",
+      "group": "jump",
+      "encoding": "E9",
+      "operands": null,
+      "variants": null
+    },
+    {
+      "opcode": "EA",
+      "mnemonic": "JPE a16",
+      "cycles": 10,
+      "words": 3,
+      "semantics": "skok gdy PE",
+      "group": "jump",
+      "encoding": "EA d16 (LE)",
+      "operands": [
+        {
+          "name": "a16",
+          "type": "address16"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "EB",
+      "mnemonic": "XCHG",
+      "cycles": 4,
+      "words": 1,
+      "semantics": "swap HL<->DE",
+      "group": "load",
+      "encoding": "EB",
+      "operands": null,
+      "variants": null
+    },
+    {
+      "opcode": "EC",
+      "mnemonic": "CPE a16",
+      "cycles": 11,
+      "words": 3,
+      "semantics": "call gdy PE; cykle 11/17",
+      "group": "jump",
+      "encoding": "EC d16 (LE)",
+      "operands": [
+        {
+          "name": "a16",
+          "type": "address16"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "ED",
+      "mnemonic": "CALL a16",
+      "cycles": 17,
+      "words": 3,
+      "semantics": "nieudokumentowany (jak CALL a16)",
+      "group": "jump",
+      "encoding": "ED d16 (LE)",
+      "operands": [
+        {
+          "name": "a16",
+          "type": "address16"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "EE",
+      "mnemonic": "XRI d8",
+      "cycles": 7,
+      "words": 2,
+      "semantics": "A=A^d8; CY=0",
+      "group": "logic",
+      "encoding": "EE d8",
+      "operands": [
+        {
+          "name": "d8",
+          "type": "immediate8"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "EF",
+      "mnemonic": "RST 5",
+      "cycles": 11,
+      "words": 1,
+      "semantics": "push PC; PC=0x28",
+      "group": "jump",
+      "encoding": "EF",
+      "operands": [
+        {
+          "name": "5",
+          "type": "restart vector"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "F0",
+      "mnemonic": "RP",
+      "cycles": 5,
+      "words": 1,
+      "semantics": "powrót gdy P; cykle 5/11",
+      "group": "jump",
+      "encoding": "F0",
+      "operands": null,
+      "variants": null
+    },
+    {
+      "opcode": "F1",
+      "mnemonic": "POP PSW",
+      "cycles": 10,
+      "words": 1,
+      "semantics": "PSW=stos",
+      "group": "load",
+      "encoding": "F1",
+      "operands": [
+        {
+          "name": "PSW",
+          "type": "register pair"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "F2",
+      "mnemonic": "JP a16",
+      "cycles": 10,
+      "words": 3,
+      "semantics": "skok gdy P",
+      "group": "jump",
+      "encoding": "F2 d16 (LE)",
+      "operands": [
+        {
+          "name": "a16",
+          "type": "address16"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "F3",
+      "mnemonic": "DI",
+      "cycles": 4,
+      "words": 1,
+      "semantics": "INTE=0",
+      "group": "io",
+      "encoding": "F3",
+      "operands": null,
+      "variants": null
+    },
+    {
+      "opcode": "F4",
+      "mnemonic": "CP a16",
+      "cycles": 11,
+      "words": 3,
+      "semantics": "call gdy P; cykle 11/17",
+      "group": "jump",
+      "encoding": "F4 d16 (LE)",
+      "operands": [
+        {
+          "name": "a16",
+          "type": "address16"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "F5",
+      "mnemonic": "PUSH PSW",
+      "cycles": 11,
+      "words": 1,
+      "semantics": "stos=PSW",
+      "group": "load",
+      "encoding": "F5",
+      "operands": [
+        {
+          "name": "PSW",
+          "type": "register pair"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "F6",
+      "mnemonic": "ORI d8",
+      "cycles": 7,
+      "words": 2,
+      "semantics": "A=A|d8; CY=0",
+      "group": "logic",
+      "encoding": "F6 d8",
+      "operands": [
+        {
+          "name": "d8",
+          "type": "immediate8"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "F7",
+      "mnemonic": "RST 6",
+      "cycles": 11,
+      "words": 1,
+      "semantics": "push PC; PC=0x30",
+      "group": "jump",
+      "encoding": "F7",
+      "operands": [
+        {
+          "name": "6",
+          "type": "restart vector"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "F8",
+      "mnemonic": "RM",
+      "cycles": 5,
+      "words": 1,
+      "semantics": "powrót gdy M; cykle 5/11",
+      "group": "jump",
+      "encoding": "F8",
+      "operands": null,
+      "variants": null
+    },
+    {
+      "opcode": "F9",
+      "mnemonic": "SPHL",
+      "cycles": 5,
+      "words": 1,
+      "semantics": "SP=HL",
+      "group": "load",
+      "encoding": "F9",
+      "operands": null,
+      "variants": null
+    },
+    {
+      "opcode": "FA",
+      "mnemonic": "JM a16",
+      "cycles": 10,
+      "words": 3,
+      "semantics": "skok gdy M",
+      "group": "jump",
+      "encoding": "FA d16 (LE)",
+      "operands": [
+        {
+          "name": "a16",
+          "type": "address16"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "FB",
+      "mnemonic": "EI",
+      "cycles": 4,
+      "words": 1,
+      "semantics": "INTE=1 po następnej instrukcji",
+      "group": "io",
+      "encoding": "FB",
+      "operands": null,
+      "variants": null
+    },
+    {
+      "opcode": "FC",
+      "mnemonic": "CM a16",
+      "cycles": 11,
+      "words": 3,
+      "semantics": "call gdy M; cykle 11/17",
+      "group": "jump",
+      "encoding": "FC d16 (LE)",
+      "operands": [
+        {
+          "name": "a16",
+          "type": "address16"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "FD",
+      "mnemonic": "CALL a16",
+      "cycles": 17,
+      "words": 3,
+      "semantics": "nieudokumentowany (jak CALL a16)",
+      "group": "jump",
+      "encoding": "FD d16 (LE)",
+      "operands": [
+        {
+          "name": "a16",
+          "type": "address16"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "FE",
+      "mnemonic": "CPI d8",
+      "cycles": 7,
+      "words": 2,
+      "semantics": "flagi A-d8; A bez zmian",
+      "group": "logic",
+      "encoding": "FE d8",
+      "operands": [
+        {
+          "name": "d8",
+          "type": "immediate8"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "FF",
+      "mnemonic": "RST 7",
+      "cycles": 11,
+      "words": 1,
+      "semantics": "push PC; PC=0x38",
+      "group": "jump",
+      "encoding": "FF",
+      "operands": [
+        {
+          "name": "7",
+          "type": "restart vector"
+        }
+      ],
+      "variants": null
+    }
+  ]
+}
