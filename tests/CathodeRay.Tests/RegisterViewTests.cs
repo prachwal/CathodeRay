@@ -5,11 +5,15 @@ namespace CathodeRay.Tests;
 
 public sealed class RegisterViewTests
 {
+    private static readonly RegisterDefinition DefA = new("A", 8, RegisterRole.Accumulator);
+    private static readonly RegisterDefinition DefPc = new("PC", 16, RegisterRole.ProgramCounter);
+    private static readonly RegisterDefinition DefNibble = new("Nibble", 4, RegisterRole.General);
+
     private static RegisterView Sample() => new(
     [
-        new RegisterEntry("A", 0x1F, 8),
-        new RegisterEntry("PC", 0x1234, 16),
-        new RegisterEntry("Nibble", 0xA, 4),
+        new RegisterEntry(DefA, 0x1F),
+        new RegisterEntry(DefPc, 0x1234),
+        new RegisterEntry(DefNibble, 0xA),
     ]);
 
     [Fact]
@@ -23,6 +27,13 @@ public sealed class RegisterViewTests
         view.TryGet("PC", out RegisterEntry pc).Should().BeTrue();
         pc.WidthBits.Should().Be(16);
         view.TryGet("X", out _).Should().BeFalse();
+    }
+
+    [Fact]
+    public void Carries_Role_From_Definition()
+    {
+        Sample()["PC"].Role.Should().Be(RegisterRole.ProgramCounter);
+        Sample()["A"].Definition.Role.Should().Be(RegisterRole.Accumulator);
     }
 
     [Fact]
@@ -43,7 +54,7 @@ public sealed class RegisterViewTests
     public void Duplicate_Name_Throws()
     {
         FluentActions.Invoking(() => new RegisterView(
-            [new RegisterEntry("A", 1, 8), new RegisterEntry("A", 2, 8)]))
+            [new RegisterEntry(DefA, 1), new RegisterEntry(DefA, 2)]))
             .Should().Throw<ArgumentException>().WithMessage("*A*");
     }
 

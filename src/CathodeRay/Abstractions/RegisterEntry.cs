@@ -1,17 +1,23 @@
-using System.Globalization;
-
 namespace CathodeRay.Abstractions;
 
-/// <summary>Pojedynczy rejestr w widoku: nazwa, wartość i szerokość w bitach.</summary>
-/// <param name="Name">Nazwa (np. "A", "PC").</param>
+/// <summary>Wpis widoku rejestru: definicja (nazwa/szerokość/rola) + bieżąca wartość.</summary>
+/// <param name="Definition">Definicja rejestru.</param>
 /// <param name="Value">Wartość.</param>
-/// <param name="WidthBits">Szerokość w bitach (4/8/16/32/64).</param>
-public readonly record struct RegisterEntry(string Name, ulong Value, int WidthBits)
+public readonly record struct RegisterEntry(RegisterDefinition Definition, ulong Value)
 {
-    /// <summary>Liczba cyfr szesnastkowych potrzebna do zapisu wartości (co najmniej 1).</summary>
-    public int HexDigits => Math.Max(1, (WidthBits + 3) / 4);
+    /// <summary>Nazwa rejestru (z definicji).</summary>
+    public string Name => Definition.Name;
 
-    /// <summary>Formatuje wartość jako hex o szerokości rejestru (np. "1F").</summary>
+    /// <summary>Szerokość w bitach (z definicji).</summary>
+    public int WidthBits => Definition.WidthBits;
+
+    /// <summary>Rola rejestru (z definicji).</summary>
+    public RegisterRole Role => Definition.Role;
+
+    /// <summary>Liczba cyfr szesnastkowych (z definicji).</summary>
+    public int HexDigits => Definition.HexDigits;
+
+    /// <summary>Formatuje wartość jako hex o szerokości rejestru.</summary>
     /// <returns>Zapis szesnastkowy.</returns>
-    public string Format() => Value.ToString($"X{HexDigits}", CultureInfo.InvariantCulture);
+    public string Format() => Definition.Format(Value);
 }

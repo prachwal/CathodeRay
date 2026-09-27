@@ -107,8 +107,8 @@ public class StubCpu : ICpu<StubState>, ICpuStatus
     /// <inheritdoc/>
     public RegisterView CaptureRegisters() => new(
     [
-        new RegisterEntry("A", State.A, 8),
-        new RegisterEntry("PC", State.ProgramCounter, 16),
+        new RegisterEntry(new RegisterDefinition("A", 8, RegisterRole.Accumulator), State.A),
+        new RegisterEntry(new RegisterDefinition("PC", 16, RegisterRole.ProgramCounter), State.ProgramCounter),
     ]);
 
     /// <summary>Rejestruje wpis (metadane + handler) w tabeli.</summary>
