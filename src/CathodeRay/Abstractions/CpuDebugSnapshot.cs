@@ -19,11 +19,7 @@ public readonly record struct CpuDebugSnapshot(
     string? LastMnemonic,
     RegisterView Registers)
 {
-    /// <summary>Pusty snapshot (CPU bez introspekcji).</summary>
-    public static CpuDebugSnapshot Empty { get; } = new(
-        0, false, 0, 0, BusActivity.None, -1, null, RegisterView.Empty);
-
-    /// <summary>Buduje snapshot z opcjonalnej zdolności <see cref="ICpuStatus"/>.</summary>
+    /// <summary>Buduje snapshot z <see cref="ICpuStatus"/>.</summary>
     /// <param name="status">Status CPU.</param>
     /// <returns>Snapshot.</returns>
     public static CpuDebugSnapshot From(ICpuStatus status)

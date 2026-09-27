@@ -69,9 +69,8 @@ public sealed class CpuDiagnosticsTests
     public void Step_Emits_Trace_And_Status()
     {
         var observer = new RecordingObserver();
-        var diagnostics = new CpuDiagnostics<StubState>(Cpu(0x01, 0x2A), observer);
+        var diagnostics = new CpuDiagnostics(Cpu(0x01, 0x2A), observer);
 
-        diagnostics.HasStatus.Should().BeTrue();
         CpuStepTrace trace = diagnostics.Step();
 
         observer.Traces.Should().ContainSingle();
@@ -90,7 +89,7 @@ public sealed class CpuDiagnosticsTests
     public void BusActivity_Is_Recorded()
     {
         var observer = new RecordingObserver();
-        var diagnostics = new CpuDiagnostics<StubState>(Cpu(0x01, 0x10, 0x05, 0x20, 0x00, 0xFF), observer);
+        var diagnostics = new CpuDiagnostics(Cpu(0x01, 0x10, 0x05, 0x20, 0x00, 0xFF), observer);
 
         diagnostics.Step();
         diagnostics.Step();
@@ -105,7 +104,7 @@ public sealed class CpuDiagnosticsTests
     public void Run_Stops_At_Breakpoint()
     {
         var observer = new RecordingObserver { BreakWhen = snapshot => snapshot.ProgramCounter >= 3 };
-        var diagnostics = new CpuDiagnostics<StubState>(Cpu(0x00, 0x00, 0x00, 0x00, 0x00), observer);
+        var diagnostics = new CpuDiagnostics(Cpu(0x00, 0x00, 0x00, 0x00, 0x00), observer);
 
         diagnostics.Run(10).Should().HaveCount(3);
     }
@@ -114,7 +113,7 @@ public sealed class CpuDiagnosticsTests
     public void StepFailed_Is_Reported_And_Rethrown()
     {
         var observer = new RecordingObserver();
-        var diagnostics = new CpuDiagnostics<StubState>(Cpu(0x7F), observer);
+        var diagnostics = new CpuDiagnostics(Cpu(0x7F), observer);
 
         FluentActions.Invoking(diagnostics.Step).Should().Throw<InvalidOperationException>();
         observer.Failures.Should().ContainSingle();
@@ -122,17 +121,12 @@ public sealed class CpuDiagnosticsTests
     }
 
     [Fact]
-    public void Degrades_Without_Status()
+    public void Requires_Status()
     {
         var observer = new RecordingObserver();
-        var diagnostics = new CpuDiagnostics<StubState>(new PlainCpu(3), observer);
 
-        diagnostics.HasStatus.Should().BeFalse();
-        CpuStepTrace trace = diagnostics.Step();
-
-        trace.Cycles.Should().Be(3);
-        trace.After.Should().Be(CpuDebugSnapshot.Empty);
-        observer.Traces.Should().ContainSingle();
+        FluentActions.Invoking(() => new CpuDiagnostics(new PlainCpu(3), observer))
+            .Should().Throw<ArgumentException>().WithMessage("*ICpuStatus*");
     }
 
     [Fact]

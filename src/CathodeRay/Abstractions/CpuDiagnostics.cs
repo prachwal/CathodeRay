@@ -1,32 +1,30 @@
 namespace CathodeRay.Abstractions;
 
-/// <summary>Runner diagnostyczny: dekoruje <see cref="ICpu{TState}"/>, zdejmuje snapshoty przed/po kroku i woła <see cref="ICpuExecutionObserver"/>.
-/// Działa z każdym CPU; gdy CPU implementuje opcjonalny <see cref="ICpuStatus"/>, snapshoty niosą realny stan, inaczej są domyślne (degradacja).</summary>
-/// <typeparam name="TState">Typ stanu CPU.</typeparam>
-public sealed class CpuDiagnostics<TState>
-    where TState : ICpuState<TState>
+/// <summary>Runner diagnostyczny: dekoruje <see cref="ICpuCore"/>, zdejmuje snapshoty przed/po kroku i woła <see cref="ICpuExecutionObserver"/>.
+/// Wymaga <see cref="ICpuStatus"/> (introspekcja obowiązkowa) — brak zdolności to jawny błąd, nie ciche zerowe dane.</summary>
+public sealed class CpuDiagnostics
 {
-    private readonly ICpu<TState> _cpu;
+    private readonly ICpuCore _cpu;
+    private readonly ICpuStatus _status;
     private readonly ICpuExecutionObserver _observer;
-    private readonly ICpuStatus? _status;
 
     /// <summary>Tworzy runner dla CPU i obserwatora.</summary>
-    /// <param name="cpu">CPU do dekorowania.</param>
+    /// <param name="cpu">CPU do dekorowania (musi implementować <see cref="ICpuStatus"/>).</param>
     /// <param name="observer">Obserwator (polityka breakpointów, log).</param>
-    public CpuDiagnostics(ICpu<TState> cpu, ICpuExecutionObserver observer)
+    /// <exception cref="ArgumentException">CPU nie implementuje <see cref="ICpuStatus"/>.</exception>
+    public CpuDiagnostics(ICpuCore cpu, ICpuExecutionObserver observer)
     {
         ArgumentNullException.ThrowIfNull(cpu);
         ArgumentNullException.ThrowIfNull(observer);
         _cpu = cpu;
+        _status = cpu as ICpuStatus
+            ?? throw new ArgumentException(
+                $"CPU {cpu.GetType().Name} must implement {nameof(ICpuStatus)}.", nameof(cpu));
         _observer = observer;
-        _status = cpu as ICpuStatus;
     }
 
-    /// <summary>Czy CPU daje introspekcję (implementuje <see cref="ICpuStatus"/>).</summary>
-    public bool HasStatus => _status is not null;
-
-    /// <summary>Aktualny snapshot (pusty, gdy CPU nie ma <see cref="ICpuStatus"/>).</summary>
-    public CpuDebugSnapshot Snapshot => _status is null ? CpuDebugSnapshot.Empty : CpuDebugSnapshot.From(_status);
+    /// <summary>Aktualny snapshot.</summary>
+    public CpuDebugSnapshot Snapshot => CpuDebugSnapshot.From(_status);
 
     /// <summary>Czy obserwator żąda przerwania przed krokiem.</summary>
     /// <returns>Czy przerwać.</returns>
