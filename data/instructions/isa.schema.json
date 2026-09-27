@@ -1,0 +1,58 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://personal-009.local/isa.schema.json",
+  "title": "ISA instruction-set JSON",
+  "description": "Schemat plików data/instructions/*.json — zestaw instrukcji CPU dla serwera MCP 'instructions'. Opcode to 2-hex (00-FF); CHIP-8 używa wzorca 4-znakowego (np. 0NNN, 8XY4).",
+  "type": "object",
+  "required": ["processor", "instructions"],
+  "properties": {
+    "processor": { "type": "string", "minLength": 1 },
+    "format_version": { "type": "string" },
+    "description": { "type": "string" },
+    "notes": { "type": "string" },
+    "schema": { "type": ["object", "string", "null"] },
+    "registers": { "type": ["object", "array", "string", "null"] },
+    "interrupts_and_dma": { "type": ["object", "array", "string", "null"] },
+    "instructions": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/instruction" }
+    }
+  },
+  "$defs": {
+    "instruction": {
+      "type": "object",
+      "required": ["opcode", "mnemonic", "cycles", "words", "group"],
+      "properties": {
+        "opcode": {
+          "type": "string",
+          "pattern": "^(?:[0-9A-F]{2}|[0-9A-FXYN]{4})$"
+        },
+        "mnemonic": { "type": "string", "minLength": 1 },
+        "cycles": { "type": "integer", "minimum": 1 },
+        "words": { "type": "integer", "minimum": 1 },
+        "semantics": { "type": ["string", "null"] },
+        "group": { "type": "string", "minLength": 1 },
+        "encoding": { "type": ["string", "null"] },
+        "operands": {
+          "type": ["array", "null"],
+          "items": { "$ref": "#/$defs/operand" }
+        },
+        "variants": { "type": ["string", "array", "null"] }
+      },
+      "additionalProperties": true
+    },
+    "operand": {
+      "type": "object",
+      "required": ["name", "type"],
+      "properties": {
+        "name": { "type": "string" },
+        "type": { "type": "string" },
+        "range": { "type": "string" },
+        "position": { "type": "string" }
+      },
+      "additionalProperties": true
+    }
+  },
+  "additionalProperties": true
+}
