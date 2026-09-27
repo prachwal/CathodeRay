@@ -5,17 +5,19 @@ namespace CathodeRay.Stub;
 /// <summary>Minimalna zaślepka CPU napędzana tabelą opcode z JSON — do testowania abstrakcji <see cref="ICpu{TState}"/> i <see cref="IBus"/>.</summary>
 public sealed class StubCpu : ICpu<StubState>
 {
-    private readonly StubIsa _isa;
     private readonly IBus _bus;
+    private readonly StubOpcodeTable _opcodes;
 
-    /// <summary>Tworzy zaślepkę z tabelą opcode i szyną pamięci.</summary>
+    /// <summary>Tworzy zaślepkę: rejestruje opcode'y z JSON (nieznany mnemonic = wyjątek już tutaj).</summary>
     /// <param name="isa">Tabela opcode wczytana z JSON.</param>
     /// <param name="bus">Szyna pamięci.</param>
     public StubCpu(StubIsa isa, IBus bus)
     {
-        _isa = isa;
+        ArgumentNullException.ThrowIfNull(isa);
+        ArgumentNullException.ThrowIfNull(bus);
         _bus = bus;
         State = new StubState();
+        _opcodes = Build(isa);
     }
 
     /// <inheritdoc/>
@@ -34,21 +36,21 @@ public sealed class StubCpu : ICpu<StubState>
 
         ushort pc = State.ProgramCounter;
         byte opcode = _bus.Read(pc);
-        if (!_isa.Opcodes.TryGetValue(opcode, out StubOpcode? op))
+        if (!_opcodes.TryGet(opcode, out StubOpcodeEntry? entry) || entry is null)
         {
             throw new InvalidOperationException($"Unknown opcode 0x{opcode:X2} at 0x{pc:X4}.");
         }
 
-        int operand = op.Words switch
+        int operand = entry.Words switch
         {
             2 => _bus.Read((ushort)(pc + 1)),
             3 => _bus.Read((ushort)(pc + 1)) | (_bus.Read((ushort)(pc + 2)) << 8),
             _ => 0,
         };
-        State.ProgramCounter = (ushort)(pc + op.Words);
-        Execute(op.Mnemonic, operand);
-        TotalCycles += op.Cycles;
-        return op.Cycles;
+        State.ProgramCounter = (ushort)(pc + entry.Words);
+        entry.Handler(new OpcodeContext(opcode, operand, pc));
+        TotalCycles += entry.Cycles;
+        return entry.Cycles;
     }
 
     /// <inheritdoc/>
@@ -60,35 +62,65 @@ public sealed class StubCpu : ICpu<StubState>
         TotalCycles = 0;
     }
 
-    private void Execute(string mnemonic, int operand)
+    /// <summary>Rejestruje opcode: metadane z JSON + handler zachowania (jak <c>M6800Cpu.RegisterOpcode</c>).</summary>
+    /// <param name="table">Rejestr docelowy.</param>
+    /// <param name="opcode">Klucz opcode.</param>
+    /// <param name="definition">Metadane z JSON.</param>
+    /// <param name="handler">Handler zachowania.</param>
+    private static void RegisterOpcode(
+        StubOpcodeTable table, byte opcode, StubOpcode definition, Action<OpcodeContext> handler) =>
+        table.Add(opcode, new StubOpcodeEntry(handler, definition.Mnemonic, definition.Cycles, definition.Words));
+
+    private StubOpcodeTable Build(StubIsa isa)
     {
-        switch (mnemonic)
+        var behaviors = new Dictionary<string, Action<OpcodeContext>>(StringComparer.Ordinal)
         {
-            case "NOP":
-                break;
-            case "LDI":
-                State.A = (byte)operand;
-                break;
-            case "ADD":
-                State.A = (byte)(State.A + operand);
-                break;
-            case "INC":
-                State.A = (byte)(State.A + 1);
-                break;
-            case "STA":
-                _bus.Write((ushort)operand, State.A);
-                break;
-            case "LDA":
-                State.A = _bus.Read((ushort)operand);
-                break;
-            case "JMP":
-                State.ProgramCounter = (ushort)operand;
-                break;
-            case "HLT":
-                State.Halted = true;
-                break;
-            default:
-                throw new InvalidOperationException($"Unknown mnemonic '{mnemonic}'.");
+            ["NOP"] = Nop,
+            ["LDI"] = Ldi,
+            ["ADD"] = Add,
+            ["INC"] = Inc,
+            ["STA"] = Sta,
+            ["LDA"] = Lda,
+            ["JMP"] = Jmp,
+            ["HLT"] = Hlt,
+        };
+
+        var table = new StubOpcodeTable();
+        foreach ((byte opcode, StubOpcode definition) in isa.Opcodes)
+        {
+            if (!behaviors.TryGetValue(definition.Mnemonic, out Action<OpcodeContext>? handler))
+            {
+                throw new InvalidOperationException(
+                    $"No handler for mnemonic '{definition.Mnemonic}' (opcode 0x{opcode:X2}).");
+            }
+
+            RegisterOpcode(table, opcode, definition, handler);
         }
+
+        return table.Seal();
+    }
+
+    private void Nop(OpcodeContext ctx) => _ = ctx;
+
+    private void Ldi(OpcodeContext ctx) => State.A = (byte)ctx.Operand;
+
+    private void Add(OpcodeContext ctx) => State.A = (byte)(State.A + ctx.Operand);
+
+    private void Inc(OpcodeContext ctx)
+    {
+        _ = ctx;
+        State.A = (byte)(State.A + 1);
+    }
+
+    private void Sta(OpcodeContext ctx) => _bus.Write((ushort)ctx.Operand, State.A);
+
+    private void Lda(OpcodeContext ctx) => State.A = _bus.Read((ushort)ctx.Operand);
+
+    private void Jmp(OpcodeContext ctx) => State.ProgramCounter = (ushort)ctx.Operand;
+
+    private void Hlt(OpcodeContext ctx)
+    {
+        _ = ctx;
+        State.Halted = true;
     }
 }

@@ -1,3 +1,4 @@
+using System.Text;
 using CathodeRay.Abstractions;
 using CathodeRay.Stub;
 using FluentAssertions;
@@ -150,6 +151,16 @@ public sealed class StubCpuTests
     {
         var (cpu, _) = WithProgram(0x7F);
         FluentActions.Invoking(() => cpu.Step()).Should().Throw<InvalidOperationException>();
+    }
+
+    [Fact]
+    public void Unknown_Mnemonic_Throws_At_Construction()
+    {
+        const string json = """{"instructions":[{"opcode":"00","mnemonic":"XYZ","cycles":1,"words":1}]}""";
+        StubIsa isa = StubIsa.FromJson(new MemoryStream(Encoding.UTF8.GetBytes(json)));
+
+        FluentActions.Invoking(() => new StubCpu(isa, new StubBus()))
+            .Should().Throw<InvalidOperationException>().WithMessage("*XYZ*");
     }
 
     [Fact]
