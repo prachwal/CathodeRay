@@ -1,0 +1,8 @@
+<Project>
+  <!-- Najbliższy Directory.Build.props wygrywa, więc łańcuchujemy rodzica jawnie. -->
+  <Import Project="$([MSBuild]::GetPathOfFileAbove('Directory.Build.props', '$(MSBuildThisFileDirectory)../'))" />
+  <!-- Testy: pełna analiza, ale bez reguł dokumentacji i kolejności (szum dla klas testowych). -->
+  <PropertyGroup>
+    <NoWarn>$(NoWarn);CS1591;SA1201;SA1202;SA1203;SA1204;SA1600;SA1602;SA1611</NoWarn>
+  </PropertyGroup>
+</Project>
