@@ -43,7 +43,7 @@
       "mnemonic": "INC",
       "cycles": 1,
       "words": 1,
-      "semantics": "A = A + 1 (mod 256)",
+      "semantics": "A = A + 1 (mod 256); flagi C i V bez zmian",
       "group": "arithmetic",
       "encoding": null,
       "operands": null,

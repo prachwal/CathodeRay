@@ -22,12 +22,7 @@ public sealed class StubCpuDerivedTests
             RegisterOpcode(table, 0x08, "DEC", 1, 1, Dec);
         }
 
-        protected override Action<OpcodeContext>? ResolveBehavior(string mnemonic) =>
-            mnemonic == "SUB" ? Sub : base.ResolveBehavior(mnemonic);
-
         private void DoubleLdi(OpcodeContext ctx) => State.A = (byte)(ctx.Operand * 2);
-
-        private void Sub(OpcodeContext ctx) => State.A = Alu.Subtract(State.A, (byte)ctx.Operand).Value;
 
         private void Dec(OpcodeContext ctx)
         {
@@ -36,17 +31,21 @@ public sealed class StubCpuDerivedTests
         }
     }
 
-    private sealed class SubCpu : StubCpu
+    private sealed class NegCpu : StubCpu
     {
-        public SubCpu(StubIsa isa, IBus bus)
+        public NegCpu(StubIsa isa, IBus bus)
             : base(isa, bus)
         {
         }
 
         protected override Action<OpcodeContext>? ResolveBehavior(string mnemonic) =>
-            mnemonic == "SUB" ? Sub : base.ResolveBehavior(mnemonic);
+            mnemonic == "NEG" ? Neg : base.ResolveBehavior(mnemonic);
 
-        private void Sub(OpcodeContext ctx) => State.A = (byte)(State.A - ctx.Operand);
+        private void Neg(OpcodeContext ctx)
+        {
+            _ = ctx;
+            State.A = (byte)-State.A;
+        }
     }
 
     private static StubIsa StubIsaFile()
@@ -98,14 +97,13 @@ public sealed class StubCpuDerivedTests
     [Fact]
     public void ResolveBehavior_Extends_Base()
     {
-        const string json = """{"instructions":[{"opcode":"07","mnemonic":"SUB","cycles":2,"words":2}]}""";
+        const string json = """{"instructions":[{"opcode":"09","mnemonic":"NEG","cycles":2,"words":1}]}""";
         var bus = new StubBus();
-        bus.Write(0, 0x07);
-        bus.Write(1, 0x03);
-        var cpu = new SubCpu(StubIsa.FromJson(new MemoryStream(Encoding.UTF8.GetBytes(json))), bus);
-        cpu.State.A = 10;
+        bus.Write(0, 0x09);
+        var cpu = new NegCpu(StubIsa.FromJson(new MemoryStream(Encoding.UTF8.GetBytes(json))), bus);
+        cpu.State.A = 1;
 
         cpu.Step().Should().Be(2);
-        cpu.State.A.Should().Be(7);
+        cpu.State.A.Should().Be(0xFF);
     }
 }

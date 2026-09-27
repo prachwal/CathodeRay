@@ -112,6 +112,29 @@ public sealed class StubCpuTests
     }
 
     [Fact]
+    public void Sub_Clears_Carry_On_Borrow()
+    {
+        var (cpu, _) = WithProgram(0x01, 0x03, 0x07, 0x05);
+        cpu.Step();
+        cpu.Step();
+        cpu.State.A.Should().Be(0xFE);
+        cpu.State.Carry.Should().BeFalse();
+        cpu.State.Overflow.Should().BeFalse();
+    }
+
+    [Fact]
+    public void Inc_Preserves_Flags()
+    {
+        var (cpu, _) = WithProgram(0x01, 0xFF, 0x02, 0x01, 0x03);
+        cpu.Step();
+        cpu.Step();
+        cpu.Step();
+        cpu.State.A.Should().Be(0x01);
+        cpu.State.Carry.Should().BeTrue();
+        cpu.State.Overflow.Should().BeFalse();
+    }
+
+    [Fact]
     public void Registers_Include_Flags()
     {
         var (cpu, _) = WithProgram(0x01, 0xFF, 0x02, 0x01);

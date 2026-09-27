@@ -19,6 +19,18 @@ public sealed class AluTests
     }
 
     [Theory]
+    [InlineData(0x00, false, true, false)]
+    [InlineData(0x80, false, false, true)]
+    [InlineData(0x7F, false, false, false)]
+    public void Result_Derives_Zero_Negative(int value, bool carry, bool zero, bool negative)
+    {
+        var result = new AluResult((byte)value, carry, Overflow: false);
+
+        result.Zero.Should().Be(zero);
+        result.Negative.Should().Be(negative);
+    }
+
+    [Theory]
     [InlineData(0xFF, 0x00, 0x00, true, false)]
     [InlineData(0x7F, 0x00, 0x80, false, true)]
     public void Add_Honours_Carry_In(int a, int b, int value, bool carry, bool overflow)

@@ -152,15 +152,15 @@ public class StubCpu : ICpu<StubState>
     /// <returns>Handler lub <see langword="null"/>.</returns>
     protected virtual Action<OpcodeContext>? ResolveBehavior(string mnemonic) => mnemonic switch
     {
-        "NOP" => Nop,
-        "LDI" => Ldi,
-        "ADD" => Add,
-        "SUB" => Sub,
-        "INC" => Inc,
-        "STA" => Sta,
-        "LDA" => Lda,
-        "JMP" => Jmp,
-        "HLT" => Hlt,
+        "NOP" => static _ => { },
+        "LDI" => ctx => StubOps.Ldi(State, (byte)ctx.Operand),
+        "ADD" => ctx => StubOps.Add(State, (byte)ctx.Operand),
+        "SUB" => ctx => StubOps.Sub(State, (byte)ctx.Operand),
+        "INC" => _ => StubOps.Inc(State),
+        "STA" => ctx => _activity |= StubOps.Sta(State, _bus, (ushort)ctx.Operand),
+        "LDA" => ctx => _activity |= StubOps.Lda(State, _bus, (ushort)ctx.Operand),
+        "JMP" => ctx => StubOps.Jmp(State, (ushort)ctx.Operand),
+        "HLT" => _ => _activity |= StubOps.Hlt(State),
         _ => null,
     };
 
@@ -169,52 +169,5 @@ public class StubCpu : ICpu<StubState>
         var table = new StubOpcodeTable();
         ConfigureOpcodes(_isa, table);
         return table.Seal();
-    }
-
-    private void Nop(OpcodeContext ctx) => _ = ctx;
-
-    private void Ldi(OpcodeContext ctx) => State.A = (byte)ctx.Operand;
-
-    private void Add(OpcodeContext ctx)
-    {
-        (byte value, bool carry, bool overflow) = Alu.Add(State.A, (byte)ctx.Operand);
-        State.A = value;
-        State.Carry = carry;
-        State.Overflow = overflow;
-    }
-
-    private void Sub(OpcodeContext ctx)
-    {
-        (byte value, bool carry, bool overflow) = Alu.Subtract(State.A, (byte)ctx.Operand);
-        State.A = value;
-        State.Carry = carry;
-        State.Overflow = overflow;
-    }
-
-    private void Inc(OpcodeContext ctx)
-    {
-        _ = ctx;
-        State.A = (byte)(State.A + 1);
-    }
-
-    private void Sta(OpcodeContext ctx)
-    {
-        _activity |= BusActivity.Write;
-        _bus.Write((ushort)ctx.Operand, State.A);
-    }
-
-    private void Lda(OpcodeContext ctx)
-    {
-        _activity |= BusActivity.Read;
-        State.A = _bus.Read((ushort)ctx.Operand);
-    }
-
-    private void Jmp(OpcodeContext ctx) => State.ProgramCounter = (ushort)ctx.Operand;
-
-    private void Hlt(OpcodeContext ctx)
-    {
-        _ = ctx;
-        _activity |= BusActivity.Halt;
-        State.Halted = true;
     }
 }
