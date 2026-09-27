@@ -1,0 +1,3 @@
+# Zależności Pythona narzędzi (tools/*_mcp.py).
+# Instalacja: python3 -m pip install -r tools/requirements.txt
+mcp==1.27.1

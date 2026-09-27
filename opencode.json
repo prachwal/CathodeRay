@@ -1,0 +1,22 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "lsp": true,
+  "mcp": {
+    "plan": {
+      "type": "local",
+      "command": ["python3", "tools/plan_mcp.py"],
+      "enabled": true
+    },
+    "instructions": {
+      "type": "local",
+      "command": ["python3", "tools/mcp_instructions.py"],
+      "enabled": true
+    }
+  },
+  "formatter": {
+    "dotnet-format": {
+      "command": ["dotnet", "format", "--include", "$FILE"],
+      "extensions": [".cs"]
+    }
+  }
+}
