@@ -170,7 +170,7 @@ public class StubCpu : ICpu<StubState>
 
     private void Ldi(OpcodeContext ctx) => State.A = (byte)ctx.Operand;
 
-    private void Add(OpcodeContext ctx) => State.A = (byte)(State.A + ctx.Operand);
+    private void Add(OpcodeContext ctx) => State.A = Alu.Add(State.A, (byte)ctx.Operand).Value;
 
     private void Inc(OpcodeContext ctx)
     {
