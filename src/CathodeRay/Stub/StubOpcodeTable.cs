@@ -33,6 +33,17 @@ public sealed class StubOpcodeTable
         _entries[opcode] = entry;
     }
 
+    /// <summary>Usuwa wpis (brak wpisu = wyjątek).</summary>
+    /// <param name="opcode">Klucz opcode.</param>
+    public void Remove(byte opcode)
+    {
+        EnsureMutable();
+        if (!_entries.Remove(opcode))
+        {
+            throw new InvalidOperationException($"Opcode 0x{opcode:X2} is not registered.");
+        }
+    }
+
     /// <summary>Zamraża rejestr — dalsze mutacje rzucają wyjątek.</summary>
     /// <returns>Ten sam rejestr.</returns>
     public StubOpcodeTable Seal()

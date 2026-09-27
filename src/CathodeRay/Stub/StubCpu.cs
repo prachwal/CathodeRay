@@ -2,10 +2,12 @@ using CathodeRay.Abstractions;
 
 namespace CathodeRay.Stub;
 
-/// <summary>Minimalna zaślepka CPU napędzana tabelą opcode z JSON — do testowania abstrakcji <see cref="ICpu{TState}"/> i <see cref="IBus"/>.</summary>
-public sealed class StubCpu : ICpu<StubState>
+/// <summary>Minimalna zaślepka CPU napędzana tabelą opcode z JSON — do testowania abstrakcji <see cref="ICpu{TState}"/> i <see cref="IBus"/>.
+/// Rejestrację opcode można nadpisać (<see cref="ConfigureOpcodes"/>) i dodać/poprawić/usunąć wpisy (delta CPU).</summary>
+public class StubCpu : ICpu<StubState>
 {
     private readonly IBus _bus;
+    private readonly StubIsa _isa;
     private readonly StubOpcodeTable _opcodes;
 
     /// <summary>Tworzy zaślepkę: rejestruje opcode'y z JSON (nieznany mnemonic = wyjątek już tutaj).</summary>
@@ -15,9 +17,10 @@ public sealed class StubCpu : ICpu<StubState>
     {
         ArgumentNullException.ThrowIfNull(isa);
         ArgumentNullException.ThrowIfNull(bus);
+        _isa = isa;
         _bus = bus;
         State = new StubState();
-        _opcodes = Build(isa);
+        _opcodes = Build();
     }
 
     /// <inheritdoc/>
@@ -25,6 +28,9 @@ public sealed class StubCpu : ICpu<StubState>
 
     /// <summary>Suma cykli od ostatniego <see cref="Reset"/>.</summary>
     public int TotalCycles { get; private set; }
+
+    /// <summary>Szyna pamięci dla handlerów podklas.</summary>
+    protected IBus Bus => _bus;
 
     /// <inheritdoc/>
     public int Step()
@@ -62,41 +68,58 @@ public sealed class StubCpu : ICpu<StubState>
         TotalCycles = 0;
     }
 
-    /// <summary>Rejestruje opcode: metadane z JSON + handler zachowania (jak <c>M6800Cpu.RegisterOpcode</c>).</summary>
+    /// <summary>Rejestruje wpis (metadane + handler) w tabeli.</summary>
     /// <param name="table">Rejestr docelowy.</param>
     /// <param name="opcode">Klucz opcode.</param>
-    /// <param name="definition">Metadane z JSON.</param>
+    /// <param name="mnemonic">Mnemonik.</param>
+    /// <param name="cycles">Liczba cykli.</param>
+    /// <param name="words">Liczba słów.</param>
     /// <param name="handler">Handler zachowania.</param>
-    private static void RegisterOpcode(
-        StubOpcodeTable table, byte opcode, StubOpcode definition, Action<OpcodeContext> handler) =>
-        table.Add(opcode, new StubOpcodeEntry(handler, definition.Mnemonic, definition.Cycles, definition.Words));
-
-    private StubOpcodeTable Build(StubIsa isa)
+    protected static void RegisterOpcode(
+        StubOpcodeTable table,
+        byte opcode,
+        string mnemonic,
+        int cycles,
+        int words,
+        Action<OpcodeContext> handler)
     {
-        var behaviors = new Dictionary<string, Action<OpcodeContext>>(StringComparer.Ordinal)
-        {
-            ["NOP"] = Nop,
-            ["LDI"] = Ldi,
-            ["ADD"] = Add,
-            ["INC"] = Inc,
-            ["STA"] = Sta,
-            ["LDA"] = Lda,
-            ["JMP"] = Jmp,
-            ["HLT"] = Hlt,
-        };
+        table.Add(opcode, new StubOpcodeEntry(handler, mnemonic, cycles, words));
+    }
 
-        var table = new StubOpcodeTable();
+    /// <summary>Rejestruje opcode'y z JSON; podklasa nadpisuje i woła <c>base</c>, po czym zmienia tabelę (Add/Replace/Remove).</summary>
+    /// <param name="isa">Tabela opcode z JSON.</param>
+    /// <param name="table">Rejestr docelowy (jeszcze niezamknięty).</param>
+    protected virtual void ConfigureOpcodes(StubIsa isa, StubOpcodeTable table)
+    {
         foreach ((byte opcode, StubOpcode definition) in isa.Opcodes)
         {
-            if (!behaviors.TryGetValue(definition.Mnemonic, out Action<OpcodeContext>? handler))
-            {
-                throw new InvalidOperationException(
+            Action<OpcodeContext>? handler = ResolveBehavior(definition.Mnemonic)
+                ?? throw new InvalidOperationException(
                     $"No handler for mnemonic '{definition.Mnemonic}' (opcode 0x{opcode:X2}).");
-            }
-
-            RegisterOpcode(table, opcode, definition, handler);
+            RegisterOpcode(table, opcode, definition.Mnemonic, definition.Cycles, definition.Words, handler);
         }
+    }
 
+    /// <summary>Mapuje mnemonic na handler; podklasa nadpisuje, żeby dodać własne mnemoniki.</summary>
+    /// <param name="mnemonic">Mnemonik z JSON.</param>
+    /// <returns>Handler lub <see langword="null"/>.</returns>
+    protected virtual Action<OpcodeContext>? ResolveBehavior(string mnemonic) => mnemonic switch
+    {
+        "NOP" => Nop,
+        "LDI" => Ldi,
+        "ADD" => Add,
+        "INC" => Inc,
+        "STA" => Sta,
+        "LDA" => Lda,
+        "JMP" => Jmp,
+        "HLT" => Hlt,
+        _ => null,
+    };
+
+    private StubOpcodeTable Build()
+    {
+        var table = new StubOpcodeTable();
+        ConfigureOpcodes(_isa, table);
         return table.Seal();
     }
 
