@@ -104,6 +104,13 @@ public class StubCpu : ICpu<StubState>, ICpuStatus
         _activity = BusActivity.None;
     }
 
+    /// <inheritdoc/>
+    public RegisterView CaptureRegisters() => new(
+    [
+        new RegisterEntry("A", State.A, 8),
+        new RegisterEntry("PC", State.ProgramCounter, 16),
+    ]);
+
     /// <summary>Rejestruje wpis (metadane + handler) w tabeli.</summary>
     /// <param name="table">Rejestr docelowy.</param>
     /// <param name="opcode">Klucz opcode.</param>

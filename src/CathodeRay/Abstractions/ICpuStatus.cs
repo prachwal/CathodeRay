@@ -23,4 +23,8 @@ public interface ICpuStatus
 
     /// <summary>Mnemonik ostatniej instrukcji (<see langword="null"/>, gdy brak).</summary>
     string? LastMnemonic { get; }
+
+    /// <summary>Widok rejestrów (nazwa, wartość, szerokość) — snapshot bez żywych referencji do stanu.</summary>
+    /// <returns>Widok rejestrów.</returns>
+    RegisterView CaptureRegisters();
 }

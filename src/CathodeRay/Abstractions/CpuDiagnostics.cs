@@ -25,8 +25,8 @@ public sealed class CpuDiagnostics<TState>
     /// <summary>Czy CPU daje introspekcję (implementuje <see cref="ICpuStatus"/>).</summary>
     public bool HasStatus => _status is not null;
 
-    /// <summary>Aktualny snapshot (domyślny, gdy CPU nie ma <see cref="ICpuStatus"/>).</summary>
-    public CpuDebugSnapshot Snapshot => _status is null ? default : CpuDebugSnapshot.From(_status);
+    /// <summary>Aktualny snapshot (pusty, gdy CPU nie ma <see cref="ICpuStatus"/>).</summary>
+    public CpuDebugSnapshot Snapshot => _status is null ? CpuDebugSnapshot.Empty : CpuDebugSnapshot.From(_status);
 
     /// <summary>Czy obserwator żąda przerwania przed krokiem.</summary>
     /// <returns>Czy przerwać.</returns>

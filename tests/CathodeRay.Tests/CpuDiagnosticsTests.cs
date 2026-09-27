@@ -82,6 +82,8 @@ public sealed class CpuDiagnosticsTests
         trace.After.ProgramCounter.Should().Be(2);
         trace.After.CycleCount.Should().Be(2);
         trace.After.InstructionCount.Should().Be(1);
+        trace.After.Registers["A"].Value.Should().Be(0x2A);
+        trace.After.Registers["PC"].Value.Should().Be(2);
     }
 
     [Fact]
@@ -129,7 +131,7 @@ public sealed class CpuDiagnosticsTests
         CpuStepTrace trace = diagnostics.Step();
 
         trace.Cycles.Should().Be(3);
-        trace.After.Should().Be(default(CpuDebugSnapshot));
+        trace.After.Should().Be(CpuDebugSnapshot.Empty);
         observer.Traces.Should().ContainSingle();
     }
 

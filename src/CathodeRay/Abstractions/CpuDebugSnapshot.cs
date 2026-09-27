@@ -8,6 +8,7 @@ namespace CathodeRay.Abstractions;
 /// <param name="LastBusActivity">Aktywność magistrali ostatniej instrukcji.</param>
 /// <param name="LastOpcode">Ostatni opcode (-1, gdy brak).</param>
 /// <param name="LastMnemonic">Mnemonik ostatniej instrukcji (null, gdy brak).</param>
+/// <param name="Registers">Widok rejestrów.</param>
 public readonly record struct CpuDebugSnapshot(
     ushort ProgramCounter,
     bool Halted,
@@ -15,8 +16,13 @@ public readonly record struct CpuDebugSnapshot(
     ulong InstructionCount,
     BusActivity LastBusActivity,
     int LastOpcode,
-    string? LastMnemonic)
+    string? LastMnemonic,
+    RegisterView Registers)
 {
+    /// <summary>Pusty snapshot (CPU bez introspekcji).</summary>
+    public static CpuDebugSnapshot Empty { get; } = new(
+        0, false, 0, 0, BusActivity.None, -1, null, RegisterView.Empty);
+
     /// <summary>Buduje snapshot z opcjonalnej zdolności <see cref="ICpuStatus"/>.</summary>
     /// <param name="status">Status CPU.</param>
     /// <returns>Snapshot.</returns>
@@ -30,6 +36,7 @@ public readonly record struct CpuDebugSnapshot(
             status.InstructionCount,
             status.LastBusActivity,
             status.LastOpcode,
-            status.LastMnemonic);
+            status.LastMnemonic,
+            status.CaptureRegisters());
     }
 }
