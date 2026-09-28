@@ -19,15 +19,16 @@
 
   <ItemGroup>
     <ProjectReference Include="..\CathodeRay\CathodeRay.csproj" />
+    <ProjectReference Include="..\CathodeRay.Assembler\CathodeRay.Assembler.csproj" />
   </ItemGroup>
 
   <ItemGroup>
     <InternalsVisibleTo Include="CathodeRay.Tests" />
   </ItemGroup>
 
-  <!-- Domyślna ISA obok binarki (nadpisywalna opcją isa). -->
+  <!-- Pliki ISA obok binarki (asm i run; nadpisywalne opcją isa). -->
   <ItemGroup>
-    <None Include="..\..\data\instructions\mcp_stub_instructions.json" Link="mcp_stub_instructions.json" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\..\data\instructions\mcp_stub_instructions.json;..\..\data\instructions\mcp_6502_instructions.json;..\..\data\instructions\mcp_65c02_instructions.json;..\..\data\instructions\mcp_8080_instructions.json" LinkBase="." CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
 </Project>

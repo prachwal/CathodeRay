@@ -1,3 +1,4 @@
+using CathodeRay.Assembler;
 using CathodeRay.Stub;
 using FluentAssertions;
 
@@ -5,23 +6,12 @@ namespace CathodeRay.Tests;
 
 public sealed class SampleProgramsTests
 {
-    private static readonly DirectoryInfo Repo = FindRepo();
-
-    private static DirectoryInfo FindRepo()
-    {
-        DirectoryInfo? dir = new(AppContext.BaseDirectory);
-        while (dir is not null && !Directory.Exists(Path.Combine(dir.FullName, "samples", "stub")))
-        {
-            dir = dir.Parent;
-        }
-
-        return dir!;
-    }
-
     private static (StubCpu Cpu, StubBus Bus) Run(string sample)
     {
-        StubIsa isa = StubIsa.FromJsonFile(Path.Combine(Repo.FullName, "data", "instructions", "mcp_stub_instructions.json"));
-        byte[] image = StubAssembler.Assemble(File.ReadAllText(Path.Combine(Repo.FullName, "samples", "stub", sample)), isa);
+        StubIsa isa = StubIsa.FromJsonFile(Repo.IsaFile("mcp_stub_instructions.json"));
+        AssemblyResult result = Repo.Assemble("stub", File.ReadAllText(Repo.Path("samples", "stub", sample)));
+        result.Origin.Should().Be(0, "stub ładuje program od adresu 0");
+        byte[] image = result.Image;
         var bus = new StubBus();
         for (int i = 0; i < image.Length; i++)
         {

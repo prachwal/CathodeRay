@@ -1,3 +1,8 @@
+using System.Text;
+using CathodeRay.Assembler;
+using CathodeRay.Assembler.Isa;
+using CathodeRay.Assembler.Isa.Targets;
+using CathodeRay.Assembler.Syntax;
 using CathodeRay.Stub;
 using FluentAssertions;
 
@@ -5,18 +10,11 @@ namespace CathodeRay.Tests;
 
 public sealed class StubAssemblerTests
 {
-    private static StubIsa Isa()
-    {
-        DirectoryInfo? dir = new(AppContext.BaseDirectory);
-        while (dir is not null && !File.Exists(Path.Combine(dir.FullName, "data", "instructions", "mcp_stub_instructions.json")))
-        {
-            dir = dir.Parent;
-        }
+    private static StubIsa Isa() => StubIsa.FromJsonFile(Repo.IsaFile("mcp_stub_instructions.json"));
 
-        return StubIsa.FromJsonFile(Path.Combine(dir!.FullName, "data", "instructions", "mcp_stub_instructions.json"));
-    }
+    private static byte[] Asm(string source) => Repo.Assemble("stub", source).Image;
 
-    private static byte[] Asm(string source) => StubAssembler.Assemble(source, Isa());
+    private static InstructionSet InlineIsa(string json) => StubSet.Load(new MemoryStream(Encoding.UTF8.GetBytes(json)));
 
     [Fact]
     public void Encodes_Operand_Sizes()
@@ -57,23 +55,23 @@ public sealed class StubAssemblerTests
     }
 
     [Theory]
-    [InlineData("FOO", 1, "unknown mnemonic 'FOO'")]
+    [InlineData("FOO", 1, "unknown mnemonic or directive 'FOO'")]
     [InlineData("NOP\nLDI", 2, "LDI requires an operand")]
     [InlineData("INC 1", 1, "INC takes no operand")]
-    [InlineData("LDI 256", 1, "out of range")]
-    [InlineData("LDI $FFFFFFFF", 1, "invalid operand '$FFFFFFFF'")]
-    [InlineData(".byte 1, 256", 1, "out of range")]
-    [InlineData(".byte 1,,2", 1, ".byte has an empty value")]
-    [InlineData(".byte", 1, ".byte requires an operand")]
-    [InlineData("NOP\nNOP\n.org 1", 3, ".org 1 must be in 2..65535")]
-    [InlineData(".org $10000", 1, "must be in 0..65535")]
-    [InlineData(".org later\nlater: NOP", 1, "undefined label 'later'")]
-    [InlineData(".word 1", 1, "unknown mnemonic '.word'")]
-    [InlineData("JMP $10000", 1, "out of range")]
-    [InlineData("JMP nowhere", 1, "undefined label 'nowhere'")]
-    [InlineData("LDI 1x", 1, "invalid operand '1x'")]
-    [InlineData("a:\na: NOP", 2, "duplicate label 'a'")]
-    [InlineData("1a: NOP", 1, "invalid label '1a'")]
+    [InlineData("LDI 256", 1, "value 256 out of range 0..255")]
+    [InlineData("LDI $FFFFFFFF", 1, "number 'FFFFFFFF' is too large")]
+    [InlineData(".byte 1, 256", 1, "value 256 out of range 0..255")]
+    [InlineData(".byte 1,,2", 1, "empty value in list")]
+    [InlineData(".byte", 1, "value expected")]
+    [InlineData("NOP\nNOP\n.org 1\nNOP", 4, "overlapping output at $0001")]
+    [InlineData(".org $10000", 1, "address 65536 outside $0000..$FFFF")]
+    [InlineData(".org later\nlater: NOP", 1, "'later' must be known at this point")]
+    [InlineData(".word 1", 1, "unknown mnemonic or directive '.word'")]
+    [InlineData("JMP $10000", 1, "value 65536 out of range 0..65535")]
+    [InlineData("JMP nowhere", 1, "undefined symbol 'nowhere'")]
+    [InlineData("LDI 1x", 1, "invalid base-10 number '1x'")]
+    [InlineData("a:\na: NOP", 2, "duplicate symbol 'a'")]
+    [InlineData("1a: NOP", 1, "unknown mnemonic or directive '1a:'")]
     public void Reports_Errors_With_Line(string source, int line, string message)
     {
         FluentActions.Invoking(() => Asm(source))
@@ -138,10 +136,10 @@ public sealed class StubAssemblerTests
     }
 
     [Theory]
-    [InlineData("LDI 1,X", "LDI has no indexed mode")]
+    [InlineData("LDI 1,X", "addressing mode {w},X is not available for LDI")]
     [InlineData("INX 1,X", "INX takes no operand")]
-    [InlineData("LDA 1,Y", "invalid operand '1,Y'")]
-    [InlineData("LDA 1,X,X", "invalid operand '1,X,X'")]
+    [InlineData("LDA 1,Y", "invalid operand '1,Y' for LDA (expected: {w}, {w},X)")]
+    [InlineData("LDA 1,X,X", "invalid operand '1,X,X' for LDA")]
     [InlineData("LDX", "LDX requires an operand")]
     public void Reports_Addressing_Mode_Errors(string source, string message)
     {
@@ -155,10 +153,10 @@ public sealed class StubAssemblerTests
             {"instructions":[{"opcode":"01","mnemonic":"LDY","cycles":4,"words":3,
               "operands":[{"name":"a16","type":"address16_x"}]}]}
             """;
-        StubIsa isa = StubIsa.FromJson(new MemoryStream(System.Text.Encoding.UTF8.GetBytes(json)));
+        var assembler = new TwoPassAssembler(InlineIsa(json), SyntaxDialects.Stub);
 
-        FluentActions.Invoking(() => StubAssembler.Assemble("LDY 5", isa))
-            .Should().Throw<AssemblerException>().WithMessage("*LDY requires an indexed operand (a16,X)*");
+        FluentActions.Invoking(() => assembler.Assemble("LDY 5"))
+            .Should().Throw<AssemblerException>().WithMessage("*invalid operand '5' for LDY (expected: {w},X)*");
     }
 
     [Theory]
@@ -168,7 +166,7 @@ public sealed class StubAssemblerTests
     {
         string json = $$"""{"instructions":[{{entry}}]}""";
 
-        FluentActions.Invoking(() => StubIsa.FromJson(new MemoryStream(System.Text.Encoding.UTF8.GetBytes(json))))
+        FluentActions.Invoking(() => StubIsa.FromJson(new MemoryStream(Encoding.UTF8.GetBytes(json))))
             .Should().Throw<InvalidDataException>().WithMessage($"*{message}*");
     }
 
@@ -180,10 +178,8 @@ public sealed class StubAssemblerTests
               {"opcode":"01","mnemonic":"ADD","cycles":2,"words":2,"operands":[{"name":"d8","type":"immediate8"}]},
               {"opcode":"02","mnemonic":"ADD","cycles":3,"words":3,"operands":[{"name":"a16","type":"address16"}]}]}
             """;
-        StubIsa isa = StubIsa.FromJson(new MemoryStream(System.Text.Encoding.UTF8.GetBytes(json)));
-
-        FluentActions.Invoking(() => StubAssembler.Assemble("NOP", isa))
-            .Should().Throw<InvalidOperationException>().WithMessage("*ADD*ambiguous*");
+        FluentActions.Invoking(() => InlineIsa(json))
+            .Should().Throw<InvalidDataException>().WithMessage("*ADD*ambiguous*");
     }
 
     [Fact]
@@ -199,9 +195,9 @@ public sealed class StubAssemblerTests
 
     [Theory]
     [InlineData("LDI 1-2", "value -1 out of range")]
-    [InlineData("LDI -1", "invalid operand '-1'")]
-    [InlineData("LDI 1+", "invalid operand ''")]
-    [InlineData("LDI 1+x", "undefined label 'x'")]
+    [InlineData("LDI -1", "value -1 out of range")]
+    [InlineData("LDI 1+", "missing operand in expression '1+'")]
+    [InlineData("LDI 1+x", "undefined symbol 'x'")]
     public void Reports_Arithmetic_Errors(string source, string message)
     {
         FluentActions.Invoking(() => Asm(source)).Should().Throw<AssemblerException>().WithMessage($"*{message}*");

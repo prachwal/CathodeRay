@@ -1,5 +1,5 @@
 ; Wersja bez X/BNE/trybu indeksowego (porównanie z fib.asm). Ciąg Fibonacciego F0..F13 (8-bit, F13 = 233) do tablicy fib ($0200..$020D).
-; cathode stub asm samples/stub/fib_selfmod.asm
+; cathode asm samples/stub/fib_selfmod.asm --cpu stub
 ; cathode stub run samples/stub/fib_selfmod.bin --trace --dump 0x200:14
 ;
 ; ISA stuba nie ma skoku warunkowego ani ADD z pamięci, więc:

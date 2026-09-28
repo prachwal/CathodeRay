@@ -1,5 +1,8 @@
 using System.Text;
 using CathodeRay.Abstractions;
+using CathodeRay.Assembler;
+using CathodeRay.Assembler.Isa.Targets;
+using CathodeRay.Assembler.Syntax;
 using CathodeRay.Stub;
 using FluentAssertions;
 
@@ -257,7 +260,7 @@ public sealed class StubCpuTests
               {"opcode":"FF","mnemonic":"HLT","cycles":1,"words":1}]}
             """;
         StubIsa isa = StubIsa.FromJson(new MemoryStream(Encoding.UTF8.GetBytes(json)));
-        byte[] image = StubAssembler.Assemble(
+        byte[] image = new TwoPassAssembler(StubSet.Load(new MemoryStream(Encoding.UTF8.GetBytes(json))), SyntaxDialects.Stub).Assemble(
             """
                     LDI 10
                     LDX 1
@@ -267,8 +270,7 @@ public sealed class StubCpuTests
                     LDI 0           ; pomijane
             halt:   HLT
             data:   .byte 1, 3
-            """,
-            isa);
+            """).Image;
         var bus = new StubBus();
         for (int i = 0; i < image.Length; i++)
         {

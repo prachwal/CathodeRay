@@ -6,12 +6,12 @@ using CathodeRay.Stub;
 
 namespace CathodeRay.Cli;
 
-/// <summary>Grupa <c>stub</c>: asembler i uruchamianie programów dla ISA zaślepki.</summary>
+/// <summary>Grupa <c>stub</c>: uruchamianie programów dla ISA zaślepki (asemblacja: <c>cathode asm --cpu stub</c>).</summary>
 internal static class StubCommands
 {
     private const int NotHalted = 2;
 
-    /// <summary>Buduje grupę <c>stub</c> z komendami <c>asm</c> i <c>run</c>.</summary>
+    /// <summary>Buduje grupę <c>stub</c> z komendą <c>run</c>.</summary>
     /// <returns>Komenda grupy.</returns>
     public static Command Create()
     {
@@ -23,37 +23,9 @@ internal static class StubCommands
         };
         isa.AcceptExistingOnly();
 
-        var group = new Command("stub", "Asembler i uruchamianie programów dla ISA zaślepki.") { isa };
-        group.Subcommands.Add(CreateAsm(isa));
+        var group = new Command("stub", "Uruchamianie programów dla ISA zaślepki.") { isa };
         group.Subcommands.Add(CreateRun(isa));
         return group;
-    }
-
-    private static Command CreateAsm(Option<FileInfo> isa)
-    {
-        var source = new Argument<FileInfo>("source") { Description = "Plik źródłowy asemblera." };
-        source.AcceptExistingOnly();
-        var output = new Option<FileInfo?>("--output", "-o") { Description = "Plik binarny (domyślnie <source>.bin)." };
-
-        var command = new Command("asm", "Asembluje źródło do pliku binarnego.") { source, output };
-        command.SetAction(parse =>
-        {
-            FileInfo src = parse.GetRequiredValue(source);
-            FileInfo dst = parse.GetValue(output) ?? new FileInfo(Path.ChangeExtension(src.FullName, ".bin"));
-            try
-            {
-                byte[] image = StubAssembler.Assemble(File.ReadAllText(src.FullName), LoadIsa(parse, isa));
-                File.WriteAllBytes(dst.FullName, image);
-                parse.InvocationConfiguration.Output.WriteLine($"{src.Name} -> {dst.Name} ({image.Length} B)");
-                return 0;
-            }
-            catch (AssemblerException e)
-            {
-                parse.InvocationConfiguration.Error.WriteLine($"{src.Name}: {e.Message}");
-                return 1;
-            }
-        });
-        return command;
     }
 
     private static Command CreateRun(Option<FileInfo> isa)

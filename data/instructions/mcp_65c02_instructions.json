@@ -163,18 +163,13 @@
     },
     {
       "opcode": "0B",
-      "mnemonic": "ANC",
-      "cycles": 2,
-      "words": 2,
-      "semantics": "A = A & M; C = bit7",
-      "group": "arithmetic",
-      "encoding": "Immediate",
-      "operands": [
-        {
-          "name": "d8",
-          "type": "immediate8"
-        }
-      ],
+      "mnemonic": "NOP",
+      "cycles": 1,
+      "words": 1,
+      "semantics": "brak operacji (niezdefiniowany opcode 65C02)",
+      "group": "system",
+      "encoding": "Implied",
+      "operands": null,
       "variants": null
     },
     {
@@ -668,18 +663,13 @@
     },
     {
       "opcode": "2B",
-      "mnemonic": "ANC",
-      "cycles": 2,
-      "words": 2,
-      "semantics": "A = A & M; C = bit7",
-      "group": "arithmetic",
-      "encoding": "Immediate",
-      "operands": [
-        {
-          "name": "d8",
-          "type": "immediate8"
-        }
-      ],
+      "mnemonic": "NOP",
+      "cycles": 1,
+      "words": 1,
+      "semantics": "brak operacji (niezdefiniowany opcode 65C02)",
+      "group": "system",
+      "encoding": "Implied",
+      "operands": null,
       "variants": null
     },
     {
@@ -1176,18 +1166,13 @@
     },
     {
       "opcode": "4B",
-      "mnemonic": "ALR",
-      "cycles": 2,
-      "words": 2,
-      "semantics": "A = (A & M) >> 1",
-      "group": "arithmetic",
-      "encoding": "Immediate",
-      "operands": [
-        {
-          "name": "d8",
-          "type": "immediate8"
-        }
-      ],
+      "mnemonic": "NOP",
+      "cycles": 1,
+      "words": 1,
+      "semantics": "brak operacji (niezdefiniowany opcode 65C02)",
+      "group": "system",
+      "encoding": "Implied",
+      "operands": null,
       "variants": null
     },
     {
@@ -1684,18 +1669,13 @@
     },
     {
       "opcode": "6B",
-      "mnemonic": "ARR",
-      "cycles": 2,
-      "words": 2,
-      "semantics": "A = ((A & M) >> 1) | (C << 7)",
-      "group": "arithmetic",
-      "encoding": "Immediate",
-      "operands": [
-        {
-          "name": "d8",
-          "type": "immediate8"
-        }
-      ],
+      "mnemonic": "NOP",
+      "cycles": 1,
+      "words": 1,
+      "semantics": "brak operacji (niezdefiniowany opcode 65C02)",
+      "group": "system",
+      "encoding": "Implied",
+      "operands": null,
       "variants": null
     },
     {
@@ -2182,7 +2162,7 @@
       "words": 1,
       "semantics": "A = X",
       "group": "load",
-      "encoding": "Accumulator",
+      "encoding": "Implied",
       "operands": null,
       "variants": null
     },
@@ -2371,14 +2351,14 @@
       "words": 2,
       "semantics": "M = X",
       "group": "load",
-      "encoding": "ZeroPageX",
+      "encoding": "ZeroPageY",
       "operands": [
         {
-          "name": "zp",
+          "name": "a8",
           "type": "address8"
         },
         {
-          "name": "X",
+          "name": "Y",
           "type": "index"
         }
       ],
@@ -2875,14 +2855,14 @@
       "words": 2,
       "semantics": "X = M",
       "group": "load",
-      "encoding": "ZeroPageX",
+      "encoding": "ZeroPageY",
       "operands": [
         {
-          "name": "zp",
+          "name": "a8",
           "type": "address8"
         },
         {
-          "name": "X",
+          "name": "Y",
           "type": "index"
         }
       ],
@@ -3004,14 +2984,14 @@
       "words": 3,
       "semantics": "X = M",
       "group": "load",
-      "encoding": "AbsoluteX",
+      "encoding": "AbsoluteY",
       "operands": [
         {
           "name": "a16",
           "type": "address16"
         },
         {
-          "name": "X",
+          "name": "Y",
           "type": "index"
         }
       ],
@@ -3041,11 +3021,16 @@
       "opcode": "C0",
       "mnemonic": "CPY",
       "cycles": 2,
-      "words": 1,
+      "words": 2,
       "semantics": "flagi z Y - M",
       "group": "compare",
-      "encoding": "Implied",
-      "operands": null,
+      "encoding": "Immediate",
+      "operands": [
+        {
+          "name": "d8",
+          "type": "immediate8"
+        }
+      ],
       "variants": null
     },
     {
@@ -3184,7 +3169,7 @@
       "words": 1,
       "semantics": "X = X - 1",
       "group": "arithmetic",
-      "encoding": "Accumulator",
+      "encoding": "Implied",
       "operands": null,
       "variants": null
     },

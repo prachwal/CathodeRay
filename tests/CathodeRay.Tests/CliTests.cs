@@ -31,7 +31,7 @@ public sealed class CliTests : IDisposable
     {
         string asm = File("prog.asm", source);
         string bin = Path.Combine(_dir.FullName, "prog.bin");
-        Cli("stub", "asm", asm, "-o", bin).Exit.Should().Be(0);
+        Cli("asm", asm, "--cpu", "stub", "-o", bin).Exit.Should().Be(0);
         return bin;
     }
 
@@ -48,10 +48,10 @@ public sealed class CliTests : IDisposable
     {
         string asm = File("sum.asm", Sum);
 
-        var (exit, output, _) = Cli("stub", "asm", asm);
+        var (exit, output, _) = Cli("asm", asm, "--cpu", "stub");
 
         exit.Should().Be(0);
-        output.Should().Contain("sum.asm -> sum.bin (13 B)");
+        output.Should().Contain("sum.asm -> sum.bin (13 B, load $0000, cpu stub, syntax stub)");
         System.IO.File.ReadAllBytes(Path.ChangeExtension(asm, ".bin")).Should().HaveCount(13);
     }
 
@@ -60,10 +60,10 @@ public sealed class CliTests : IDisposable
     {
         string asm = File("bad.asm", "LDI 1\nFOO 2\n");
 
-        var (exit, _, error) = Cli("stub", "asm", asm);
+        var (exit, _, error) = Cli("asm", asm, "--cpu", "stub");
 
         exit.Should().Be(1);
-        error.Should().Contain("bad.asm: line 2: unknown mnemonic 'FOO'.");
+        error.Should().Contain("bad.asm: line 2: unknown mnemonic or directive 'FOO'.");
     }
 
     [Fact]
@@ -136,5 +136,61 @@ public sealed class CliTests : IDisposable
 
         exit.Should().NotBe(0);
         error.Should().Contain("File does not exist");
+    }
+
+    [Theory]
+    [InlineData("6502", null, "  .org $0600\n  lda #$12\n  jmp ($1234)", "6502, syntax ca65", new byte[] { 0xA9, 0x12, 0x6C, 0x34, 0x12 })]
+    [InlineData("6502", "mos", "  *= $0600\nL LDA #$12\n  JMP L", "6502, syntax mos", new byte[] { 0xA9, 0x12, 0x4C, 0x00, 0x06 })]
+    [InlineData("65c02", null, "  .org $0600\n  stz $12", "65c02, syntax ca65", new byte[] { 0x64, 0x12 })]
+    [InlineData("8080", null, "  ORG 100H\n  MVI A,0FFH", "8080, syntax intel", new byte[] { 0x3E, 0xFF })]
+    public void Asm_Selects_Cpu_And_Syntax(string cpu, string? syntax, string source, string summary, byte[] expected)
+    {
+        string asm = File("prog.s", source);
+        string bin = Path.Combine(_dir.FullName, "prog.bin");
+        string[] args = syntax is null ? ["asm", asm, "--cpu", cpu, "-o", bin] : ["asm", asm, "--cpu", cpu, "--syntax", syntax, "-o", bin];
+
+        var (exit, output, _) = Cli(args);
+
+        exit.Should().Be(0);
+        output.Should().Contain($"cpu {summary}");
+        System.IO.File.ReadAllBytes(bin).Should().Equal(expected);
+    }
+
+    [Fact]
+    public void Asm_Illegal_Enables_Undocumented_6502()
+    {
+        string asm = File("ill.s", "  lax $12");
+
+        Cli("asm", asm, "--cpu", "6502").Exit.Should().Be(1);
+        var (exit, output, _) = Cli("asm", asm, "--cpu", "6502", "--illegal");
+
+        exit.Should().Be(0);
+        output.Should().Contain("cpu 6502x");
+    }
+
+    [Theory]
+    [InlineData(new[] { "--cpu", "8080", "--illegal" }, "--illegal applies only to --cpu 6502")]
+    [InlineData(new[] { "--cpu", "8080", "--syntax", "ca65" }, "Syntax 'ca65' is not available for --cpu 8080 (allowed: intel)")]
+    [InlineData(new[] { "--cpu", "z80" }, "z80")]
+    [InlineData(new string[0], "--cpu")]
+    public void Asm_Rejects_Bad_Flags(string[] flags, string message)
+    {
+        string asm = File("prog.s", "  NOP");
+
+        var (exit, _, error) = Cli(["asm", asm, .. flags]);
+
+        exit.Should().NotBe(0);
+        error.Should().Contain(message);
+    }
+
+    [Fact]
+    public void Asm_Writes_Listing()
+    {
+        string asm = File("prog.s", "  .org $0600\nstart: lda #1\n  rts");
+        string listing = Path.Combine(_dir.FullName, "prog.lst");
+
+        Cli("asm", asm, "--cpu", "6502", "-l", listing).Exit.Should().Be(0);
+
+        System.IO.File.ReadAllText(listing).Should().Contain("0600  A9 01            2  start: lda #1").And.Contain("0602  60");
     }
 }

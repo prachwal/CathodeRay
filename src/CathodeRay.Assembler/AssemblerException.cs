@@ -1,6 +1,6 @@
 using System.Diagnostics.CodeAnalysis;
 
-namespace CathodeRay.Stub;
+namespace CathodeRay.Assembler;
 
 /// <summary>Błąd asemblacji wskazujący linię źródła.</summary>
 [SuppressMessage("Roslynator", "RCS1194", Justification = "Bez numeru linii wyjątek nie ma sensu; standardowe konstruktory byłyby martwe.")]

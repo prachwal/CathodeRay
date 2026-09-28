@@ -2082,11 +2082,16 @@
       "opcode": "80",
       "mnemonic": "NOP",
       "cycles": 2,
-      "words": 1,
-      "semantics": "brak operacji (dummy read)",
+      "words": 2,
+      "semantics": "brak operacji (odczyt i pominięcie bajtu natychmiastowego)",
       "group": "system",
-      "encoding": "Implied",
-      "operands": null,
+      "encoding": "Immediate",
+      "operands": [
+        {
+          "name": "d8",
+          "type": "immediate8"
+        }
+      ],
       "variants": null
     },
     {
@@ -2109,11 +2114,16 @@
       "opcode": "82",
       "mnemonic": "NOP",
       "cycles": 2,
-      "words": 1,
-      "semantics": "brak operacji (dummy read)",
+      "words": 2,
+      "semantics": "brak operacji (odczyt i pominięcie bajtu natychmiastowego)",
       "group": "system",
-      "encoding": "Implied",
-      "operands": null,
+      "encoding": "Immediate",
+      "operands": [
+        {
+          "name": "d8",
+          "type": "immediate8"
+        }
+      ],
       "variants": null
     },
     {
@@ -2230,7 +2240,7 @@
       "words": 1,
       "semantics": "A = X",
       "group": "load",
-      "encoding": "Accumulator",
+      "encoding": "Implied",
       "operands": null,
       "variants": null
     },
@@ -2420,14 +2430,14 @@
       "words": 2,
       "semantics": "M = X",
       "group": "load",
-      "encoding": "ZeroPageX",
+      "encoding": "ZeroPageY",
       "operands": [
         {
-          "name": "zp",
+          "name": "a8",
           "type": "address8"
         },
         {
-          "name": "X",
+          "name": "Y",
           "type": "index"
         }
       ],
@@ -2440,14 +2450,14 @@
       "words": 2,
       "semantics": "M = A & X",
       "group": "load",
-      "encoding": "ZeroPageX",
+      "encoding": "ZeroPageY",
       "operands": [
         {
-          "name": "zp",
+          "name": "a8",
           "type": "address8"
         },
         {
-          "name": "X",
+          "name": "Y",
           "type": "index"
         }
       ],
@@ -2562,14 +2572,14 @@
       "words": 3,
       "semantics": "M = X & (H+1) (niestabilny)",
       "group": "load",
-      "encoding": "AbsoluteX",
+      "encoding": "AbsoluteY",
       "operands": [
         {
           "name": "a16",
           "type": "address16"
         },
         {
-          "name": "X",
+          "name": "Y",
           "type": "index"
         }
       ],
@@ -2582,14 +2592,14 @@
       "words": 3,
       "semantics": "M = A & X & (H+1) (niestabilny)",
       "group": "load",
-      "encoding": "AbsoluteX",
+      "encoding": "AbsoluteY",
       "operands": [
         {
           "name": "a16",
           "type": "address16"
         },
         {
-          "name": "X",
+          "name": "Y",
           "type": "index"
         }
       ],
@@ -2947,14 +2957,14 @@
       "words": 2,
       "semantics": "X = M",
       "group": "load",
-      "encoding": "ZeroPageX",
+      "encoding": "ZeroPageY",
       "operands": [
         {
-          "name": "zp",
+          "name": "a8",
           "type": "address8"
         },
         {
-          "name": "X",
+          "name": "Y",
           "type": "index"
         }
       ],
@@ -2967,14 +2977,14 @@
       "words": 2,
       "semantics": "A = X = M",
       "group": "load",
-      "encoding": "ZeroPageX",
+      "encoding": "ZeroPageY",
       "operands": [
         {
-          "name": "zp",
+          "name": "a8",
           "type": "address8"
         },
         {
-          "name": "X",
+          "name": "Y",
           "type": "index"
         }
       ],
@@ -3089,14 +3099,14 @@
       "words": 3,
       "semantics": "X = M",
       "group": "load",
-      "encoding": "AbsoluteX",
+      "encoding": "AbsoluteY",
       "operands": [
         {
           "name": "a16",
           "type": "address16"
         },
         {
-          "name": "X",
+          "name": "Y",
           "type": "index"
         }
       ],
@@ -3109,14 +3119,14 @@
       "words": 3,
       "semantics": "A = X = M",
       "group": "load",
-      "encoding": "AbsoluteX",
+      "encoding": "AbsoluteY",
       "operands": [
         {
           "name": "a16",
           "type": "address16"
         },
         {
-          "name": "X",
+          "name": "Y",
           "type": "index"
         }
       ],
@@ -3126,11 +3136,16 @@
       "opcode": "C0",
       "mnemonic": "CPY",
       "cycles": 2,
-      "words": 1,
+      "words": 2,
       "semantics": "flagi z Y - M",
       "group": "compare",
-      "encoding": "Implied",
-      "operands": null,
+      "encoding": "Immediate",
+      "operands": [
+        {
+          "name": "d8",
+          "type": "immediate8"
+        }
+      ],
       "variants": null
     },
     {
@@ -3153,11 +3168,16 @@
       "opcode": "C2",
       "mnemonic": "NOP",
       "cycles": 2,
-      "words": 1,
-      "semantics": "brak operacji (dummy read)",
+      "words": 2,
+      "semantics": "brak operacji (odczyt i pominięcie bajtu natychmiastowego)",
       "group": "system",
-      "encoding": "Implied",
-      "operands": null,
+      "encoding": "Immediate",
+      "operands": [
+        {
+          "name": "d8",
+          "type": "immediate8"
+        }
+      ],
       "variants": null
     },
     {
@@ -3274,7 +3294,7 @@
       "words": 1,
       "semantics": "X = X - 1",
       "group": "arithmetic",
-      "encoding": "Accumulator",
+      "encoding": "Implied",
       "operands": null,
       "variants": null
     },

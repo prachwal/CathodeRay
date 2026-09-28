@@ -1,5 +1,5 @@
 ; Przykład dla ISA zaślepki: 250 + 10 przepełnia bajt (C=1), wynik trafia pod result.
-; cathode stub asm samples/stub/sum.asm
+; cathode asm samples/stub/sum.asm --cpu stub
 ; cathode stub run samples/stub/sum.bin --trace --dump 0x20:4
 
 start:  LDA operand     ; A = 250
