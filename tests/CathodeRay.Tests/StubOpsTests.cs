@@ -329,4 +329,68 @@ public sealed class StubOpsTests
         state.ProgramCounter.Should().Be(0x0100);
         state.StackPointer.Should().Be(0xFF);
     }
+
+    [Theory]
+    [InlineData(0x01, 0x02, false)]
+    [InlineData(0x81, 0x02, true)]
+    [InlineData(0xFF, 0xFE, true)]
+    public void Shl_Shifts_Left_With_Carry(int a, int expected, bool carry)
+    {
+        var state = new StubState { A = (byte)a, Carry = !carry, Overflow = true };
+
+        StubOps.Shl(state);
+
+        state.A.Should().Be((byte)expected);
+        state.Carry.Should().Be(carry);
+        state.Zero.Should().Be(expected == 0);
+        state.Overflow.Should().BeTrue();
+    }
+
+    [Theory]
+    [InlineData(0x02, 0x01, false)]
+    [InlineData(0x03, 0x01, true)]
+    [InlineData(0x01, 0x00, true)]
+    public void Shr_Shifts_Right_With_Carry(int a, int expected, bool carry)
+    {
+        var state = new StubState { A = (byte)a, Carry = !carry, Overflow = true };
+
+        StubOps.Shr(state);
+
+        state.A.Should().Be((byte)expected);
+        state.Carry.Should().Be(carry);
+        state.Zero.Should().Be(expected == 0);
+        state.Overflow.Should().BeTrue();
+    }
+
+    [Theory]
+    [InlineData(0x00, 0xFF)]
+    [InlineData(0xFF, 0x00)]
+    [InlineData(0x55, 0xAA)]
+    public void Not_Complements_And_Preserves_Carry(int a, int expected)
+    {
+        var state = new StubState { A = (byte)a, Carry = true, Overflow = true };
+
+        StubOps.Not(state);
+
+        state.A.Should().Be((byte)expected);
+        state.Zero.Should().Be(expected == 0);
+        state.Carry.Should().BeTrue();
+        state.Overflow.Should().BeTrue();
+    }
+
+    [Theory]
+    [InlineData(5, 5, true, true)]
+    [InlineData(6, 5, false, true)]
+    [InlineData(4, 5, false, false)]
+    public void Cpa_Compares_Without_Changing_A_Or_Overflow(int a, int value, bool zero, bool carry)
+    {
+        var state = new StubState { A = (byte)a, Overflow = true };
+
+        StubOps.Cpa(state, (byte)value);
+
+        state.Zero.Should().Be(zero);
+        state.Carry.Should().Be(carry);
+        state.A.Should().Be((byte)a);
+        state.Overflow.Should().BeTrue();
+    }
 }

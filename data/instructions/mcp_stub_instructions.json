@@ -490,6 +490,55 @@
       "variants": null
     },
     {
+      "opcode": "22",
+      "mnemonic": "SHL",
+      "cycles": 2,
+      "words": 1,
+      "semantics": "A = A << 1 (mod 256); C = stary bit 7, Z; V bez zmian",
+      "group": "arithmetic",
+      "encoding": null,
+      "operands": null,
+      "variants": null
+    },
+    {
+      "opcode": "23",
+      "mnemonic": "SHR",
+      "cycles": 2,
+      "words": 1,
+      "semantics": "A = A >> 1; C = stary bit 0, Z; V bez zmian",
+      "group": "arithmetic",
+      "encoding": null,
+      "operands": null,
+      "variants": null
+    },
+    {
+      "opcode": "24",
+      "mnemonic": "NOT",
+      "cycles": 1,
+      "words": 1,
+      "semantics": "A = ~A; Z; C i V bez zmian",
+      "group": "arithmetic",
+      "encoding": null,
+      "operands": null,
+      "variants": null
+    },
+    {
+      "opcode": "25",
+      "mnemonic": "CPA",
+      "cycles": 2,
+      "words": 2,
+      "semantics": "A - d8 bez zapisu: Z = (A == d8), C = (A >= d8); V bez zmian",
+      "group": "compare",
+      "encoding": null,
+      "operands": [
+        {
+          "name": "d8",
+          "type": "immediate8"
+        }
+      ],
+      "variants": null
+    },
+    {
       "opcode": "FF",
       "mnemonic": "HLT",
       "cycles": 1,

@@ -193,7 +193,8 @@ public class StubCpu : ICpu<StubState>
     {
         StubOperation.Nop or StubOperation.Inc or StubOperation.Inx or StubOperation.Dec or StubOperation.Dex
             or StubOperation.Tax or StubOperation.Txa or StubOperation.Clc or StubOperation.Sec
-            or StubOperation.Push or StubOperation.Pop or StubOperation.Ret or StubOperation.Hlt => mode == OperandMode.None,
+            or StubOperation.Push or StubOperation.Pop or StubOperation.Ret or StubOperation.Hlt
+            or StubOperation.Shl or StubOperation.Shr or StubOperation.Not => mode == OperandMode.None,
         StubOperation.Sta or StubOperation.Jmp or StubOperation.Bne or StubOperation.Beq or StubOperation.Call => IsAddress(mode),
         _ => mode == OperandMode.Immediate8 || IsAddress(mode),
     };
@@ -243,6 +244,18 @@ public class StubCpu : ICpu<StubState>
                 break;
             case StubOperation.Cpx:
                 StubOps.Cpx(state, Value(mode, operand, address));
+                break;
+            case StubOperation.Cpa:
+                StubOps.Cpa(state, Value(mode, operand, address));
+                break;
+            case StubOperation.Shl:
+                StubOps.Shl(state);
+                break;
+            case StubOperation.Shr:
+                StubOps.Shr(state);
+                break;
+            case StubOperation.Not:
+                StubOps.Not(state);
                 break;
             case StubOperation.Inc:
                 StubOps.Inc(state);

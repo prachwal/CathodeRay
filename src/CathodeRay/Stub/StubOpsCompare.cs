@@ -15,4 +15,15 @@ public static partial class StubOps
         state.Carry = result.Carry;
         state.Zero = result.Zero;
     }
+
+    /// <summary>CPA: porównuje A z wartością (A - wartość bez zapisu); Z = równe, C = A ≥ wartość, V bez zmian.</summary>
+    /// <param name="state">Stan CPU.</param>
+    /// <param name="value">Wartość porównywana.</param>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static void Cpa(StubState state, byte value)
+    {
+        AluResult result = Alu.Subtract(state.A, value);
+        state.Carry = result.Carry;
+        state.Zero = result.Zero;
+    }
 }
