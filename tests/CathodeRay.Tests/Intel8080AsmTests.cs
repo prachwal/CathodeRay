@@ -12,6 +12,8 @@ public sealed class Intel8080AsmTests
     [InlineData("RST 0", 0xC7)]
     [InlineData("RST 1", 0xCF)]
     [InlineData("RST 7", 0xFF)]
+    [InlineData("RST 3+4", 0xFF)]
+    [InlineData("V EQU 2\n RST V", 0xD7)]
     public void Rst_Takes_Vector_Number(string source, int opcode)
     {
         Asm(source).Should().Equal((byte)opcode);
@@ -88,6 +90,8 @@ public sealed class Intel8080AsmTests
     [InlineData("MOV A,Q", "addressing mode A,{b} is not available for MOV")]
     [InlineData("LDA B", "addressing mode B is not available for LDA")]
     [InlineData("X EQU 1\nX EQU 2", "duplicate symbol 'X'")]
+    [InlineData("RST 8", "invalid operand '8' for RST (allowed constants: 0, 1, 2, 3, 4, 5, 6, 7)")]
+    [InlineData("RST V\nV EQU 1", "'V' must be known at this point (it selects the RST opcode)")]
     public void Reports_Intel_Errors(string source, string message)
     {
         FluentActions.Invoking(() => Asm(source)).Should().Throw<AssemblerException>().WithMessage($"*{message}*");

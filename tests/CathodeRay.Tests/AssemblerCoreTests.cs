@@ -20,6 +20,15 @@ public sealed class AssemblerCoreTests
             new InstructionForm("JMP", OperandPattern.Parse("{w}"), [0x4C]),
             new InstructionForm("JMP", OperandPattern.Parse("({w})"), [0x6C]),
             new InstructionForm("BR", OperandPattern.Parse("{r}"), [0x80]),
+            new InstructionForm("LDI", OperandPattern.Parse("(IX{d})"), [0xDD, 0x7E]),
+            new InstructionForm("IM", OperandPattern.Parse("{c=0}"), [0xED, 0x46]),
+            new InstructionForm("IM", OperandPattern.Parse("{c=2}"), [0xED, 0x5E]),
+            new InstructionForm("BITX", OperandPattern.Parse("{c=1},(IX{d})"), [0xCB, 0x4E]),
+            new InstructionForm("BITX", OperandPattern.Parse("{c=2},(IX{d})"), [0xCB, 0x56]),
+            new InstructionForm("RLCX", OperandPattern.Parse("(IX{d})"), [0xDD, 0xCB, 0x06], [EncodingPart.Byte(0xDD), EncodingPart.Byte(0xCB), EncodingPart.Slot(0), EncodingPart.Byte(0x06)]),
+            new InstructionForm("LDI", OperandPattern.Parse("(IX)"), [0xDD, 0x7E], [EncodingPart.Byte(0xDD), EncodingPart.Byte(0x7E), EncodingPart.Byte(0x00)]),
+            new InstructionForm("LDW", OperandPattern.Parse("({w}),{b}"), [0x36], [EncodingPart.Byte(0x36), EncodingPart.Slot(1), EncodingPart.Slot(0)]),
+            new InstructionForm("EX", OperandPattern.Parse("AF,AF'"), [0x08]),
         ]);
 
     private static AssemblyResult Asm(string source, SyntaxDialect? dialect = null, Endianness endianness = Endianness.Little) =>
@@ -59,6 +68,90 @@ public sealed class AssemblerCoreTests
     public void Relative_Branch_Counts_From_Next_Instruction(string source, int offset)
     {
         Asm(source).Image.Should().Equal(0x80, (byte)offset);
+    }
+
+    [Theory]
+    [InlineData("LDI (IX+5)", 0x05)]
+    [InlineData("LDI (ix - 1)", 0xFF)]
+    [InlineData("LDI (IX+2*3)", 0x06)]
+    [InlineData("LDI (IX-128)", 0x80)]
+    [InlineData("LDI (IX+127)", 0x7F)]
+    public void Signed_Displacement_Is_Encoded_In_Twos_Complement(string source, int displacement)
+    {
+        Asm(source).Image.Should().Equal(0xDD, 0x7E, (byte)displacement);
+    }
+
+    [Theory]
+    [InlineData("LDI (IX+128)", "displacement 128 out of range -128..127")]
+    [InlineData("LDI (IX-129)", "displacement -129 out of range -128..127")]
+    public void Signed_Displacement_Out_Of_Range_Is_Reported(string source, string message)
+    {
+        FluentActions.Invoking(() => Asm(source)).Should().Throw<AssemblerException>().WithMessage($"*{message}*");
+    }
+
+    [Theory]
+    [InlineData("IM 0", 0xED, 0x46)]
+    [InlineData("IM 1+1", 0xED, 0x5E)]
+    public void Constant_Slot_Selects_Opcode_And_Emits_Nothing(string source, int first, int second)
+    {
+        Asm(source).Image.Should().Equal((byte)first, (byte)second);
+    }
+
+    [Fact]
+    public void Constant_Slot_Works_Next_To_Forward_Referenced_Field()
+    {
+        Asm("BITX 2,(IX+off)\noff = 4").Image.Should().Equal(0xCB, 0x56, 0x04);
+    }
+
+    [Theory]
+    [InlineData("IM 1", "invalid operand '1' for IM (allowed constants: 0, 2)")]
+    [InlineData("IM mode\nmode = 2", "'mode' must be known at this point (it selects the IM opcode)")]
+    public void Constant_Slot_Errors(string source, string message)
+    {
+        FluentActions.Invoking(() => Asm(source)).Should().Throw<AssemblerException>().WithMessage($"*{message}*");
+    }
+
+    [Theory]
+    [InlineData("RLCX (IX+2)", new byte[] { 0xDD, 0xCB, 0x02, 0x06 })]
+    [InlineData("LDI (IX)", new byte[] { 0xDD, 0x7E, 0x00 })]
+    [InlineData("LDW ($1234),$56", new byte[] { 0x36, 0x56, 0x34, 0x12 })]
+    public void Layout_Orders_Opcode_Bytes_And_Fields(string source, byte[] expected)
+    {
+        Asm(source).Image.Should().Equal(expected);
+    }
+
+    [Fact]
+    public void Layout_Keeps_Program_Counter_At_Instruction_Start()
+    {
+        Asm("  .org $10\n  RLCX (IX+*-$10+1)").Image.Should().Equal(0xDD, 0xCB, 0x01, 0x06);
+    }
+
+    [Theory]
+    [InlineData(0, "layout references fields [], expected [0]")]
+    [InlineData(2, "layout references fields [0,0], expected [0]")]
+    public void Layout_Must_Reference_Each_Field_Once(int slotReferences, string message)
+    {
+        EncodingPart[] layout = [EncodingPart.Byte(0xDD), .. Enumerable.Repeat(EncodingPart.Slot(0), slotReferences)];
+        var form = new InstructionForm("BAD", OperandPattern.Parse("(IX{d})"), [0xDD], layout);
+
+        FluentActions.Invoking(() => new InstructionSet("bad", Endianness.Little, [form]))
+            .Should().Throw<InvalidDataException>().WithMessage($"*{message}*");
+    }
+
+    [Theory]
+    [InlineData("EX AF,AF' ; komentarz ' z apostrofem")]
+    [InlineData("EX AF,AF'")]
+    [InlineData("ex af , af'   ; ok")]
+    public void Apostrophe_After_Identifier_Does_Not_Open_String(string source)
+    {
+        Asm(source).Image.Should().Equal(0x08);
+    }
+
+    [Fact]
+    public void Apostrophe_Still_Opens_Strings_Elsewhere()
+    {
+        Asm(".byte 'A;B', ';' ; komentarz").Image.Should().Equal(0x41, 0x3B, 0x42, 0x3B);
+        Assembler.Directives.OperandList.Split("AF',1").Should().Equal("AF'", "1");
     }
 
     [Fact]
@@ -137,6 +230,28 @@ public sealed class AssemblerCoreTests
     public void Evaluates_Ca65_Expressions(string source, int value)
     {
         Asm(source).Image.Should().Equal(0xA9, (byte)value);
+    }
+
+    [Theory]
+    [InlineData("LD #0BH", 0x0B)]
+    [InlineData("LD #0FFh", 0xFF)]
+    [InlineData("LD #0b101", 5)]
+    [InlineData("LD #0x1F", 0x1F)]
+    [InlineData("LD #$1F", 0x1F)]
+    [InlineData("LD #%1010", 10)]
+    [InlineData("LD #17 % 5", 2)]
+    [InlineData("LD #1010B", 10)]
+    [InlineData("LD #17Q", 15)]
+    public void Zilog_Mixes_Intel_Motorola_And_C_Numbers(string source, int value)
+    {
+        Asm(source, SyntaxDialects.Zilog).Image.Should().Equal(0xA9, (byte)value);
+    }
+
+    [Fact]
+    public void Zilog_Dollar_Is_Program_Counter_Unless_Followed_By_Hex_Digit()
+    {
+        Asm("  ORG 1000H\n  JMP $\n  JMP $+3\n  JMP $10", SyntaxDialects.Zilog).Image
+            .Should().Equal(0x4C, 0x00, 0x10, 0x4C, 0x06, 0x10, 0x4C, 0x10, 0x00);
     }
 
     [Theory]

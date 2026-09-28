@@ -83,7 +83,7 @@ internal static partial class LineParser
             {
                 quote = c == quote ? null : quote;
             }
-            else if (c is '"' or '\'')
+            else if (Expression.OpensQuote(text, i))
             {
                 quote = c;
             }

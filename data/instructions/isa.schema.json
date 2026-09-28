@@ -26,7 +26,7 @@
       "properties": {
         "opcode": {
           "type": "string",
-          "pattern": "^(?:[0-9A-F]{2}|[0-9A-FXYN]{4})$"
+          "pattern": "^(?:(?:[0-9A-F]{2}){1,4}|[0-9A-FXYN]{4})$"
         },
         "mnemonic": { "type": "string", "minLength": 1 },
         "cycles": { "type": "integer", "minimum": 1 },

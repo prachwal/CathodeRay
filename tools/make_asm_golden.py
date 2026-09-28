@@ -10,6 +10,9 @@ oraz tests/CathodeRay.Tests/Asm/8080/opcodes.s/.bin z z80asm (z88dk, -m8080, mne
 Intel8080AsmTests z bajtami z tabeli Intela): RST (z80asm oczekuje adresu RST 38h, Intel numeru wektora RST 7) oraz
 JP/CP (z80asm czyta je jako Zilog: skok bezwarunkowy i porównanie, a u Intela to skok/wywołanie przy dodatnim wyniku).
 
+Z80: Asm/z80 (udokumentowane, z80asm -mz80_strict; rejected.txt = nieudokumentowane, które tryb ścisły odrzuca)
+i Asm/z80u (wszystkie, z80asm -mz80). Linie z szablonów mcp_z80_instructions.json: n=12h, nn=1234h, e=$+5, d=+5.
+
 Wymaga ca65 i ld65 w PATH oraz z88dk w /opt/z88dk-2.4. Uruchamiać z katalogu repo: python3 tools/make_asm_golden.py
 """
 import os
@@ -58,13 +61,48 @@ def candidates() -> list[str]:
     return lines
 
 
-def z80asm_8080(source: str) -> bytes:
+def z80asm(cpu: str, source: str) -> bytes | None:
     env = dict(os.environ, PATH="/opt/z88dk-2.4/bin:" + os.environ["PATH"], ZCCCFG="/opt/z88dk-2.4/lib/config")
     with tempfile.TemporaryDirectory() as tmp:
         t = pathlib.Path(tmp)
         (t / "p.asm").write_text(source)
-        subprocess.run(["z80asm", "-m8080", "-b", "p.asm"], cwd=t, env=env, check=True, capture_output=True)
-        return (t / "p.bin").read_bytes()
+        ok = subprocess.run(["z80asm", f"-m{cpu}", "-b", "p.asm"], cwd=t, env=env, capture_output=True).returncode == 0
+        return (t / "p.bin").read_bytes() if ok and (t / "p.bin").exists() else None
+
+
+def z80asm_8080(source: str) -> bytes:
+    binary = z80asm("8080", source)
+    if binary is None:
+        raise SystemExit("z80asm -m8080 rejects the generated 8080 source")
+    return binary
+
+
+def golden_z80() -> None:
+    sample = re.compile(r"\b(nn|n|e)\b|\+d\)")
+    values = {"nn": "1234h", "n": "12h", "e": "$+5", "+d)": "+5)"}
+    entries = json.loads((ROOT / "data" / "instructions" / "mcp_z80_instructions.json").read_text())["instructions"]
+    lines = [(sample.sub(lambda m: values[m.group(0)], e["mnemonic"]), e.get("variants") == "undocumented") for e in entries]
+    documented = list(dict.fromkeys(line for line, undoc in lines if not undoc))
+    undocumented = list(dict.fromkeys(line for line, undoc in lines if undoc and line not in documented))
+    for folder, cpu, lines in (("z80", "z80_strict", documented), ("z80u", "z80", documented + undocumented)):
+        out = OUT / folder
+        out.mkdir(parents=True, exist_ok=True)
+        source = f"; Wygenerowane przez tools/make_asm_golden.py z z80asm -m{cpu}\n\tORG 0600H\n" + "".join(f"\t{l}\n" for l in lines)
+        binary = z80asm(cpu, source)
+        if binary is None:
+            raise SystemExit(f"z80asm -m{cpu} rejects Asm/{folder}/opcodes.s")
+        (out / "opcodes.s").write_text(source)
+        (out / "opcodes.bin").write_bytes(binary)
+        print(f"{folder}: {len(lines)} instructions")
+    for hand in sorted((OUT / "z80").glob("*.s")):
+        if hand.name != "opcodes.s":
+            binary = z80asm("z80_strict", hand.read_text())
+            if binary is None:
+                raise SystemExit(f"z80asm -mz80_strict rejects {hand}")
+            hand.with_suffix(".bin").write_bytes(binary)
+    rejected = [line for line in undocumented if z80asm("z80_strict", f"\t{line}\n") is None]
+    (OUT / "z80" / "rejected.txt").write_text("\n".join(rejected) + "\n")
+    print(f"z80: {len(rejected)} of {len(undocumented)} undocumented rejected by -mz80_strict")
 
 
 def golden_8080() -> None:
@@ -82,6 +120,7 @@ def golden_8080() -> None:
 
 
 def main() -> None:
+    golden_z80()
     golden_8080()
     lines = candidates()
     for folder, cpu in CPUS.items():

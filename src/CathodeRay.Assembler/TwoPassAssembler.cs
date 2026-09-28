@@ -64,6 +64,7 @@ public sealed class TwoPassAssembler(InstructionSet isa, SyntaxDialect dialect)
         private readonly List<ListingLine> _listing = [];
         private readonly List<byte> _lineBytes = [];
         private SourceLine _line = new(0, string.Empty, null, null, null);
+        private int _lineStart;
         private bool _stopped;
 
         public int ProgramCounter { get; private set; }
@@ -79,6 +80,7 @@ public sealed class TwoPassAssembler(InstructionSet isa, SyntaxDialect dialect)
                 _line = line;
                 _lineBytes.Clear();
                 int start = ProgramCounter;
+                _lineStart = start;
                 try
                 {
                     Process(line);
@@ -138,8 +140,10 @@ public sealed class TwoPassAssembler(InstructionSet isa, SyntaxDialect dialect)
             ProgramCounter++;
         }
 
+        /// <summary>Symbol PC (<c>*</c>, <c>$</c>) w wyrażeniu to adres początku linii, także w dyrektywach danych
+        /// (<c>DW a, $</c>), jak w oryginalnych asemblerach; <see cref="ProgramCounter"/> przesuwa się przy emisji.</summary>
         public int? TryEvaluate(string expression) =>
-            Expression.Evaluate(expression, owner.Dialect, ProgramCounter, Lookup);
+            Expression.Evaluate(expression, owner.Dialect, _lineStart, Lookup);
 
         public int Evaluate(string expression) =>
             TryEvaluate(expression) ?? throw Error($"'{expression}' must be known at this point (no forward references).");
@@ -209,14 +213,16 @@ public sealed class TwoPassAssembler(InstructionSet isa, SyntaxDialect dialect)
 
             (InstructionForm form, string[] captures) = choices[line.Number];
             int[] values = [.. captures.Select(c => TryEvaluate(c) ?? 0)];
-            foreach (byte b in form.Opcode)
+            foreach (EncodingPart part in form.Encoding)
             {
-                Emit(b);
-            }
-
-            for (int i = 0; i < values.Length; i++)
-            {
-                EmitField(form.Pattern.Fields[i], values[i], start + form.Size);
+                if (part.IsField)
+                {
+                    EmitField(form.Pattern.Fields[part.Field], values[part.Field], start + form.Size);
+                }
+                else
+                {
+                    Emit(part.Literal);
+                }
             }
         }
 
@@ -238,6 +244,13 @@ public sealed class TwoPassAssembler(InstructionSet isa, SyntaxDialect dialect)
                         : ((byte)(value >> 8), (byte)value);
                     Emit(first);
                     Emit(second);
+                    break;
+                case FieldKind.Constant:
+                    break;
+                case FieldKind.Displacement8:
+                    Emit(final && value is < sbyte.MinValue or > sbyte.MaxValue
+                        ? throw Error($"displacement {value} out of range -128..127.")
+                        : (byte)value);
                     break;
                 default:
                     int offset = value - nextInstruction;

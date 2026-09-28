@@ -38,6 +38,7 @@ STORES = {
     "6800": REPO / "data/instructions/mcp_6800_instructions.json",
     "1802": REPO / "data/instructions/cosmac_vip_cdp1802_isa.json",
     "stub": REPO / "data/instructions/mcp_stub_instructions.json",
+    "z80": REPO / "data/instructions/mcp_z80_instructions.json",
 }
 
 ISA_SCHEMA = REPO / "data/instructions" / "isa.schema.json"

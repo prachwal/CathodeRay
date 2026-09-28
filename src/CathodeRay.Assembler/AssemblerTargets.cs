@@ -13,6 +13,8 @@ public static class AssemblerTargets
         Mos6502("6502x", "MOS 6502 z nieudokumentowanymi instrukcjami (jak ca65 6502X)", "mcp_6502_instructions.json", Mos6502Variant.NmosIllegal),
         Mos6502("65c02", "WDC/Rockwell 65C02", "mcp_65c02_instructions.json", Mos6502Variant.Cmos),
         new("8080", "Intel 8080", "mcp_8080_instructions.json", Intel8080Set.Load, [SyntaxDialects.Intel]),
+        new("z80", "Zilog Z80 (udokumentowane instrukcje)", "mcp_z80_instructions.json", static json => Z80Set.Load(json, Z80Variant.Documented), [SyntaxDialects.Zilog]),
+        new("z80u", "Zilog Z80 z nieudokumentowanymi instrukcjami (IXH/IXL, SLL, OUT (C),0)", "mcp_z80_instructions.json", static json => Z80Set.Load(json, Z80Variant.Undocumented), [SyntaxDialects.Zilog]),
         new("stub", "ISA zaślepki CathodeRay", "mcp_stub_instructions.json", StubSet.Load, [SyntaxDialects.Stub]),
     ];
 

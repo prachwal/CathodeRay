@@ -28,7 +28,7 @@
 
   <!-- Pliki ISA obok binarki (asm i run; nadpisywalne opcją isa). -->
   <ItemGroup>
-    <None Include="..\..\data\instructions\mcp_stub_instructions.json;..\..\data\instructions\mcp_6502_instructions.json;..\..\data\instructions\mcp_65c02_instructions.json;..\..\data\instructions\mcp_8080_instructions.json" LinkBase="." CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\..\data\instructions\mcp_stub_instructions.json;..\..\data\instructions\mcp_6502_instructions.json;..\..\data\instructions\mcp_65c02_instructions.json;..\..\data\instructions\mcp_8080_instructions.json;..\..\data\instructions\mcp_z80_instructions.json" LinkBase="." CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
 </Project>

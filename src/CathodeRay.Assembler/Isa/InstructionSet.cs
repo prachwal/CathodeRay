@@ -18,6 +18,7 @@ public sealed class InstructionSet
         Endianness = endianness;
         foreach (InstructionForm form in forms)
         {
+            form.Validate();
             if (!_forms.TryGetValue(form.Mnemonic, out List<InstructionForm>? list))
             {
                 list = [];

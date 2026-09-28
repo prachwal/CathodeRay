@@ -3,7 +3,8 @@ using System.Text.RegularExpressions;
 namespace CathodeRay.Assembler.Isa.Targets;
 
 /// <summary>Moduł CPU 8080: pole <c>mnemonic</c> jest szablonem składni Intel (<c>MVI B,d8</c>, <c>LXI H,d16</c>, <c>STA a16</c>).
-/// <c>d8</c> → bajt, <c>d16</c>/<c>a16</c> → słowo, reszta (rejestry, <c>M</c>, <c>PSW</c>, numer RST) to literały.
+/// <c>d8</c> → bajt, <c>d16</c>/<c>a16</c> → słowo, liczba (numer wektora RST) → stała <c>{c=N}</c> (działa <c>RST 3+4</c>),
+/// reszta (rejestry, <c>M</c>, <c>PSW</c>, <c>SP</c>) to literały.
 /// Nieudokumentowane aliasy (np. NOP 08, JMP CB) przegrywają z kanonicznym, niższym opcode'em.</summary>
 public static partial class Intel8080Set
 {
@@ -16,7 +17,9 @@ public static partial class Intel8080Set
             .Select(static e =>
             {
                 string[] parts = e.Mnemonic.Split(' ', 2, StringSplitOptions.TrimEntries);
-                string? template = parts.Length > 1 ? Placeholder().Replace(parts[1], static m => Slot(m.Value)) : null;
+                string? template = parts.Length > 1
+                    ? Number().Replace(Placeholder().Replace(parts[1], static m => Slot(m.Value)), static m => $"{{c={m.Value}}}")
+                    : null;
                 var form = new InstructionForm(parts[0], OperandPattern.Parse(template), e.Opcode);
                 return form.Size == e.Words ? form : throw new InvalidDataException($"{e}: template size {form.Size} != words {e.Words}.");
             }));
@@ -25,4 +28,7 @@ public static partial class Intel8080Set
 
     [GeneratedRegex(@"\b(d8|d16|a16)\b")]
     private static partial Regex Placeholder();
+
+    [GeneratedRegex(@"\b\d+\b")]
+    private static partial Regex Number();
 }

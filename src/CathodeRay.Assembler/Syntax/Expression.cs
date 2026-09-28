@@ -33,6 +33,10 @@ internal sealed class Expression
 
     public static bool IsIdentifierPart(char c) => char.IsAsciiLetterOrDigit(c) || c is '_' or '?' or '@';
 
+    /// <summary>Czy znak pod indeksem otwiera łańcuch. Apostrof tuż po znaku identyfikatora (Z80 <c>AF'</c>) nie otwiera.</summary>
+    public static bool OpensQuote(string text, int index) =>
+        text[index] == '"' || (text[index] == '\'' && (index == 0 || !IsIdentifierPart(text[index - 1])));
+
     public static bool IsIdentifier(string text) =>
         text.Length > 0 && IsIdentifierStart(text[0]) && text.All(IsIdentifierPart);
 
@@ -234,16 +238,21 @@ internal sealed class Expression
 
     private int Number(string token)
     {
+        bool intel = _dialect.Numbers.HasFlag(NumberFormats.Intel);
+        if (intel && char.ToUpperInvariant(token[^1]) == 'H')
+        {
+            return ParseDigits(token[..^1], 16);
+        }
+
         if (_dialect.Numbers.HasFlag(NumberFormats.CStyle) && token.Length > 2 && token[0] == '0' && (token[1] | 0x20) is 'x' or 'b')
         {
             return ParseDigits(token[2..], (token[1] | 0x20) == 'x' ? 16 : 2);
         }
 
-        if (_dialect.Numbers.HasFlag(NumberFormats.Intel) && !token.All(char.IsAsciiDigit))
+        if (intel && !token.All(char.IsAsciiDigit))
         {
             return char.ToUpperInvariant(token[^1]) switch
             {
-                'H' => ParseDigits(token[..^1], 16),
                 'B' => ParseDigits(token[..^1], 2),
                 'Q' or 'O' => ParseDigits(token[..^1], 8),
                 'D' => ParseDigits(token[..^1], 10),

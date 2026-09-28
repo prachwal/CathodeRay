@@ -171,7 +171,7 @@ public sealed class CliTests : IDisposable
     [Theory]
     [InlineData(new[] { "--cpu", "8080", "--illegal" }, "--illegal applies only to --cpu 6502")]
     [InlineData(new[] { "--cpu", "8080", "--syntax", "ca65" }, "Syntax 'ca65' is not available for --cpu 8080 (allowed: intel)")]
-    [InlineData(new[] { "--cpu", "z80" }, "z80")]
+    [InlineData(new[] { "--cpu", "z8000" }, "z8000")]
     [InlineData(new string[0], "--cpu")]
     public void Asm_Rejects_Bad_Flags(string[] flags, string message)
     {

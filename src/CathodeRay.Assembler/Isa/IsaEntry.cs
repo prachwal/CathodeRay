@@ -9,7 +9,14 @@ namespace CathodeRay.Assembler.Isa;
 /// <param name="Words">Liczba bajtów instrukcji.</param>
 /// <param name="Encoding">Pole <c>encoding</c> (dla 6502 nazwa trybu adresowania) lub <see langword="null"/>.</param>
 /// <param name="OperandTypes">Typy z <c>operands[].type</c>.</param>
-public sealed record IsaEntry(byte[] Opcode, string Mnemonic, int Words, string? Encoding, IReadOnlyList<string> OperandTypes)
+/// <param name="Variants">Pole <c>variants</c> (łańcuch albo lista), np. <c>undocumented</c>.</param>
+public sealed record IsaEntry(
+    byte[] Opcode,
+    string Mnemonic,
+    int Words,
+    string? Encoding,
+    IReadOnlyList<string> OperandTypes,
+    IReadOnlyList<string> Variants)
 {
     /// <summary>Czyta wszystkie wpisy z klucza <c>instructions</c>.</summary>
     /// <param name="json">Strumień JSON.</param>
@@ -34,11 +41,18 @@ public sealed record IsaEntry(byte[] Opcode, string Mnemonic, int Words, string?
         IReadOnlyList<string> types = entry.TryGetProperty("operands", out JsonElement ops) && ops.ValueKind == JsonValueKind.Array
             ? [.. ops.EnumerateArray().Select(static o => o.GetProperty("type").GetString() ?? string.Empty)]
             : [];
+        IReadOnlyList<string> variants = entry.TryGetProperty("variants", out JsonElement v) ? v.ValueKind switch
+        {
+            JsonValueKind.String => [v.GetString()!],
+            JsonValueKind.Array => [.. v.EnumerateArray().Select(static x => x.ToString())],
+            _ => [],
+        } : [];
         return new IsaEntry(
             opcode,
             entry.GetProperty("mnemonic").GetString()!,
             entry.GetProperty("words").GetInt32(),
             encoding,
-            types);
+            types,
+            variants);
     }
 }

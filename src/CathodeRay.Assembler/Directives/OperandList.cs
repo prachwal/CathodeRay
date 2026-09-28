@@ -1,4 +1,5 @@
 using System.Diagnostics.CodeAnalysis;
+using CathodeRay.Assembler.Syntax;
 
 namespace CathodeRay.Assembler.Directives;
 
@@ -22,7 +23,7 @@ public static class OperandList
             {
                 quote = c == quote ? null : quote;
             }
-            else if (c is '"' or '\'')
+            else if (i < operand.Length && Expression.OpensQuote(operand, i))
             {
                 quote = c;
             }

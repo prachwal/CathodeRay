@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "plan": {
+      "command": "python3",
+      "args": ["tools/plan_mcp.py"]
+    },
+    "instructions": {
+      "command": "python3",
+      "args": ["tools/mcp_instructions.py"]
+    }
+  }
+}
