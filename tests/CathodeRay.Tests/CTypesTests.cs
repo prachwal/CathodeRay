@@ -13,7 +13,7 @@ public sealed class CTypesTests
     {
         CheckedProgram program = Check("uchar g; int h = 3; int f(uchar a, int *p) { int x = a; uchar y; return x; }");
 
-        program.Globals.Should().Equal(new TypedSymbol("g", CType.UChar), new TypedSymbol("h", CType.Int));
+        program.Globals.Should().Equal(new TypedSymbol("g", CType.UChar), new TypedSymbol("h", CType.Int, new Ast.Number("3")));
         CheckedFunction function = program.Functions.Should().ContainSingle().Subject;
         function.Params.Should().Equal(new TypedSymbol("a", CType.UChar), new TypedSymbol("p", CType.Pointer(CType.Int)));
         function.Locals.Should().Equal(new TypedSymbol("x", CType.Int), new TypedSymbol("y", CType.UChar));

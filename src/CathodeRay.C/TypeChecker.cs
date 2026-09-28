@@ -10,6 +10,7 @@ public sealed class TypeChecker
     private readonly List<string> _warnings = [];
     private readonly Stack<Dictionary<string, CType>> _scopes = new();
     private readonly List<TypedSymbol> _locals = [];
+    private readonly Dictionary<Ast.Expr, CType> _types = new(ReferenceEqualityComparer.Instance);
     private string _returnType = "void";
 
     private TypeChecker()
@@ -42,6 +43,7 @@ public sealed class TypeChecker
     {
         string digits = text.StartsWith("0x", StringComparison.OrdinalIgnoreCase) ? text[2..] : text;
         int radix = text.StartsWith("0x", StringComparison.OrdinalIgnoreCase) ? 16 : 10;
+        long value = 0;
         foreach (char c in digits)
         {
             bool ok = radix == 16 ? char.IsAsciiHexDigit(c) : char.IsAsciiDigit(c);
@@ -49,16 +51,22 @@ public sealed class TypeChecker
             {
                 throw new CTypeException($"invalid number '{text}'.");
             }
+
+            value = (value * radix) + Convert.ToInt32(c.ToString(), radix);
+            if (value > ushort.MaxValue)
+            {
+                throw new CTypeException($"number '{text}' out of range 0..65535.");
+            }
         }
 
-        return CType.Int;
+        return value <= byte.MaxValue ? CType.UChar : CType.Int;
     }
 
     private CheckedProgram CheckProgram(Ast.Program program)
     {
         foreach (Ast.Decl global in program.Globals)
         {
-            if (!_globals.TryAdd(global.Name, new TypedSymbol(global.Name, Declared(global.Type, global.PointerDepth))))
+            if (!_globals.TryAdd(global.Name, new TypedSymbol(global.Name, Declared(global.Type, global.PointerDepth), global.Init)))
             {
                 throw new CTypeException($"redefinition of '{global.Name}'.");
             }
@@ -91,6 +99,7 @@ public sealed class TypeChecker
     private CheckedFunction CheckFunction(Ast.Function function)
     {
         _locals.Clear();
+        _types.Clear();
         _scopes.Clear();
         _scopes.Push(new Dictionary<string, CType>(StringComparer.Ordinal));
         _returnType = function.ReturnType;
@@ -106,7 +115,7 @@ public sealed class TypeChecker
         }
 
         CheckBlock(function.Body);
-        return new CheckedFunction(function, parameters, _locals);
+        return new CheckedFunction(function, parameters, [.. _locals], new Dictionary<Ast.Expr, CType>(_types, ReferenceEqualityComparer.Instance));
     }
 
     private void CheckBlock(Ast.Block block)
@@ -251,6 +260,18 @@ public sealed class TypeChecker
 
     private CType TypeOf(Ast.Expr expr)
     {
+        if (_types.TryGetValue(expr, out CType? cached))
+        {
+            return cached;
+        }
+
+        CType type = TypeOfInner(expr);
+        _types[expr] = type;
+        return type;
+    }
+
+    private CType TypeOfInner(Ast.Expr expr)
+    {
         switch (expr)
         {
             case Ast.Number number:
@@ -309,10 +330,10 @@ public sealed class TypeChecker
         {
             "-" or "~" => operand.Kind == "void"
                 ? throw new CTypeException($"operator '{unary.Op}' needs an arithmetic operand.")
-                : CType.Int,
+                : operand,
             "!" => operand.Kind == "void"
                 ? throw new CTypeException("operator '!' needs a value.")
-                : CType.Int,
+                : CType.UChar,
             _ => throw new CTypeException($"unknown operator '{unary.Op}'."),
         };
     }
@@ -326,14 +347,24 @@ public sealed class TypeChecker
             throw new CTypeException($"operator '{binary.Op}' needs values.");
         }
 
-        if (binary.Op is "==" or "!=" or "<" or "<=" or ">" or ">=" or "&&" or "||")
+        if (binary.Op is "==" or "!=" or "<" or "<=" or ">" or ">=")
         {
             if (left.Kind == "ptr" || right.Kind == "ptr")
             {
                 throw new CTypeException($"operator '{binary.Op}' needs arithmetic operands.");
             }
 
-            return CType.Int;
+            return CType.UChar;
+        }
+
+        if (binary.Op is "&&" or "||")
+        {
+            if (left.Kind == "void" || right.Kind == "void")
+            {
+                throw new CTypeException($"operator '{binary.Op}' needs values.");
+            }
+
+            return CType.UChar;
         }
 
         if (left.Kind == "ptr" || right.Kind == "ptr")
@@ -341,7 +372,7 @@ public sealed class TypeChecker
             throw new CTypeException($"operator '{binary.Op}' needs arithmetic operands (pointer arithmetic is explicit in codegen).");
         }
 
-        return CType.Int;
+        return left.Kind == "int" || right.Kind == "int" ? CType.Int : CType.UChar;
     }
 
     private CType AssignType(Ast.Assign assign)
@@ -361,7 +392,12 @@ public sealed class TypeChecker
             throw new CTypeException("ternary branches need values.");
         }
 
-        return CType.Int;
+        if (then.Kind == "ptr" || els.Kind == "ptr")
+        {
+            throw new CTypeException("ternary branches need arithmetic values.");
+        }
+
+        return then.Kind == "int" || els.Kind == "int" ? CType.Int : CType.UChar;
     }
 
     private CType DerefType(Ast.Deref deref)
