@@ -7,23 +7,36 @@ namespace CathodeRay.Assembler;
 /// <param name="Image">Bajty od <paramref name="Origin"/>; luki wypełnione zerami.</param>
 /// <param name="Symbols">Etykiety i stałe.</param>
 /// <param name="Listing">Linie listingu w kolejności źródła.</param>
+/// <param name="Segments">Zakresy segmentów w kolejności pierwszego użycia (jeden wpis dla programów bez segmentów).</param>
 public sealed record AssemblyResult(
     int Origin,
     byte[] Image,
     IReadOnlyDictionary<string, int> Symbols,
-    IReadOnlyList<ListingLine> Listing)
+    IReadOnlyList<ListingLine> Listing,
+    IReadOnlyList<SegmentSpan>? Segments = null)
 {
     private const int BytesPerRow = 4;
 
     private const int HexPerRow = 16;
+
+    /// <summary>Zakresy segmentów (puste = sprzed segmentów).</summary>
+    public IReadOnlyList<SegmentSpan> Segments { get; } = Segments ?? [];
 
     /// <summary>Wypisuje listing jak oryginalne asemblery: adres, bajty, numer linii, źródło.</summary>
     /// <param name="output">Wyjście.</param>
     public void WriteListing(TextWriter output)
     {
         ArgumentNullException.ThrowIfNull(output);
+        bool grouped = Listing.Select(static line => line.Segment).Distinct(StringComparer.OrdinalIgnoreCase).Count() > 1;
+        string? current = null;
         foreach (ListingLine line in Listing)
         {
+            if (grouped && !StringComparer.OrdinalIgnoreCase.Equals(line.Segment, current))
+            {
+                current = line.Segment;
+                output.WriteLine($"***** {current} *****");
+            }
+
             for (int row = 0; row == 0 || row * BytesPerRow < line.Bytes.Length; row++)
             {
                 byte[] chunk = [.. line.Bytes.Skip(row * BytesPerRow).Take(BytesPerRow)];

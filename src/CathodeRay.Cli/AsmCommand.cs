@@ -33,8 +33,9 @@ internal static class AsmCommand
         var incdir = new Option<DirectoryInfo[]>("--incdir") { Description = "Dodatkowe katalogi poszukiwań .include (można powtarzać)." };
         var format = new Option<string>("--format", "-f") { Description = "Format wyjścia: bin (domyślnie) albo hex (Intel HEX)." };
         format.AcceptOnlyFromAmong(["bin", "hex"]);
+        var map = new Option<string[]>("--map", "-m") { Description = "Bazowy adres segmentu NAZWA@adres (powtarzalne, adres $hex/0xhex/dec)." };
 
-        var command = new Command("asm", "Asembluje źródło do pliku binarnego.") { source, cpu, syntax, illegal, output, listing, isa, incdir, format };
+        var command = new Command("asm", "Asembluje źródło do pliku binarnego.") { source, cpu, syntax, illegal, output, listing, isa, incdir, format, map };
         command.SetAction(parse =>
         {
             TextWriter error = parse.InvocationConfiguration.Error;
@@ -62,6 +63,24 @@ internal static class AsmCommand
 
             string isaPath = parse.GetValue(isa)?.FullName ?? Path.Combine(AppContext.BaseDirectory, target.IsaFile);
             string[] includePaths = [.. parse.GetValue(incdir)!.Select(static d => d.FullName)];
+            Dictionary<string, int> segmentOrigins = [];
+            foreach (string entry in parse.GetValue(map)!)
+            {
+                int at = entry.LastIndexOf('@');
+                if (at <= 0 || !CathodeRay.NumberLiteral.TryParse(entry[(at + 1)..], out int address) || address > ushort.MaxValue)
+                {
+                    error.WriteLine($"Invalid --map '{entry}' (expected NAME@address, address $0000..$FFFF).");
+                    return 1;
+                }
+
+                string name = entry[..at];
+                if (!segmentOrigins.TryAdd(name, address))
+                {
+                    error.WriteLine($"Duplicate --map for segment '{name}'.");
+                    return 1;
+                }
+            }
+
             AssemblyResult result;
             try
             {
@@ -69,7 +88,7 @@ internal static class AsmCommand
                 string entryText = File.ReadAllText(src.FullName);
                 Func<string, string?> reader = path => File.Exists(path) ? File.ReadAllText(path) : null;
                 Func<string, byte[]?> binaryReader = path => File.Exists(path) ? File.ReadAllBytes(path) : null;
-                result = new TwoPassAssembler(target.Load(json), dialect).Assemble(entryText, src.FullName, reader, includePaths, binaryReader);
+                result = new TwoPassAssembler(target.Load(json), dialect).Assemble(entryText, src.FullName, reader, includePaths, binaryReader, segmentOrigins);
             }
             catch (AssemblerException e)
             {
@@ -78,6 +97,13 @@ internal static class AsmCommand
                     error.WriteLine($"{err.File ?? src.Name}: line {err.Line}: {err.Message}");
                 }
 
+                return 1;
+            }
+
+            string? unknown = segmentOrigins.Keys.FirstOrDefault(name => !result.Segments.Any(s => string.Equals(s.Name, name, StringComparison.OrdinalIgnoreCase)));
+            if (unknown is not null)
+            {
+                error.WriteLine($"--map names unused segment '{unknown}'.");
                 return 1;
             }
 

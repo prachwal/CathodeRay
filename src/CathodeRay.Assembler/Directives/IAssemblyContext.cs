@@ -32,6 +32,11 @@ public interface IAssemblyContext
     /// <summary>Kończy asemblację (dyrektywa END).</summary>
     void Stop();
 
+    /// <summary>Przełącza bieżący segment (licznik per segment, adresy absolutne).</summary>
+    /// <param name="name">Nazwa segmentu (bez rozróżniania wielkości liter).</param>
+    /// <param name="emit">Czy segment emituje bajty; <see langword="null"/> = bez zmian (nowy segment emituje).</param>
+    void SwitchSegment(string name, bool? emit);
+
     /// <summary>Czyta plik binarny dla <c>.incbin</c>: cudzysłowy, ścieżki jak w <c>.include</c>.</summary>
     /// <param name="operand">Tekst operandu z nazwą pliku lub <see langword="null"/>.</param>
     /// <returns>Bajty pliku.</returns>

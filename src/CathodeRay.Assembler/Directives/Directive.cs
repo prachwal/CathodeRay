@@ -36,6 +36,18 @@ public static class Directive
     /// <summary>Wyrównuje adres (<c>.align</c>, <c>ALIGN</c>).</summary>
     public static IDirective Align { get; } = new AlignDirective();
 
+    /// <summary>Nazwany segment emitujący (<c>.segment</c>, <c>SEGMENT</c>).</summary>
+    public static IDirective Segment { get; } = new SegmentDirective(SegmentKind.Segment);
+
+    /// <summary>Segment kodu (<c>.code</c>, <c>CODE</c>).</summary>
+    public static IDirective Code { get; } = new SegmentDirective(SegmentKind.Code);
+
+    /// <summary>Segment danych (<c>.data</c>, <c>DATA</c>).</summary>
+    public static IDirective Data { get; } = new SegmentDirective(SegmentKind.Data);
+
+    /// <summary>Segment nieemitowany (<c>.bss</c>, <c>BSS</c>).</summary>
+    public static IDirective Bss { get; } = new SegmentDirective(SegmentKind.Bss);
+
     /// <summary>Blok warunkowy: <c>.if</c> / <c>IF</c> (logika w przebiegu).</summary>
     public static IDirective If { get; } = new ConditionalDirective(ConditionalKind.If);
 

@@ -34,14 +34,15 @@ public sealed class TwoPassAssembler(InstructionSet isa, SyntaxDialect dialect)
     /// <param name="reader">Czyta plik o ścieżce znormalizowanej; <see langword="null"/> = brak pliku.</param>
     /// <param name="includePaths">Dodatkowe katalogi poszukiwań (odpowiednik <c>--incdir</c>).</param>
     /// <param name="binaryReader">Czyta plik binarny dla <c>.incbin</c>; <see langword="null"/> = brak kontekstu pliku.</param>
+    /// <param name="segmentOrigins">Bazowe adresy segmentów (odpowiednik <c>--map</c>); brak = 0.</param>
     /// <returns>Obraz, symbole i listing.</returns>
     /// <exception cref="AssemblerException">Błąd w źródle (z plikiem).</exception>
-    public AssemblyResult Assemble(string source, string entryFile, Func<string, string?> reader, IReadOnlyList<string>? includePaths = null, Func<string, byte[]?>? binaryReader = null)
+    public AssemblyResult Assemble(string source, string entryFile, Func<string, string?> reader, IReadOnlyList<string>? includePaths = null, Func<string, byte[]?>? binaryReader = null, IReadOnlyDictionary<string, int>? segmentOrigins = null)
     {
         ArgumentNullException.ThrowIfNull(source);
         ArgumentNullException.ThrowIfNull(entryFile);
         ArgumentNullException.ThrowIfNull(reader);
-        return AssembleCore(SourceLoader.Expand(source, entryFile, reader, dialect, IsKeyword, includePaths), binaryReader, includePaths ?? []);
+        return AssembleCore(SourceLoader.Expand(source, entryFile, reader, dialect, IsKeyword, includePaths), binaryReader, includePaths ?? [], segmentOrigins ?? new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase));
     }
 
     private static void ResolvePendingAssignments(Pass pass)
@@ -72,13 +73,14 @@ public sealed class TwoPassAssembler(InstructionSet isa, SyntaxDialect dialect)
 
     private bool IsKeyword(string word) => isa.Contains(word) || dialect.Directives.ContainsKey(word);
 
-    private AssemblyResult AssembleCore(IReadOnlyList<SourceLine> lines, Func<string, byte[]?>? binaryReader = null, IReadOnlyList<string>? includePaths = null)
+    private AssemblyResult AssembleCore(IReadOnlyList<SourceLine> lines, Func<string, byte[]?>? binaryReader = null, IReadOnlyList<string>? includePaths = null, IReadOnlyDictionary<string, int>? segmentOrigins = null)
     {
         lines = MacroExpander.Expand(lines, dialect, IsKeyword);
         var symbols = new Dictionary<string, int>(dialect.SymbolComparer);
         var choices = new Dictionary<int, FormChoice>();
+        var origins = segmentOrigins ?? new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
 
-        var first = new Pass(this, symbols, choices, final: false, binaryReader, includePaths ?? []);
+        var first = new Pass(this, symbols, choices, final: false, binaryReader, includePaths ?? [], origins);
         first.Run(lines);
         ResolvePendingAssignments(first);
         if (first.Errors.Count > 0)
@@ -86,7 +88,7 @@ public sealed class TwoPassAssembler(InstructionSet isa, SyntaxDialect dialect)
             throw new AssemblerException(first.Errors);
         }
 
-        var second = new Pass(this, symbols, choices, final: true, binaryReader, includePaths ?? []);
+        var second = new Pass(this, symbols, choices, final: true, binaryReader, includePaths ?? [], origins);
         second.Run(lines);
         if (second.Errors.Count > 0)
         {
@@ -96,7 +98,7 @@ public sealed class TwoPassAssembler(InstructionSet isa, SyntaxDialect dialect)
         return second.Result();
     }
 
-    private sealed class Pass(TwoPassAssembler owner, Dictionary<string, int> symbols, Dictionary<int, FormChoice> choices, bool final, Func<string, byte[]?>? binaryReader, IReadOnlyList<string> includePaths)
+    private sealed class Pass(TwoPassAssembler owner, Dictionary<string, int> symbols, Dictionary<int, FormChoice> choices, bool final, Func<string, byte[]?>? binaryReader, IReadOnlyList<string> includePaths, IReadOnlyDictionary<string, int> segmentOrigins)
         : IAssemblyContext
     {
         private const int MaxErrors = 20;
@@ -106,16 +108,23 @@ public sealed class TwoPassAssembler(InstructionSet isa, SyntaxDialect dialect)
         private readonly List<ListingLine> _listing = [];
         private readonly List<byte> _lineBytes = [];
         private readonly List<AssemblerError> _errors = [];
+        private readonly Dictionary<string, SegmentState> _segments = new(StringComparer.OrdinalIgnoreCase);
+        private readonly List<string> _segmentOrder = [];
         private SourceLine _line = new(0, string.Empty, null, null, null);
         private int _lineStart;
         private string? _scope;
+        private string _segment = "CODE";
         private bool _stopped;
 
-        public int ProgramCounter { get; private set; }
-
-        public Endianness Endianness => owner.Isa.Endianness;
+        public int ProgramCounter
+        {
+            get => EnsureSegment(_segment).PC;
+            private set => EnsureSegment(_segment).PC = value;
+        }
 
         public List<SourceLine> Pending { get; } = [];
+
+        public Endianness Endianness => owner.Isa.Endianness;
 
         /// <summary>Błędy zebrane w przebiegu (kolejność źródła).</summary>
         public IReadOnlyList<AssemblerError> Errors => _errors;
@@ -153,7 +162,7 @@ public sealed class TwoPassAssembler(InstructionSet isa, SyntaxDialect dialect)
                 }
 
                 int address = _lineBytes.Count > 0 ? start : ProgramCounter;
-                _listing.Add(new ListingLine(line.Number, address, [.. _lineBytes], line.Text, line.File));
+                _listing.Add(new ListingLine(line.Number, address, [.. _lineBytes], line.Text, line.File, _segment));
             }
 
             if (conditionals.Count > 0)
@@ -168,7 +177,16 @@ public sealed class TwoPassAssembler(InstructionSet isa, SyntaxDialect dialect)
             int low = Array.IndexOf(_written, true);
             int high = Array.LastIndexOf(_written, true);
             byte[] image = low < 0 ? [] : _image[low..(high + 1)];
-            return new AssemblyResult(Math.Max(low, 0), image, symbols, _listing);
+            var spans = _segmentOrder
+                .Where(name => _segments[name].Min != int.MaxValue)
+                .Select(name =>
+                {
+                    SegmentState segment = _segments[name];
+                    int end = segment.Max == int.MinValue ? segment.Min : segment.Max;
+                    return new SegmentSpan(name, segment.Min, end, !segment.Emit);
+                })
+                .ToList();
+            return new AssemblyResult(Math.Max(low, 0), image, symbols, _listing, spans);
         }
 
         /// <summary>Dodaje błędy z zewnątrz pętli linii (np. przypisania odłożone).</summary>
@@ -193,29 +211,71 @@ public sealed class TwoPassAssembler(InstructionSet isa, SyntaxDialect dialect)
             return value is not null;
         }
 
-        public void SetProgramCounter(int address) =>
-            ProgramCounter = address is >= 0 and < AddressSpace ? address : throw Error($"address {address} outside $0000..$FFFF.");
+        public void SetProgramCounter(int address)
+        {
+            if (address is < 0 or >= AddressSpace)
+            {
+                throw Error($"address {address} outside $0000..$FFFF.");
+            }
+
+            SegmentState segment = EnsureSegment(_segment);
+            segment.PC = address;
+            segment.Min = Math.Min(segment.Min, address);
+            segment.Max = Math.Max(segment.Max, address);
+        }
+
+        public void SwitchSegment(string name, bool? emit)
+        {
+            SegmentState segment = EnsureSegment(name, emit);
+            _segment = name;
+            segment.Max = Math.Max(segment.Max, segment.PC);
+        }
 
         public void Emit(byte value)
         {
-            if (ProgramCounter >= AddressSpace)
+            SegmentState segment = EnsureSegment(_segment);
+            if (segment.PC >= AddressSpace)
             {
                 throw Error("code runs past $FFFF.");
             }
 
-            if (final)
+            segment.Min = Math.Min(segment.Min, segment.PC);
+            if (segment.Emit)
             {
-                if (_written[ProgramCounter])
+                if (final)
                 {
-                    throw Error($"overlapping output at ${ProgramCounter:X4}.");
+                    if (_written[segment.PC])
+                    {
+                        throw Error($"overlapping output at ${segment.PC:X4}.");
+                    }
+
+                    foreach (string bssName in _segmentOrder)
+                    {
+                        SegmentState bss = _segments[bssName];
+                        if (!bss.Emit && segment.PC >= bss.Min && segment.PC < bss.Max)
+                        {
+                            throw Error($"address ${segment.PC:X4} overlaps BSS segment '{bssName}'.");
+                        }
+                    }
+
+                    _image[segment.PC] = value;
+                    _written[segment.PC] = true;
+                    _lineBytes.Add(value);
                 }
 
-                _image[ProgramCounter] = value;
-                _written[ProgramCounter] = true;
-                _lineBytes.Add(value);
+                segment.PC++;
+                segment.Max = Math.Max(segment.Max, segment.PC);
             }
+            else
+            {
+                if (final && _written[segment.PC])
+                {
+                    throw Error($"address ${segment.PC:X4} overlaps BSS segment '{_segment}'.");
+                }
 
-            ProgramCounter++;
+                segment.PC++;
+                segment.Max = Math.Max(segment.Max, segment.PC);
+            }
         }
 
         /// <summary>Symbol PC (<c>*</c>, <c>$</c>) w wyrażeniu to adres początku linii, także w dyrektywach danych
@@ -266,6 +326,22 @@ public sealed class TwoPassAssembler(InstructionSet isa, SyntaxDialect dialect)
             _scope is null
                 ? throw new FormatException($"no preceding global label for '{name}'.")
                 : $"{_scope}\0{name}";
+
+        private SegmentState EnsureSegment(string name, bool? emit = null)
+        {
+            if (!_segments.TryGetValue(name, out SegmentState? segment))
+            {
+                segment = new SegmentState { PC = segmentOrigins.GetValueOrDefault(name, 0), Emit = emit ?? true };
+                _segments[name] = segment;
+                _segmentOrder.Add(name);
+            }
+            else if (emit.HasValue)
+            {
+                segment.Emit = emit.Value;
+            }
+
+            return segment;
+        }
 
         private void Collect(AssemblerError error)
         {
@@ -473,6 +549,17 @@ public sealed class TwoPassAssembler(InstructionSet isa, SyntaxDialect dialect)
                         : (byte)offset);
                     break;
             }
+        }
+
+        private sealed class SegmentState
+        {
+            public int PC { get; set; }
+
+            public bool Emit { get; set; } = true;
+
+            public int Min { get; set; } = int.MaxValue;
+
+            public int Max { get; set; } = int.MinValue;
         }
 
         private sealed class ConditionalFrame(

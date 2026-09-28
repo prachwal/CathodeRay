@@ -16,7 +16,7 @@ Kolumny: **CR** = `src/CathodeRay.Assembler`, **ca65** (6502), **z80asm**
 | Makra | ✅ (`.macro`/`.endmacro`, `MACRO`/`ENDM`, parametry + domyślne, `.LOCAL`) | ✅ | ✅ | ✅ |
 | Asemblacja warunkowa | ✅ (`.if/.elseif/.else/.endif`, `IF/ELIF/ELSE/ENDIF`; operatory relacyjne) | ✅ | ✅ | ✅ |
 | Include | ✅ (`.include`/`INCLUDE`, cykle, `--incdir`, `.incbin`/`INCBIN`) | ✅ | ✅ | ✅ |
-| Moduły + linker | ❌ (jeden plik → `.bin`) | ✅ (`ld65`, segmenty) | ✅ (sekcje, biblioteki) | ✅ (obszary, `aslink`) |
+| Moduły + linker | ⚠️ segmenty w jednym wywołaniu (`.segment`, `--map`; bez linkera modułów) | ✅ (`ld65`, segmenty) | ✅ (sekcje, biblioteki) | ✅ (obszary, `aslink`) |
 | Listing | ✅ (`-l`, adres + bajty) | ✅ (+ mapa z linkera) | ✅ (`LSTON/LSTOFF`) | ✅ (`.list/.nlist`) |
 | Symbole lokalne / zakresy | ✅ (tanie `@`, zakres między globalami; bez `.scope`) | ✅ | ograniczone | ograniczone |
 | Dyrektywy danych | `DB/DW/DS`, `ORG`, `END`, `.align`, `.incbin` (+ aliasy) | `.byte/.word/.res/.align` + ~100 innych | `DEFB/DEFW/DEFS` + `ORG` | `.db/.dw/.blkb` + `ORG` |
@@ -25,8 +25,9 @@ Kolumny: **CR** = `src/CathodeRay.Assembler`, **ca65** (6502), **z80asm**
 
 ## 2. Braki CR (uporządkowane po koszcie)
 
-1. **Linker / segmenty** — jeden moduł, adresowanie tylko przez `ORG`.
-   Zrobiony mniejszy krok: `.align` + Intel HEX (`-f hex`).
+1. **Linker modułów** — segmenty w jednym wywołaniu działają (wariant A),
+   ale brak półproduktu (obiektu), `GLOBAL`/`EXTRN` i komendy `link`
+   (wariant B z `docs/linker-segments.md`).
 2. **Zakresy symboli** (`.scope`/`.proc`) — tanie `@` działają, pełnych
    zakresów leksykalnych brak.
 3. **Dyrektywy ca65 long-tail** (`~100` drobnych: `.out`, `.warning`,
@@ -59,8 +60,14 @@ Kolumny: **CR** = `src/CathodeRay.Assembler`, **ca65** (6502), **z80asm**
 - **Wszystkie błędy** (2026-09-28): agregat `AssemblerError`, kontynuacja
   z synchronizacją PC, pass 2 tylko gdy pass 1 czysty, limit 20, CLI wypisuje
   `plik: line N` — test `ErrorsTests`, zero zmian w starych testach.
+- **Segmenty** (2026-09-28): `.segment`/`.code`/`.data`/`.bss`
+  (`SEGMENT`/`CODE`/`DATA`/`BSS`), liczniki per segment, BSS bez emisji,
+  `cathode asm --map NAZWA@adres`, test `Segments/` (6 CPU bajt w bajt
+  z ca65+ld65 i z80asm) — `Segments/README.md`, generator
+  `tools/make_segments_golden.py`.
 - **Dialekty jako dane** (`SyntaxDialect`): ca65/MOS/Intel/Stub/Zilog.
 
 ## 4. Proponowana kolejność domknięć
 
-Wszystkie 4 punkty z 2026-09-28 zrobione (05–08). Zostały §2 powyżej.
+Wszystkie 4 punkty z 2026-09-28 zrobione (05–08) plus segmenty (09).
+Zostały §2 powyżej (w tym wariant B linkera z `docs/linker-segments.md`).
