@@ -26,34 +26,47 @@ public static class Linker
         }
 
         var areas = config.Areas.ToDictionary(static a => a.Name, StringComparer.OrdinalIgnoreCase);
-        var mappings = config.Segments.ToDictionary(static s => s.Name, static s => s, StringComparer.OrdinalIgnoreCase);
         var cursors = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
         var chunks = new Dictionary<(int Module, string Segment), int>();
         var spans = new List<SegmentSpan>();
+        foreach (SegmentMapping mapping in config.Segments)
+        {
+            if (!areas.TryGetValue(mapping.Load, out MemoryArea? area))
+            {
+                throw new LinkerException($"Segment '{mapping.Name}' loads unknown area '{mapping.Load}'.");
+            }
+
+            cursors.TryAdd(area.Name, area.Start);
+            for (int m = 0; m < modules.Count; m++)
+            {
+                foreach (ObjectSegment segment in modules[m].Module.Segments)
+                {
+                    if (!string.Equals(segment.Name, mapping.Name, StringComparison.OrdinalIgnoreCase))
+                    {
+                        continue;
+                    }
+
+                    int address = cursors[area.Name];
+                    if (address + segment.Length > area.Start + area.Size)
+                    {
+                        throw new LinkerException($"Segment '{segment.Name}' from {modules[m].File} overflows area '{area.Name}'.");
+                    }
+
+                    chunks[(m, segment.Name)] = address;
+                    cursors[area.Name] = address + segment.Length;
+                    spans.Add(new SegmentSpan(segment.Name, address, address + segment.Length, segment.Bss));
+                }
+            }
+        }
+
         for (int m = 0; m < modules.Count; m++)
         {
             foreach (ObjectSegment segment in modules[m].Module.Segments)
             {
-                if (!mappings.TryGetValue(segment.Name, out SegmentMapping? mapping))
+                if (!config.Segments.Any(s => string.Equals(s.Name, segment.Name, StringComparison.OrdinalIgnoreCase)))
                 {
                     throw new LinkerException($"Segment '{segment.Name}' from {modules[m].File} is not in config.");
                 }
-
-                if (!areas.TryGetValue(mapping.Load, out MemoryArea? area))
-                {
-                    throw new LinkerException($"Segment '{segment.Name}' loads unknown area '{mapping.Load}'.");
-                }
-
-                cursors.TryAdd(area.Name, area.Start);
-                int address = cursors[area.Name];
-                if (address + segment.Length > area.Start + area.Size)
-                {
-                    throw new LinkerException($"Segment '{segment.Name}' from {modules[m].File} overflows area '{area.Name}'.");
-                }
-
-                chunks[(m, segment.Name)] = address;
-                cursors[area.Name] = address + segment.Length;
-                spans.Add(new SegmentSpan(segment.Name, address, address + segment.Length, segment.Bss));
             }
         }
 

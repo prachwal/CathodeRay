@@ -43,6 +43,18 @@ public sealed class LinkerTests
     }
 
     [Fact]
+    public void Code_Splits_Join_Before_Data_Like_References()
+    {
+        var a = Obj(".global main\n.segment \"CODE\"\nmain: LDA val\nHLT\n.segment \"DATA\"\nval: .byte 7\n");
+        var b = Obj(".global extra\n.segment \"CODE\"\nextra: NOP\n");
+
+        AssemblyResult result = Link(a, b);
+
+        result.Image.Should().Equal(0x06, 0x05, 0x00, 0xFF, 0x00, 0x07);
+        result.Symbols["extra"].Should().Be(4);
+    }
+
+    [Fact]
     public void Bss_Takes_Addresses_Without_Bytes()
     {
         var a = Obj(".global v\n.segment \"DATA\"\n.byte 9\n.bss\nv: .byte 0\n.segment \"CODE\"\nHLT\n");
