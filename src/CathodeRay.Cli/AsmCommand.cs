@@ -73,7 +73,11 @@ internal static class AsmCommand
             }
             catch (AssemblerException e)
             {
-                error.WriteLine($"{e.File ?? src.Name}: {e.Message}");
+                foreach (AssemblerError err in e.Errors)
+                {
+                    error.WriteLine($"{err.File ?? src.Name}: line {err.Line}: {err.Message}");
+                }
+
                 return 1;
             }
 

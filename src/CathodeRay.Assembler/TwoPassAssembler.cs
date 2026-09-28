@@ -52,8 +52,17 @@ public sealed class TwoPassAssembler(InstructionSet isa, SyntaxDialect dialect)
             progress = false;
             foreach (SourceLine line in pass.Pending.ToArray())
             {
-                if (pass.TryDefineAssignment(line))
+                try
                 {
+                    if (pass.TryDefineAssignment(line))
+                    {
+                        pass.Pending.Remove(line);
+                        progress = true;
+                    }
+                }
+                catch (AssemblerException e)
+                {
+                    pass.CollectAll(e.Errors);
                     pass.Pending.Remove(line);
                     progress = true;
                 }
@@ -72,18 +81,31 @@ public sealed class TwoPassAssembler(InstructionSet isa, SyntaxDialect dialect)
         var first = new Pass(this, symbols, choices, final: false, binaryReader, includePaths ?? []);
         first.Run(lines);
         ResolvePendingAssignments(first);
+        if (first.Errors.Count > 0)
+        {
+            throw new AssemblerException(first.Errors);
+        }
+
         var second = new Pass(this, symbols, choices, final: true, binaryReader, includePaths ?? []);
         second.Run(lines);
+        if (second.Errors.Count > 0)
+        {
+            throw new AssemblerException(second.Errors);
+        }
+
         return second.Result();
     }
 
     private sealed class Pass(TwoPassAssembler owner, Dictionary<string, int> symbols, Dictionary<int, FormChoice> choices, bool final, Func<string, byte[]?>? binaryReader, IReadOnlyList<string> includePaths)
         : IAssemblyContext
     {
+        private const int MaxErrors = 20;
+
         private readonly byte[] _image = new byte[AddressSpace];
         private readonly bool[] _written = new bool[AddressSpace];
         private readonly List<ListingLine> _listing = [];
         private readonly List<byte> _lineBytes = [];
+        private readonly List<AssemblerError> _errors = [];
         private SourceLine _line = new(0, string.Empty, null, null, null);
         private int _lineStart;
         private string? _scope;
@@ -94,6 +116,9 @@ public sealed class TwoPassAssembler(InstructionSet isa, SyntaxDialect dialect)
         public Endianness Endianness => owner.Isa.Endianness;
 
         public List<SourceLine> Pending { get; } = [];
+
+        /// <summary>Błędy zebrane w przebiegu (kolejność źródła).</summary>
+        public IReadOnlyList<AssemblerError> Errors => _errors;
 
         public void Run(IReadOnlyList<SourceLine> lines)
         {
@@ -118,7 +143,13 @@ public sealed class TwoPassAssembler(InstructionSet isa, SyntaxDialect dialect)
                 }
                 catch (FormatException e)
                 {
-                    throw Error(e.Message);
+                    Collect(new AssemblerError(_line.File, _line.Number, FormatMessage(e.Message)));
+                    SyncAfterError(line, index);
+                }
+                catch (AssemblerException e)
+                {
+                    CollectAll(e.Errors);
+                    SyncAfterError(line, index);
                 }
 
                 int address = _lineBytes.Count > 0 ? start : ProgramCounter;
@@ -128,7 +159,7 @@ public sealed class TwoPassAssembler(InstructionSet isa, SyntaxDialect dialect)
             if (conditionals.Count > 0)
             {
                 ConditionalFrame open = conditionals.Peek();
-                throw new AssemblerException(open.Number, $"unterminated .if (opened here).", open.File);
+                Collect(new AssemblerError(open.File, open.Number, "unterminated .if (opened here)."));
             }
         }
 
@@ -138,6 +169,16 @@ public sealed class TwoPassAssembler(InstructionSet isa, SyntaxDialect dialect)
             int high = Array.LastIndexOf(_written, true);
             byte[] image = low < 0 ? [] : _image[low..(high + 1)];
             return new AssemblyResult(Math.Max(low, 0), image, symbols, _listing);
+        }
+
+        /// <summary>Dodaje błędy z zewnątrz pętli linii (np. przypisania odłożone).</summary>
+        /// <param name="errors">Błędy.</param>
+        public void CollectAll(IEnumerable<AssemblerError> errors)
+        {
+            foreach (AssemblerError error in errors)
+            {
+                Collect(error);
+            }
         }
 
         public bool TryDefineAssignment(SourceLine line)
@@ -187,16 +228,7 @@ public sealed class TwoPassAssembler(InstructionSet isa, SyntaxDialect dialect)
 
         public void Stop() => _stopped = true;
 
-        public AssemblerException Error(string message)
-        {
-            if (_line.Macro is { } macro)
-            {
-                string definedAt = macro.DefFile is null ? $"line {macro.DefLine}" : $"{macro.DefFile}:{macro.DefLine}";
-                message += $" (in expansion of '{macro.Name}' defined at {definedAt})";
-            }
-
-            return new(_line.Number, message, _line.File);
-        }
+        public AssemblerException Error(string message) => new(_line.Number, FormatMessage(message), _line.File);
 
         public byte[] ReadBinaryFile(string? operand)
         {
@@ -219,10 +251,52 @@ public sealed class TwoPassAssembler(InstructionSet isa, SyntaxDialect dialect)
 
         private static bool IsLocal(string name) => name.Length > 1 && name[0] == '@';
 
+        private string FormatMessage(string message)
+        {
+            if (_line.Macro is { } macro)
+            {
+                string definedAt = macro.DefFile is null ? $"line {macro.DefLine}" : $"{macro.DefFile}:{macro.DefLine}";
+                message += $" (in expansion of '{macro.Name}' defined at {definedAt})";
+            }
+
+            return message;
+        }
+
         private string ScopeKey(string name) =>
             _scope is null
                 ? throw new FormatException($"no preceding global label for '{name}'.")
                 : $"{_scope}\0{name}";
+
+        private void Collect(AssemblerError error)
+        {
+            if (_errors.Count >= MaxErrors)
+            {
+                _stopped = true;
+                return;
+            }
+
+            _errors.Add(error);
+            if (_errors.Count == MaxErrors)
+            {
+                _errors.Add(new AssemblerError(error.File, error.Line, $"too many errors (showing first {MaxErrors})."));
+                _stopped = true;
+            }
+        }
+
+        private void SyncAfterError(SourceLine line, int index)
+        {
+            if (final || line.Keyword is null || choices.ContainsKey(index) || line.IsAssignment
+                || owner.Dialect.Directives.ContainsKey(line.Keyword) || !owner.Isa.Contains(line.Keyword))
+            {
+                return;
+            }
+
+            int size = owner.Isa.FormsFor(line.Keyword.ToUpperInvariant()).Select(static f => f.Size).DefaultIfEmpty(0).Max();
+            for (int i = 0; i < size && ProgramCounter < AddressSpace; i++)
+            {
+                ProgramCounter++;
+            }
+        }
 
         private bool IsConditional(SourceLine line) =>
             line.Keyword is not null
