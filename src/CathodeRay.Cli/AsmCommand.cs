@@ -1,6 +1,7 @@
 using System.CommandLine;
 using System.Globalization;
 using CathodeRay.Assembler;
+using CathodeRay.Assembler.Link;
 using CathodeRay.Assembler.Syntax;
 
 namespace CathodeRay.Cli;
@@ -30,8 +31,12 @@ internal static class AsmCommand
         var listing = new Option<FileInfo?>("--listing", "-l") { Description = "Plik listingu: adres, bajty, linia źródła." };
         var isa = new Option<FileInfo>("--isa") { Description = "Plik ISA JSON zamiast domyślnego dla CPU." };
         isa.AcceptExistingOnly();
+        var incdir = new Option<DirectoryInfo[]>("--incdir") { Description = "Dodatkowe katalogi poszukiwań .include (można powtarzać)." };
+        var format = new Option<string>("--format", "-f") { Description = "Format wyjścia: bin (domyślnie), hex (Intel HEX) albo obj (moduł do linkera)." };
+        format.AcceptOnlyFromAmong(["bin", "hex", "obj"]);
+        var map = new Option<string[]>("--map", "-m") { Description = "Bazowy adres segmentu NAZWA@adres (powtarzalne, adres $hex/0xhex/dec)." };
 
-        var command = new Command("asm", "Asembluje źródło do pliku binarnego.") { source, cpu, syntax, illegal, output, listing, isa };
+        var command = new Command("asm", "Asembluje źródło do pliku binarnego.") { source, cpu, syntax, illegal, output, listing, isa, incdir, format, map };
         command.SetAction(parse =>
         {
             TextWriter error = parse.InvocationConfiguration.Error;
@@ -58,20 +63,75 @@ internal static class AsmCommand
             }
 
             string isaPath = parse.GetValue(isa)?.FullName ?? Path.Combine(AppContext.BaseDirectory, target.IsaFile);
-            AssemblyResult result;
+            string[] includePaths = [.. parse.GetValue(incdir)!.Select(static d => d.FullName)];
+            Dictionary<string, int> segmentOrigins = [];
+            foreach (string entry in parse.GetValue(map)!)
+            {
+                int at = entry.LastIndexOf('@');
+                if (at <= 0 || !CathodeRay.NumberLiteral.TryParse(entry[(at + 1)..], out int address) || address > ushort.MaxValue)
+                {
+                    error.WriteLine($"Invalid --map '{entry}' (expected NAME@address, address $0000..$FFFF).");
+                    return 1;
+                }
+
+                string name = entry[..at];
+                if (!segmentOrigins.TryAdd(name, address))
+                {
+                    error.WriteLine($"Duplicate --map for segment '{name}'.");
+                    return 1;
+                }
+            }
+
+            string extension = parse.GetValue(format) switch
+            {
+                "hex" => ".hex",
+                "obj" => ".o",
+                _ => ".bin",
+            };
+            FileInfo dst = parse.GetValue(output) ?? new FileInfo(Path.ChangeExtension(src.FullName, extension));
+            string kind = parse.GetValue(format) ?? "bin";
+            if (kind == "obj")
+            {
+                return WriteObject(parse, target, dialect, isaPath, src, includePaths, dst);
+            }
+
+            AssemblyResult? assembled = null;
             try
             {
                 using FileStream json = File.OpenRead(isaPath);
-                result = new TwoPassAssembler(target.Load(json), dialect).Assemble(File.ReadAllText(src.FullName));
+                string entryText = File.ReadAllText(src.FullName);
+                Func<string, string?> reader = path => File.Exists(path) ? File.ReadAllText(path) : null;
+                Func<string, byte[]?> binaryReader = path => File.Exists(path) ? File.ReadAllBytes(path) : null;
+                assembled = new TwoPassAssembler(target.Load(json), dialect).Assemble(entryText, src.FullName, reader, includePaths, binaryReader, segmentOrigins);
             }
             catch (AssemblerException e)
             {
-                error.WriteLine($"{src.Name}: {e.Message}");
+                foreach (AssemblerError err in e.Errors)
+                {
+                    error.WriteLine($"{err.File ?? src.Name}: line {err.Line}: {err.Message}");
+                }
+
                 return 1;
             }
 
-            FileInfo dst = parse.GetValue(output) ?? new FileInfo(Path.ChangeExtension(src.FullName, ".bin"));
-            File.WriteAllBytes(dst.FullName, result.Image);
+            AssemblyResult result = assembled;
+            string? unknown = segmentOrigins.Keys.FirstOrDefault(name => !result.Segments.Any(s => string.Equals(s.Name, name, StringComparison.OrdinalIgnoreCase)));
+            if (unknown is not null)
+            {
+                error.WriteLine($"--map names unused segment '{unknown}'.");
+                return 1;
+            }
+
+            if (kind == "hex")
+            {
+                using StreamWriter writer = File.CreateText(dst.FullName);
+                result.WriteIntelHex(writer);
+            }
+            else
+            {
+                File.WriteAllBytes(dst.FullName, result.Image);
+            }
+
             if (parse.GetValue(listing) is { } listingFile)
             {
                 using StreamWriter writer = File.CreateText(listingFile.FullName);
@@ -81,8 +141,56 @@ internal static class AsmCommand
             parse.InvocationConfiguration.Output.WriteLine(string.Create(
                 CultureInfo.InvariantCulture,
                 $"{src.Name} -> {dst.Name} ({result.Image.Length} B, load ${result.Origin:X4}, cpu {target.Name}, syntax {dialect.Name})"));
+            foreach (AsmMessage message in result.Messages)
+            {
+                string at = message.File is null ? $"line {message.Line}" : $"{message.File}:{message.Line}";
+                if (message.Warning)
+                {
+                    error.WriteLine($"{at}: Warning: {message.Text}");
+                }
+                else
+                {
+                    parse.InvocationConfiguration.Output.WriteLine(message.Text);
+                }
+            }
+
             return 0;
         });
         return command;
+    }
+
+    private static int WriteObject(
+        ParseResult parse,
+        AssemblerTarget target,
+        SyntaxDialect dialect,
+        string isaPath,
+        FileInfo src,
+        string[] includePaths,
+        FileInfo dst)
+    {
+        TextWriter error = parse.InvocationConfiguration.Error;
+        ObjectModule module;
+        try
+        {
+            using FileStream json = File.OpenRead(isaPath);
+            string entryText = File.ReadAllText(src.FullName);
+            Func<string, string?> reader = path => File.Exists(path) ? File.ReadAllText(path) : null;
+            module = new TwoPassAssembler(target.Load(json), dialect).AssembleObject(target.Name, entryText, src.FullName, reader, includePaths);
+        }
+        catch (AssemblerException e)
+        {
+            foreach (AssemblerError err in e.Errors)
+            {
+                error.WriteLine($"{err.File ?? src.Name}: line {err.Line}: {err.Message}");
+            }
+
+            return 1;
+        }
+
+        File.WriteAllText(dst.FullName, module.ToJson());
+        parse.InvocationConfiguration.Output.WriteLine(string.Create(
+            CultureInfo.InvariantCulture,
+            $"{src.Name} -> {dst.Name} (object {target.Name}, syntax {dialect.Name})"));
+        return 0;
     }
 }

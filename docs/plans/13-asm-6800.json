@@ -1,0 +1,36 @@
+{
+  "title": "Asembler: cel Motorola 6800",
+  "status": "closed",
+  "items": [
+    {
+      "id": "1",
+      "title": "Narzędzie referencyjne 6800 (as6800/vasm): instalacja, składnia, weryfikacja",
+      "status": "done",
+      "note": "Gotowe gdy: referencja buduje się/uruchamia lokalnie (asxxxx as6800 lub vasm), znana składnia (etykiety, tryby, dyrektywy), próbka przechodzi"
+    },
+    {
+      "id": "2",
+      "title": "Dane: data/instructions/mcp_6800_instructions.json ze skryptu + walidacja",
+      "status": "done",
+      "note": "Gotowe gdy: JSON jak mcp_8080 (mnemonic=szablon Motorola), pokrycie: inherent/immediate/direct/extended/indexed/relative, generowane skryptem, kontrola words"
+    },
+    {
+      "id": "3",
+      "title": "Moduł Isa/Targets/M6800Set.cs + dialekt + rejestracja",
+      "status": "done",
+      "note": "Gotowe gdy: M6800Set na wzór Intel8080Set, dialekt motorola (lub reuse), --cpu 6800, brak kolizji mnemoników"
+    },
+    {
+      "id": "4",
+      "title": "Golden Asm/6800 z referencji + rejected.txt",
+      "status": "done",
+      "note": "Gotowe gdy: golden Asm/6800 z referencji + rejected.txt, AsmGoldenTests bierze katalog automatycznie"
+    },
+    {
+      "id": "5",
+      "title": "Testy M6800AsmTests + build/test/hygiene",
+      "status": "done",
+      "note": "Gotowe gdy: testy ręczne per tryb adresowania + build -warnaserror + test + hygiene OK"
+    }
+  ]
+}

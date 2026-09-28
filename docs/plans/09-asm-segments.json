@@ -1,0 +1,30 @@
+{
+  "title": "Asembler: segmenty w jednym wywołaniu + --map (wariant A linkera)",
+  "status": "closed",
+  "items": [
+    {
+      "id": "1",
+      "title": "Składnia: .segment NAZWA + aliasy .code/.data/.bss, segment domyślny",
+      "status": "done",
+      "note": "Gotowe gdy: .segment \"NAZWA\" (cudzysłów jak .include) + .code/.data/.bss w ca65/mos, SEGMENT/CODE/DATA/BSS w intel/zilog; pierwszy segment domyślny CODE; zmiana segmentu w .if nieaktywnej gałęzi ignorowana; niezdefiniowany segment w użyciu = błąd"
+    },
+    {
+      "id": "2",
+      "title": "Rdzeń: liczniki per segment, symbole z segmentem, */$ per segment",
+      "status": "done",
+      "note": "Gotowe gdy: Pass trzyma licznik per segment (przełączanie zachowuje), symbole niosą segment (duplikat tylko w tym samym segmencie? decyzja: globalne jak dziś), */$ i _lineStart względem bieżącego segmentu, forward-ref między segmentami działa, .org ustawia licznik bieżącego segmentu"
+    },
+    {
+      "id": "3",
+      "title": "CLI: --map NAZWA@adres + składanie .bin/HEX z lukami",
+      "status": "done",
+      "note": "Gotowe gdy: cathode asm --map CODE@0600 --map DATA@2000 (powtarzalne, format NAZWA@adres hex/dec), segment bez adresu = błąd, nakładające się segmenty = błąd overlapping, .bin zeruje luki a HEX pomija puste obszary, listing grupuje po segmentach"
+    },
+    {
+      "id": "4",
+      "title": "Testy + golden Segments/ z ca65/z80asm + build/test/hygiene",
+      "status": "done",
+      "note": "Gotowe gdy: program CODE+DATA+BSS per CPU (6502/65c02/z80/8080) bajt w bajt z ca65+ld65 (.cfg) i z80asm (SECTION), golden Segments/ + generator make_segments_golden.py + build -warnaserror + test + hygiene OK"
+    }
+  ]
+}

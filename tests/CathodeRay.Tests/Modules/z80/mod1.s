@@ -1,0 +1,3 @@
+GLOBAL getval
+SEGMENT "DATA"
+getval: DEFB 42

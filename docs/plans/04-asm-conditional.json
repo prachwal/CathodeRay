@@ -1,0 +1,42 @@
+{
+  "title": "Asembler: asemblacja warunkowa (.if/.else/.endif)",
+  "status": "closed",
+  "items": [
+    {
+      "id": "1",
+      "title": "Semantyka: .if/.elseif/.else/.endif, 0=fałsz, zagnieżdżenia, interakcja z .include",
+      "status": "done",
+      "note": "Gotowe gdy: spisana semantyka: .if wyrażenie (.elseif/.elif?, .else, .endif), 0=fałsz, niezerowe=prawda, zagnieżdżenia do limitu stosu, .if po ekspansji includów (działa w includowanych plikach). Etykieta na linii .if dozwolona (wiąże PC, jak w ca65/z80asm)"
+    },
+    {
+      "id": "2",
+      "title": "Rdzeń: ewaluacja warunku w obu przebiegach, warunek musi być znany w pass 1",
+      "status": "done",
+      "note": "Gotowe gdy: Expression ma operatory relacyjne =, ==, !=, <>, <, <=, >, >= (poziom 0, wynik 1/0, jak ca65/z80asm; unarne </> bez zmian); warunek .if liczony Evaluate w obu przebiegach, nieznany w pass 1 = błąd must be known (jak .org), gałęzie nieaktywne nie definiują symboli ani nie emitują, decyzja stabilna między przebiegami"
+    },
+    {
+      "id": "3",
+      "title": "Błędy: niezbalansowane dyrektywy, puste .else, fazowość rozmiarów",
+      "status": "done",
+      "note": "Gotowe gdy: .else bez .if, .endif bez .if, niezamknięty .if na końcu pliku, podwójny .else = AssemblerException z plikiem i linią; test każdego"
+    },
+    {
+      "id": "4",
+      "title": "Dialekty: rejestracja nazw per dialekt (ca65/mos/intel/zilog/stub)",
+      "status": "done",
+      "note": "Gotowe gdy: .if/.else/.endif w stub/ca65/mos, IF/ELSE/ENDIF w intel/zilog (tabela bez rozróżniania wielkości), brak kolizji z mnemonikami/operatorami słownymi (np. IF vs brak)"
+    },
+    {
+      "id": "5",
+      "title": "Listing: pominięte linie widoczne, ale bez bajtów",
+      "status": "done",
+      "note": "Gotowe gdy: linie z nieaktywnych gałęzi w listingu bez adresu/bajtów (albo z adnotacją), aktywne bez zmian; test listingu"
+    },
+    {
+      "id": "6",
+      "title": "Testy: jednostkowe + golden z ca65/z80asm + build/test/hygiene",
+      "status": "done",
+      "note": "Gotowe gdy: testy jednostkowe (prawda/fałsz, elseif, zagnieżdżenia, symbole tylko z aktywnej gałęzi, forward-ref w warunku = błąd) + golden z ca65 (.if/.else) i z80asm (IF/ELSE/ENDIF) bajt w bajt + build -warnaserror + test + hygiene OK"
+    }
+  ]
+}

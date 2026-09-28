@@ -1,0 +1,10 @@
+SEGMENT "CODE"
+start: MVI A,1
+JMP done
+SEGMENT "DATA"
+val: DB 9
+BSS
+buf: DS 1
+SEGMENT "CODE"
+done: LDA val
+HLT

@@ -90,7 +90,7 @@ internal sealed class Expression
         SkipSpaces();
         int start = _pos;
         (level, operation) = ReadBinaryOperator();
-        if (level >= minLevel && level > 0)
+        if (level >= minLevel && level >= 0)
         {
             return true;
         }
@@ -131,6 +131,41 @@ internal sealed class Expression
             return (4, static (a, b) => a >> b);
         }
 
+        if (Take("=="))
+        {
+            return (0, static (a, b) => a == b ? 1 : 0);
+        }
+
+        if (Take("!=") || Take("<>"))
+        {
+            return (0, static (a, b) => a != b ? 1 : 0);
+        }
+
+        if (Take("<="))
+        {
+            return (0, static (a, b) => a <= b ? 1 : 0);
+        }
+
+        if (Take(">="))
+        {
+            return (0, static (a, b) => a >= b ? 1 : 0);
+        }
+
+        if (Take("="))
+        {
+            return (0, static (a, b) => a == b ? 1 : 0);
+        }
+
+        if (Take("<"))
+        {
+            return (0, static (a, b) => a < b ? 1 : 0);
+        }
+
+        if (Take(">"))
+        {
+            return (0, static (a, b) => a > b ? 1 : 0);
+        }
+
         return _pos < _text.Length ? _text[_pos++] switch
         {
             '|' => (1, static (a, b) => a | b),
@@ -141,8 +176,8 @@ internal sealed class Expression
             '*' => (6, static (a, b) => a * b),
             '/' => (6, static (a, b) => Divide(a, b, static (x, y) => x / y)),
             '%' => (6, static (a, b) => Divide(a, b, static (x, y) => x % y)),
-            _ => (0, static (a, _) => a),
-        } : (0, static (a, _) => a);
+            _ => (-1, static (a, _) => a),
+        } : (-1, static (a, _) => a);
     }
 
     private int? Unary()
@@ -230,7 +265,25 @@ internal sealed class Expression
 
         if (IsIdentifierStart(c))
         {
-            return _lookup(ReadWhile(IsIdentifierPart));
+            string name = ReadWhile(IsIdentifierPart);
+            while (_pos < _text.Length && _text[_pos] == ':')
+            {
+                if (_pos + 1 >= _text.Length || _text[_pos + 1] != ':')
+                {
+                    throw new FormatException($"unexpected ':' in expression '{_text}'.");
+                }
+
+                _pos += 2;
+                SkipSpaces();
+                if (_pos >= _text.Length || !IsIdentifierStart(_text[_pos]))
+                {
+                    throw new FormatException($"identifier expected after '::' in expression '{_text}'.");
+                }
+
+                name += "::" + ReadWhile(IsIdentifierPart);
+            }
+
+            return _lookup(name);
         }
 
         throw new FormatException($"unexpected '{c}' in expression '{_text}'.");

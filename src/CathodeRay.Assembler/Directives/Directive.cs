@@ -17,4 +17,85 @@ public static class Directive
 
     /// <summary>Kończy asemblację: <c>END</c>, <c>.end</c>.</summary>
     public static IDirective End { get; } = new EndDirective();
+
+    /// <summary>Wstawia plik (<c>.include</c>, <c>INCLUDE</c>): ekspansja przed pierwszym przebiegiem.</summary>
+    public static IDirective Include { get; } = new IncludeDirective();
+
+    /// <summary>Wstawia plik binarny do obrazu (<c>.incbin</c>, <c>INCBIN</c>).</summary>
+    public static IDirective Incbin { get; } = new IncbinDirective();
+
+    /// <summary>Symbole lokalne per rozwinięcie (<c>.local</c>, <c>LOCAL</c>).</summary>
+    public static IDirective Local { get; } = new MacroDirective(MacroKind.Local);
+
+    /// <summary>Definicja makra (<c>.macro</c>, <c>MACRO</c>).</summary>
+    public static IDirective Macro { get; } = new MacroDirective(MacroKind.Macro);
+
+    /// <summary>Koniec definicji makra (<c>.endmacro</c>, <c>ENDM</c>).</summary>
+    public static IDirective EndMacro { get; } = new MacroDirective(MacroKind.EndMacro);
+
+    /// <summary>Wyrównuje adres (<c>.align</c>, <c>ALIGN</c>).</summary>
+    public static IDirective Align { get; } = new AlignDirective();
+
+    /// <summary>Nazwany segment emitujący (<c>.segment</c>, <c>SEGMENT</c>).</summary>
+    public static IDirective Segment { get; } = new SegmentDirective(SegmentKind.Segment);
+
+    /// <summary>Segment kodu (<c>.code</c>, <c>CODE</c>).</summary>
+    public static IDirective Code { get; } = new SegmentDirective(SegmentKind.Code);
+
+    /// <summary>Segment danych (<c>.data</c>, <c>DATA</c>).</summary>
+    public static IDirective Data { get; } = new SegmentDirective(SegmentKind.Data);
+
+    /// <summary>Segment nieemitowany (<c>.bss</c>, <c>BSS</c>).</summary>
+    public static IDirective Bss { get; } = new SegmentDirective(SegmentKind.Bss);
+
+    /// <summary>Zakres nazwany lub anonimowy (<c>.scope</c>).</summary>
+    public static IDirective Scope { get; } = new ScopeDirective(ScopeKind.Scope);
+
+    /// <summary>Procedura (<c>.proc</c>, definiuje też etykietę).</summary>
+    public static IDirective Proc { get; } = new ScopeDirective(ScopeKind.Proc);
+
+    /// <summary>Koniec zakresu (<c>.endscope</c>).</summary>
+    public static IDirective EndScope { get; } = new ScopeDirective(ScopeKind.EndScope);
+
+    /// <summary>Koniec procedury (<c>.endproc</c>).</summary>
+    public static IDirective EndProc { get; } = new ScopeDirective(ScopeKind.EndProc);
+
+    /// <summary>Wypisuje komunikat (<c>.out</c>).</summary>
+    public static IDirective Out { get; } = new OutDirective();
+
+    /// <summary>Ostrzeżenie (<c>.warning</c>).</summary>
+    public static IDirective Warning { get; } = new WarningDirective();
+
+    /// <summary>Błąd użytkownika (<c>.error</c>).</summary>
+    public static IDirective Error { get; } = new ErrorDirective();
+
+    /// <summary>Asercja (<c>.assert</c>).</summary>
+    public static IDirective Assert { get; } = new AssertDirective();
+
+    /// <summary>Makro liniowe (<c>.define</c>, pre-pass tekstowy).</summary>
+    public static IDirective Define { get; } = new DefineDirective();
+
+    /// <summary>Eksportuje symbole (<c>GLOBAL</c>, <c>.global</c>).</summary>
+    public static IDirective Global { get; } = new GlobalDirective();
+
+    /// <summary>Deklaruje symbole zewnętrzne (<c>EXTERN</c>, <c>.extern</c>).</summary>
+    public static IDirective Extern { get; } = new ExternDirective();
+
+    /// <summary>Blok warunkowy: <c>.if</c> / <c>IF</c> (logika w przebiegu).</summary>
+    public static IDirective If { get; } = new ConditionalDirective(ConditionalKind.If);
+
+    /// <summary>Blok warunkowy: <c>.elseif</c> / <c>ELIF</c>.</summary>
+    public static IDirective ElseIf { get; } = new ConditionalDirective(ConditionalKind.ElseIf);
+
+    /// <summary>Blok warunkowy: <c>.else</c> / <c>ELSE</c>.</summary>
+    public static IDirective Else { get; } = new ConditionalDirective(ConditionalKind.Else);
+
+    /// <summary>Test pustki: <c>.ifblank</c>.</summary>
+    public static IDirective IfBlank { get; } = new ConditionalDirective(ConditionalKind.IfBlank);
+
+    /// <summary>Test niepustki: <c>.ifnblank</c>.</summary>
+    public static IDirective IfNBlank { get; } = new ConditionalDirective(ConditionalKind.IfNBlank);
+
+    /// <summary>Blok warunkowy: <c>.endif</c> / <c>ENDIF</c>.</summary>
+    public static IDirective EndIf { get; } = new ConditionalDirective(ConditionalKind.EndIf);
 }

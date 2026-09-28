@@ -32,8 +32,41 @@ public interface IAssemblyContext
     /// <summary>Kończy asemblację (dyrektywa END).</summary>
     void Stop();
 
+    /// <summary>Przełącza bieżący segment (licznik per segment, adresy absolutne).</summary>
+    /// <param name="name">Nazwa segmentu (bez rozróżniania wielkości liter).</param>
+    /// <param name="emit">Czy segment emituje bajty; <see langword="null"/> = bez zmian (nowy segment emituje).</param>
+    void SwitchSegment(string name, bool? emit);
+
+    /// <summary>Ewaluuje wyrażenie do emisji; w trybie obiektu odwołanie do symbolu
+    /// (zewnętrznego lub własnego) zapisuje addend i odkłada relokację zamiast błędu.</summary>
+    /// <param name="expression">Wyrażenie.</param>
+    /// <param name="kind">Rodzaj pola (do relokacji).</param>
+    /// <param name="relocated">Czy odłożono relokację (kontrola zakresu po stronie linkera).</param>
+    /// <returns>Wartość (addend dla odłożonej relokacji, 0 dla odwołań w przód).</returns>
+    int EvaluateEmission(string expression, FieldKind kind, out bool relocated);
+
+    /// <summary>Oznacza symbol jako eksportowany (<c>GLOBAL</c>).</summary>
+    /// <param name="name">Nazwa globalna.</param>
+    void DeclareGlobal(string name);
+
+    /// <summary>Oznacza symbol jako zewnętrzny (<c>EXTERN</c>).</summary>
+    /// <param name="name">Nazwa globalna.</param>
+    void DeclareExternal(string name);
+
+    /// <summary>Czyta plik binarny dla <c>.incbin</c>: cudzysłowy, ścieżki jak w <c>.include</c>.</summary>
+    /// <param name="operand">Tekst operandu z nazwą pliku lub <see langword="null"/>.</param>
+    /// <returns>Bajty pliku.</returns>
+    /// <exception cref="AssemblerException">Brak kontekstu pliku, brak pliku lub zła nazwa.</exception>
+    byte[] ReadBinaryFile(string? operand);
+
     /// <summary>Tworzy błąd przypisany do bieżącej linii.</summary>
     /// <param name="message">Opis.</param>
     /// <returns>Wyjątek do rzucenia.</returns>
     AssemblerException Error(string message);
+
+    /// <summary>Komunikat asemblacji (<c>.out</c> informacyjny, <c>.warning</c> ostrzeżenie);
+    /// zbierany tylko w przebiegu finalnym (bez dubli z pass 1).</summary>
+    /// <param name="text">Treść.</param>
+    /// <param name="warning">Czy ostrzeżenie.</param>
+    void Notify(string text, bool warning);
 }

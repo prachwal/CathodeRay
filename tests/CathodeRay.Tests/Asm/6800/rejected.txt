@@ -1,0 +1,3 @@
+ldaa $100,x
+jmp $100,x
+staa #$12

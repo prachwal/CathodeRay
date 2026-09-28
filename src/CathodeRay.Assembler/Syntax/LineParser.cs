@@ -6,7 +6,7 @@ namespace CathodeRay.Assembler.Syntax;
 /// przypisania <c>nazwa = wyr</c> / <c>nazwa EQU wyr</c> oraz <c>*= wyr</c> (MOS).</summary>
 internal static partial class LineParser
 {
-    public static SourceLine Parse(int number, string text, SyntaxDialect dialect, Func<string, bool> isKeyword)
+    public static SourceLine Parse(int number, string text, SyntaxDialect dialect, Func<string, bool> isKeyword, string? file = null)
     {
         string code = StripComment(text).TrimEnd();
         string? label = null;
@@ -30,12 +30,12 @@ internal static partial class LineParser
         code = code.Trim();
         if (code.Length == 0)
         {
-            return new SourceLine(number, text, label, null, null);
+            return new SourceLine(number, text, label, null, null, file);
         }
 
         if (dialect.OrgByAssignment && dialect.ProgramCounter is char pc && OrgAssignment(pc).Match(code) is { Success: true } org)
         {
-            return new SourceLine(number, text, label, "*=", Operand(code[org.Length..]));
+            return new SourceLine(number, text, label, "*=", Operand(code[org.Length..]), file);
         }
 
         string keyword = FirstToken(code);
@@ -43,10 +43,10 @@ internal static partial class LineParser
         if (label is null && Expression.IsIdentifier(keyword) && IsAssignmentKeyword(dialect, FirstToken(rest)))
         {
             string word = FirstToken(rest);
-            return new SourceLine(number, text, keyword, SourceLine.Assignment, Operand(rest[word.Length..]));
+            return new SourceLine(number, text, keyword, SourceLine.Assignment, Operand(rest[word.Length..]), file);
         }
 
-        return new SourceLine(number, text, label, keyword, Operand(rest));
+        return new SourceLine(number, text, label, keyword, Operand(rest), file);
     }
 
     private static bool IsAssignmentKeyword(SyntaxDialect dialect, string token) =>

@@ -1,0 +1,36 @@
+{
+  "title": "Asembler: dyrektywa .include (wieloplikowość)",
+  "status": "closed",
+  "items": [
+    {
+      "id": "1",
+      "title": "Loader: przedprzebiegowa ekspansja includów z atrybucją pliku (SourceLine + File, błąd plik:linia)",
+      "status": "done",
+      "note": "Gotowe gdy: ekspansja przed pass 1 (osobny loader, nie IDirective), SourceLine niesie plik, AssemblerException pokazuje plik:linia, stare komunikaty line N działają dla 1 pliku"
+    },
+    {
+      "id": "2",
+      "title": "Dialekty: rejestracja nazw include per dialekt + operand w cudzysłowie",
+      "status": "done",
+      "note": "Gotowe gdy: .include w stub/ca65/mos, INCLUDE w intel/zilog, operand \"plik\"/\\'plik\\', wpis w DirectiveTable każdego dialektu"
+    },
+    {
+      "id": "3",
+      "title": "Strażnicy: detekcja cykli, limit zagnieżdżenia, brak pliku, ścieżki względne + incdir",
+      "status": "done",
+      "note": "Gotowe gdy: cykl A->B->A to błąd z łańcuchem, limit głębokości, brak pliku to błąd z linią, ścieżki względne vs plik nadrzędny + --incdir, wstrzykiwalny reader dla testów"
+    },
+    {
+      "id": "4",
+      "title": "Listing + CLI: plik w listingu i błędach, katalog bazowy z pliku źródłowego",
+      "status": "done",
+      "note": "Gotowe gdy: listing oznacza linie z includów (plik:linia), CLI liczy bazę z katalogu źródła, błąd CLI pokazuje plik include"
+    },
+    {
+      "id": "5",
+      "title": "Testy: ekspansja, cykle, błędy + integracja na plikach tymczasowych + hygiene/build/test",
+      "status": "done",
+      "note": "Gotowe gdy: testy ekspansji/cykli/błędów na readerze w pamięci + integracja CLI na plikach tymczasowych, build -warnaserror + test + hygiene OK"
+    }
+  ]
+}
