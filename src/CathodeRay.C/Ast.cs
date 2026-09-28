@@ -6,9 +6,10 @@ public static class Ast
     /// <summary>Wspólny korzeń węzłów.</summary>
     public abstract record Node;
 
-    /// <summary>Program: lista funkcji.</summary>
+    /// <summary>Program: globale i funkcje.</summary>
+    /// <param name="Globals">Zmienne globalne.</param>
     /// <param name="Functions">Funkcje w kolejności źródła.</param>
-    public sealed record Program(IReadOnlyList<Function> Functions) : Node;
+    public sealed record Program(IReadOnlyList<Decl> Globals, IReadOnlyList<Function> Functions) : Node;
 
     /// <summary>Definicja funkcji.</summary>
     /// <param name="ReturnType">Typ wyniku.</param>
@@ -20,7 +21,8 @@ public static class Ast
     /// <summary>Parametr formalny.</summary>
     /// <param name="Type">Typ.</param>
     /// <param name="Name">Nazwa.</param>
-    public sealed record Param(string Type, string Name) : Node;
+    /// <param name="PointerDepth">Liczba <c>*</c> (wskaźnik).</param>
+    public sealed record Param(string Type, string Name, int PointerDepth = 0) : Node;
 
     /// <summary>Wspólny korzeń instrukcji.</summary>
     public abstract record Stmt : Node;
@@ -33,7 +35,8 @@ public static class Ast
     /// <param name="Type">Typ.</param>
     /// <param name="Name">Nazwa.</param>
     /// <param name="Init">Inicjalizator lub <see langword="null"/>.</param>
-    public sealed record Decl(string Type, string Name, Expr? Init) : Stmt;
+    /// <param name="PointerDepth">Liczba <c>*</c> (wskaźnik).</param>
+    public sealed record Decl(string Type, string Name, Expr? Init, int PointerDepth = 0) : Stmt;
 
     /// <summary>Warunek z gałęzią else.</summary>
     /// <param name="Cond">Warunek.</param>
@@ -80,7 +83,7 @@ public static class Ast
     /// <param name="Args">Argumenty.</param>
     public sealed record Call(string Name, IReadOnlyList<Expr> Args) : Expr;
 
-    /// <summary>Operator jednoargumentowy (<c>- ~ !</c>).</summary>
+    /// <summary>Operator jednoargumentowy (<c>- ~ ! &amp; *</c>).</summary>
     /// <param name="Op">Operator.</param>
     /// <param name="Operand">Operand.</param>
     public sealed record Unary(string Op, Expr Operand) : Expr;
@@ -101,4 +104,17 @@ public static class Ast
     /// <param name="Then">Wartość dla prawdy.</param>
     /// <param name="Else">Wartość dla fałszu.</param>
     public sealed record Ternary(Expr Cond, Expr Then, Expr Else) : Expr;
+
+    /// <summary>Dereferencja wskaźnika (<c>*p</c>).</summary>
+    /// <param name="Pointer">Wskaźnik.</param>
+    public sealed record Deref(Expr Pointer) : Expr;
+
+    /// <summary>Adres zmiennej (<c>&amp;x</c>).</summary>
+    /// <param name="Name">Nazwa zmiennej.</param>
+    public sealed record AddressOf(string Name) : Expr;
+
+    /// <summary>Indeksowanie (<c>p[i]</c>).</summary>
+    /// <param name="Base">Wskaźnik.</param>
+    /// <param name="Offset">Indeks.</param>
+    public sealed record Index(Expr Base, Expr Offset) : Expr;
 }

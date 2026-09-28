@@ -1,0 +1,391 @@
+namespace CathodeRay.C;
+
+/// <summary>Kontrola typów mini-C: zakresy blokowe, sygnatury funkcji, promocje
+/// (<c>uchar→int</c>), zawężenie <c>int→uchar</c> z ostrzeżeniem, arytmetyka
+/// wskaźników (skala przez rozmiar elementu w codegen).</summary>
+public sealed class TypeChecker
+{
+    private readonly Dictionary<string, Ast.Function> _functions = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, TypedSymbol> _globals = new(StringComparer.Ordinal);
+    private readonly List<string> _warnings = [];
+    private readonly Stack<Dictionary<string, CType>> _scopes = new();
+    private readonly List<TypedSymbol> _locals = [];
+    private string _returnType = "void";
+
+    private TypeChecker()
+    {
+    }
+
+    /// <summary>Sprawdza program.</summary>
+    /// <param name="program">Drzewo z parsera.</param>
+    /// <returns>Program z typami symboli.</returns>
+    /// <exception cref="CTypeException">Błąd typów.</exception>
+    public static CheckedProgram Check(Ast.Program program)
+    {
+        ArgumentNullException.ThrowIfNull(program);
+        var checker = new TypeChecker();
+        return checker.CheckProgram(program);
+    }
+
+    private static CType Declared(string type, int stars)
+    {
+        CType result = CType.FromName(type);
+        for (int i = 0; i < stars; i++)
+        {
+            result = CType.Pointer(result);
+        }
+
+        return result;
+    }
+
+    private static CType NumberType(string text)
+    {
+        string digits = text.StartsWith("0x", StringComparison.OrdinalIgnoreCase) ? text[2..] : text;
+        int radix = text.StartsWith("0x", StringComparison.OrdinalIgnoreCase) ? 16 : 10;
+        foreach (char c in digits)
+        {
+            bool ok = radix == 16 ? char.IsAsciiHexDigit(c) : char.IsAsciiDigit(c);
+            if (!ok)
+            {
+                throw new CTypeException($"invalid number '{text}'.");
+            }
+        }
+
+        return CType.Int;
+    }
+
+    private CheckedProgram CheckProgram(Ast.Program program)
+    {
+        foreach (Ast.Decl global in program.Globals)
+        {
+            if (!_globals.TryAdd(global.Name, new TypedSymbol(global.Name, Declared(global.Type, global.PointerDepth))))
+            {
+                throw new CTypeException($"redefinition of '{global.Name}'.");
+            }
+
+            if (global.Init is not null)
+            {
+                Assignable(Declared(global.Type, global.PointerDepth), TypeOf(global.Init), $"initializer of '{global.Name}'");
+            }
+        }
+
+        foreach (Ast.Function function in program.Functions)
+        {
+            if (_functions.ContainsKey(function.Name) || _globals.ContainsKey(function.Name))
+            {
+                throw new CTypeException($"redefinition of '{function.Name}'.");
+            }
+
+            _functions[function.Name] = function;
+        }
+
+        var checkedFunctions = new List<CheckedFunction>();
+        foreach (Ast.Function function in program.Functions)
+        {
+            checkedFunctions.Add(CheckFunction(function));
+        }
+
+        return new CheckedProgram(checkedFunctions, [.. _globals.Values], _warnings);
+    }
+
+    private CheckedFunction CheckFunction(Ast.Function function)
+    {
+        _locals.Clear();
+        _scopes.Clear();
+        _scopes.Push(new Dictionary<string, CType>(StringComparer.Ordinal));
+        _returnType = function.ReturnType;
+        var parameters = new List<TypedSymbol>();
+        foreach (Ast.Param param in function.Params)
+        {
+            if (!_scopes.Peek().TryAdd(param.Name, Declared(param.Type, param.PointerDepth)))
+            {
+                throw new CTypeException($"redefinition of '{param.Name}'.");
+            }
+
+            parameters.Add(new TypedSymbol(param.Name, Declared(param.Type, param.PointerDepth)));
+        }
+
+        CheckBlock(function.Body);
+        return new CheckedFunction(function, parameters, _locals);
+    }
+
+    private void CheckBlock(Ast.Block block)
+    {
+        _scopes.Push(new Dictionary<string, CType>(StringComparer.Ordinal));
+        foreach (Ast.Stmt item in block.Items)
+        {
+            CheckStmt(item);
+        }
+
+        _scopes.Pop();
+    }
+
+    private void CheckStmt(Ast.Stmt stmt)
+    {
+        switch (stmt)
+        {
+            case Ast.Block block:
+                CheckBlock(block);
+                break;
+            case Ast.Decl decl:
+                if (decl.Type == "void")
+                {
+                    throw new CTypeException($"variable '{decl.Name}' has void type.");
+                }
+
+                if (!_scopes.Peek().TryAdd(decl.Name, Declared(decl.Type, decl.PointerDepth)))
+                {
+                    throw new CTypeException($"redefinition of '{decl.Name}'.");
+                }
+
+                _locals.Add(new TypedSymbol(decl.Name, Declared(decl.Type, decl.PointerDepth)));
+                if (decl.Init is not null)
+                {
+                    Assignable(Declared(decl.Type, decl.PointerDepth), TypeOf(decl.Init), $"initializer of '{decl.Name}'");
+                }
+
+                break;
+            case Ast.If ifStmt:
+                Condition(ifStmt.Cond);
+                CheckStmt(ifStmt.Then);
+                if (ifStmt.Else is not null)
+                {
+                    CheckStmt(ifStmt.Else);
+                }
+
+                break;
+            case Ast.While whileStmt:
+                Condition(whileStmt.Cond);
+                CheckStmt(whileStmt.Body);
+                break;
+            case Ast.For forStmt:
+                _scopes.Push(new Dictionary<string, CType>(StringComparer.Ordinal));
+                if (forStmt.Init is not null)
+                {
+                    CheckStmt(forStmt.Init);
+                }
+
+                if (forStmt.Cond is not null)
+                {
+                    Condition(forStmt.Cond);
+                }
+
+                if (forStmt.Step is not null)
+                {
+                    TypeOf(forStmt.Step);
+                }
+
+                CheckStmt(forStmt.Body);
+                _scopes.Pop();
+                break;
+            case Ast.Return ret:
+                if (_returnType == "void")
+                {
+                    if (ret.Value is not null)
+                    {
+                        throw new CTypeException("void function returns a value.");
+                    }
+                }
+                else if (ret.Value is null)
+                {
+                    throw new CTypeException($"function returns no value (expected {_returnType}).");
+                }
+                else
+                {
+                    Assignable(CType.FromName(_returnType), TypeOf(ret.Value), "return value");
+                }
+
+                break;
+            case Ast.ExprStmt exprStmt:
+                TypeOf(exprStmt.Value);
+                break;
+            case Ast.Nop:
+                break;
+            default:
+                throw new CTypeException($"unsupported statement {stmt.GetType().Name}.");
+        }
+    }
+
+    private void Condition(Ast.Expr cond)
+    {
+        CType type = TypeOf(cond);
+        if (type.Kind is "void")
+        {
+            throw new CTypeException("condition has void type.");
+        }
+    }
+
+    private CType Lookup(string name)
+    {
+        foreach (Dictionary<string, CType> scope in _scopes)
+        {
+            if (scope.TryGetValue(name, out CType? type))
+            {
+                return type;
+            }
+        }
+
+        if (_globals.TryGetValue(name, out TypedSymbol? global))
+        {
+            return global.Type;
+        }
+
+        throw new CTypeException($"undeclared '{name}'.");
+    }
+
+    private void Assignable(CType target, CType value, string where)
+    {
+        if (target == value || (target.Kind == "int" && value.Kind == "uchar"))
+        {
+            return;
+        }
+
+        if (target.Kind == "uchar" && value.Kind == "int")
+        {
+            _warnings.Add($"{where}: narrowing int to uchar.");
+            return;
+        }
+
+        throw new CTypeException($"{where}: cannot convert {value} to {target}.");
+    }
+
+    private CType TypeOf(Ast.Expr expr)
+    {
+        switch (expr)
+        {
+            case Ast.Number number:
+                return NumberType(number.Text);
+            case Ast.Var variable:
+                return Lookup(variable.Name);
+            case Ast.Call call:
+                return CallType(call);
+            case Ast.Unary unary:
+                return UnaryType(unary);
+            case Ast.Binary binary:
+                return BinaryType(binary);
+            case Ast.Assign assign:
+                return AssignType(assign);
+            case Ast.Ternary ternary:
+                return TernaryType(ternary);
+            case Ast.Deref deref:
+                return DerefType(deref);
+            case Ast.AddressOf addressOf:
+                Lookup(addressOf.Name);
+                return CType.Pointer(CType.UChar);
+            case Ast.Index index:
+                return IndexType(index);
+            default:
+                throw new CTypeException($"unsupported expression {expr.GetType().Name}.");
+        }
+    }
+
+    private CType CallType(Ast.Call call)
+    {
+        if (!_functions.TryGetValue(call.Name, out Ast.Function? function))
+        {
+            throw new CTypeException($"undefined function '{call.Name}'.");
+        }
+
+        if (call.Args.Count != function.Params.Count)
+        {
+            throw new CTypeException($"'{call.Name}' takes {function.Params.Count} arguments, got {call.Args.Count}.");
+        }
+
+        for (int i = 0; i < call.Args.Count; i++)
+        {
+            Assignable(
+                Declared(function.Params[i].Type, function.Params[i].PointerDepth),
+                TypeOf(call.Args[i]),
+                $"argument {i + 1} of '{call.Name}'");
+        }
+
+        return CType.FromName(function.ReturnType);
+    }
+
+    private CType UnaryType(Ast.Unary unary)
+    {
+        CType operand = TypeOf(unary.Operand);
+        return unary.Op switch
+        {
+            "-" or "~" => operand.Kind == "void"
+                ? throw new CTypeException($"operator '{unary.Op}' needs an arithmetic operand.")
+                : CType.Int,
+            "!" => operand.Kind == "void"
+                ? throw new CTypeException("operator '!' needs a value.")
+                : CType.Int,
+            _ => throw new CTypeException($"unknown operator '{unary.Op}'."),
+        };
+    }
+
+    private CType BinaryType(Ast.Binary binary)
+    {
+        CType left = TypeOf(binary.Left);
+        CType right = TypeOf(binary.Right);
+        if (left.Kind == "void" || right.Kind == "void")
+        {
+            throw new CTypeException($"operator '{binary.Op}' needs values.");
+        }
+
+        if (binary.Op is "==" or "!=" or "<" or "<=" or ">" or ">=" or "&&" or "||")
+        {
+            if (left.Kind == "ptr" || right.Kind == "ptr")
+            {
+                throw new CTypeException($"operator '{binary.Op}' needs arithmetic operands.");
+            }
+
+            return CType.Int;
+        }
+
+        if (left.Kind == "ptr" || right.Kind == "ptr")
+        {
+            throw new CTypeException($"operator '{binary.Op}' needs arithmetic operands (pointer arithmetic is explicit in codegen).");
+        }
+
+        return CType.Int;
+    }
+
+    private CType AssignType(Ast.Assign assign)
+    {
+        CType target = Lookup(assign.Name);
+        Assignable(target, TypeOf(assign.Value), $"assignment to '{assign.Name}'");
+        return target;
+    }
+
+    private CType TernaryType(Ast.Ternary ternary)
+    {
+        Condition(ternary.Cond);
+        CType then = TypeOf(ternary.Then);
+        CType els = TypeOf(ternary.Else);
+        if (then.Kind == "void" || els.Kind == "void")
+        {
+            throw new CTypeException("ternary branches need values.");
+        }
+
+        return CType.Int;
+    }
+
+    private CType DerefType(Ast.Deref deref)
+    {
+        CType pointer = TypeOf(deref.Pointer);
+        return pointer.Kind == "ptr" && pointer.Base is not null
+            ? pointer.Base
+            : throw new CTypeException("dereference needs a pointer.");
+    }
+
+    private CType IndexType(Ast.Index index)
+    {
+        CType @base = TypeOf(index.Base);
+        CType offset = TypeOf(index.Offset);
+        if (@base.Kind != "ptr" || @base.Base is null)
+        {
+            throw new CTypeException("indexing needs a pointer.");
+        }
+
+        if (offset.Kind == "void" || offset.Kind == "ptr")
+        {
+            throw new CTypeException("index needs an arithmetic offset.");
+        }
+
+        return @base.Base;
+    }
+}

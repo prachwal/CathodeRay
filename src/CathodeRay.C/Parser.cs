@@ -57,31 +57,58 @@ public sealed class Parser
 
     private Ast.Program Program()
     {
+        var globals = new List<Ast.Decl>();
         var functions = new List<Ast.Function>();
         while (Peek().Kind != TokenKind.End)
         {
-            functions.Add(Function());
+            Token type = Peek();
+            if (!IsType(type))
+            {
+                throw new CParseException(type.Line, type.Column, $"expected type, got '{type.Text}'.");
+            }
+
+            Next();
+            string name = ExpectKind(TokenKind.Ident, "name").Text;
+            if (Peek() is { Kind: TokenKind.Punct, Text: "(" })
+            {
+                functions.Add(FunctionRest(type.Text, name));
+            }
+            else
+            {
+                globals.Add(GlobalRest(type.Text, name));
+            }
         }
 
-        if (functions.Count == 0)
+        if (functions.Count == 0 && globals.Count == 0)
         {
             Token token = Peek();
             throw new CParseException(token.Line, token.Column, "expected a function.");
         }
 
-        return new Ast.Program(functions);
+        return new Ast.Program(globals, functions);
     }
 
-    private Ast.Function Function()
+    private Ast.Decl GlobalRest(string type, string name)
     {
-        Token type = Peek();
-        if (!IsType(type))
+        int stars = Stars();
+        Ast.Expr? init = Take("=") ? Expression() : null;
+        Expect(";");
+        return new Ast.Decl(type, name, init, stars);
+    }
+
+    private int Stars()
+    {
+        int count = 0;
+        while (Take("*"))
         {
-            throw new CParseException(type.Line, type.Column, $"expected type, got '{type.Text}'.");
+            count++;
         }
 
-        Next();
-        string name = ExpectKind(TokenKind.Ident, "function name").Text;
+        return count;
+    }
+
+    private Ast.Function FunctionRest(string type, string name)
+    {
         Expect("(");
         var parameters = new List<Ast.Param>();
         if (!Take(")"))
@@ -95,14 +122,15 @@ public sealed class Parser
                 }
 
                 Next();
-                parameters.Add(new Ast.Param(paramType.Text, ExpectKind(TokenKind.Ident, "parameter name").Text));
+                int stars = Stars();
+                parameters.Add(new Ast.Param(paramType.Text, ExpectKind(TokenKind.Ident, "parameter name").Text, stars));
             }
             while (Take(","));
 
             Expect(")");
         }
 
-        return new Ast.Function(type.Text, name, parameters, Block());
+        return new Ast.Function(type, name, parameters, Block());
     }
 
     private Ast.Block Block()
@@ -209,10 +237,11 @@ public sealed class Parser
     private Ast.Decl Decl()
     {
         string type = Next().Text;
+        int stars = Stars();
         string name = ExpectKind(TokenKind.Ident, "variable name").Text;
         Ast.Expr? init = Take("=") ? Expression() : null;
         Expect(";");
-        return new Ast.Decl(type, name, init);
+        return new Ast.Decl(type, name, init, stars);
     }
 
     private Ast.Expr Expression() => Assignment();
@@ -310,10 +339,34 @@ public sealed class Parser
             return new Ast.Unary(token.Text, Unary());
         }
 
+        if (token is { Kind: TokenKind.Punct, Text: "&" })
+        {
+            Next();
+            Token name = ExpectKind(TokenKind.Ident, "variable name");
+            return new Ast.AddressOf(name.Text);
+        }
+
+        if (token is { Kind: TokenKind.Punct, Text: "*" })
+        {
+            Next();
+            return new Ast.Deref(Unary());
+        }
+
         return Postfix();
     }
 
-    private Ast.Expr Postfix() => Primary();
+    private Ast.Expr Postfix()
+    {
+        Ast.Expr baseValue = Primary();
+        while (Take("["))
+        {
+            Ast.Expr index = Expression();
+            Expect("]");
+            baseValue = new Ast.Index(baseValue, index);
+        }
+
+        return baseValue;
+    }
 
     private Ast.Expr Primary()
     {

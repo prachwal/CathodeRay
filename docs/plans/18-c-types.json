@@ -1,23 +1,23 @@
 {
   "title": "Mini-C: kontrola typów",
-  "status": "queued",
+  "status": "closed",
   "items": [
     {
       "id": "1",
       "title": "System typów: uchar/int/wskaźniki, promocje, rzutowania",
-      "status": "todo",
+      "status": "done",
       "note": "Gotowe gdy: uchar(8)/int(16)/wskaźniki, promocja uchar→int, rzutowania jawne, arytmetyka wskaźników +1 element"
     },
     {
       "id": "2",
       "title": "Kontrole: niezadeklarowane, redefinicje, arg vs param, return",
-      "status": "todo",
+      "status": "done",
       "note": "Gotowe gdy: niezadeklarowane, redefinicje, liczba arg vs param, return zgodny, przypisanie int→uchar z ostrzeżeniem (nie błędem)"
     },
     {
       "id": "3",
       "title": "Testy typów + build/test/hygiene",
-      "status": "todo",
+      "status": "done",
       "note": "Gotowe gdy: 15+ testów typów + build -warnaserror + test + hygiene OK"
     }
   ]
