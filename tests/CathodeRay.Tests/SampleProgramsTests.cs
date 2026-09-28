@@ -185,6 +185,21 @@ public sealed class SampleProgramsTests
     }
 
     [Fact]
+    public void Minic_Uses_Every_C_Convention()
+    {
+        var (cpu, bus, result) = RunFile(Path.Combine("features", "minic.s"));
+
+        int At(string symbol) => result.Symbols[symbol];
+        bus.Read((ushort)At("s1")).Should().Be(16);
+        bus.Read((ushort)At("s2")).Should().Be(25);
+        bus.Read((ushort)At("flag")).Should().Be(0);
+        bus.Read((ushort)At("flag2")).Should().Be(7);
+        cpu.State.A.Should().Be(7);
+        cpu.State.X.Should().Be(5);
+        cpu.State.StackPointer.Should().Be(0xFF);
+    }
+
+    [Fact]
     public void Divmod_Divides_With_Remainder_And_Zero_Cases()
     {
         string dir = Repo.Path("samples", "stub", "features");
