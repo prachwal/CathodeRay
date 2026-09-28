@@ -480,3 +480,6 @@ $RECYCLE.BIN/
 
 # Vim temporary swap files
 *.swp
+
+# Binarki z asemblera (cathode stub asm)
+samples/**/*.bin

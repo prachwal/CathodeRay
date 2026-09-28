@@ -1,6 +1,7 @@
 <Solution>
   <Folder Name="/src/">
     <Project Path="src/CathodeRay/CathodeRay.csproj" />
+    <Project Path="src/CathodeRay.Cli/CathodeRay.Cli.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/CathodeRay.Tests/CathodeRay.Tests.csproj" />

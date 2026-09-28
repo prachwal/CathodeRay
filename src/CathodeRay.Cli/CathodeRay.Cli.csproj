@@ -1,0 +1,33 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- TargetFramework i wspólne ustawienia: Directory.Build.props -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <AssemblyName>cathode</AssemblyName>
+    <RootNamespace>CathodeRay.Cli</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="System.CommandLine" />
+    <PackageReference Include="StyleCop.Analyzers" PrivateAssets="all" />
+    <PackageReference Include="Roslynator.Analyzers" PrivateAssets="all" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <AdditionalFiles Include="..\..\stylecop.json" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\CathodeRay\CathodeRay.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="CathodeRay.Tests" />
+  </ItemGroup>
+
+  <!-- Domyślna ISA obok binarki (nadpisywalna opcją isa). -->
+  <ItemGroup>
+    <None Include="..\..\data\instructions\mcp_stub_instructions.json" Link="mcp_stub_instructions.json" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+</Project>

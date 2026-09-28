@@ -15,5 +15,7 @@
     <!-- Analizatory Roslyn (Roslynator) + StyleCop, włączone jako błędy builda. -->
     <PackageVersion Include="Roslynator.Analyzers" Version="5.0.0" />
     <PackageVersion Include="StyleCop.Analyzers" Version="1.2.0-beta.556" />
+    <!-- CLI: parser komend (grupa → komenda → argumenty/opcje). -->
+    <PackageVersion Include="System.CommandLine" Version="2.0.12" />
   </ItemGroup>
 </Project>
