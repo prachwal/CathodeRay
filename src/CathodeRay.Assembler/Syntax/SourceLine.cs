@@ -7,7 +7,8 @@ namespace CathodeRay.Assembler.Syntax;
 /// <param name="Keyword">Mnemonik, dyrektywa albo <see cref="Assignment"/>.</param>
 /// <param name="Operand">Operand bez komentarza lub <see langword="null"/>.</param>
 /// <param name="File">Plik źródła (<see langword="null"/> = tekst bez kontekstu pliku).</param>
-internal sealed record SourceLine(int Number, string Text, string? Label, string? Keyword, string? Operand, string? File = null)
+/// <param name="Macro">Użycie makra, z którego pochodzi linia (<see langword="null"/> = zwykła linia).</param>
+internal sealed record SourceLine(int Number, string Text, string? Label, string? Keyword, string? Operand, string? File = null, MacroUse? Macro = null)
 {
     /// <summary>Znormalizowane słowo przypisania symbolu (<c>=</c>, <c>EQU</c>, <c>SET</c>).</summary>
     public const string Assignment = "=";

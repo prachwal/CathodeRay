@@ -65,6 +65,7 @@ public sealed class TwoPassAssembler(InstructionSet isa, SyntaxDialect dialect)
 
     private AssemblyResult AssembleCore(IReadOnlyList<SourceLine> lines, Func<string, byte[]?>? binaryReader = null, IReadOnlyList<string>? includePaths = null)
     {
+        lines = MacroExpander.Expand(lines, dialect, IsKeyword);
         var symbols = new Dictionary<string, int>(dialect.SymbolComparer);
         var choices = new Dictionary<int, FormChoice>();
 
@@ -186,7 +187,16 @@ public sealed class TwoPassAssembler(InstructionSet isa, SyntaxDialect dialect)
 
         public void Stop() => _stopped = true;
 
-        public AssemblerException Error(string message) => new(_line.Number, message, _line.File);
+        public AssemblerException Error(string message)
+        {
+            if (_line.Macro is { } macro)
+            {
+                string definedAt = macro.DefFile is null ? $"line {macro.DefLine}" : $"{macro.DefFile}:{macro.DefLine}";
+                message += $" (in expansion of '{macro.Name}' defined at {definedAt})";
+            }
+
+            return new(_line.Number, message, _line.File);
+        }
 
         public byte[] ReadBinaryFile(string? operand)
         {

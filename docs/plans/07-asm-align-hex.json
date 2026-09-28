@@ -1,11 +1,11 @@
 {
   "title": "Asembler: .align + Intel HEX (mniejszy krok linkera)",
-  "status": "queued",
+  "status": "active",
   "items": [
     {
       "id": "1",
       "title": "Decyzja zakresu: pełne segmenty vs .align + Intel HEX",
-      "status": "todo",
+      "status": "done",
       "note": "Gotowe gdy: jawna decyzja: pełne segmenty (linker wielomodułowy) albo stop na .align + Intel HEX; decyzja zapisana w docs/assembler-capability-gaps.md"
     },
     {
