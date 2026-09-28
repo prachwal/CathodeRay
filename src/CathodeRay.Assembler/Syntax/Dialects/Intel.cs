@@ -19,6 +19,7 @@ public static partial class SyntaxDialects
             ("DB", Directive.Byte),
             ("DW", Directive.Word),
             ("DS", Directive.Reserve),
+            ("INCLUDE", Directive.Include),
             ("END", Directive.End)),
     };
 }

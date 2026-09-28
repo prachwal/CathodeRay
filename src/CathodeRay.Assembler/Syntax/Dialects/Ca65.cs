@@ -20,6 +20,7 @@ public static partial class SyntaxDialects
             (".word", Directive.Word),
             (".addr", Directive.Word),
             (".res", Directive.Reserve),
+            (".include", Directive.Include),
             (".end", Directive.End)),
     };
 }

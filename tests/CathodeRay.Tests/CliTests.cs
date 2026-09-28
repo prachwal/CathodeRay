@@ -191,6 +191,6 @@ public sealed class CliTests : IDisposable
 
         Cli("asm", asm, "--cpu", "6502", "-l", listing).Exit.Should().Be(0);
 
-        System.IO.File.ReadAllText(listing).Should().Contain("0600  A9 01            2  start: lda #1").And.Contain("0602  60");
+        System.IO.File.ReadAllText(listing).Should().Contain("prog.s:2  start: lda #1").And.Contain("0602  60");
     }
 }

@@ -27,7 +27,8 @@ public sealed record AssemblyResult(
                 byte[] chunk = [.. line.Bytes.Skip(row * BytesPerRow).Take(BytesPerRow)];
                 string address = chunk.Length > 0 || row == 0 ? (line.Address + (row * BytesPerRow)).ToString("X4", CultureInfo.InvariantCulture) : "    ";
                 string bytes = string.Join(' ', chunk.Select(static b => b.ToString("X2", CultureInfo.InvariantCulture)));
-                string source = row == 0 ? string.Create(CultureInfo.InvariantCulture, $"{line.Line,5}  {line.Source}") : string.Empty;
+                string location = line.File is null ? $"{line.Line,5}" : $"{line.File}:{line.Line}";
+                string source = row == 0 ? string.Create(CultureInfo.InvariantCulture, $"{location}  {line.Source}") : string.Empty;
                 output.WriteLine($"{address}  {bytes,-11}  {source}".TrimEnd());
             }
         }

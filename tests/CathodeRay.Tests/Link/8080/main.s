@@ -1,0 +1,179 @@
+; Wygenerowane przez tools/make_asm_golden.py z z80asm -m8080
+INCLUDE "part0.inc"
+INCLUDE "part1.inc"
+	MOV B,C
+	MOV B,D
+	MOV B,E
+	MOV B,H
+	MOV B,L
+	MOV B,M
+	MOV B,A
+	MOV C,B
+	MOV C,C
+	MOV C,D
+	MOV C,E
+	MOV C,H
+	MOV C,L
+	MOV C,M
+	MOV C,A
+	MOV D,B
+	MOV D,C
+	MOV D,D
+	MOV D,E
+	MOV D,H
+	MOV D,L
+	MOV D,M
+	MOV D,A
+	MOV E,B
+	MOV E,C
+	MOV E,D
+	MOV E,E
+	MOV E,H
+	MOV E,L
+	MOV E,M
+	MOV E,A
+	MOV H,B
+	MOV H,C
+	MOV H,D
+	MOV H,E
+	MOV H,H
+	MOV H,L
+	MOV H,M
+	MOV H,A
+	MOV L,B
+	MOV L,C
+	MOV L,D
+	MOV L,E
+	MOV L,H
+	MOV L,L
+	MOV L,M
+	MOV L,A
+	MOV M,B
+	MOV M,C
+	MOV M,D
+	MOV M,E
+	MOV M,H
+	MOV M,L
+	HLT
+	MOV M,A
+	MOV A,B
+	MOV A,C
+	MOV A,D
+	MOV A,E
+	MOV A,H
+	MOV A,L
+	MOV A,M
+	MOV A,A
+	ADD B
+	ADD C
+	ADD D
+	ADD E
+	ADD H
+	ADD L
+	ADD M
+	ADD A
+	ADC B
+	ADC C
+	ADC D
+	ADC E
+	ADC H
+	ADC L
+	ADC M
+	ADC A
+	SUB B
+	SUB C
+	SUB D
+	SUB E
+	SUB H
+	SUB L
+	SUB M
+	SUB A
+	SBB B
+	SBB C
+	SBB D
+	SBB E
+	SBB H
+	SBB L
+	SBB M
+	SBB A
+	ANA B
+	ANA C
+	ANA D
+	ANA E
+	ANA H
+	ANA L
+	ANA M
+	ANA A
+	XRA B
+	XRA C
+	XRA D
+	XRA E
+	XRA H
+	XRA L
+	XRA M
+	XRA A
+	ORA B
+	ORA C
+	ORA D
+	ORA E
+	ORA H
+	ORA L
+	ORA M
+	ORA A
+	CMP B
+	CMP C
+	CMP D
+	CMP E
+	CMP H
+	CMP L
+	CMP M
+	CMP A
+	RNZ
+	POP B
+	JNZ 1234h
+	JMP 1234h
+	CNZ 1234h
+	PUSH B
+	ADI 12h
+	RZ
+	RET
+	JZ 1234h
+	CZ 1234h
+	CALL 1234h
+	ACI 12h
+	RNC
+	POP D
+	JNC 1234h
+	OUT 12h
+	CNC 1234h
+	PUSH D
+	SUI 12h
+	RC
+	JC 1234h
+	IN 12h
+	CC 1234h
+	SBI 12h
+	RPO
+	POP H
+	JPO 1234h
+	XTHL
+	CPO 1234h
+	PUSH H
+	ANI 12h
+	RPE
+	PCHL
+	JPE 1234h
+	XCHG
+	CPE 1234h
+	XRI 12h
+	RP
+	POP PSW
+	DI
+	PUSH PSW
+	ORI 12h
+	RM
+	SPHL
+	JM 1234h
+	EI
+	CM 1234h
+	CPI 12h

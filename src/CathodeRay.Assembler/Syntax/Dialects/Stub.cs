@@ -12,6 +12,7 @@ public static partial class SyntaxDialects
         Numbers = NumberFormats.Motorola | NumberFormats.CStyle,
         Directives = SyntaxDialect.DirectiveTable(
             (".org", Directive.Org),
-            (".byte", Directive.Byte)),
+            (".byte", Directive.Byte),
+            (".include", Directive.Include)),
     };
 }

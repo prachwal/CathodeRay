@@ -30,8 +30,9 @@ internal static class AsmCommand
         var listing = new Option<FileInfo?>("--listing", "-l") { Description = "Plik listingu: adres, bajty, linia źródła." };
         var isa = new Option<FileInfo>("--isa") { Description = "Plik ISA JSON zamiast domyślnego dla CPU." };
         isa.AcceptExistingOnly();
+        var incdir = new Option<DirectoryInfo[]>("--incdir") { Description = "Dodatkowe katalogi poszukiwań .include (można powtarzać)." };
 
-        var command = new Command("asm", "Asembluje źródło do pliku binarnego.") { source, cpu, syntax, illegal, output, listing, isa };
+        var command = new Command("asm", "Asembluje źródło do pliku binarnego.") { source, cpu, syntax, illegal, output, listing, isa, incdir };
         command.SetAction(parse =>
         {
             TextWriter error = parse.InvocationConfiguration.Error;
@@ -58,15 +59,18 @@ internal static class AsmCommand
             }
 
             string isaPath = parse.GetValue(isa)?.FullName ?? Path.Combine(AppContext.BaseDirectory, target.IsaFile);
+            string[] includePaths = [.. parse.GetValue(incdir)!.Select(static d => d.FullName)];
             AssemblyResult result;
             try
             {
                 using FileStream json = File.OpenRead(isaPath);
-                result = new TwoPassAssembler(target.Load(json), dialect).Assemble(File.ReadAllText(src.FullName));
+                string entryText = File.ReadAllText(src.FullName);
+                Func<string, string?> reader = path => File.Exists(path) ? File.ReadAllText(path) : null;
+                result = new TwoPassAssembler(target.Load(json), dialect).Assemble(entryText, src.FullName, reader, includePaths);
             }
             catch (AssemblerException e)
             {
-                error.WriteLine($"{src.Name}: {e.Message}");
+                error.WriteLine($"{e.File ?? src.Name}: {e.Message}");
                 return 1;
             }
 

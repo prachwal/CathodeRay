@@ -1,8 +1,9 @@
 namespace CathodeRay.Assembler;
 
 /// <summary>Linia listingu.</summary>
-/// <param name="Line">Numer linii źródła.</param>
+/// <param name="Line">Numer linii w pliku źródła.</param>
 /// <param name="Address">Adres na początku linii.</param>
 /// <param name="Bytes">Bajty wygenerowane przez linię.</param>
 /// <param name="Source">Tekst źródła.</param>
-public sealed record ListingLine(int Line, int Address, byte[] Bytes, string Source);
+/// <param name="File">Plik źródła (<see langword="null"/> = tekst bez kontekstu pliku).</param>
+public sealed record ListingLine(int Line, int Address, byte[] Bytes, string Source, string? File = null);

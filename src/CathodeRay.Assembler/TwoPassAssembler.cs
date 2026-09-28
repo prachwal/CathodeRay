@@ -17,24 +17,30 @@ public sealed class TwoPassAssembler(InstructionSet isa, SyntaxDialect dialect)
 
     private SyntaxDialect Dialect => dialect;
 
-    /// <summary>Asembluje źródło.</summary>
+    /// <summary>Asembluje źródło (jeden tekst, bez includów; <c>.include</c> wymaga przeciążenia z plikiem).</summary>
     /// <param name="source">Tekst źródła.</param>
     /// <returns>Obraz, symbole i listing.</returns>
     /// <exception cref="AssemblerException">Błąd w źródle.</exception>
     public AssemblyResult Assemble(string source)
     {
         ArgumentNullException.ThrowIfNull(source);
-        SourceLine[] lines = [.. source.Split('\n').Select((text, i) =>
-            LineParser.Parse(i + 1, text.TrimEnd('\r'), dialect, IsKeyword))];
-        var symbols = new Dictionary<string, int>(dialect.SymbolComparer);
-        var choices = new Dictionary<int, FormChoice>();
+        return AssembleCore([.. source.Split('\n').Select((text, i) =>
+            LineParser.Parse(i + 1, text.TrimEnd('\r'), dialect, IsKeyword))]);
+    }
 
-        var first = new Pass(this, symbols, choices, final: false);
-        first.Run(lines);
-        ResolvePendingAssignments(first);
-        var second = new Pass(this, symbols, choices, final: true);
-        second.Run(lines);
-        return second.Result();
+    /// <summary>Asembluje plik z include'ami: ekspansja przed pierwszym przebiegiem.</summary>
+    /// <param name="source">Tekst pliku wejściowego.</param>
+    /// <param name="entryFile">Ścieżka pliku wejściowego (baza ścieżek względnych, atrybucja błędów i listingu).</param>
+    /// <param name="reader">Czyta plik o ścieżce znormalizowanej; <see langword="null"/> = brak pliku.</param>
+    /// <param name="includePaths">Dodatkowe katalogi poszukiwań (odpowiednik <c>--incdir</c>).</param>
+    /// <returns>Obraz, symbole i listing.</returns>
+    /// <exception cref="AssemblerException">Błąd w źródle (z plikiem).</exception>
+    public AssemblyResult Assemble(string source, string entryFile, Func<string, string?> reader, IReadOnlyList<string>? includePaths = null)
+    {
+        ArgumentNullException.ThrowIfNull(source);
+        ArgumentNullException.ThrowIfNull(entryFile);
+        ArgumentNullException.ThrowIfNull(reader);
+        return AssembleCore(SourceLoader.Expand(source, entryFile, reader, dialect, IsKeyword, includePaths));
     }
 
     private static void ResolvePendingAssignments(Pass pass)
@@ -56,6 +62,19 @@ public sealed class TwoPassAssembler(InstructionSet isa, SyntaxDialect dialect)
 
     private bool IsKeyword(string word) => isa.Contains(word) || dialect.Directives.ContainsKey(word);
 
+    private AssemblyResult AssembleCore(IReadOnlyList<SourceLine> lines)
+    {
+        var symbols = new Dictionary<string, int>(dialect.SymbolComparer);
+        var choices = new Dictionary<int, FormChoice>();
+
+        var first = new Pass(this, symbols, choices, final: false);
+        first.Run(lines);
+        ResolvePendingAssignments(first);
+        var second = new Pass(this, symbols, choices, final: true);
+        second.Run(lines);
+        return second.Result();
+    }
+
     private sealed class Pass(TwoPassAssembler owner, Dictionary<string, int> symbols, Dictionary<int, FormChoice> choices, bool final)
         : IAssemblyContext
     {
@@ -73,17 +92,18 @@ public sealed class TwoPassAssembler(InstructionSet isa, SyntaxDialect dialect)
 
         public List<SourceLine> Pending { get; } = [];
 
-        public void Run(IEnumerable<SourceLine> lines)
+        public void Run(IReadOnlyList<SourceLine> lines)
         {
-            foreach (SourceLine line in lines.TakeWhile(_ => !_stopped))
+            for (int index = 0; index < lines.Count && !_stopped; index++)
             {
+                SourceLine line = lines[index];
                 _line = line;
                 _lineBytes.Clear();
                 int start = ProgramCounter;
                 _lineStart = start;
                 try
                 {
-                    Process(line);
+                    Process(line, index);
                 }
                 catch (FormatException e)
                 {
@@ -91,7 +111,7 @@ public sealed class TwoPassAssembler(InstructionSet isa, SyntaxDialect dialect)
                 }
 
                 int address = _lineBytes.Count > 0 ? start : ProgramCounter;
-                _listing.Add(new ListingLine(line.Number, address, [.. _lineBytes], line.Text));
+                _listing.Add(new ListingLine(line.Number, address, [.. _lineBytes], line.Text, line.File));
             }
         }
 
@@ -150,12 +170,12 @@ public sealed class TwoPassAssembler(InstructionSet isa, SyntaxDialect dialect)
 
         public void Stop() => _stopped = true;
 
-        public AssemblerException Error(string message) => new(_line.Number, message);
+        public AssemblerException Error(string message) => new(_line.Number, message, _line.File);
 
         private int? Lookup(string name) =>
             symbols.TryGetValue(name, out int value) ? value : final ? throw new FormatException($"undefined symbol '{name}'.") : null;
 
-        private void Process(SourceLine line)
+        private void Process(SourceLine line, int index)
         {
             if (line.IsAssignment)
             {
@@ -183,7 +203,7 @@ public sealed class TwoPassAssembler(InstructionSet isa, SyntaxDialect dialect)
             }
             else if (owner.Isa.Contains(line.Keyword))
             {
-                Instruction(line);
+                Instruction(line, index);
             }
             else
             {
@@ -203,15 +223,15 @@ public sealed class TwoPassAssembler(InstructionSet isa, SyntaxDialect dialect)
             }
         }
 
-        private void Instruction(SourceLine line)
+        private void Instruction(SourceLine line, int index)
         {
             int start = ProgramCounter;
             if (!final)
             {
-                choices[line.Number] = FormSelector.Select(owner.Isa, line.Keyword!.ToUpperInvariant(), line.Operand, TryEvaluate);
+                choices[index] = FormSelector.Select(owner.Isa, line.Keyword!.ToUpperInvariant(), line.Operand, TryEvaluate);
             }
 
-            (InstructionForm form, string[] captures) = choices[line.Number];
+            (InstructionForm form, string[] captures) = choices[index];
             int[] values = [.. captures.Select(c => TryEvaluate(c) ?? 0)];
             foreach (EncodingPart part in form.Encoding)
             {

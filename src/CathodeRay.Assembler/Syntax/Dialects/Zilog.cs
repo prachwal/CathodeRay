@@ -22,6 +22,7 @@ public static partial class SyntaxDialects
             ("DEFW", Directive.Word),
             ("DS", Directive.Reserve),
             ("DEFS", Directive.Reserve),
+            ("INCLUDE", Directive.Include),
             ("END", Directive.End)),
     };
 }

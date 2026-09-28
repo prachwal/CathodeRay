@@ -17,4 +17,7 @@ public static class Directive
 
     /// <summary>Kończy asemblację: <c>END</c>, <c>.end</c>.</summary>
     public static IDirective End { get; } = new EndDirective();
+
+    /// <summary>Wstawia plik (<c>.include</c>, <c>INCLUDE</c>): ekspansja przed pierwszym przebiegiem.</summary>
+    public static IDirective Include { get; } = new IncludeDirective();
 }
