@@ -1,0 +1,36 @@
+{
+  "title": "Asembler: zakresy leksykalne .scope/.proc",
+  "status": "closed",
+  "items": [
+    {
+      "id": "1",
+      "title": "Semantyka: .scope/.endscope, .proc/.endproc, anonimowe zakresy, eksport z zakresu",
+      "status": "done",
+      "note": "Gotowe gdy: .scope [nazwa]/.endscope, .proc nazwa/.endproc, zakres anonimowy niewidoczny z zewnątrz, dostęp z zewnątrz przez nazwa::symbol (jak ca65), .proc zamyka też zakres etykiet"
+    },
+    {
+      "id": "2",
+      "title": "Rdzeń: stos zakresów, kwalifikowane nazwy, widoczność z zewnątrz",
+      "status": "done",
+      "note": "Gotowe gdy: Pass trzyma stos zakresów, definicje kwalifikowane zakres::nazwa, lookup najpierw bieżący zakres potem globalne, tanie @ działają wewnątrz zakresu, stabilne w obu przebiegach"
+    },
+    {
+      "id": "3",
+      "title": "Rejestracja per dialekt + kolizje z mnemonikami",
+      "status": "done",
+      "note": "Gotowe gdy: .scope/.proc w stub/ca65/mos (wielkimi w mos), brak w intel/zilog? decyzja: SCOPE tylko gdzie sens — spisana; brak kolizji z mnemonikami 6502/8080/Z80"
+    },
+    {
+      "id": "4",
+      "title": "Błędy: niezbalansowanie, duplikat w zakresie, wyciek symboli",
+      "status": "done",
+      "note": "Gotowe gdy: .endscope bez .scope, niezamknięty zakres na końcu, duplikat w tym samym zakresie = błąd, odwołanie do niewidocznego = undefined; test każdego"
+    },
+    {
+      "id": "5",
+      "title": "Testy + golden z ca65 + build/test/hygiene",
+      "status": "done",
+      "note": "Gotowe gdy: testy kolizji loop w dwóch proc, dostęp zewn. przez ::, anonimowe, listing z kwalifikacją + golden Scopes/ z ca65 bajt w bajt + build -warnaserror + test + hygiene OK"
+    }
+  ]
+}

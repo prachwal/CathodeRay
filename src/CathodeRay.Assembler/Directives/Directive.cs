@@ -48,6 +48,18 @@ public static class Directive
     /// <summary>Segment nieemitowany (<c>.bss</c>, <c>BSS</c>).</summary>
     public static IDirective Bss { get; } = new SegmentDirective(SegmentKind.Bss);
 
+    /// <summary>Zakres nazwany lub anonimowy (<c>.scope</c>).</summary>
+    public static IDirective Scope { get; } = new ScopeDirective(ScopeKind.Scope);
+
+    /// <summary>Procedura (<c>.proc</c>, definiuje też etykietę).</summary>
+    public static IDirective Proc { get; } = new ScopeDirective(ScopeKind.Proc);
+
+    /// <summary>Koniec zakresu (<c>.endscope</c>).</summary>
+    public static IDirective EndScope { get; } = new ScopeDirective(ScopeKind.EndScope);
+
+    /// <summary>Koniec procedury (<c>.endproc</c>).</summary>
+    public static IDirective EndProc { get; } = new ScopeDirective(ScopeKind.EndProc);
+
     /// <summary>Eksportuje symbole (<c>GLOBAL</c>, <c>.global</c>).</summary>
     public static IDirective Global { get; } = new GlobalDirective();
 

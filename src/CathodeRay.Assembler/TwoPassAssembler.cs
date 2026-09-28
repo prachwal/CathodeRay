@@ -146,6 +146,7 @@ public sealed class TwoPassAssembler(InstructionSet isa, SyntaxDialect dialect)
         private SourceLine _line = new(0, string.Empty, null, null, null);
         private int _lineStart;
         private string? _scope;
+        private Stack<ScopeFrame> _scopes = new();
         private string _segment = "CODE";
         private bool _stopped;
 
@@ -168,6 +169,8 @@ public sealed class TwoPassAssembler(InstructionSet isa, SyntaxDialect dialect)
         public void Run(IReadOnlyList<SourceLine> lines)
         {
             var conditionals = new Stack<ConditionalFrame>();
+            _scopes = new Stack<ScopeFrame>();
+            Stack<ScopeFrame> scopes = _scopes;
             for (int index = 0; index < lines.Count && !_stopped; index++)
             {
                 SourceLine line = lines[index];
@@ -180,6 +183,10 @@ public sealed class TwoPassAssembler(InstructionSet isa, SyntaxDialect dialect)
                     if (IsConditional(line))
                     {
                         HandleConditional(line, conditionals);
+                    }
+                    else if (IsScope(line))
+                    {
+                        HandleScope(line, scopes);
                     }
                     else if (conditionals.All(static f => f.Active))
                     {
@@ -205,6 +212,12 @@ public sealed class TwoPassAssembler(InstructionSet isa, SyntaxDialect dialect)
             {
                 ConditionalFrame open = conditionals.Peek();
                 Collect(new AssemblerError(open.File, open.Number, "unterminated .if (opened here)."));
+            }
+
+            if (scopes.Count > 0)
+            {
+                ScopeFrame open = scopes.Peek();
+                Collect(new AssemblerError(open.File, open.Number, $"unterminated '{open.Opener}' (opened here)."));
             }
         }
 
@@ -582,6 +595,77 @@ public sealed class TwoPassAssembler(InstructionSet isa, SyntaxDialect dialect)
             && owner.Dialect.Directives.TryGetValue(line.Keyword, out IDirective? directive)
             && directive is ConditionalDirective;
 
+        private bool IsScope(SourceLine line) =>
+            line.Keyword is not null
+            && owner.Dialect.Directives.TryGetValue(line.Keyword, out IDirective? directive)
+            && directive is ScopeDirective;
+
+        private void HandleScope(SourceLine line, Stack<ScopeFrame> scopes)
+        {
+            if (line.Label is not null)
+            {
+                throw Error($"label on '{line.Keyword}' is not allowed.");
+            }
+
+            var scope = (ScopeDirective)owner.Dialect.Directives[line.Keyword!];
+            switch (scope.Kind)
+            {
+                case ScopeKind.Scope:
+                case ScopeKind.Proc:
+                    string? name = ScopeOperand(line);
+                    if (name is null)
+                    {
+                        scopes.Push(new ScopeFrame($"#{line.File}:{line.Number}", line.Number, line.File, line.Keyword!, isProc: false));
+                        _scope = null;
+                    }
+                    else
+                    {
+                        if (scope.Kind == ScopeKind.Proc)
+                        {
+                            Define(name, ProgramCounter);
+                        }
+                        else
+                        {
+                            _scope = null;
+                        }
+
+                        scopes.Push(new ScopeFrame(name, line.Number, line.File, line.Keyword!, scope.Kind == ScopeKind.Proc));
+                    }
+
+                    break;
+                case ScopeKind.EndScope:
+                case ScopeKind.EndProc:
+                    if (scopes.Count == 0)
+                    {
+                        throw Error($"'{line.Keyword}' without '.scope' or '.proc'.");
+                    }
+
+                    ScopeFrame open = scopes.Pop();
+                    bool wantProc = scope.Kind == ScopeKind.EndProc;
+                    if (open.IsProc != wantProc)
+                    {
+                        throw Error($"'{line.Keyword}' closes '{open.Opener}' (use '{(open.IsProc ? ".endproc" : ".endscope")}').");
+                    }
+
+                    _scope = null;
+                    break;
+            }
+        }
+
+        private string? ScopeOperand(SourceLine line)
+        {
+            if (line.Operand is null)
+            {
+                return null;
+            }
+
+            string name = line.Operand.Trim();
+            return Expression.IsIdentifier(name) ? name : throw Error($"invalid scope name '{line.Operand}'.");
+        }
+
+        private string ScopePath(Stack<ScopeFrame> scopes) =>
+            string.Join("::", scopes.Reverse().Select(static f => f.Name));
+
         private void HandleConditional(SourceLine line, Stack<ConditionalFrame> conditionals)
         {
             if (line.Label is not null)
@@ -636,7 +720,14 @@ public sealed class TwoPassAssembler(InstructionSet isa, SyntaxDialect dialect)
 
         private int? Lookup(string name)
         {
-            string key = IsLocal(name) ? ScopeKey(name) : name;
+            if (name.Contains("::", StringComparison.Ordinal))
+            {
+                return symbols.TryGetValue(name, out int absolute) ? absolute
+                    : links.Externals.Contains(name) ? null
+                    : final ? throw new FormatException($"undefined symbol '{name}'.") : null;
+            }
+
+            string key = IsLocal(name) ? ScopeKey(name) : Qualify(name);
             if (symbols.TryGetValue(key, out int value))
             {
                 return value;
@@ -648,6 +739,29 @@ public sealed class TwoPassAssembler(InstructionSet isa, SyntaxDialect dialect)
             }
 
             return final ? throw new FormatException($"undefined symbol '{name}'.") : null;
+        }
+
+        private string Qualify(string name)
+        {
+            foreach (string prefix in ScopePrefixes())
+            {
+                string candidate = prefix.Length == 0 ? name : $"{prefix}::{name}";
+                if (symbols.ContainsKey(candidate))
+                {
+                    return candidate;
+                }
+            }
+
+            return ScopePath(_scopes).Length == 0 ? name : $"{ScopePath(_scopes)}::{name}";
+        }
+
+        private IEnumerable<string> ScopePrefixes()
+        {
+            string[] frames = [.. _scopes.Reverse().Select(static f => f.Name)];
+            for (int depth = frames.Length; depth >= 0; depth--)
+            {
+                yield return string.Join("::", frames[..depth]);
+            }
         }
 
         private void Process(SourceLine line, int index)
@@ -696,6 +810,8 @@ public sealed class TwoPassAssembler(InstructionSet isa, SyntaxDialect dialect)
                     throw Error($"'{name}' is declared external.");
                 }
 
+                name = ScopePath(_scopes).Length == 0 ? name : $"{ScopePath(_scopes)}::{name}";
+                display = name;
                 _scope = name;
             }
             else
@@ -819,6 +935,19 @@ public sealed class TwoPassAssembler(InstructionSet isa, SyntaxDialect dialect)
             public int Max { get; set; } = int.MinValue;
 
             public Dictionary<int, byte> ObjData { get; } = new();
+        }
+
+        private sealed class ScopeFrame(string name, int number, string? file, string opener, bool isProc)
+        {
+            public string Name => name;
+
+            public int Number => number;
+
+            public string? File => file;
+
+            public string Opener => opener;
+
+            public bool IsProc => isProc;
         }
 
         private sealed class ConditionalFrame(

@@ -1,0 +1,36 @@
+{
+  "title": "Asembler: dyrektywy ca65 long-tail",
+  "status": "queued",
+  "items": [
+    {
+      "id": "1",
+      "title": "Inwentaryzacja: które dyrektywy long-tail mają sens (bez linkera: .out/.warning/.error/.assert/.define/.ifblank/.paramcount)",
+      "status": "todo",
+      "note": "Gotowe gdy: spisane które wchodzą (komunikaty, asercje, .define, warunkowe parametrów) a które nie (linkerowe, .zeropage, smart) + decyzja w gaps"
+    },
+    {
+      "id": "2",
+      "title": ".out/.warning/.error/.assert (komunikaty i asercje w asemblacji)",
+      "status": "todo",
+      "note": "Gotowe gdy: .out/.warning/.error/.assert działa w obu przebiegach raz (bez dubli), .error przerywa z listą, .assert z komunikatem"
+    },
+    {
+      "id": "3",
+      "title": ".define (makra liniowe C-style, 1-liniowe)",
+      "status": "todo",
+      "note": "Gotowe gdy: .define NAZWA tekst i .define F(x) tekst, podstawianie tokenowe w linii (nie w cudzysłowach), rekurencja limitowana"
+    },
+    {
+      "id": "4",
+      "title": ".ifblank/.ifnblank/.paramcount (sterowanie parametrami makr)",
+      "status": "todo",
+      "note": "Gotowe gdy: .ifblank/.ifnblank na resztę linii w makrze, .paramcount jako symbol w makrze (liczba argumentów), działają z pustymi parametrami"
+    },
+    {
+      "id": "5",
+      "title": "Testy + golden z ca65 + build/test/hygiene",
+      "status": "todo",
+      "note": "Gotowe gdy: testy każdego + golden z ca65 bajt w bajt + build -warnaserror + test + hygiene OK"
+    }
+  ]
+}

@@ -265,7 +265,25 @@ internal sealed class Expression
 
         if (IsIdentifierStart(c))
         {
-            return _lookup(ReadWhile(IsIdentifierPart));
+            string name = ReadWhile(IsIdentifierPart);
+            while (_pos < _text.Length && _text[_pos] == ':')
+            {
+                if (_pos + 1 >= _text.Length || _text[_pos + 1] != ':')
+                {
+                    throw new FormatException($"unexpected ':' in expression '{_text}'.");
+                }
+
+                _pos += 2;
+                SkipSpaces();
+                if (_pos >= _text.Length || !IsIdentifierStart(_text[_pos]))
+                {
+                    throw new FormatException($"identifier expected after '::' in expression '{_text}'.");
+                }
+
+                name += "::" + ReadWhile(IsIdentifierPart);
+            }
+
+            return _lookup(name);
         }
 
         throw new FormatException($"unexpected '{c}' in expression '{_text}'.");
