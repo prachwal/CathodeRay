@@ -1,8 +1,9 @@
 namespace CathodeRay.Stub;
 
 /// <summary>Dwuprzebiegowy asembler ISA zaślepki sterowany tabelą z JSON.
-/// Składnia: <c>[etykieta:] [MNEMONIK [operand] | .org adres | .byte v, v, ...] [; komentarz]</c>;
-/// wartość to liczba (<c>42</c>, <c>$2A</c>, <c>0x2A</c>) lub etykieta.
+/// Składnia: <c>[etykieta:] [MNEMONIK [operand[,X]] | .org adres | .byte v, v, ...] [; komentarz]</c>;
+/// tryb adresowania wynika z operandu: brak, <c>wartość</c> (d8 lub a16, zależnie od instrukcji) albo <c>a16,X</c>;
+/// wartość to liczba (<c>42</c>, <c>$2A</c>, <c>0x2A</c>), etykieta lub ich suma/różnica (<c>op+1</c>, <c>end-start</c>).
 /// Operand 1 bajt dla instrukcji 2-słowowych, 2 bajty little-endian dla 3-słowowych.
 /// Obraz zaczyna się od adresu 0; luki po <c>.org</c> są wypełniane zerami.</summary>
 public static class StubAssembler
@@ -16,7 +17,7 @@ public static class StubAssembler
     {
         ArgumentNullException.ThrowIfNull(source);
         ArgumentNullException.ThrowIfNull(isa);
-        Dictionary<string, (byte Opcode, int Words)> mnemonics = BuildMnemonics(isa);
+        Dictionary<string, Dictionary<OperandMode, (byte Opcode, int Words)>> mnemonics = BuildMnemonics(isa);
         var labels = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
         var chunks = new List<Chunk>();
         int address = 0;
@@ -75,15 +76,10 @@ public static class StubAssembler
 
                 chunk = new Chunk(line, address, null, 1, values);
             }
-            else if (mnemonics.TryGetValue(keyword, out (byte Opcode, int Words) definition))
+            else if (mnemonics.TryGetValue(keyword, out Dictionary<OperandMode, (byte Opcode, int Words)>? modes))
             {
-                if ((definition.Words > 1) != (operand is not null))
-                {
-                    throw new AssemblerException(
-                        line, definition.Words > 1 ? $"{keyword} requires an operand." : $"{keyword} takes no operand.");
-                }
-
-                chunk = new Chunk(line, address, definition.Opcode, definition.Words - 1, operand is null ? [] : [operand]);
+                (byte opcode, int words, string? value) = SelectMode(keyword, modes, operand, line);
+                chunk = new Chunk(line, address, opcode, words - 1, value is null ? [] : [value]);
             }
             else
             {
@@ -113,7 +109,7 @@ public static class StubAssembler
             foreach (string operand in chunk.Operands)
             {
                 int value = Resolve(operand, labels, chunk.Line);
-                if (value > max)
+                if (value < 0 || value > max)
                 {
                     throw new AssemblerException(chunk.Line, $"value {value} out of range 0..{max}.");
                 }
@@ -129,23 +125,63 @@ public static class StubAssembler
         return image;
     }
 
-    private static Dictionary<string, (byte Opcode, int Words)> BuildMnemonics(StubIsa isa)
+    private static Dictionary<string, Dictionary<OperandMode, (byte Opcode, int Words)>> BuildMnemonics(StubIsa isa)
     {
-        var mnemonics = new Dictionary<string, (byte Opcode, int Words)>(StringComparer.OrdinalIgnoreCase);
+        var mnemonics = new Dictionary<string, Dictionary<OperandMode, (byte Opcode, int Words)>>(StringComparer.OrdinalIgnoreCase);
         foreach ((byte opcode, StubOpcode definition) in isa.Opcodes)
         {
-            if (definition.Words is < 1 or > 3)
+            if (!mnemonics.TryGetValue(definition.Mnemonic, out Dictionary<OperandMode, (byte Opcode, int Words)>? modes))
             {
-                throw new InvalidOperationException($"{definition.Mnemonic}: unsupported word count {definition.Words}.");
+                modes = [];
+                mnemonics.Add(definition.Mnemonic, modes);
             }
 
-            if (!mnemonics.TryAdd(definition.Mnemonic, (opcode, definition.Words)))
+            if (!modes.TryAdd(definition.Mode, (opcode, definition.Words))
+                || (modes.ContainsKey(OperandMode.Immediate8) && modes.ContainsKey(OperandMode.Address16)))
             {
-                throw new InvalidOperationException($"Mnemonic '{definition.Mnemonic}' is ambiguous in ISA.");
+                throw new InvalidOperationException(
+                    $"Mnemonic '{definition.Mnemonic}' is ambiguous in ISA (duplicate mode or both immediate8 and address16).");
             }
         }
 
         return mnemonics;
+    }
+
+    private static (byte Opcode, int Words, string? Operand) SelectMode(
+        string keyword, Dictionary<OperandMode, (byte Opcode, int Words)> modes, string? operand, int line)
+    {
+        OperandMode wanted = OperandMode.None;
+        if (operand is not null)
+        {
+            string[] pieces = operand.Split(',', StringSplitOptions.TrimEntries);
+            if (pieces.Length == 2 && pieces[1].Equals("X", StringComparison.OrdinalIgnoreCase))
+            {
+                operand = pieces[0];
+                wanted = OperandMode.Address16X;
+            }
+            else if (pieces.Length > 1)
+            {
+                throw new AssemblerException(line, $"invalid operand '{operand}' (only a16,X is supported).");
+            }
+            else
+            {
+                wanted = modes.ContainsKey(OperandMode.Address16) ? OperandMode.Address16 : OperandMode.Immediate8;
+            }
+        }
+
+        if (modes.TryGetValue(wanted, out (byte Opcode, int Words) found))
+        {
+            return (found.Opcode, found.Words, operand);
+        }
+
+        string message = wanted switch
+        {
+            OperandMode.None => $"{keyword} requires an operand.",
+            _ when modes.Count == 1 && modes.ContainsKey(OperandMode.None) => $"{keyword} takes no operand.",
+            OperandMode.Address16X => $"{keyword} has no indexed mode (a16,X).",
+            _ => $"{keyword} requires an indexed operand (a16,X).",
+        };
+        throw new AssemblerException(line, message);
     }
 
     private static string RequireOperand(string keyword, string? operand, int line) =>
@@ -153,6 +189,14 @@ public static class StubAssembler
 
     private static int Resolve(string operand, Dictionary<string, int> labels, int line)
     {
+        int split = operand.LastIndexOfAny(['+', '-']);
+        if (split > 0)
+        {
+            int left = Resolve(operand[..split].Trim(), labels, line);
+            int right = Resolve(operand[(split + 1)..].Trim(), labels, line);
+            return operand[split] == '+' ? left + right : left - right;
+        }
+
         if (NumberLiteral.TryParse(operand, out int value))
         {
             return value;

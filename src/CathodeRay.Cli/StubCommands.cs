@@ -1,4 +1,6 @@
 using System.CommandLine;
+using System.Diagnostics;
+using System.Globalization;
 using CathodeRay.Abstractions;
 using CathodeRay.Stub;
 
@@ -66,7 +68,7 @@ internal static class StubCommands
         var trace = new Option<bool>("--trace", "-t") { Description = "Wypisuje każdy wykonany krok." };
         var dump = new Option<MemoryRange[]>("--dump", "-d")
         {
-            Description = "Zrzut pamięci po zakończeniu, start:długość (np. $2000:16); można powtórzyć.",
+            Description = "Zrzut pamięci po zakończeniu, start:długość (np. 0x2000:16; w powłoce unikaj $, bo rozwinie np. $0); można powtórzyć.",
             CustomParser = ParseRanges,
         };
 
@@ -88,11 +90,14 @@ internal static class StubCommands
             }
 
             var cpu = new StubCpu(LoadIsa(parse, isa), bus);
+            int limit = parse.GetValue(maxSteps);
             int steps;
+            long start = Stopwatch.GetTimestamp();
             try
             {
-                var observer = new ConsoleObserver(output, parse.GetValue(trace));
-                steps = new CpuDiagnostics(cpu, observer).Run(parse.GetValue(maxSteps));
+                steps = parse.GetValue(trace)
+                    ? new CpuDiagnostics(cpu, new TraceObserver(output)).Run(limit)
+                    : RunToHalt(cpu, limit);
             }
             catch (InvalidOperationException e)
             {
@@ -100,8 +105,11 @@ internal static class StubCommands
                 return 1;
             }
 
-            output.WriteLine($"steps={steps} cycles={cpu.CycleCount} halted={cpu.State.Halted}");
-            output.WriteLine(ConsoleObserver.Format(cpu.CaptureRegisters()));
+            TimeSpan elapsed = Stopwatch.GetElapsedTime(start);
+            output.WriteLine(string.Create(
+                CultureInfo.InvariantCulture,
+                $"steps={steps} cycles={cpu.CycleCount} halted={cpu.State.Halted} time={elapsed.TotalMilliseconds:F3} ms"));
+            output.WriteLine(TraceObserver.Format(cpu.CaptureRegisters()));
             foreach (MemoryRange range in parse.GetValue(dump) ?? [])
             {
                 range.WriteHexDump(output, bus);
@@ -132,7 +140,20 @@ internal static class StubCommands
     private static StubIsa LoadIsa(ParseResult parse, Option<FileInfo> isa) =>
         StubIsa.FromJsonFile(parse.GetRequiredValue(isa).FullName);
 
-    private sealed class ConsoleObserver(TextWriter output, bool trace) : ICpuExecutionObserver
+    private static int RunToHalt(StubCpu cpu, int maxSteps)
+    {
+        int steps = 0;
+        while (steps < maxSteps && !cpu.State.Halted)
+        {
+            cpu.Step();
+            steps++;
+        }
+
+        return steps;
+    }
+
+    /// <summary>Obserwator dla <c>--trace</c>: linia na krok, zatrzymanie na HLT.</summary>
+    private sealed class TraceObserver(TextWriter output) : ICpuExecutionObserver
     {
         public static string Format(RegisterView registers) =>
             string.Join(' ', registers.Select(static r => $"{r.Name}={r.Format()}"));
@@ -141,10 +162,9 @@ internal static class StubCommands
 
         public void OnStepCompleted(CpuStepTrace step)
         {
-            if (trace)
-            {
-                output.WriteLine($"{step.Before.ProgramCounter:X4}  {step.After.LastMnemonic,-4} {Format(step.After.Registers)}  +{step.Cycles}");
-            }
+            CpuDebugSnapshot after = step.After;
+            output.WriteLine(
+                $"{step.Before.ProgramCounter:X4}  {after.LastOpcode:X2} {after.LastMnemonic,-4} {Format(after.Registers)}  +{step.Cycles} cyc={after.CycleCount} bus={after.LastBusActivity}");
         }
     }
 }

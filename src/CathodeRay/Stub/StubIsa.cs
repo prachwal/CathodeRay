@@ -34,9 +34,40 @@ public sealed class StubIsa
             string mnemonic = entry.GetProperty("mnemonic").GetString()!;
             int cycles = entry.GetProperty("cycles").GetInt32();
             int words = entry.GetProperty("words").GetInt32();
-            opcodes[opcode] = new StubOpcode(mnemonic, cycles, words);
+            OperandMode mode = ParseMode(entry);
+            int expectedWords = mode switch
+            {
+                OperandMode.None => 1,
+                OperandMode.Immediate8 => 2,
+                _ => 3,
+            };
+            if (words != expectedWords)
+            {
+                throw new InvalidDataException($"Opcode 0x{opcode:X2} ({mnemonic}): {mode} needs {expectedWords} words, got {words}.");
+            }
+
+            opcodes[opcode] = new StubOpcode(mnemonic, cycles, words, mode);
         }
 
         return new StubIsa(opcodes);
+    }
+
+    private static OperandMode ParseMode(JsonElement entry)
+    {
+        if (!entry.TryGetProperty("operands", out JsonElement operands)
+            || operands.ValueKind != JsonValueKind.Array
+            || operands.GetArrayLength() == 0)
+        {
+            return OperandMode.None;
+        }
+
+        string? type = operands[0].GetProperty("type").GetString();
+        return type switch
+        {
+            "immediate8" => OperandMode.Immediate8,
+            "address16" => OperandMode.Address16,
+            "address16_x" => OperandMode.Address16X,
+            _ => throw new InvalidDataException($"Unknown operand type '{type}'."),
+        };
     }
 }

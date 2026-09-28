@@ -1,3 +1,6 @@
+using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
+using System.Runtime.CompilerServices;
 using CathodeRay.Abstractions;
 
 namespace CathodeRay.Stub;
@@ -9,8 +12,10 @@ public class StubCpu : ICpu<StubState>
 {
     private static readonly RegisterLayout Registers = new(
         new RegisterDefinition("A", 8, RegisterRole.Accumulator),
+        new RegisterDefinition("X", 8, RegisterRole.Index),
         new RegisterDefinition("C", 1, RegisterRole.Status),
         new RegisterDefinition("V", 1, RegisterRole.Status),
+        new RegisterDefinition("Z", 1, RegisterRole.Status),
         new RegisterDefinition("PC", 16, RegisterRole.ProgramCounter));
 
     private readonly IBus _bus;
@@ -47,7 +52,9 @@ public class StubCpu : ICpu<StubState>
     public int LastOpcode { get; private set; }
 
     /// <inheritdoc/>
-    public string? LastMnemonic { get; private set; }
+    public string? LastMnemonic => LastOpcode >= 0 && _opcodes is not null && _opcodes.TryGet((byte)LastOpcode, out StubOpcodeEntry? entry)
+        ? entry.Mnemonic
+        : null;
 
     /// <inheritdoc/>
     ushort ICpuStatus.ProgramCounter => State.ProgramCounter;
@@ -87,10 +94,22 @@ public class StubCpu : ICpu<StubState>
         }
 
         State.ProgramCounter = (ushort)(pc + entry.Words);
-        entry.Handler(new OpcodeContext(opcode, operand, pc));
+        if (entry.Operation == StubOperation.Custom)
+        {
+            entry.Handler!(new OpcodeContext(opcode, operand, pc));
+        }
+        else
+        {
+            Execute(entry.Operation, entry.Mode, operand);
+        }
+
+        if (State.Halted)
+        {
+            _activity |= BusActivity.Halt;
+        }
+
         LastBusActivity = _activity;
         LastOpcode = opcode;
-        LastMnemonic = entry.Mnemonic;
         CycleCount += (ulong)entry.Cycles;
         InstructionCount++;
         return entry.Cycles;
@@ -100,22 +119,23 @@ public class StubCpu : ICpu<StubState>
     public void Reset()
     {
         State.A = 0;
+        State.X = 0;
         State.Carry = false;
         State.Overflow = false;
+        State.Zero = false;
         State.ProgramCounter = 0;
         State.Halted = false;
         CycleCount = 0;
         InstructionCount = 0;
         LastBusActivity = BusActivity.None;
         LastOpcode = -1;
-        LastMnemonic = null;
         _activity = BusActivity.None;
     }
 
     /// <inheritdoc/>
     public RegisterView CaptureRegisters() => new(
         Registers,
-        [State.A, State.Carry ? 1UL : 0UL, State.Overflow ? 1UL : 0UL, State.ProgramCounter]);
+        [State.A, State.X, Bit(State.Carry), Bit(State.Overflow), Bit(State.Zero), State.ProgramCounter]);
 
     /// <summary>Rejestruje wpis (metadane + handler) w tabeli.</summary>
     /// <param name="table">Rejestr docelowy.</param>
@@ -135,36 +155,121 @@ public class StubCpu : ICpu<StubState>
         table.Add(opcode, new StubOpcodeEntry(handler, mnemonic, cycles, words));
     }
 
-    /// <summary>Rejestruje opcode'y z JSON; podklasa nadpisuje i woła <c>base</c>, po czym zmienia tabelę (Add/Replace/Remove).</summary>
+    /// <summary>Rejestruje opcode'y z JSON; podklasa nadpisuje i woła <c>base</c>, po czym zmienia tabelę (Add/Replace/Remove).
+    /// Mnemonik z <see cref="StubOperation"/> idzie szybką ścieżką (switch), pozostałe przez <see cref="ResolveBehavior"/>.</summary>
     /// <param name="isa">Tabela opcode z JSON.</param>
     /// <param name="table">Rejestr docelowy (jeszcze niezamknięty).</param>
     protected virtual void ConfigureOpcodes(StubIsa isa, StubOpcodeTable table)
     {
         foreach ((byte opcode, StubOpcode definition) in isa.Opcodes)
         {
-            Action<OpcodeContext>? handler = ResolveBehavior(definition.Mnemonic)
-                ?? throw new InvalidOperationException(
-                    $"No handler for mnemonic '{definition.Mnemonic}' (opcode 0x{opcode:X2}).");
-            RegisterOpcode(table, opcode, definition.Mnemonic, definition.Cycles, definition.Words, handler);
+            StubOpcodeEntry entry = TryGetBuiltIn(definition.Mnemonic, out StubOperation operation)
+                ? new StubOpcodeEntry(null, definition.Mnemonic, definition.Cycles, definition.Words, operation, definition.Mode)
+                : new StubOpcodeEntry(ResolveBehavior(definition.Mnemonic, definition.Mode), definition.Mnemonic, definition.Cycles, definition.Words);
+            if (entry.Operation == StubOperation.Custom ? entry.Handler is null : !Supports(operation, definition.Mode))
+            {
+                throw new InvalidOperationException(
+                    $"No handler for '{definition.Mnemonic}' in mode {definition.Mode} (opcode 0x{opcode:X2}).");
+            }
+
+            table.Add(opcode, entry);
         }
     }
 
-    /// <summary>Mapuje mnemonic na handler; podklasa nadpisuje, żeby dodać własne mnemoniki.</summary>
+    /// <summary>Handler instrukcji spoza <see cref="StubOperation"/>; podklasa nadpisuje, żeby dodać własne mnemoniki (wolniejsza ścieżka: delegat).</summary>
     /// <param name="mnemonic">Mnemonik z JSON.</param>
-    /// <returns>Handler lub <see langword="null"/>.</returns>
-    protected virtual Action<OpcodeContext>? ResolveBehavior(string mnemonic) => mnemonic switch
+    /// <param name="mode">Tryb adresowania z JSON.</param>
+    /// <returns>Handler lub <see langword="null"/> (nieznany mnemonik).</returns>
+    protected virtual Action<OpcodeContext>? ResolveBehavior(string mnemonic, OperandMode mode) => null;
+
+    private static bool TryGetBuiltIn(string mnemonic, out StubOperation operation) =>
+        Enum.TryParse(mnemonic, ignoreCase: true, out operation)
+        && operation != StubOperation.Custom
+        && char.IsAsciiLetter(mnemonic[0]);
+
+    private static bool Supports(StubOperation operation, OperandMode mode) => operation switch
     {
-        "NOP" => static _ => { },
-        "LDI" => ctx => StubOps.Ldi(State, (byte)ctx.Operand),
-        "ADD" => ctx => StubOps.Add(State, (byte)ctx.Operand),
-        "SUB" => ctx => StubOps.Sub(State, (byte)ctx.Operand),
-        "INC" => _ => StubOps.Inc(State),
-        "STA" => ctx => _activity |= StubOps.Sta(State, _bus, (ushort)ctx.Operand),
-        "LDA" => ctx => _activity |= StubOps.Lda(State, _bus, (ushort)ctx.Operand),
-        "JMP" => ctx => StubOps.Jmp(State, (ushort)ctx.Operand),
-        "HLT" => _ => _activity |= StubOps.Hlt(State),
-        _ => null,
+        StubOperation.Nop or StubOperation.Inc or StubOperation.Inx or StubOperation.Hlt => mode == OperandMode.None,
+        StubOperation.Sta or StubOperation.Jmp or StubOperation.Bne => IsAddress(mode),
+        _ => mode == OperandMode.Immediate8 || IsAddress(mode),
     };
+
+    private static bool IsAddress(OperandMode mode) => mode is OperandMode.Address16 or OperandMode.Address16X;
+
+    private static ulong Bit(bool flag) => flag ? 1UL : 0UL;
+
+    [DoesNotReturn]
+    private static void ThrowUnhandled(StubOperation operation) =>
+        throw new UnreachableException($"Unhandled operation {operation}.");
+
+    private void Execute(StubOperation operation, OperandMode mode, int operand)
+    {
+        StubState state = State;
+        ushort address = (ushort)(mode == OperandMode.Address16X ? operand + state.X : operand);
+        switch (operation)
+        {
+            case StubOperation.Nop:
+                break;
+            case StubOperation.Ldi:
+            case StubOperation.Lda:
+                StubOps.Lda(state, Value(mode, operand, address));
+                break;
+            case StubOperation.Ldx:
+                StubOps.Ldx(state, Value(mode, operand, address));
+                break;
+            case StubOperation.Add:
+                StubOps.Add(state, Value(mode, operand, address));
+                break;
+            case StubOperation.Adc:
+                StubOps.Adc(state, Value(mode, operand, address));
+                break;
+            case StubOperation.Sub:
+                StubOps.Sub(state, Value(mode, operand, address));
+                break;
+            case StubOperation.Cpx:
+                StubOps.Cpx(state, Value(mode, operand, address));
+                break;
+            case StubOperation.Inc:
+                StubOps.Inc(state);
+                break;
+            case StubOperation.Inx:
+                StubOps.Inx(state);
+                break;
+            case StubOperation.Sta:
+                Write(address, state.A);
+                break;
+            case StubOperation.Jmp:
+                StubOps.Jmp(state, address);
+                break;
+            case StubOperation.Bne:
+                StubOps.Bne(state, address);
+                break;
+            case StubOperation.Hlt:
+                StubOps.Hlt(state);
+                break;
+            default:
+                ThrowUnhandled(operation);
+                break;
+        }
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private byte Value(OperandMode mode, int operand, ushort address) =>
+        mode == OperandMode.Immediate8 ? (byte)operand : Read(address);
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private byte Read(ushort address)
+    {
+        _activity |= BusActivity.Read;
+        return _bus.Read(address);
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private void Write(ushort address, byte value)
+    {
+        _activity |= BusActivity.Write;
+        _bus.Write(address, value);
+    }
 
     private StubOpcodeTable Build()
     {

@@ -1,4 +1,3 @@
-using CathodeRay.Abstractions;
 using CathodeRay.Stub;
 using FluentAssertions;
 
@@ -7,11 +6,11 @@ namespace CathodeRay.Tests;
 public sealed class StubOpsTests
 {
     [Fact]
-    public void Ldi_Loads_A_Without_Touching_Flags()
+    public void Lda_Loads_A_Without_Touching_Carry_Or_Overflow()
     {
         var state = new StubState { Carry = true, Overflow = true };
 
-        StubOps.Ldi(state, 0x42);
+        StubOps.Lda(state, 0x42);
 
         state.A.Should().Be(0x42);
         state.Carry.Should().BeTrue();
@@ -84,35 +83,109 @@ public sealed class StubOpsTests
     }
 
     [Fact]
-    public void Sta_Writes_A_To_Bus()
-    {
-        var state = new StubState { A = 0x99 };
-        var bus = new StubBus();
-
-        StubOps.Sta(state, bus, 0x2000).Should().Be(BusActivity.Write);
-
-        bus.Read(0x2000).Should().Be(0x99);
-    }
-
-    [Fact]
-    public void Lda_Reads_A_From_Bus()
-    {
-        var state = new StubState();
-        var bus = new StubBus();
-        bus.Write(0x3000, 0x5A);
-
-        StubOps.Lda(state, bus, 0x3000).Should().Be(BusActivity.Read);
-
-        state.A.Should().Be(0x5A);
-    }
-
-    [Fact]
     public void Hlt_Halts()
     {
         var state = new StubState();
 
-        StubOps.Hlt(state).Should().Be(BusActivity.Halt);
+        StubOps.Hlt(state);
 
         state.Halted.Should().BeTrue();
+    }
+
+    [Theory]
+    [InlineData(0x00, true)]
+    [InlineData(0x01, false)]
+    public void Lda_Sets_Zero(int value, bool zero)
+    {
+        var state = new StubState { Zero = !zero };
+
+        StubOps.Lda(state, (byte)value);
+
+        state.Zero.Should().Be(zero);
+    }
+
+    [Fact]
+    public void Arithmetic_Sets_Zero()
+    {
+        var state = new StubState { A = 0xFF };
+        StubOps.Add(state, 1);
+        state.Zero.Should().BeTrue();
+
+        StubOps.Sub(state, 0xFF);
+        state.Zero.Should().BeFalse();
+
+        state.A = 0xFF;
+        StubOps.Inc(state);
+        state.Zero.Should().BeTrue();
+    }
+
+    [Theory]
+    [InlineData(0x01, false, 0x01, 0x02, false)]
+    [InlineData(0x01, true, 0x01, 0x03, false)]
+    [InlineData(0xFF, true, 0x00, 0x00, true)]
+    public void Adc_Adds_Carry_In(int a, bool carryIn, int operand, int expected, bool carryOut)
+    {
+        var state = new StubState { A = (byte)a, Carry = carryIn };
+
+        StubOps.Adc(state, (byte)operand);
+
+        state.A.Should().Be((byte)expected);
+        state.Carry.Should().Be(carryOut);
+    }
+
+    [Theory]
+    [InlineData(0x00, true)]
+    [InlineData(0x07, false)]
+    public void Ldx_Loads_X_And_Sets_Zero(int value, bool zero)
+    {
+        var state = new StubState { A = 0x55 };
+
+        StubOps.Ldx(state, (byte)value);
+
+        state.X.Should().Be((byte)value);
+        state.Zero.Should().Be(zero);
+        state.A.Should().Be(0x55);
+    }
+
+    [Theory]
+    [InlineData(0x00, 0x01, false)]
+    [InlineData(0xFF, 0x00, true)]
+    public void Inx_Wraps_And_Sets_Zero(int x, int expected, bool zero)
+    {
+        var state = new StubState { X = (byte)x, Carry = true };
+
+        StubOps.Inx(state);
+
+        state.X.Should().Be((byte)expected);
+        state.Zero.Should().Be(zero);
+        state.Carry.Should().BeTrue();
+    }
+
+    [Theory]
+    [InlineData(5, 5, true, true)]
+    [InlineData(6, 5, false, true)]
+    [InlineData(4, 5, false, false)]
+    public void Cpx_Compares_Without_Changing_X_Or_Overflow(int x, int value, bool zero, bool carry)
+    {
+        var state = new StubState { X = (byte)x, Overflow = true };
+
+        StubOps.Cpx(state, (byte)value);
+
+        state.Zero.Should().Be(zero);
+        state.Carry.Should().Be(carry);
+        state.X.Should().Be((byte)x);
+        state.Overflow.Should().BeTrue();
+    }
+
+    [Theory]
+    [InlineData(false, 0x1234)]
+    [InlineData(true, 0x0010)]
+    public void Bne_Branches_Only_When_Not_Zero(bool zero, int expectedPc)
+    {
+        var state = new StubState { Zero = zero, ProgramCounter = 0x0010 };
+
+        StubOps.Bne(state, 0x1234);
+
+        state.ProgramCounter.Should().Be((ushort)expectedPc);
     }
 }

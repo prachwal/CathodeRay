@@ -34,7 +34,8 @@ public sealed class StubCpuTests
     public void Isa_Loads_All_Opcodes()
     {
         StubIsa isa = LoadIsa();
-        isa.Opcodes.Should().HaveCount(9);
+        isa.Opcodes.Should().HaveCount(18);
+        isa.Opcodes[0x0C].Should().Be(new StubOpcode("LDA", 4, 3, OperandMode.Address16X));
         isa.Opcodes[0x01].Mnemonic.Should().Be("LDI");
         isa.Opcodes[0x01].Words.Should().Be(2);
         isa.Opcodes[0x07].Mnemonic.Should().Be("SUB");
@@ -241,6 +242,63 @@ public sealed class StubCpuTests
 
         FluentActions.Invoking(() => cpu.Step())
             .Should().Throw<InvalidOperationException>().WithMessage("*XYZ*");
+    }
+
+    [Fact]
+    public void New_Addressing_Mode_Needs_Only_Json()
+    {
+        const string json = """
+            {"instructions":[
+              {"opcode":"01","mnemonic":"LDI","cycles":2,"words":2,"operands":[{"name":"d8","type":"immediate8"}]},
+              {"opcode":"08","mnemonic":"LDX","cycles":2,"words":2,"operands":[{"name":"d8","type":"immediate8"}]},
+              {"opcode":"A0","mnemonic":"SUB","cycles":4,"words":3,"operands":[{"name":"a16","type":"address16_x"}]},
+              {"opcode":"A1","mnemonic":"CPX","cycles":3,"words":3,"operands":[{"name":"a16","type":"address16"}]},
+              {"opcode":"A2","mnemonic":"JMP","cycles":4,"words":3,"operands":[{"name":"a16","type":"address16_x"}]},
+              {"opcode":"FF","mnemonic":"HLT","cycles":1,"words":1}]}
+            """;
+        StubIsa isa = StubIsa.FromJson(new MemoryStream(Encoding.UTF8.GetBytes(json)));
+        byte[] image = StubAssembler.Assemble(
+            """
+                    LDI 10
+                    LDX 1
+                    SUB data,X      ; A = 10 - data[1] = 7
+                    CPX data        ; X (1) vs data[0] (1): Z = 1
+                    JMP halt-1,X    ; halt-1 + 1 = halt
+                    LDI 0           ; pomijane
+            halt:   HLT
+            data:   .byte 1, 3
+            """,
+            isa);
+        var bus = new StubBus();
+        for (int i = 0; i < image.Length; i++)
+        {
+            bus.Write((ushort)i, image[i]);
+        }
+
+        var cpu = new StubCpu(isa, bus);
+        while (!cpu.State.Halted)
+        {
+            cpu.Step();
+        }
+
+        cpu.State.A.Should().Be(7);
+        cpu.State.Zero.Should().BeTrue();
+        cpu.InstructionCount.Should().Be(6);
+    }
+
+    [Theory]
+    [InlineData("STA", "immediate8", 2)]
+    [InlineData("JMP", "immediate8", 2)]
+    [InlineData("LDA", null, 1)]
+    [InlineData("INC", "address16", 3)]
+    public void Mode_Not_Matching_Operation_Kind_Is_Rejected(string mnemonic, string? type, int words)
+    {
+        string operands = type is null ? "null" : $$"""[{"name":"x","type":"{{type}}"}]""";
+        string json = $$"""{"instructions":[{"opcode":"00","mnemonic":"{{mnemonic}}","cycles":1,"words":{{words}},"operands":{{operands}}}]}""";
+        var cpu = new StubCpu(StubIsa.FromJson(new MemoryStream(Encoding.UTF8.GetBytes(json))), new StubBus());
+
+        FluentActions.Invoking(() => cpu.Step())
+            .Should().Throw<InvalidOperationException>().WithMessage($"*No handler for '{mnemonic}'*");
     }
 
     [Fact]

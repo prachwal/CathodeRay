@@ -2,7 +2,7 @@ using CathodeRay.Abstractions;
 
 namespace CathodeRay.Cli;
 
-/// <summary>Zakres pamięci do zrzutu w formacie <c>start:długość</c> (np. <c>$2000:16</c>).</summary>
+/// <summary>Zakres pamięci do zrzutu w formacie <c>start:długość</c> (np. <c>0x2000:16</c>).</summary>
 /// <param name="Start">Adres początkowy.</param>
 /// <param name="Length">Liczba bajtów.</param>
 internal readonly record struct MemoryRange(int Start, int Length)
@@ -22,7 +22,7 @@ internal readonly record struct MemoryRange(int Start, int Length)
             || !NumberLiteral.TryParse(parts[0], out int start)
             || !NumberLiteral.TryParse(parts[1], out int length))
         {
-            error = $"Invalid dump range '{text}' (expected start:length, e.g. $2000:16).";
+            error = $"Invalid dump range '{text}' (expected start:length, e.g. 0x2000:16).";
             return false;
         }
 

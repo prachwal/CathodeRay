@@ -2,17 +2,23 @@ using CathodeRay.Abstractions;
 
 namespace CathodeRay.Stub;
 
-/// <summary>Minimalny stan zaślepki: akumulator, licznik programu i flaga zatrzymania.</summary>
+/// <summary>Minimalny stan zaślepki: akumulator, rejestr indeksowy, flagi, licznik programu i flaga zatrzymania.</summary>
 public sealed class StubState : ICpuState<StubState>
 {
     /// <summary>Akumulator 8-bit.</summary>
     public byte A { get; set; }
 
-    /// <summary>Przeniesienie/pożyczka z ostatniej operacji ALU.</summary>
+    /// <summary>Rejestr indeksowy 8-bit (licznik pętli, przesunięcie w trybie <c>a16,X</c>).</summary>
+    public byte X { get; set; }
+
+    /// <summary>Przeniesienie/pożyczka z ostatniej operacji ALU lub CPX.</summary>
     public bool Carry { get; set; }
 
     /// <summary>Nadmiar ze znaku z ostatniej operacji ALU.</summary>
     public bool Overflow { get; set; }
+
+    /// <summary>Zero: ostatnia wartość zapisana do A lub X (albo wynik CPX) była zerem.</summary>
+    public bool Zero { get; set; }
 
     /// <inheritdoc/>
     public ushort ProgramCounter { get; set; }
@@ -21,6 +27,14 @@ public sealed class StubState : ICpuState<StubState>
     public bool Halted { get; set; }
 
     /// <inheritdoc/>
-    public StubState Clone() =>
-        new() { A = A, Carry = Carry, Overflow = Overflow, ProgramCounter = ProgramCounter, Halted = Halted };
+    public StubState Clone() => new()
+    {
+        A = A,
+        X = X,
+        Carry = Carry,
+        Overflow = Overflow,
+        Zero = Zero,
+        ProgramCounter = ProgramCounter,
+        Halted = Halted,
+    };
 }

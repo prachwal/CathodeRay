@@ -72,7 +72,7 @@ public sealed class CliTests : IDisposable
         var (exit, output, _) = Cli("stub", "run", Binary(Sum));
 
         exit.Should().Be(0);
-        output.Should().Contain("steps=6 cycles=12 halted=True").And.Contain("A=05 C=1 V=0 PC=000D");
+        output.Should().Contain("steps=6 cycles=12 halted=True time=").And.Contain("A=05 X=00 C=1 V=0 Z=0 PC=000D");
     }
 
     [Fact]
@@ -80,8 +80,9 @@ public sealed class CliTests : IDisposable
     {
         var (_, output, _) = Cli("stub", "run", Binary(Sum), "--trace");
 
-        output.Should().Contain("0000  LDI  A=FA C=0 V=0 PC=0002  +2")
-            .And.Contain("000C  HLT  A=05 C=1 V=0 PC=000D  +1");
+        output.Should().Contain("0000  01 LDI  A=FA X=00 C=0 V=0 Z=0 PC=0002  +2 cyc=2 bus=Fetch, Read")
+            .And.Contain("0004  05 STA  A=04 X=00 C=1 V=0 Z=0 PC=0007  +3 cyc=7 bus=Fetch, Read, Write")
+            .And.Contain("000C  FF HLT  A=05 X=00 C=1 V=0 Z=0 PC=000D  +1 cyc=12 bus=Fetch, Halt");
     }
 
     [Fact]

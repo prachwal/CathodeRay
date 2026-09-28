@@ -19,7 +19,7 @@ public sealed class StubCpuDerivedTests
             base.ConfigureOpcodes(isa, table);
             table.Remove(0x00);
             table.Replace(0x01, new StubOpcodeEntry(DoubleLdi, "LDI", 1, 2));
-            RegisterOpcode(table, 0x08, "DEC", 1, 1, Dec);
+            RegisterOpcode(table, 0x80, "DEC", 1, 1, Dec);
         }
 
         private void DoubleLdi(OpcodeContext ctx) => State.A = (byte)(ctx.Operand * 2);
@@ -38,8 +38,8 @@ public sealed class StubCpuDerivedTests
         {
         }
 
-        protected override Action<OpcodeContext>? ResolveBehavior(string mnemonic) =>
-            mnemonic == "NEG" ? Neg : base.ResolveBehavior(mnemonic);
+        protected override Action<OpcodeContext>? ResolveBehavior(string mnemonic, OperandMode mode) =>
+            mnemonic == "NEG" ? Neg : base.ResolveBehavior(mnemonic, mode);
 
         private void Neg(OpcodeContext ctx)
         {
@@ -88,7 +88,7 @@ public sealed class StubCpuDerivedTests
     [Fact]
     public void Derived_Adds_Opcode()
     {
-        var (cpu, _) = Derived(0x01, 0x05, 0x08);
+        var (cpu, _) = Derived(0x01, 0x05, 0x80);
         cpu.Step();
         cpu.Step();
         cpu.State.A.Should().Be(9);

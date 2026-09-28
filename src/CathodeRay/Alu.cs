@@ -1,3 +1,5 @@
+using System.Runtime.CompilerServices;
+
 namespace CathodeRay;
 
 /// <summary>Operacje arytmetyczne 8-bit wspólne dla rdzeni CPU (flagi: przeniesienie i nadmiar).</summary>
@@ -8,6 +10,7 @@ public static class Alu
     /// <param name="b">Drugi składnik.</param>
     /// <param name="carryIn">Przeniesienie wejściowe (dodawane jako 1, gdy <see langword="true"/>).</param>
     /// <returns>Wartość 8-bit, przeniesienie wyjściowe oraz nadmiar ze znaku.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static AluResult Add(byte a, byte b, bool carryIn = false)
     {
         var sum = a + b + (carryIn ? 1 : 0);
@@ -20,6 +23,7 @@ public static class Alu
     /// <param name="b">Odjemnik.</param>
     /// <param name="borrowIn">Pożyczenie wejściowe (odejmowane jako 1, gdy <see langword="true"/>).</param>
     /// <returns>Wartość 8-bit, brak pożyczenia (carry) oraz nadmiar ze znaku.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static AluResult Subtract(byte a, byte b, bool borrowIn = false)
     {
         var difference = a - b - (borrowIn ? 1 : 0);
