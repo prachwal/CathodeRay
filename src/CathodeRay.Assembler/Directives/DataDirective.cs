@@ -18,9 +18,9 @@ internal sealed class DataDirective(int width) : IDirective
                 continue;
             }
 
-            int value = context.TryEvaluate(item) ?? 0;
+            int value = context.EvaluateEmission(item, width == 1 ? FieldKind.Byte : FieldKind.Word, out bool relocated);
             int max = width == 1 ? byte.MaxValue : ushort.MaxValue;
-            if (value < 0 || value > max)
+            if (!relocated && (value < 0 || value > max))
             {
                 throw context.Error($"value {value} out of range 0..{max}.");
             }

@@ -37,6 +37,22 @@ public interface IAssemblyContext
     /// <param name="emit">Czy segment emituje bajty; <see langword="null"/> = bez zmian (nowy segment emituje).</param>
     void SwitchSegment(string name, bool? emit);
 
+    /// <summary>Ewaluuje wyrażenie do emisji; w trybie obiektu odwołanie do symbolu
+    /// (zewnętrznego lub własnego) zapisuje addend i odkłada relokację zamiast błędu.</summary>
+    /// <param name="expression">Wyrażenie.</param>
+    /// <param name="kind">Rodzaj pola (do relokacji).</param>
+    /// <param name="relocated">Czy odłożono relokację (kontrola zakresu po stronie linkera).</param>
+    /// <returns>Wartość (addend dla odłożonej relokacji, 0 dla odwołań w przód).</returns>
+    int EvaluateEmission(string expression, FieldKind kind, out bool relocated);
+
+    /// <summary>Oznacza symbol jako eksportowany (<c>GLOBAL</c>).</summary>
+    /// <param name="name">Nazwa globalna.</param>
+    void DeclareGlobal(string name);
+
+    /// <summary>Oznacza symbol jako zewnętrzny (<c>EXTERN</c>).</summary>
+    /// <param name="name">Nazwa globalna.</param>
+    void DeclareExternal(string name);
+
     /// <summary>Czyta plik binarny dla <c>.incbin</c>: cudzysłowy, ścieżki jak w <c>.include</c>.</summary>
     /// <param name="operand">Tekst operandu z nazwą pliku lub <see langword="null"/>.</param>
     /// <returns>Bajty pliku.</returns>

@@ -29,6 +29,8 @@ public static partial class SyntaxDialects
             ("CODE", Directive.Code),
             ("DATA", Directive.Data),
             ("BSS", Directive.Bss),
+            ("GLOBAL", Directive.Global),
+            ("EXTERN", Directive.Extern),
             ("IF", Directive.If),
             ("ELSE", Directive.Else),
             ("ENDIF", Directive.EndIf),

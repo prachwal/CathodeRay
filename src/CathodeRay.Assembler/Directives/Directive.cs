@@ -48,6 +48,12 @@ public static class Directive
     /// <summary>Segment nieemitowany (<c>.bss</c>, <c>BSS</c>).</summary>
     public static IDirective Bss { get; } = new SegmentDirective(SegmentKind.Bss);
 
+    /// <summary>Eksportuje symbole (<c>GLOBAL</c>, <c>.global</c>).</summary>
+    public static IDirective Global { get; } = new GlobalDirective();
+
+    /// <summary>Deklaruje symbole zewnętrzne (<c>EXTERN</c>, <c>.extern</c>).</summary>
+    public static IDirective Extern { get; } = new ExternDirective();
+
     /// <summary>Blok warunkowy: <c>.if</c> / <c>IF</c> (logika w przebiegu).</summary>
     public static IDirective If { get; } = new ConditionalDirective(ConditionalKind.If);
 

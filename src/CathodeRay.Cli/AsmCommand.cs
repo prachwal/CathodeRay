@@ -1,6 +1,7 @@
 using System.CommandLine;
 using System.Globalization;
 using CathodeRay.Assembler;
+using CathodeRay.Assembler.Link;
 using CathodeRay.Assembler.Syntax;
 
 namespace CathodeRay.Cli;
@@ -31,8 +32,8 @@ internal static class AsmCommand
         var isa = new Option<FileInfo>("--isa") { Description = "Plik ISA JSON zamiast domyślnego dla CPU." };
         isa.AcceptExistingOnly();
         var incdir = new Option<DirectoryInfo[]>("--incdir") { Description = "Dodatkowe katalogi poszukiwań .include (można powtarzać)." };
-        var format = new Option<string>("--format", "-f") { Description = "Format wyjścia: bin (domyślnie) albo hex (Intel HEX)." };
-        format.AcceptOnlyFromAmong(["bin", "hex"]);
+        var format = new Option<string>("--format", "-f") { Description = "Format wyjścia: bin (domyślnie), hex (Intel HEX) albo obj (moduł do linkera)." };
+        format.AcceptOnlyFromAmong(["bin", "hex", "obj"]);
         var map = new Option<string[]>("--map", "-m") { Description = "Bazowy adres segmentu NAZWA@adres (powtarzalne, adres $hex/0xhex/dec)." };
 
         var command = new Command("asm", "Asembluje źródło do pliku binarnego.") { source, cpu, syntax, illegal, output, listing, isa, incdir, format, map };
@@ -81,14 +82,27 @@ internal static class AsmCommand
                 }
             }
 
-            AssemblyResult result;
+            string extension = parse.GetValue(format) switch
+            {
+                "hex" => ".hex",
+                "obj" => ".o",
+                _ => ".bin",
+            };
+            FileInfo dst = parse.GetValue(output) ?? new FileInfo(Path.ChangeExtension(src.FullName, extension));
+            string kind = parse.GetValue(format) ?? "bin";
+            if (kind == "obj")
+            {
+                return WriteObject(parse, target, dialect, isaPath, src, includePaths, dst);
+            }
+
+            AssemblyResult? assembled = null;
             try
             {
                 using FileStream json = File.OpenRead(isaPath);
                 string entryText = File.ReadAllText(src.FullName);
                 Func<string, string?> reader = path => File.Exists(path) ? File.ReadAllText(path) : null;
                 Func<string, byte[]?> binaryReader = path => File.Exists(path) ? File.ReadAllBytes(path) : null;
-                result = new TwoPassAssembler(target.Load(json), dialect).Assemble(entryText, src.FullName, reader, includePaths, binaryReader, segmentOrigins);
+                assembled = new TwoPassAssembler(target.Load(json), dialect).Assemble(entryText, src.FullName, reader, includePaths, binaryReader, segmentOrigins);
             }
             catch (AssemblerException e)
             {
@@ -100,6 +114,7 @@ internal static class AsmCommand
                 return 1;
             }
 
+            AssemblyResult result = assembled;
             string? unknown = segmentOrigins.Keys.FirstOrDefault(name => !result.Segments.Any(s => string.Equals(s.Name, name, StringComparison.OrdinalIgnoreCase)));
             if (unknown is not null)
             {
@@ -107,9 +122,7 @@ internal static class AsmCommand
                 return 1;
             }
 
-            FileInfo dst = parse.GetValue(output)
-                ?? new FileInfo(Path.ChangeExtension(src.FullName, parse.GetValue(format) == "hex" ? ".hex" : ".bin"));
-            if (parse.GetValue(format) == "hex")
+            if (kind == "hex")
             {
                 using StreamWriter writer = File.CreateText(dst.FullName);
                 result.WriteIntelHex(writer);
@@ -131,5 +144,40 @@ internal static class AsmCommand
             return 0;
         });
         return command;
+    }
+
+    private static int WriteObject(
+        ParseResult parse,
+        AssemblerTarget target,
+        SyntaxDialect dialect,
+        string isaPath,
+        FileInfo src,
+        string[] includePaths,
+        FileInfo dst)
+    {
+        TextWriter error = parse.InvocationConfiguration.Error;
+        ObjectModule module;
+        try
+        {
+            using FileStream json = File.OpenRead(isaPath);
+            string entryText = File.ReadAllText(src.FullName);
+            Func<string, string?> reader = path => File.Exists(path) ? File.ReadAllText(path) : null;
+            module = new TwoPassAssembler(target.Load(json), dialect).AssembleObject(target.Name, entryText, src.FullName, reader, includePaths);
+        }
+        catch (AssemblerException e)
+        {
+            foreach (AssemblerError err in e.Errors)
+            {
+                error.WriteLine($"{err.File ?? src.Name}: line {err.Line}: {err.Message}");
+            }
+
+            return 1;
+        }
+
+        File.WriteAllText(dst.FullName, module.ToJson());
+        parse.InvocationConfiguration.Output.WriteLine(string.Create(
+            CultureInfo.InvariantCulture,
+            $"{src.Name} -> {dst.Name} (object {target.Name}, syntax {dialect.Name})"));
+        return 0;
     }
 }

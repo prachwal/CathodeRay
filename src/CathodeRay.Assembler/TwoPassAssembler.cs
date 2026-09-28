@@ -1,5 +1,6 @@
 using CathodeRay.Assembler.Directives;
 using CathodeRay.Assembler.Isa;
+using CathodeRay.Assembler.Link;
 using CathodeRay.Assembler.Syntax;
 
 namespace CathodeRay.Assembler;
@@ -24,8 +25,12 @@ public sealed class TwoPassAssembler(InstructionSet isa, SyntaxDialect dialect)
     public AssemblyResult Assemble(string source)
     {
         ArgumentNullException.ThrowIfNull(source);
-        return AssembleCore([.. source.Split('\n').Select((text, i) =>
-            LineParser.Parse(i + 1, text.TrimEnd('\r'), dialect, IsKeyword))]);
+        return RunPasses(
+            [.. source.Split('\n').Select((text, i) => LineParser.Parse(i + 1, text.TrimEnd('\r'), dialect, IsKeyword))],
+            binaryReader: null,
+            [],
+            new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase),
+            objectMode: false).Result();
     }
 
     /// <summary>Asembluje plik z include'ami: ekspansja przed pierwszym przebiegiem.</summary>
@@ -42,7 +47,31 @@ public sealed class TwoPassAssembler(InstructionSet isa, SyntaxDialect dialect)
         ArgumentNullException.ThrowIfNull(source);
         ArgumentNullException.ThrowIfNull(entryFile);
         ArgumentNullException.ThrowIfNull(reader);
-        return AssembleCore(SourceLoader.Expand(source, entryFile, reader, dialect, IsKeyword, includePaths), binaryReader, includePaths ?? [], segmentOrigins ?? new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase));
+        return RunPasses(
+            SourceLoader.Expand(source, entryFile, reader, dialect, IsKeyword, includePaths),
+            binaryReader,
+            includePaths ?? [],
+            segmentOrigins ?? new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase),
+            objectMode: false).Result();
+    }
+
+    /// <summary>Asembluje moduł obiektu do linkera: symbole relatywne, EXTRN jako relokacje.</summary>
+    /// <param name="cpu">Nazwa celu (do nagłówka obiektu).</param>
+    /// <param name="source">Tekst pliku wejściowego.</param>
+    /// <param name="entryFile">Ścieżka pliku wejściowego.</param>
+    /// <param name="reader">Czyta plik tekstowy; <see langword="null"/> = brak pliku.</param>
+    /// <param name="includePaths">Dodatkowe katalogi poszukiwań.</param>
+    /// <returns>Moduł obiektu.</returns>
+    /// <exception cref="AssemblerException">Błąd w źródle (z plikiem).</exception>
+    public ObjectModule AssembleObject(string cpu, string source, string entryFile, Func<string, string?> reader, IReadOnlyList<string>? includePaths = null)
+    {
+        ArgumentNullException.ThrowIfNull(cpu);
+        ArgumentNullException.ThrowIfNull(source);
+        ArgumentNullException.ThrowIfNull(entryFile);
+        ArgumentNullException.ThrowIfNull(reader);
+        IReadOnlyList<SourceLine> lines = SourceLoader.Expand(source, entryFile, reader, dialect, IsKeyword, includePaths);
+        Pass second = RunPasses(lines, binaryReader: null, includePaths ?? [], new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase), objectMode: true);
+        return second.ExportObject(cpu);
     }
 
     private static void ResolvePendingAssignments(Pass pass)
@@ -71,34 +100,38 @@ public sealed class TwoPassAssembler(InstructionSet isa, SyntaxDialect dialect)
         }
     }
 
-    private bool IsKeyword(string word) => isa.Contains(word) || dialect.Directives.ContainsKey(word);
+    private static void ThrowIfErrors(Pass pass)
+    {
+        if (pass.Errors.Count > 0)
+        {
+            throw new AssemblerException(pass.Errors);
+        }
+    }
 
-    private AssemblyResult AssembleCore(IReadOnlyList<SourceLine> lines, Func<string, byte[]?>? binaryReader = null, IReadOnlyList<string>? includePaths = null, IReadOnlyDictionary<string, int>? segmentOrigins = null)
+    private Pass RunPasses(IReadOnlyList<SourceLine> lines, Func<string, byte[]?>? binaryReader, IReadOnlyList<string> includePaths, IReadOnlyDictionary<string, int> origins, bool objectMode)
     {
         lines = MacroExpander.Expand(lines, dialect, IsKeyword);
         var symbols = new Dictionary<string, int>(dialect.SymbolComparer);
         var choices = new Dictionary<int, FormChoice>();
-        var origins = segmentOrigins ?? new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+        var links = new LinkScope(dialect.SymbolComparer);
+        var symbolSegments = new Dictionary<string, string>(dialect.SymbolComparer);
 
-        var first = new Pass(this, symbols, choices, final: false, binaryReader, includePaths ?? [], origins);
+        var first = new Pass(this, symbols, choices, final: false, binaryReader, includePaths, origins, links, symbolSegments, objectMode);
         first.Run(lines);
         ResolvePendingAssignments(first);
-        if (first.Errors.Count > 0)
-        {
-            throw new AssemblerException(first.Errors);
-        }
+        ThrowIfErrors(first);
+        first.ValidateGlobals();
+        ThrowIfErrors(first);
 
-        var second = new Pass(this, symbols, choices, final: true, binaryReader, includePaths ?? [], origins);
+        var second = new Pass(this, symbols, choices, final: true, binaryReader, includePaths, origins, links, symbolSegments, objectMode);
         second.Run(lines);
-        if (second.Errors.Count > 0)
-        {
-            throw new AssemblerException(second.Errors);
-        }
-
-        return second.Result();
+        ThrowIfErrors(second);
+        return second;
     }
 
-    private sealed class Pass(TwoPassAssembler owner, Dictionary<string, int> symbols, Dictionary<int, FormChoice> choices, bool final, Func<string, byte[]?>? binaryReader, IReadOnlyList<string> includePaths, IReadOnlyDictionary<string, int> segmentOrigins)
+    private bool IsKeyword(string word) => isa.Contains(word) || dialect.Directives.ContainsKey(word);
+
+    private sealed class Pass(TwoPassAssembler owner, Dictionary<string, int> symbols, Dictionary<int, FormChoice> choices, bool final, Func<string, byte[]?>? binaryReader, IReadOnlyList<string> includePaths, IReadOnlyDictionary<string, int> segmentOrigins, LinkScope links, Dictionary<string, string> symbolSegments, bool objectMode)
         : IAssemblyContext
     {
         private const int MaxErrors = 20;
@@ -128,6 +161,9 @@ public sealed class TwoPassAssembler(InstructionSet isa, SyntaxDialect dialect)
 
         /// <summary>Błędy zebrane w przebiegu (kolejność źródła).</summary>
         public IReadOnlyList<AssemblerError> Errors => _errors;
+
+        /// <summary>Relokacje zebrane w przebiegu (tylko tryb obiektu).</summary>
+        public List<Relocation> Relocations { get; } = [];
 
         public void Run(IReadOnlyList<SourceLine> lines)
         {
@@ -189,6 +225,51 @@ public sealed class TwoPassAssembler(InstructionSet isa, SyntaxDialect dialect)
             return new AssemblyResult(Math.Max(low, 0), image, symbols, _listing, spans);
         }
 
+        /// <summary>Eksportuje moduł obiektu (po czystym przebiegu w trybie obiektu).</summary>
+        /// <param name="cpu">Nazwa celu.</param>
+        /// <returns>Moduł obiektu.</returns>
+        public ObjectModule ExportObject(string cpu)
+        {
+            var segments = new List<ObjectSegment>();
+            foreach (string name in _segmentOrder)
+            {
+                SegmentState segment = _segments[name];
+                if (segment.Min == int.MaxValue)
+                {
+                    continue;
+                }
+
+                int origin = segmentOrigins.GetValueOrDefault(name, 0);
+                int start = segment.Min;
+                int end = segment.Max == int.MinValue ? start : segment.Max;
+                int length = end - origin;
+                byte[] data = new byte[Math.Max(length, 0)];
+                foreach ((int offset, byte value) in segment.ObjData)
+                {
+                    if (offset >= 0 && offset < data.Length)
+                    {
+                        data[offset] = value;
+                    }
+                }
+
+                segments.Add(new ObjectSegment(name, !segment.Emit, segment.Emit ? data : [], segment.Emit ? data.Length : end - start));
+            }
+
+            var symbolsOut = new List<ObjectSymbol>();
+            foreach ((string name, int address) in symbols)
+            {
+                if (name.Contains('\0') || !symbolSegments.TryGetValue(name, out string? segment))
+                {
+                    continue;
+                }
+
+                int origin = segmentOrigins.GetValueOrDefault(segment, 0);
+                symbolsOut.Add(new ObjectSymbol(name, segment, address - origin, links.Globals.Contains(name)));
+            }
+
+            return new ObjectModule(cpu, segments, symbolsOut, Relocations);
+        }
+
         /// <summary>Dodaje błędy z zewnątrz pętli linii (np. przypisania odłożone).</summary>
         /// <param name="errors">Błędy.</param>
         public void CollectAll(IEnumerable<AssemblerError> errors)
@@ -244,22 +325,31 @@ public sealed class TwoPassAssembler(InstructionSet isa, SyntaxDialect dialect)
             {
                 if (final)
                 {
-                    if (_written[segment.PC])
+                    if (objectMode)
                     {
-                        throw Error($"overlapping output at ${segment.PC:X4}.");
+                        int origin = segmentOrigins.GetValueOrDefault(_segment, 0);
+                        segment.ObjData[segment.PC - origin] = value;
                     }
-
-                    foreach (string bssName in _segmentOrder)
+                    else
                     {
-                        SegmentState bss = _segments[bssName];
-                        if (!bss.Emit && segment.PC >= bss.Min && segment.PC < bss.Max)
+                        if (_written[segment.PC])
                         {
-                            throw Error($"address ${segment.PC:X4} overlaps BSS segment '{bssName}'.");
+                            throw Error($"overlapping output at ${segment.PC:X4}.");
                         }
+
+                        foreach (string bssName in _segmentOrder)
+                        {
+                            SegmentState bss = _segments[bssName];
+                            if (!bss.Emit && segment.PC >= bss.Min && segment.PC < bss.Max)
+                            {
+                                throw Error($"address ${segment.PC:X4} overlaps BSS segment '{bssName}'.");
+                            }
+                        }
+
+                        _image[segment.PC] = value;
+                        _written[segment.PC] = true;
                     }
 
-                    _image[segment.PC] = value;
-                    _written[segment.PC] = true;
                     _lineBytes.Add(value);
                 }
 
@@ -268,7 +358,7 @@ public sealed class TwoPassAssembler(InstructionSet isa, SyntaxDialect dialect)
             }
             else
             {
-                if (final && _written[segment.PC])
+                if (final && !objectMode && _written[segment.PC])
                 {
                     throw Error($"address ${segment.PC:X4} overlaps BSS segment '{_segment}'.");
                 }
@@ -309,7 +399,120 @@ public sealed class TwoPassAssembler(InstructionSet isa, SyntaxDialect dialect)
             throw Error($"binary file '{name}' not found.");
         }
 
-        private static bool IsLocal(string name) => name.Length > 1 && name[0] == '@';
+        public void DeclareGlobal(string name)
+        {
+            links.Globals.Add(name);
+            links.GlobalSites[name] = _line;
+        }
+
+        public void DeclareExternal(string name) => links.Externals.Add(name);
+
+        /// <summary>Sprawdza, czy każdy eksport jest zdefiniowany (po pass 1).</summary>
+        public void ValidateGlobals()
+        {
+            foreach (string name in links.Globals)
+            {
+                if (!symbols.ContainsKey(name))
+                {
+                    SourceLine site = links.GlobalSites[name];
+                    Collect(new AssemblerError(site.File, site.Number, $"exported symbol '{name}' is not defined."));
+                }
+            }
+        }
+
+        public int EvaluateEmission(string expression, FieldKind kind, out bool relocated)
+        {
+            relocated = false;
+            int? value = TryEvaluate(expression);
+            if (value is not null)
+            {
+                if (!final || !objectMode || kind == FieldKind.Constant)
+                {
+                    return value.Value;
+                }
+
+                string? defined = SingleSymbol(expression);
+                if (defined is null)
+                {
+                    return value.Value;
+                }
+
+                relocated = true;
+                int bas = EvalWith(expression, defined, 0);
+                Relocate(kind, defined, bas);
+                return bas;
+            }
+
+            if (!final)
+            {
+                return 0;
+            }
+
+            (string symbol, int addend) = SplitExternal(expression);
+            if (kind == FieldKind.Constant)
+            {
+                throw Error($"'{expression}' must be known at this point (no forward references).");
+            }
+
+            if (!objectMode)
+            {
+                throw Error($"external symbol '{symbol}' requires object output (--format obj).");
+            }
+
+            relocated = true;
+            Relocate(kind, symbol, addend);
+            return addend;
+        }
+
+        private void Relocate(FieldKind kind, string symbol, int addend)
+        {
+            SegmentState segment = EnsureSegment(_segment);
+            int origin = segmentOrigins.GetValueOrDefault(_segment, 0);
+            RelocKind reloc = kind switch
+            {
+                FieldKind.Word => RelocKind.Abs16,
+                FieldKind.Relative8 => RelocKind.Rel8,
+                FieldKind.Displacement8 => RelocKind.Disp8,
+                _ => RelocKind.Abs8,
+            };
+            Relocations.Add(
+                new Relocation(
+                    _segment,
+                    ProgramCounter - origin,
+                    reloc,
+                    symbol,
+                    addend));
+        }
+
+        private string? SingleSymbol(string expression)
+        {
+            var used = new HashSet<string>(owner.Dialect.SymbolComparer);
+            Expression.Evaluate(expression, owner.Dialect, _lineStart, name =>
+            {
+                string key = IsLocal(name) ? ScopeKey(name) : name;
+                if (symbols.ContainsKey(key) || links.Externals.Contains(name))
+                {
+                    used.Add(name);
+                }
+
+                return Lookup(name);
+            });
+
+            if (used.Count > 1)
+            {
+                throw Error($"expression '{expression}' must reference exactly one symbol.");
+            }
+
+            return used.Count == 1 ? used.First() : null;
+        }
+
+        private int EvalWith(string expression, string symbol, int probe)
+        {
+            return Expression.Evaluate(expression, owner.Dialect, _lineStart, name =>
+                links.Externals.Contains(name)
+                    ? owner.Dialect.SymbolComparer.Equals(name, symbol) ? probe : 0
+                    : Lookup(name)) ?? 0;
+        }
 
         private string FormatMessage(string message)
         {
@@ -429,10 +632,22 @@ public sealed class TwoPassAssembler(InstructionSet isa, SyntaxDialect dialect)
         private bool EvaluateCondition(SourceLine line) =>
             Evaluate(line.Operand ?? throw Error($"'{line.Keyword}' needs a condition.")) != 0;
 
+        private bool IsLocal(string name) => name.Length > 1 && name[0] == '@';
+
         private int? Lookup(string name)
         {
             string key = IsLocal(name) ? ScopeKey(name) : name;
-            return symbols.TryGetValue(key, out int value) ? value : final ? throw new FormatException($"undefined symbol '{name}'.") : null;
+            if (symbols.TryGetValue(key, out int value))
+            {
+                return value;
+            }
+
+            if (links.Externals.Contains(name))
+            {
+                return null;
+            }
+
+            return final ? throw new FormatException($"undefined symbol '{name}'.") : null;
         }
 
         private void Process(SourceLine line, int index)
@@ -476,6 +691,11 @@ public sealed class TwoPassAssembler(InstructionSet isa, SyntaxDialect dialect)
             string display = name;
             if (!IsLocal(name))
             {
+                if (links.Externals.Contains(name))
+                {
+                    throw Error($"'{name}' is declared external.");
+                }
+
                 _scope = name;
             }
             else
@@ -483,6 +703,7 @@ public sealed class TwoPassAssembler(InstructionSet isa, SyntaxDialect dialect)
                 name = ScopeKey(name);
             }
 
+            symbolSegments[name] = _segment;
             if (!symbols.TryGetValue(name, out int existing))
             {
                 symbols[name] = value;
@@ -491,6 +712,40 @@ public sealed class TwoPassAssembler(InstructionSet isa, SyntaxDialect dialect)
             {
                 throw Error(final ? $"phase error: '{display}' changed from {existing} to {value}." : $"duplicate symbol '{display}'.");
             }
+        }
+
+        private (string Symbol, int Addend) SplitExternal(string expression)
+        {
+            var used = new HashSet<string>(owner.Dialect.SymbolComparer);
+            int? At(int probe, string skip)
+            {
+                used.Clear();
+                return Expression.Evaluate(expression, owner.Dialect, _lineStart, name =>
+                {
+                    if (links.Externals.Contains(name))
+                    {
+                        used.Add(name);
+                        return owner.Dialect.SymbolComparer.Equals(name, skip) ? probe : 0;
+                    }
+
+                    return Lookup(name);
+                });
+            }
+
+            int? baseValue = At(0, string.Empty);
+            if (used.Count != 1)
+            {
+                throw Error($"expression '{expression}' must reference exactly one external symbol.");
+            }
+
+            string symbol = used.First();
+            int? sloped = At(1, symbol);
+            if (baseValue is null || sloped is null || sloped - baseValue != 1)
+            {
+                throw Error($"expression with '{symbol}' is not relocatable (use symbol ± constant).");
+            }
+
+            return (symbol, baseValue.Value);
         }
 
         private void Instruction(SourceLine line, int index)
@@ -502,12 +757,13 @@ public sealed class TwoPassAssembler(InstructionSet isa, SyntaxDialect dialect)
             }
 
             (InstructionForm form, string[] captures) = choices[index];
-            int[] values = [.. captures.Select(c => TryEvaluate(c) ?? 0)];
             foreach (EncodingPart part in form.Encoding)
             {
                 if (part.IsField)
                 {
-                    EmitField(form.Pattern.Fields[part.Field], values[part.Field], start + form.Size);
+                    FieldKind kind = form.Pattern.Fields[part.Field];
+                    int value = EvaluateEmission(captures[part.Field], kind, out bool relocated);
+                    EmitField(kind, value, start + form.Size, !relocated);
                 }
                 else
                 {
@@ -516,15 +772,16 @@ public sealed class TwoPassAssembler(InstructionSet isa, SyntaxDialect dialect)
             }
         }
 
-        private void EmitField(FieldKind kind, int value, int nextInstruction)
+        private void EmitField(FieldKind kind, int value, int nextInstruction, bool checkRange = true)
         {
+            bool check = final && checkRange;
             switch (kind)
             {
                 case FieldKind.Byte:
-                    Emit(final && value is < 0 or > byte.MaxValue ? throw Error($"value {value} out of range 0..255.") : (byte)value);
+                    Emit(check && value is < 0 or > byte.MaxValue ? throw Error($"value {value} out of range 0..255.") : (byte)value);
                     break;
                 case FieldKind.Word:
-                    if (final && value is < 0 or > ushort.MaxValue)
+                    if (check && value is < 0 or > ushort.MaxValue)
                     {
                         throw Error($"value {value} out of range 0..65535.");
                     }
@@ -538,13 +795,13 @@ public sealed class TwoPassAssembler(InstructionSet isa, SyntaxDialect dialect)
                 case FieldKind.Constant:
                     break;
                 case FieldKind.Displacement8:
-                    Emit(final && value is < sbyte.MinValue or > sbyte.MaxValue
+                    Emit(check && value is < sbyte.MinValue or > sbyte.MaxValue
                         ? throw Error($"displacement {value} out of range -128..127.")
                         : (byte)value);
                     break;
                 default:
-                    int offset = value - nextInstruction;
-                    Emit(final && offset is < sbyte.MinValue or > sbyte.MaxValue
+                    int offset = checkRange ? value - nextInstruction : value;
+                    Emit(check && offset is < sbyte.MinValue or > sbyte.MaxValue
                         ? throw Error($"branch target out of range ({offset} bytes, allowed -128..127).")
                         : (byte)offset);
                     break;
@@ -560,6 +817,8 @@ public sealed class TwoPassAssembler(InstructionSet isa, SyntaxDialect dialect)
             public int Min { get; set; } = int.MaxValue;
 
             public int Max { get; set; } = int.MinValue;
+
+            public Dictionary<int, byte> ObjData { get; } = new();
         }
 
         private sealed class ConditionalFrame(
