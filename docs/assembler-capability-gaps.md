@@ -10,7 +10,7 @@ Kolumny: **CR** = `src/CathodeRay.Assembler`, **ca65** (6502), **z80asm**
 
 | Cecha | CR | ca65 | z80asm (Z80 / 8080) | ASXXXX (6800) |
 | --- | --- | --- | --- | --- |
-| Wiele CPU w jednym wywołaniu | 6502/6502x/65C02/8080/z80/z80u/stub | 6502/65C02/65816… (`--cpu`) | Z80/R800/GBZ80/8080… (`-m`) | osobny binarny cel na CPU |
+| Wiele CPU w jednym wywołaniu | 6502/6502x/65C02/8080/z80/z80u/6800/stub | 6502/65C02/65816… (`--cpu`) | Z80/R800/GBZ80/8080… (`-m`) | osobny binarny cel na CPU |
 | Przebiegi | 2, odwołanie w przód = najdłuższa forma | wieloprzebiegowy + linker | wieloprzebiegowy + linker | 2 + linker (`aslink`) |
 | Wybór formy jak oryginał | tak (zero page/absolutny, błąd „not available”) | tak (smart mode) | tak | tak (direct/extended) |
 | Makra | ✅ (`.macro`/`.endmacro`, `MACRO`/`ENDM`, parametry + domyślne, `.LOCAL`) | ✅ | ✅ | ✅ |
@@ -25,7 +25,9 @@ Kolumny: **CR** = `src/CathodeRay.Assembler`, **ca65** (6502), **z80asm**
 
 ## 2. Braki CR (uporządkowane po koszcie)
 
-1. **Cel 6800** — w porównaniu tylko kolumna referencyjna, brak targetu.
+Brak otwartych punktów — wszystko z listy domknięte. Kolejne kroki do rozważenia:
+pełny linker modułów z `GLOBAL`/`EXTRN` jest zrobiony (plan 10), więc naturalne
+następne tematy to np. listing z gałęziami warunkowymi albo format S-record dla 6800.
 
 ## 3. Co CR robi dobrze (przewagi do utrzymania)
 
@@ -74,8 +76,12 @@ Kolumny: **CR** = `src/CathodeRay.Assembler`, **ca65** (6502), **z80asm**
   `.define` (tekstowe i funkcyjne), `.ifblank`/`.ifnblank`, `.paramcount`,
   test `Longtail/6502` bajt w bajt z ca65 — `Longtail/README.md`, generator
   `tools/make_longtail_golden.py`.
-- **Dialekty jako dane** (`SyntaxDialect`): ca65/MOS/Intel/Stub/Zilog.
+- **Cel Motorola 6800** (2026-09-28): `M6800Set` (szablony `#d8/#d16/d8/a16/d8,X/rel`,
+  big-endian), dialekt `motorola` (małe litery jak as6800, `EQU`, `FCB/FDB/FCC/RMB`),
+  `--cpu 6800`, 194 opcode'y z `tools/make_6800_isa.py`, test `Asm/6800`
+  (opcodes + program + rejected, bajt w bajt z as6800).
+- **Dialekty jako dane** (`SyntaxDialect`): ca65/MOS/Intel/Stub/Zilog/Motorola.
 
 ## 4. Proponowana kolejność domknięć
 
-Wszystkie punkty z 2026-09-28 zrobione (05–12). Został §2 powyżej.
+Wszystkie punkty z 2026-09-28 zrobione (05–13). Lista braków pusta (§2).

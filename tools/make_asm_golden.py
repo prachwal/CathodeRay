@@ -119,9 +119,74 @@ def golden_8080() -> None:
     print(f"8080: {len(lines)} instructions")
 
 
+def as6800(source: str) -> bytes | None:
+    with tempfile.TemporaryDirectory() as tmp:
+        t = pathlib.Path(tmp)
+        (t / "p.s").write_text(source)
+        ok = (
+            subprocess.run(
+                ["as6800", "-l", "p.lst", "-o", "p.o", "p.s"],
+                cwd=t,
+                capture_output=True,
+            ).returncode
+            == 0
+        )
+        if not ok:
+            return None
+        out = bytearray()
+        for raw in (t / "p.lst").read_text().splitlines():
+            match = re.match(r"^0 ([0-9A-F]{4}) : ((?:[0-9A-F]{2} ?)+)", raw)
+            if match:
+                out += bytes.fromhex(match.group(2))
+        return bytes(out)
+
+
+def golden_6800() -> None:
+    out = OUT / "6800"
+    out.mkdir(parents=True, exist_ok=True)
+    lines = []
+    branches = 0
+    for e in json.loads(
+        (ROOT / "data" / "instructions" / "mcp_6800_instructions.json").read_text()
+    )["instructions"]:
+        line = e["mnemonic"].lower().replace("#d16", "#$1234").replace("#d8", "#$12")
+        line = re.sub(r"\bd8,x\b", "$12,x", line)
+        line = re.sub(r"\bd8\b", "$12", line)
+        line = re.sub(r"\ba16\b", "$1234", line)
+        if line.endswith(" rel"):
+            branches += 1
+            line = line.replace(" rel", f" tgt{branches}\ntgt{branches}:")
+        if line not in lines:
+            lines.append(line)
+    source = (
+        "; Wygenerowane przez tools/make_asm_golden.py z as6800\n\torg $0600\n"
+        + "".join(f"\t{l}\n" for l in lines)
+    )
+    binary = as6800(source)
+    if binary is None:
+        raise SystemExit("as6800 rejects Asm/6800/opcodes.s")
+    (out / "opcodes.s").write_text(source)
+    (out / "opcodes.bin").write_bytes(binary)
+    print(f"6800: {len(lines)} instructions")
+    rejected = ["ldaa $100,x", "jmp $100,x", "staa #$12"]
+    for line in rejected:
+        if as6800(f"\torg $0600\n\t{line}\n") is not None:
+            raise SystemExit(f"as6800 accepts rejected line '{line}'")
+    (out / "rejected.txt").write_text("\n".join(rejected) + "\n")
+    for hand in sorted(out.glob("*.s")):
+        if hand.name != "opcodes.s":
+            binary = as6800(hand.read_text())
+            if binary is None:
+                raise SystemExit(f"as6800 rejects {hand}")
+            hand.with_suffix(".bin").write_bytes(binary)
+
+
+
+
 def main() -> None:
     golden_z80()
     golden_8080()
+    golden_6800()
     lines = candidates()
     for folder, cpu in CPUS.items():
         out = OUT / folder
