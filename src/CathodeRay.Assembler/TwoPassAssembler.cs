@@ -166,6 +166,17 @@ public sealed class TwoPassAssembler(InstructionSet isa, SyntaxDialect dialect)
         /// <summary>Relokacje zebrane w przebiegu (tylko tryb obiektu).</summary>
         public List<Relocation> Relocations { get; } = [];
 
+        /// <summary>Komunikaty <c>.out</c>/<c>.warning</c> (tylko przebieg finalny).</summary>
+        public List<AsmMessage> Messages { get; } = [];
+
+        public void Notify(string text, bool warning)
+        {
+            if (final)
+            {
+                Messages.Add(new AsmMessage(_line.File, _line.Number, text, warning));
+            }
+        }
+
         public void Run(IReadOnlyList<SourceLine> lines)
         {
             var conditionals = new Stack<ConditionalFrame>();
@@ -235,7 +246,7 @@ public sealed class TwoPassAssembler(InstructionSet isa, SyntaxDialect dialect)
                     return new SegmentSpan(name, segment.Min, end, !segment.Emit);
                 })
                 .ToList();
-            return new AssemblyResult(Math.Max(low, 0), image, symbols, _listing, spans);
+            return new AssemblyResult(Math.Max(low, 0), image, symbols, _listing, spans, Messages);
         }
 
         /// <summary>Eksportuje moduł obiektu (po czystym przebiegu w trybie obiektu).</summary>
@@ -680,6 +691,13 @@ public sealed class TwoPassAssembler(InstructionSet isa, SyntaxDialect dialect)
                     bool parent = conditionals.All(static f => f.Active);
                     bool taken = parent && EvaluateCondition(line);
                     conditionals.Push(new ConditionalFrame(line.Number, line.File, parent, taken, elseSeen: false, taken));
+                    break;
+                case ConditionalKind.IfBlank:
+                case ConditionalKind.IfNBlank:
+                    bool outer = conditionals.All(static f => f.Active);
+                    bool blank = line.Operand is null || line.Operand.Trim().Length == 0;
+                    bool branch = conditional.Kind == ConditionalKind.IfBlank ? blank : !blank;
+                    conditionals.Push(new ConditionalFrame(line.Number, line.File, outer, outer && branch, elseSeen: false, outer && branch));
                     break;
                 case ConditionalKind.ElseIf:
                     ConditionalFrame elif = PopConditional(conditionals, "'.elseif' without '.if'.");

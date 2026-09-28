@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text.RegularExpressions;
 using CathodeRay.Assembler.Directives;
 using CathodeRay.Assembler.Syntax;
@@ -20,6 +21,7 @@ internal static partial class MacroExpander
     public static IReadOnlyList<SourceLine> Expand(
         IReadOnlyList<SourceLine> lines, SyntaxDialect dialect, Func<string, bool> isKeyword)
     {
+        lines = ExpandDefines(lines, dialect);
         var names = CollectNames(lines, dialect);
         Func<string, bool> keywords = word => isKeyword(word) || names.Contains(word);
         var reparsed = lines
@@ -28,6 +30,259 @@ internal static partial class MacroExpander
         var (macros, code) = CollectDefinitions(reparsed, dialect);
         int counter = 0;
         return ExpandCalls(code, macros, dialect, ref counter, depth: 0, stack: []);
+    }
+
+    private static IReadOnlyList<SourceLine> ExpandDefines(IReadOnlyList<SourceLine> lines, SyntaxDialect dialect)
+    {
+        var defines = new List<DefineDef>();
+        var output = new List<SourceLine>();
+        foreach (SourceLine line in lines)
+        {
+            if (line.Keyword is not null
+                && dialect.Directives.TryGetValue(line.Keyword, out IDirective? directive)
+                && directive is DefineDirective)
+            {
+                if (line.Label is not null)
+                {
+                    throw At(line, "label on '.define' is not allowed.");
+                }
+
+                DefineDef define = ParseDefine(line);
+                if (defines.Any(d => dialect.SymbolComparer.Equals(d.Name, define.Name)))
+                {
+                    throw At(line, $"'.define' '{define.Name}' is already defined.");
+                }
+
+                defines.Add(define);
+                continue;
+            }
+
+            output.Add(ApplyDefines(line, defines, dialect));
+        }
+
+        return output;
+    }
+
+    private static DefineDef ParseDefine(SourceLine line)
+    {
+        string rest = line.Operand?.Trim() ?? throw At(line, "'.define' needs a name.");
+        int paren = rest.IndexOf('(');
+        string name;
+        string[] parameters = [];
+        string replacement;
+        if (paren < 0)
+        {
+            int end = 0;
+            while (end < rest.Length && !char.IsWhiteSpace(rest[end]))
+            {
+                end++;
+            }
+
+            name = rest[..end];
+            replacement = rest[end..].Trim();
+        }
+        else
+        {
+            name = rest[..paren].Trim();
+            int close = rest.IndexOf(')', paren);
+            if (close < 0)
+            {
+                throw At(line, "')' expected in '.define'.");
+            }
+
+            parameters = SplitArgs(rest[(paren + 1)..close]).Where(static p => p.Length > 0).ToArray();
+            replacement = rest[(close + 1)..].Trim();
+        }
+
+        if (!Expression.IsIdentifier(name))
+        {
+            throw At(line, $"invalid macro name '{name}'.");
+        }
+
+        foreach (string parameter in parameters)
+        {
+            if (!Expression.IsIdentifier(parameter))
+            {
+                throw At(line, $"invalid macro parameter '{parameter}'.");
+            }
+        }
+
+        if (parameters.Length != parameters.Distinct(StringComparer.OrdinalIgnoreCase).Count())
+        {
+            throw At(line, $"duplicate macro parameter in '{line.Text.Trim()}'.");
+        }
+
+        return new DefineDef(name, parameters, replacement, line);
+    }
+
+    private static SourceLine ApplyDefines(SourceLine line, List<DefineDef> defines, SyntaxDialect dialect)
+    {
+        if (defines.Count == 0)
+        {
+            return line;
+        }
+
+        string text = line.Text;
+        var seen = new HashSet<string>(StringComparer.Ordinal) { text };
+        for (int round = 0; round < 32; round++)
+        {
+            bool stable = true;
+            foreach (DefineDef define in defines)
+            {
+                string next = ApplyOneDefine(text, define, line);
+                if (next != text)
+                {
+                    if (!seen.Add(next))
+                    {
+                        throw At(line, "recursive '.define'.");
+                    }
+
+                    text = next;
+                    stable = false;
+                }
+            }
+
+            if (stable)
+            {
+                return line.Text == text
+                    ? line
+                    : LineParser.Parse(line.Number, text, dialect, static _ => false, line.File);
+            }
+        }
+
+        throw At(line, "recursive '.define'.");
+    }
+
+    private static string ApplyOneDefine(string text, DefineDef define, SourceLine line) =>
+        define.Params.Length == 0
+            ? ApplyQuoted(text, part => ApplyPlainDefine(part, define))
+            : ApplyQuoted(text, part => ExpandDefineCalls(part, define, line));
+
+    private static string ApplyQuoted(string text, Func<string, string> apply)
+    {
+        var parts = new List<(string Text, bool Quoted)>();
+        int start = 0;
+        char? quote = null;
+        for (int i = 0; i <= text.Length; i++)
+        {
+            char c = i < text.Length ? text[i] : '\0';
+            if (quote is not null)
+            {
+                if (c == quote)
+                {
+                    parts.Add((text[start..(i + 1)], true));
+                    start = i + 1;
+                    quote = null;
+                }
+            }
+            else if (i < text.Length && Expression.OpensQuote(text, i))
+            {
+                if (i > start)
+                {
+                    parts.Add((text[start..i], false));
+                }
+
+                start = i;
+                quote = c;
+            }
+        }
+
+        if (start < text.Length)
+        {
+            parts.Add((text[start..], false));
+        }
+
+        var result = new System.Text.StringBuilder();
+        foreach ((string part, bool quoted) in parts)
+        {
+            result.Append(quoted ? part : apply(part));
+        }
+
+        return result.ToString();
+    }
+
+    private static string ApplyPlainDefine(string text, DefineDef define) =>
+        Regex.Replace(text, $"(?<![A-Za-z0-9_?@]){Regex.Escape(define.Name)}(?![A-Za-z0-9_?@(])", define.Replacement);
+
+    private static string ExpandDefineCalls(string text, DefineDef define, SourceLine line)
+    {
+        var result = new System.Text.StringBuilder();
+        int pos = 0;
+        while (pos < text.Length)
+        {
+            Match match = Regex.Match(text[pos..], $"(?<![A-Za-z0-9_?@]){Regex.Escape(define.Name)}(?![A-Za-z0-9_?@])");
+            if (!match.Success)
+            {
+                result.Append(text[pos..]);
+                break;
+            }
+
+            int at = pos + match.Index;
+            int cursor = at + match.Length;
+            while (cursor < text.Length && char.IsWhiteSpace(text[cursor]))
+            {
+                cursor++;
+            }
+
+            if (cursor >= text.Length || text[cursor] != '(')
+            {
+                result.Append(text[pos..(at + match.Length)]);
+                pos = at + match.Length;
+                continue;
+            }
+
+            int depth = 0;
+            char? quote = null;
+            int end = -1;
+            for (int i = cursor; i < text.Length; i++)
+            {
+                char c = text[i];
+                if (quote is not null)
+                {
+                    quote = c == quote ? null : quote;
+                }
+                else if (c is '"' or '\'')
+                {
+                    quote = c;
+                }
+                else if (c is '(')
+                {
+                    depth++;
+                }
+                else if (c is ')')
+                {
+                    depth--;
+                    if (depth == 0)
+                    {
+                        end = i;
+                        break;
+                    }
+                }
+            }
+
+            if (end < 0)
+            {
+                throw At(line, $"')' expected in '.define' call '{define.Name}'.");
+            }
+
+            string[] args = SplitArgs(text[(cursor + 1)..end]);
+            if (args.Length != define.Params.Length)
+            {
+                throw At(line, $"'{define.Name}' takes {define.Params.Length} parameters, got {args.Length}.");
+            }
+
+            string expanded = define.Replacement;
+            for (int p = 0; p < define.Params.Length; p++)
+            {
+                expanded = Regex.Replace(expanded, $"(?<![A-Za-z0-9_?@]){Regex.Escape(define.Params[p])}(?![A-Za-z0-9_?@])", args[p].Trim());
+            }
+
+            result.Append(text[pos..at]);
+            result.Append(expanded);
+            pos = end + 1;
+        }
+
+        return result.ToString();
     }
 
     private static HashSet<string> CollectNames(IReadOnlyList<SourceLine> lines, SyntaxDialect dialect)
@@ -141,13 +396,17 @@ internal static partial class MacroExpander
                 throw At(line, $"too many macro parameters for '{macro.Name}' (takes {macro.Params.Length}, got {args.Length}).");
             }
 
+            int given = args.Length;
             while (args.Length < macro.Params.Length)
             {
                 args = [.. args, string.Empty];
             }
 
             counter++;
-            var map = new Dictionary<string, string>(dialect.SymbolComparer);
+            var map = new Dictionary<string, string>(dialect.SymbolComparer)
+            {
+                [".paramcount"] = given.ToString(CultureInfo.InvariantCulture),
+            };
             for (int p = 0; p < macro.Params.Length; p++)
             {
                 string provided = p < args.Length ? args[p] : string.Empty;
@@ -373,4 +632,6 @@ internal static partial class MacroExpander
         new(line.Number, message, line.File);
 
     private sealed record MacroDefinition(string Name, string[] Params, Dictionary<string, string> Defaults, IReadOnlyList<SourceLine> Body, SourceLine DefinedAt);
+
+    private sealed record DefineDef(string Name, string[] Params, string Replacement, SourceLine DefinedAt);
 }

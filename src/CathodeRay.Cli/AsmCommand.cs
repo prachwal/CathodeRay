@@ -141,6 +141,19 @@ internal static class AsmCommand
             parse.InvocationConfiguration.Output.WriteLine(string.Create(
                 CultureInfo.InvariantCulture,
                 $"{src.Name} -> {dst.Name} ({result.Image.Length} B, load ${result.Origin:X4}, cpu {target.Name}, syntax {dialect.Name})"));
+            foreach (AsmMessage message in result.Messages)
+            {
+                string at = message.File is null ? $"line {message.Line}" : $"{message.File}:{message.Line}";
+                if (message.Warning)
+                {
+                    error.WriteLine($"{at}: Warning: {message.Text}");
+                }
+                else
+                {
+                    parse.InvocationConfiguration.Output.WriteLine(message.Text);
+                }
+            }
+
             return 0;
         });
         return command;

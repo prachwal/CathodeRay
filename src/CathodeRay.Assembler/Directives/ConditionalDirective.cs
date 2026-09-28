@@ -12,6 +12,12 @@ internal enum ConditionalKind
     /// <summary>Gałąź zapasowa: <c>.else</c>, <c>ELSE</c>.</summary>
     Else,
 
+    /// <summary>Test pustki reszty linii: <c>.ifblank</c> (jak ca65, głównie do parametrów makr).</summary>
+    IfBlank,
+
+    /// <summary>Test niepustki reszty linii: <c>.ifnblank</c>.</summary>
+    IfNBlank,
+
     /// <summary>Koniec bloku: <c>.endif</c>, <c>ENDIF</c>.</summary>
     EndIf,
 }

@@ -60,6 +60,21 @@ public static class Directive
     /// <summary>Koniec procedury (<c>.endproc</c>).</summary>
     public static IDirective EndProc { get; } = new ScopeDirective(ScopeKind.EndProc);
 
+    /// <summary>Wypisuje komunikat (<c>.out</c>).</summary>
+    public static IDirective Out { get; } = new OutDirective();
+
+    /// <summary>Ostrzeżenie (<c>.warning</c>).</summary>
+    public static IDirective Warning { get; } = new WarningDirective();
+
+    /// <summary>Błąd użytkownika (<c>.error</c>).</summary>
+    public static IDirective Error { get; } = new ErrorDirective();
+
+    /// <summary>Asercja (<c>.assert</c>).</summary>
+    public static IDirective Assert { get; } = new AssertDirective();
+
+    /// <summary>Makro liniowe (<c>.define</c>, pre-pass tekstowy).</summary>
+    public static IDirective Define { get; } = new DefineDirective();
+
     /// <summary>Eksportuje symbole (<c>GLOBAL</c>, <c>.global</c>).</summary>
     public static IDirective Global { get; } = new GlobalDirective();
 
@@ -74,6 +89,12 @@ public static class Directive
 
     /// <summary>Blok warunkowy: <c>.else</c> / <c>ELSE</c>.</summary>
     public static IDirective Else { get; } = new ConditionalDirective(ConditionalKind.Else);
+
+    /// <summary>Test pustki: <c>.ifblank</c>.</summary>
+    public static IDirective IfBlank { get; } = new ConditionalDirective(ConditionalKind.IfBlank);
+
+    /// <summary>Test niepustki: <c>.ifnblank</c>.</summary>
+    public static IDirective IfNBlank { get; } = new ConditionalDirective(ConditionalKind.IfNBlank);
 
     /// <summary>Blok warunkowy: <c>.endif</c> / <c>ENDIF</c>.</summary>
     public static IDirective EndIf { get; } = new ConditionalDirective(ConditionalKind.EndIf);

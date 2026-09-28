@@ -8,12 +8,14 @@ namespace CathodeRay.Assembler;
 /// <param name="Symbols">Etykiety i stałe.</param>
 /// <param name="Listing">Linie listingu w kolejności źródła.</param>
 /// <param name="Segments">Zakresy segmentów w kolejności pierwszego użycia (jeden wpis dla programów bez segmentów).</param>
+/// <param name="Messages">Komunikaty <c>.out</c>/<c>.warning</c> w kolejności źródła.</param>
 public sealed record AssemblyResult(
     int Origin,
     byte[] Image,
     IReadOnlyDictionary<string, int> Symbols,
     IReadOnlyList<ListingLine> Listing,
-    IReadOnlyList<SegmentSpan>? Segments = null)
+    IReadOnlyList<SegmentSpan>? Segments = null,
+    IReadOnlyList<AsmMessage>? Messages = null)
 {
     private const int BytesPerRow = 4;
 
@@ -21,6 +23,9 @@ public sealed record AssemblyResult(
 
     /// <summary>Zakresy segmentów (puste = sprzed segmentów).</summary>
     public IReadOnlyList<SegmentSpan> Segments { get; } = Segments ?? [];
+
+    /// <summary>Komunikaty <c>.out</c>/<c>.warning</c> w kolejności źródła.</summary>
+    public IReadOnlyList<AsmMessage> Messages { get; } = Messages ?? [];
 
     /// <summary>Wypisuje listing jak oryginalne asemblery: adres, bajty, numer linii, źródło.</summary>
     /// <param name="output">Wyjście.</param>

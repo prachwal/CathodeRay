@@ -25,9 +25,7 @@ Kolumny: **CR** = `src/CathodeRay.Assembler`, **ca65** (6502), **z80asm**
 
 ## 2. Braki CR (uporządkowane po koszcie)
 
-1. **Dyrektywy ca65 long-tail** (`~100` drobnych: `.out`, `.warning`,
-   `.define` i in., w tym `.ifnblank`/`.paramcount` do makr).
-2. **Cel 6800** — w porównaniu tylko kolumna referencyjna, brak targetu.
+1. **Cel 6800** — w porównaniu tylko kolumna referencyjna, brak targetu.
 
 ## 3. Co CR robi dobrze (przewagi do utrzymania)
 
@@ -72,8 +70,12 @@ Kolumny: **CR** = `src/CathodeRay.Assembler`, **ca65** (6502), **z80asm**
   anonimowe `.scope` ukrywają symbole, kontekst tanich `@` jak w ca65
   (`.proc` niesie, `.scope`/pop czyści), test `Scopes/` (6502/6502x/65c02
   bajt w bajt z ca65) — generator `tools/make_scopes_golden.py`.
+- **Dyrektywy long-tail** (2026-09-28): `.out`/`.warning`/`.error`/`.assert`,
+  `.define` (tekstowe i funkcyjne), `.ifblank`/`.ifnblank`, `.paramcount`,
+  test `Longtail/6502` bajt w bajt z ca65 — `Longtail/README.md`, generator
+  `tools/make_longtail_golden.py`.
 - **Dialekty jako dane** (`SyntaxDialect`): ca65/MOS/Intel/Stub/Zilog.
 
 ## 4. Proponowana kolejność domknięć
 
-Wszystkie punkty z 2026-09-28 zrobione (05–11). Zostały §2 powyżej.
+Wszystkie punkty z 2026-09-28 zrobione (05–12). Został §2 powyżej.

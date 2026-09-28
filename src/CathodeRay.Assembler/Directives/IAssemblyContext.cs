@@ -63,4 +63,10 @@ public interface IAssemblyContext
     /// <param name="message">Opis.</param>
     /// <returns>Wyjątek do rzucenia.</returns>
     AssemblerException Error(string message);
+
+    /// <summary>Komunikat asemblacji (<c>.out</c> informacyjny, <c>.warning</c> ostrzeżenie);
+    /// zbierany tylko w przebiegu finalnym (bez dubli z pass 1).</summary>
+    /// <param name="text">Treść.</param>
+    /// <param name="warning">Czy ostrzeżenie.</param>
+    void Notify(string text, bool warning);
 }
