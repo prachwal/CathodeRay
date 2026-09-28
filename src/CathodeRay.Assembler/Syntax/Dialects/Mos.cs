@@ -19,6 +19,10 @@ public static partial class SyntaxDialects
             (".BYTE", Directive.Byte),
             (".WORD", Directive.Word),
             (".INCLUDE", Directive.Include),
+            (".IF", Directive.If),
+            (".ELSEIF", Directive.ElseIf),
+            (".ELSE", Directive.Else),
+            (".ENDIF", Directive.EndIf),
             (".END", Directive.End)),
     };
 }

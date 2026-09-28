@@ -14,7 +14,7 @@ Kolumny: **CR** = `src/CathodeRay.Assembler`, **ca65** (6502), **z80asm**
 | Przebiegi | 2, odwołanie w przód = najdłuższa forma | wieloprzebiegowy + linker | wieloprzebiegowy + linker | 2 + linker (`aslink`) |
 | Wybór formy jak oryginał | tak (zero page/absolutny, błąd „not available”) | tak (smart mode) | tak | tak (direct/extended) |
 | Makra | ❌ | ✅ (`.macro`, `.define`) | ✅ (`MACRO`) | ✅ (`.macro`) |
-| Asemblacja warunkowa | ❌ | ✅ (`.if/.ifdef/.else`) | ✅ (`IF/ELSE/ENDIF`) | ✅ (`.if/.else/.endif`) |
+| Asemblacja warunkowa | ✅ (`.if/.elseif/.else/.endif`, `IF/ELIF/ELSE/ENDIF`; operatory relacyjne) | ✅ | ✅ | ✅ |
 | Include | ✅ (`.include`/`INCLUDE`, cykle, `--incdir`; bez `.incbin`) | ✅ | ✅ | ✅ |
 | Moduły + linker | ❌ (jeden plik → `.bin`) | ✅ (`ld65`, segmenty) | ✅ (sekcje, biblioteki) | ✅ (obszary, `aslink`) |
 | Listing | ✅ (`-l`, adres + bajty) | ✅ (+ mapa z linkera) | ✅ (`LSTON/LSTOFF`) | ✅ (`.list/.nlist`) |
@@ -28,13 +28,11 @@ Kolumny: **CR** = `src/CathodeRay.Assembler`, **ca65** (6502), **z80asm**
 1. **Makra** — największa dziura funkcjonalna. Bez nich powtarzalne sekwencje
    (tablice wektorów, prologi) trzeba rozwijać ręcznie.
 2. **`.incbin`** — include działa, wplatania binarek brak.
-3. **Asemblacja warunkowa** (`.if/.else`) — brak kompilacji wariantów
-   (np. debug/release, różne rewizje płyt).
-4. **Linker / segmenty** — jeden moduł, adresowanie tylko przez `ORG`.
+3. **Linker / segmenty** — jeden moduł, adresowanie tylko przez `ORG`.
    Powiązane: brak `.align`, `.res` poza `DS`, brak wyjścia HEX.
-5. **Symbole lokalne i zakresy** — przy większych źródłach globalne etykiety
+4. **Symbole lokalne i zakresy** — przy większych źródłach globalne etykiety
    kolizyjne (`loop` w dwóch procedurach).
-6. **Raportowanie** — stop na pierwszym błędzie; oryginały zwracają listę.
+5. **Raportowanie** — stop na pierwszym błędzie; oryginały zwracają listę.
 
 ## 3. Co CR robi dobrze (przewagi do utrzymania)
 
@@ -47,12 +45,15 @@ Kolumny: **CR** = `src/CathodeRay.Assembler`, **ca65** (6502), **z80asm**
 - **Wieloplikowość** (2026-09-28): `.include`/`INCLUDE` we wszystkich dialektach,
   ekspansja przed pass 1, cykle i `--incdir`, test `Link/` (9 przypadków, bajt
   w bajt z ca65/z80asm) — `Link/README.md`, generator `tools/make_link_golden.py`.
+- **Asemblacja warunkowa** (2026-09-28): `.if/.elseif/.else/.endif` i
+  `IF/ELIF/ELSE/ENDIF` (intel bez ELIF, jak ASM80), operatory relacyjne
+  `= == != <> < <= > >=` w `Expression`, test `Cond/` (6 CPU bajt w bajt
+  z ca65/z80asm) — `Cond/README.md`, generator `tools/make_cond_golden.py`.
 - **Dialekty jako dane** (`SyntaxDialect`): ca65/MOS/Intel/Stub/Zilog.
 
 ## 4. Proponowana kolejność domknięć
 
 1. Symbole lokalne (tanie etykiety) + `.incbin` — reszta wieloplikowości.
-2. Asemblacja warunkowa (prosty `.if` na wyrażeniach — rdzeń już liczy).
-3. Makra bezparametryczne → z parametrami.
+2. Makra bezparametryczne → z parametrami.
 4. Linker/segmenty albo przynajmniej `.align` + Intel HEX (mniejszy krok).
 5. Zbieranie wszystkich błędów zamiast stopu na pierwszym.

@@ -21,6 +21,10 @@ public static partial class SyntaxDialects
             (".addr", Directive.Word),
             (".res", Directive.Reserve),
             (".include", Directive.Include),
+            (".if", Directive.If),
+            (".elseif", Directive.ElseIf),
+            (".else", Directive.Else),
+            (".endif", Directive.EndIf),
             (".end", Directive.End)),
     };
 }

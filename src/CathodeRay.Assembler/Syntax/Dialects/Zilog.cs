@@ -23,6 +23,10 @@ public static partial class SyntaxDialects
             ("DS", Directive.Reserve),
             ("DEFS", Directive.Reserve),
             ("INCLUDE", Directive.Include),
+            ("IF", Directive.If),
+            ("ELIF", Directive.ElseIf),
+            ("ELSE", Directive.Else),
+            ("ENDIF", Directive.EndIf),
             ("END", Directive.End)),
     };
 }

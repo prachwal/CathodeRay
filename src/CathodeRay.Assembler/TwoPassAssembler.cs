@@ -94,6 +94,7 @@ public sealed class TwoPassAssembler(InstructionSet isa, SyntaxDialect dialect)
 
         public void Run(IReadOnlyList<SourceLine> lines)
         {
+            var conditionals = new Stack<ConditionalFrame>();
             for (int index = 0; index < lines.Count && !_stopped; index++)
             {
                 SourceLine line = lines[index];
@@ -103,7 +104,14 @@ public sealed class TwoPassAssembler(InstructionSet isa, SyntaxDialect dialect)
                 _lineStart = start;
                 try
                 {
-                    Process(line, index);
+                    if (IsConditional(line))
+                    {
+                        HandleConditional(line, conditionals);
+                    }
+                    else if (conditionals.All(static f => f.Active))
+                    {
+                        Process(line, index);
+                    }
                 }
                 catch (FormatException e)
                 {
@@ -112,6 +120,12 @@ public sealed class TwoPassAssembler(InstructionSet isa, SyntaxDialect dialect)
 
                 int address = _lineBytes.Count > 0 ? start : ProgramCounter;
                 _listing.Add(new ListingLine(line.Number, address, [.. _lineBytes], line.Text, line.File));
+            }
+
+            if (conditionals.Count > 0)
+            {
+                ConditionalFrame open = conditionals.Peek();
+                throw new AssemblerException(open.Number, $"unterminated .if (opened here).", open.File);
             }
         }
 
@@ -171,6 +185,61 @@ public sealed class TwoPassAssembler(InstructionSet isa, SyntaxDialect dialect)
         public void Stop() => _stopped = true;
 
         public AssemblerException Error(string message) => new(_line.Number, message, _line.File);
+
+        private bool IsConditional(SourceLine line) =>
+            line.Keyword is not null
+            && owner.Dialect.Directives.TryGetValue(line.Keyword, out IDirective? directive)
+            && directive is ConditionalDirective;
+
+        private void HandleConditional(SourceLine line, Stack<ConditionalFrame> conditionals)
+        {
+            if (line.Label is not null)
+            {
+                Define(line.Label, ProgramCounter);
+            }
+
+            var conditional = (ConditionalDirective)owner.Dialect.Directives[line.Keyword!];
+            switch (conditional.Kind)
+            {
+                case ConditionalKind.If:
+                    bool parent = conditionals.All(static f => f.Active);
+                    bool taken = parent && EvaluateCondition(line);
+                    conditionals.Push(new ConditionalFrame(line.Number, line.File, parent, taken, elseSeen: false, taken));
+                    break;
+                case ConditionalKind.ElseIf:
+                    ConditionalFrame elif = PopConditional(conditionals, "'.elseif' without '.if'.");
+                    if (elif.ElseSeen)
+                    {
+                        throw Error("'.elseif' after '.else'.");
+                    }
+
+                    elif.Active = elif.ParentActive && !elif.Taken && EvaluateCondition(line);
+                    elif.Taken |= elif.Active;
+                    conditionals.Push(elif);
+                    break;
+                case ConditionalKind.Else:
+                    ConditionalFrame els = PopConditional(conditionals, "'.else' without '.if'.");
+                    if (els.ElseSeen)
+                    {
+                        throw Error("multiple '.else'.");
+                    }
+
+                    els.ElseSeen = true;
+                    els.Active = els.ParentActive && !els.Taken;
+                    els.Taken = true;
+                    conditionals.Push(els);
+                    break;
+                default:
+                    PopConditional(conditionals, "'.endif' without '.if'.");
+                    break;
+            }
+        }
+
+        private ConditionalFrame PopConditional(Stack<ConditionalFrame> conditionals, string message) =>
+            conditionals.Count > 0 ? conditionals.Pop() : throw Error(message);
+
+        private bool EvaluateCondition(SourceLine line) =>
+            Evaluate(line.Operand ?? throw Error($"'{line.Keyword}' needs a condition.")) != 0;
 
         private int? Lookup(string name) =>
             symbols.TryGetValue(name, out int value) ? value : final ? throw new FormatException($"undefined symbol '{name}'.") : null;
@@ -279,6 +348,27 @@ public sealed class TwoPassAssembler(InstructionSet isa, SyntaxDialect dialect)
                         : (byte)offset);
                     break;
             }
+        }
+
+        private sealed class ConditionalFrame(
+            int number,
+            string? file,
+            bool parentActive,
+            bool taken,
+            bool elseSeen,
+            bool active)
+        {
+            public int Number => number;
+
+            public string? File => file;
+
+            public bool ParentActive => parentActive;
+
+            public bool Taken { get; set; } = taken;
+
+            public bool ElseSeen { get; set; } = elseSeen;
+
+            public bool Active { get; set; } = active;
         }
     }
 }

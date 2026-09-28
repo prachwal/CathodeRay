@@ -13,6 +13,10 @@ public static partial class SyntaxDialects
         Directives = SyntaxDialect.DirectiveTable(
             (".org", Directive.Org),
             (".byte", Directive.Byte),
-            (".include", Directive.Include)),
+            (".include", Directive.Include),
+            (".if", Directive.If),
+            (".elseif", Directive.ElseIf),
+            (".else", Directive.Else),
+            (".endif", Directive.EndIf)),
     };
 }
