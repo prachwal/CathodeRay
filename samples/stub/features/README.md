@@ -1,0 +1,32 @@
+# Showcase mechanik asemblera (CPU stub)
+
+Dwa programy pokazujące prawie wszystkie mechaniki z `docs/assembler-capability-gaps.md`:
+
+## main.asm (+ defs.inc, blob.bin)
+
+Jeden moduł: `.include`, `.define` (tekstowe i funkcyjne), `.macro`
+(parametry, domyślne, `.local`, `.paramcount`), `.if`/`.elseif`/`.else`,
+`.ifblank`, tanie etykiety `@`, zakresy `.scope`/`.proc` z `::`,
+`.out`/`.warning`/`.assert`, `.incbin`, `.align`.
+
+```sh
+cathode asm samples/stub/features/main.asm --cpu stub -o /tmp/feat.bin -l /tmp/feat.lst
+cathode stub run /tmp/feat.bin --dump 0x40:8
+```
+
+Program sumuje `blob.bin` (1+2+3+4) do `total`, podwaja przez `MODE`
+i odkłada znaczniki gałęzi. Oczekiwane: `total = 20`, `variant = 1`,
+`doubled = 4`, `z1 = 0`, `z2 = 5`, `pcc = 2`, `X = 0`, `SP = FF`.
+
+## link/ (main.s, lib.s, map.cfg)
+
+Dwa moduły + konsolidacja: `.segment`, `GLOBAL`/`EXTERN`, `cathode link`.
+
+```sh
+cathode asm samples/stub/features/link/main.s --cpu stub -f obj -o /tmp/m0.o
+cathode asm samples/stub/features/link/lib.s --cpu stub -f obj -o /tmp/m1.o
+cathode link /tmp/m0.o /tmp/m1.o -m samples/stub/features/link/map.cfg -o /tmp/prog.bin
+cathode stub run /tmp/prog.bin --dump 0x0C:2
+```
+
+Oczekiwane: `result = 15` (5 + 10 z drugiego modułu).
