@@ -195,7 +195,7 @@ public class StubCpu : ICpu<StubState>
             or StubOperation.Tax or StubOperation.Txa or StubOperation.Clc or StubOperation.Sec
             or StubOperation.Push or StubOperation.Pop or StubOperation.Ret or StubOperation.Hlt
             or StubOperation.Shl or StubOperation.Shr or StubOperation.Not => mode == OperandMode.None,
-        StubOperation.Sta or StubOperation.Jmp or StubOperation.Bne or StubOperation.Beq or StubOperation.Call => IsAddress(mode),
+        StubOperation.Sta or StubOperation.Jmp or StubOperation.Bne or StubOperation.Beq or StubOperation.Bcs or StubOperation.Bcc or StubOperation.Call => IsAddress(mode),
         _ => mode == OperandMode.Immediate8 || IsAddress(mode),
     };
 
@@ -309,6 +309,12 @@ public class StubCpu : ICpu<StubState>
                 break;
             case StubOperation.Beq:
                 StubOps.Beq(state, address);
+                break;
+            case StubOperation.Bcs:
+                StubOps.Bcs(state, address);
+                break;
+            case StubOperation.Bcc:
+                StubOps.Bcc(state, address);
                 break;
             case StubOperation.Hlt:
                 StubOps.Hlt(state);

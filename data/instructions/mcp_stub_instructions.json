@@ -539,6 +539,38 @@
       "variants": null
     },
     {
+      "opcode": "26",
+      "mnemonic": "BCS",
+      "cycles": 3,
+      "words": 3,
+      "semantics": "PC = a16, gdy C = 1",
+      "group": "jump",
+      "encoding": null,
+      "operands": [
+        {
+          "name": "a16",
+          "type": "address16"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "27",
+      "mnemonic": "BCC",
+      "cycles": 3,
+      "words": 3,
+      "semantics": "PC = a16, gdy C = 0",
+      "group": "jump",
+      "encoding": null,
+      "operands": [
+        {
+          "name": "a16",
+          "type": "address16"
+        }
+      ],
+      "variants": null
+    },
+    {
       "opcode": "FF",
       "mnemonic": "HLT",
       "cycles": 1,

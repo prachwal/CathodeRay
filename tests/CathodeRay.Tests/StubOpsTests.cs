@@ -393,4 +393,28 @@ public sealed class StubOpsTests
         state.A.Should().Be((byte)a);
         state.Overflow.Should().BeTrue();
     }
+
+    [Theory]
+    [InlineData(true, 0x1234)]
+    [InlineData(false, 0x0010)]
+    public void Bcs_Branches_Only_When_Carry(bool carry, int expectedPc)
+    {
+        var state = new StubState { Carry = carry, ProgramCounter = 0x0010 };
+
+        StubOps.Bcs(state, 0x1234);
+
+        state.ProgramCounter.Should().Be((ushort)expectedPc);
+    }
+
+    [Theory]
+    [InlineData(false, 0x1234)]
+    [InlineData(true, 0x0010)]
+    public void Bcc_Branches_Only_When_No_Carry(bool carry, int expectedPc)
+    {
+        var state = new StubState { Carry = carry, ProgramCounter = 0x0010 };
+
+        StubOps.Bcc(state, 0x1234);
+
+        state.ProgramCounter.Should().Be((ushort)expectedPc);
+    }
 }

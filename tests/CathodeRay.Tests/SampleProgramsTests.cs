@@ -185,6 +185,40 @@ public sealed class SampleProgramsTests
     }
 
     [Fact]
+    public void Divmod_Divides_With_Remainder_And_Zero_Cases()
+    {
+        string dir = Repo.Path("samples", "stub", "features");
+        string entry = Path.Combine(dir, "divtest.asm");
+        string source = "LDI 42\nLDX 5\nCALL divmod\nSTA q1\nTXA\nSTA r1\nLDI 0\nLDX 7\nCALL divmod\nSTA q2\nTXA\nSTA r2\nLDI 7\nLDX 0\nCALL divmod\nSTA q3\nTXA\nSTA r3\nHLT\nq1: .byte 0\nr1: .byte 0\nq2: .byte 0\nr2: .byte 0\nq3: .byte 0\nr3: .byte 0\n.include \"mathlib.s\"\n";
+        AssemblerTarget target = AssemblerTargets.Find("stub")!;
+        static string? Read(string path) => File.Exists(path) ? File.ReadAllText(path) : null;
+        AssemblyResult result = new TwoPassAssembler(Repo.LoadTarget(target), target.DefaultSyntax)
+            .Assemble(source, entry, Read);
+
+        StubIsa isa = StubIsa.FromJsonFile(Repo.IsaFile("mcp_stub_instructions.json"));
+        var bus = new StubBus();
+        for (int i = 0; i < result.Image.Length; i++)
+        {
+            bus.Write((ushort)i, result.Image[i]);
+        }
+
+        var cpu = new StubCpu(isa, bus);
+        for (int steps = 0; !cpu.State.Halted; steps++)
+        {
+            steps.Should().BeLessThan(10_000, "program ma się zatrzymać");
+            cpu.Step();
+        }
+
+        bus.Read((ushort)result.Symbols["q1"]).Should().Be(8);
+        bus.Read((ushort)result.Symbols["r1"]).Should().Be(2);
+        bus.Read((ushort)result.Symbols["q2"]).Should().Be(0);
+        bus.Read((ushort)result.Symbols["r2"]).Should().Be(0);
+        bus.Read((ushort)result.Symbols["q3"]).Should().Be(0);
+        bus.Read((ushort)result.Symbols["r3"]).Should().Be(0);
+        cpu.State.StackPointer.Should().Be(0xFF);
+    }
+
+    [Fact]
     public void Sum_Stores_Result()
     {
         var (cpu, bus) = Run("sum.asm");

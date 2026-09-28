@@ -1,0 +1,30 @@
+{
+  "title": "Stub: skoki od carry BCS/BCC + divmod w lib",
+  "status": "closed",
+  "items": [
+    {
+      "id": "1",
+      "title": "Semantyka: BCS 26 / BCC 27 (a16 absolutne, 3 cykle, jak BNE/BEQ)",
+      "status": "done",
+      "note": "Gotowe gdy: BCS 26 (PC=a16 gdy C=1), BCC 27 (PC=a16 gdy C=0), a16 absolutne jak BNE/BEQ, 3 cykle, grupa jump"
+    },
+    {
+      "id": "2",
+      "title": "Rdzeń: StubOps + StubCpu + JSON + testy jednostkowe",
+      "status": "done",
+      "note": "Gotowe gdy: StubOps.Bcs/Bcc + gałęzie Execute + Supports IsAddress + wpisy JSON + HaveCount 41 + testy taken/not-taken"
+    },
+    {
+      "id": "3",
+      "title": "divmod w mathlib.s (SELF-MOD operand + BCC) + test",
+      "status": "done",
+      "note": "Gotowe gdy: divmod w mathlib.s (A=n,X=d→A=q,X=rem, dzielnik 0→0, operand SUB łatany) + test 42/5=8 r2, 0/7, 7/0"
+    },
+    {
+      "id": "4",
+      "title": "Weryfikacja asemblera + docs + build/test/hygiene",
+      "status": "done",
+      "note": "Gotowe gdy: mnemoniki przez CLI bez zmian rdzenia asemblera + build -warnaserror + test + hygiene OK"
+    }
+  ]
+}

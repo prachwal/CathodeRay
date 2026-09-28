@@ -18,6 +18,12 @@ Program sumuje `blob.bin` (1+2+3+4) do `total`, podwaja przez `MODE`
 i odkłada znaczniki gałęzi. Oczekiwane: `total = 20`, `variant = 1`,
 `doubled = 4`, `z1 = 0`, `z2 = 5`, `pcc = 2`, `X = 0`, `SP = FF`.
 
+## mathlib.s (mul8, divmod)
+
+Podprogramy arytmetyczne (`CALL`): `mul8` (A=a, X=b → A=a*b mod 256),
+`divmod` (A=n, X=d → A=n/d floor, X=n%d; dzielnik 0 daje 0).
+`divmod` łata operand `SUB` i wykrywa pożyczkę przez `BCC`.
+
 ## link/ (main.s, lib.s, map.cfg)
 
 Dwa moduły + konsolidacja: `.segment`, `GLOBAL`/`EXTERN`, `cathode link`.

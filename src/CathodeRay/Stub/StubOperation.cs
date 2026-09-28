@@ -83,6 +83,12 @@ public enum StubOperation
     /// <summary>PC = adres, gdy Z = 1.</summary>
     Beq,
 
+    /// <summary>PC = adres, gdy C = 1.</summary>
+    Bcs,
+
+    /// <summary>PC = adres, gdy C = 0.</summary>
+    Bcc,
+
     /// <summary>C = false.</summary>
     Clc,
 

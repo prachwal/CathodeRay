@@ -37,7 +37,7 @@ public sealed class StubCpuTests
     public void Isa_Loads_All_Opcodes()
     {
         StubIsa isa = LoadIsa();
-        isa.Opcodes.Should().HaveCount(39);
+        isa.Opcodes.Should().HaveCount(41);
         isa.Opcodes[0x0C].Should().Be(new StubOpcode("LDA", 4, 3, OperandMode.Address16X));
         isa.Opcodes[0x01].Mnemonic.Should().Be("LDI");
         isa.Opcodes[0x01].Words.Should().Be(2);
