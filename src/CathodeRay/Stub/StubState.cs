@@ -20,6 +20,9 @@ public sealed class StubState : ICpuState<StubState>
     /// <summary>Zero: ostatnia wartość zapisana do A lub X (albo wynik CPX) była zerem.</summary>
     public bool Zero { get; set; }
 
+    /// <summary>Wskaźnik stosu (strona <c>01xxh</c>); start <c>FF</c>, rośnie w dół.</summary>
+    public byte StackPointer { get; set; } = 0xFF;
+
     /// <inheritdoc/>
     public ushort ProgramCounter { get; set; }
 
@@ -34,6 +37,7 @@ public sealed class StubState : ICpuState<StubState>
         Carry = Carry,
         Overflow = Overflow,
         Zero = Zero,
+        StackPointer = StackPointer,
         ProgramCounter = ProgramCounter,
         Halted = Halted,
     };

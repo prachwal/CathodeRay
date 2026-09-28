@@ -62,6 +62,16 @@ public sealed class SampleProgramsTests
     }
 
     [Fact]
+    public void Subroutine_Returns_With_Stack_Balanced()
+    {
+        var (cpu, bus) = Run("subroutine.asm");
+
+        bus.Read(0x20).Should().Be(42);
+        cpu.State.A.Should().Be(42);
+        cpu.State.StackPointer.Should().Be(0xFF);
+    }
+
+    [Fact]
     public void Sum_Stores_Result()
     {
         var (cpu, bus) = Run("sum.asm");

@@ -1,0 +1,42 @@
+{
+  "title": "Stub: podział opcode na grupy + pełny zestaw ~30",
+  "status": "closed",
+  "items": [
+    {
+      "id": "1",
+      "title": "Podział StubOps na pliki grupowe (System/Load/Arithmetic/Logic/Branch/Compare/Stack)",
+      "status": "done",
+      "note": "Gotowe gdy: StubOps.cs podzielony na partial per grupa JSON (System/Load/Arithmetic/Logic/Jump/Compare/Stack), brak zmiany semantyki, build zielony"
+    },
+    {
+      "id": "2",
+      "title": "Transfery TAX/TXA + DEC/DEX + CLC/SEC + BEQ",
+      "status": "done",
+      "note": "Gotowe gdy: TAX TXA DEC DEX CLC SEC BEQ działają, Z/C/V wg konwencji (transfer/DEC/DEX:Z; CLC/SEC:C; BEQ: skok gdy Z=1)"
+    },
+    {
+      "id": "3",
+      "title": "Logika AND/ORA/EOR (d8 i a16,X)",
+      "status": "done",
+      "note": "Gotowe gdy: AND ORA EOR w d8 i a16,X, wynik do A, tylko Z (C/V bez zmian)"
+    },
+    {
+      "id": "4",
+      "title": "Stos: SP w StubState + PUSH/POP/CALL/RET",
+      "status": "done",
+      "note": "Gotowe gdy: SP byte w StubState (Reset 0xFF, Clone, CaptureRegisters), PUSH/POP/CALL/RET na stronie 0100h, LIFO, RET wraca po CALL"
+    },
+    {
+      "id": "5",
+      "title": "JSON ISA + asembler StubSet + rejestry",
+      "status": "done",
+      "note": "Gotowe gdy: nowe wpisy w mcp_stub_instructions.json (0x11+), StubCpu.Supports/Execute, brak kolizji mnemoników w StubSet"
+    },
+    {
+      "id": "6",
+      "title": "Testy StubOps/StubCpu + sample + build/test/hygiene",
+      "status": "done",
+      "note": "Gotowe gdy: HaveCount 18->30, testy każdej nowej instrukcji, sample z podprogramem, build -warnaserror + test + hygiene OK"
+    }
+  ]
+}

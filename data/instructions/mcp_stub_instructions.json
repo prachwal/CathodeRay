@@ -24,7 +24,12 @@
       "semantics": "A = d8; Z",
       "group": "load",
       "encoding": null,
-      "operands": [{ "name": "d8", "type": "immediate8" }],
+      "operands": [
+        {
+          "name": "d8",
+          "type": "immediate8"
+        }
+      ],
       "variants": null
     },
     {
@@ -35,7 +40,12 @@
       "semantics": "A = A + d8 (mod 256); C = przeniesienie, V = nadmiar ze znaku, Z",
       "group": "arithmetic",
       "encoding": null,
-      "operands": [{ "name": "d8", "type": "immediate8" }],
+      "operands": [
+        {
+          "name": "d8",
+          "type": "immediate8"
+        }
+      ],
       "variants": null
     },
     {
@@ -57,7 +67,12 @@
       "semantics": "PC = a16",
       "group": "jump",
       "encoding": null,
-      "operands": [{ "name": "a16", "type": "address16" }],
+      "operands": [
+        {
+          "name": "a16",
+          "type": "address16"
+        }
+      ],
       "variants": null
     },
     {
@@ -68,7 +83,12 @@
       "semantics": "M[a16] = A",
       "group": "load",
       "encoding": null,
-      "operands": [{ "name": "a16", "type": "address16" }],
+      "operands": [
+        {
+          "name": "a16",
+          "type": "address16"
+        }
+      ],
       "variants": null
     },
     {
@@ -79,7 +99,12 @@
       "semantics": "A = M[a16]; Z",
       "group": "load",
       "encoding": null,
-      "operands": [{ "name": "a16", "type": "address16" }],
+      "operands": [
+        {
+          "name": "a16",
+          "type": "address16"
+        }
+      ],
       "variants": null
     },
     {
@@ -90,7 +115,12 @@
       "semantics": "A = A - d8 (mod 256); C = brak pożyczenia, V = nadmiar ze znaku, Z",
       "group": "arithmetic",
       "encoding": null,
-      "operands": [{ "name": "d8", "type": "immediate8" }],
+      "operands": [
+        {
+          "name": "d8",
+          "type": "immediate8"
+        }
+      ],
       "variants": null
     },
     {
@@ -101,7 +131,12 @@
       "semantics": "X = d8; Z",
       "group": "load",
       "encoding": null,
-      "operands": [{ "name": "d8", "type": "immediate8" }],
+      "operands": [
+        {
+          "name": "d8",
+          "type": "immediate8"
+        }
+      ],
       "variants": null
     },
     {
@@ -123,7 +158,12 @@
       "semantics": "X - d8 bez zapisu: Z = (X == d8), C = (X >= d8); V bez zmian",
       "group": "compare",
       "encoding": null,
-      "operands": [{ "name": "d8", "type": "immediate8" }],
+      "operands": [
+        {
+          "name": "d8",
+          "type": "immediate8"
+        }
+      ],
       "variants": null
     },
     {
@@ -134,7 +174,12 @@
       "semantics": "PC = a16, gdy Z = 0",
       "group": "jump",
       "encoding": null,
-      "operands": [{ "name": "a16", "type": "address16" }],
+      "operands": [
+        {
+          "name": "a16",
+          "type": "address16"
+        }
+      ],
       "variants": null
     },
     {
@@ -145,7 +190,12 @@
       "semantics": "A = M[a16 + X]; Z",
       "group": "load",
       "encoding": null,
-      "operands": [{ "name": "a16", "type": "address16_x" }],
+      "operands": [
+        {
+          "name": "a16",
+          "type": "address16_x"
+        }
+      ],
       "variants": null
     },
     {
@@ -156,7 +206,12 @@
       "semantics": "M[a16 + X] = A",
       "group": "load",
       "encoding": null,
-      "operands": [{ "name": "a16", "type": "address16_x" }],
+      "operands": [
+        {
+          "name": "a16",
+          "type": "address16_x"
+        }
+      ],
       "variants": null
     },
     {
@@ -167,7 +222,12 @@
       "semantics": "A = A + M[a16 + X] (mod 256); C, V, Z",
       "group": "arithmetic",
       "encoding": null,
-      "operands": [{ "name": "a16", "type": "address16_x" }],
+      "operands": [
+        {
+          "name": "a16",
+          "type": "address16_x"
+        }
+      ],
       "variants": null
     },
     {
@@ -178,7 +238,12 @@
       "semantics": "A = A + d8 + C (mod 256); C, V, Z",
       "group": "arithmetic",
       "encoding": null,
-      "operands": [{ "name": "d8", "type": "immediate8" }],
+      "operands": [
+        {
+          "name": "d8",
+          "type": "immediate8"
+        }
+      ],
       "variants": null
     },
     {
@@ -189,7 +254,239 @@
       "semantics": "A = A + M[a16 + X] + C (mod 256); C, V, Z",
       "group": "arithmetic",
       "encoding": null,
-      "operands": [{ "name": "a16", "type": "address16_x" }],
+      "operands": [
+        {
+          "name": "a16",
+          "type": "address16_x"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "11",
+      "mnemonic": "TAX",
+      "cycles": 1,
+      "words": 1,
+      "semantics": "X = A; Z",
+      "group": "load",
+      "encoding": null,
+      "operands": null,
+      "variants": null
+    },
+    {
+      "opcode": "12",
+      "mnemonic": "TXA",
+      "cycles": 1,
+      "words": 1,
+      "semantics": "A = X; Z",
+      "group": "load",
+      "encoding": null,
+      "operands": null,
+      "variants": null
+    },
+    {
+      "opcode": "13",
+      "mnemonic": "AND",
+      "cycles": 2,
+      "words": 2,
+      "semantics": "A = A & d8; Z",
+      "group": "logic",
+      "encoding": null,
+      "operands": [
+        {
+          "name": "d8",
+          "type": "immediate8"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "14",
+      "mnemonic": "AND",
+      "cycles": 4,
+      "words": 3,
+      "semantics": "A = A & M[a16 + X]; Z",
+      "group": "logic",
+      "encoding": null,
+      "operands": [
+        {
+          "name": "a16",
+          "type": "address16_x"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "15",
+      "mnemonic": "ORA",
+      "cycles": 2,
+      "words": 2,
+      "semantics": "A = A | d8; Z",
+      "group": "logic",
+      "encoding": null,
+      "operands": [
+        {
+          "name": "d8",
+          "type": "immediate8"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "16",
+      "mnemonic": "ORA",
+      "cycles": 4,
+      "words": 3,
+      "semantics": "A = A | M[a16 + X]; Z",
+      "group": "logic",
+      "encoding": null,
+      "operands": [
+        {
+          "name": "a16",
+          "type": "address16_x"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "17",
+      "mnemonic": "EOR",
+      "cycles": 2,
+      "words": 2,
+      "semantics": "A = A ^ d8; Z",
+      "group": "logic",
+      "encoding": null,
+      "operands": [
+        {
+          "name": "d8",
+          "type": "immediate8"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "18",
+      "mnemonic": "EOR",
+      "cycles": 4,
+      "words": 3,
+      "semantics": "A = A ^ M[a16 + X]; Z",
+      "group": "logic",
+      "encoding": null,
+      "operands": [
+        {
+          "name": "a16",
+          "type": "address16_x"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "19",
+      "mnemonic": "DEC",
+      "cycles": 1,
+      "words": 1,
+      "semantics": "A = A - 1 (mod 256); Z; flagi C i V bez zmian",
+      "group": "arithmetic",
+      "encoding": null,
+      "operands": null,
+      "variants": null
+    },
+    {
+      "opcode": "1A",
+      "mnemonic": "DEX",
+      "cycles": 1,
+      "words": 1,
+      "semantics": "X = X - 1 (mod 256); Z",
+      "group": "arithmetic",
+      "encoding": null,
+      "operands": null,
+      "variants": null
+    },
+    {
+      "opcode": "1B",
+      "mnemonic": "BEQ",
+      "cycles": 3,
+      "words": 3,
+      "semantics": "PC = a16, gdy Z = 1",
+      "group": "jump",
+      "encoding": null,
+      "operands": [
+        {
+          "name": "a16",
+          "type": "address16"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "1C",
+      "mnemonic": "CLC",
+      "cycles": 1,
+      "words": 1,
+      "semantics": "C = false",
+      "group": "system",
+      "encoding": null,
+      "operands": null,
+      "variants": null
+    },
+    {
+      "opcode": "1D",
+      "mnemonic": "SEC",
+      "cycles": 1,
+      "words": 1,
+      "semantics": "C = true",
+      "group": "system",
+      "encoding": null,
+      "operands": null,
+      "variants": null
+    },
+    {
+      "opcode": "1E",
+      "mnemonic": "PUSH",
+      "cycles": 3,
+      "words": 1,
+      "semantics": "M[0100h + SP] = A; SP -= 1",
+      "group": "stack",
+      "encoding": null,
+      "operands": null,
+      "variants": null
+    },
+    {
+      "opcode": "1F",
+      "mnemonic": "POP",
+      "cycles": 4,
+      "words": 1,
+      "semantics": "SP += 1; A = M[0100h + SP]; Z",
+      "group": "stack",
+      "encoding": null,
+      "operands": null,
+      "variants": null
+    },
+    {
+      "opcode": "20",
+      "mnemonic": "CALL",
+      "cycles": 6,
+      "words": 3,
+      "semantics": "odkłada PC (starszy, młodszy); PC = a16",
+      "group": "stack",
+      "encoding": null,
+      "operands": [
+        {
+          "name": "a16",
+          "type": "address16"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "21",
+      "mnemonic": "RET",
+      "cycles": 6,
+      "words": 1,
+      "semantics": "PC = odłożony adres (młodszy, starszy)",
+      "group": "stack",
+      "encoding": null,
+      "operands": null,
       "variants": null
     },
     {

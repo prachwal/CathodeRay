@@ -188,4 +188,145 @@ public sealed class StubOpsTests
 
         state.ProgramCounter.Should().Be((ushort)expectedPc);
     }
+
+    [Theory]
+    [InlineData(true, 0x1234)]
+    [InlineData(false, 0x0010)]
+    public void Beq_Branches_Only_When_Zero(bool zero, int expectedPc)
+    {
+        var state = new StubState { Zero = zero, ProgramCounter = 0x0010 };
+
+        StubOps.Beq(state, 0x1234);
+
+        state.ProgramCounter.Should().Be((ushort)expectedPc);
+    }
+
+    [Fact]
+    public void Tax_Transfers_A_To_X_With_Zero()
+    {
+        var state = new StubState { A = 0x00, X = 0x55 };
+
+        StubOps.Tax(state);
+
+        state.X.Should().Be(0x00);
+        state.Zero.Should().BeTrue();
+    }
+
+    [Fact]
+    public void Txa_Transfers_X_To_A_With_Zero()
+    {
+        var state = new StubState { A = 0x55, X = 0x42 };
+
+        StubOps.Txa(state);
+
+        state.A.Should().Be(0x42);
+        state.Zero.Should().BeFalse();
+    }
+
+    [Theory]
+    [InlineData(0xF0, 0x0F, 0x00)]
+    [InlineData(0xFF, 0x0F, 0x0F)]
+    public void And_Masks_And_Sets_Zero(int a, int operand, int expected)
+    {
+        var state = new StubState { A = (byte)a, Carry = true, Overflow = true };
+
+        StubOps.And(state, (byte)operand);
+
+        state.A.Should().Be((byte)expected);
+        state.Zero.Should().Be(expected == 0);
+        state.Carry.Should().BeTrue();
+        state.Overflow.Should().BeTrue();
+    }
+
+    [Theory]
+    [InlineData(0xF0, 0x0F, 0xFF)]
+    [InlineData(0x00, 0x00, 0x00)]
+    public void Ora_Masks_And_Sets_Zero(int a, int operand, int expected)
+    {
+        var state = new StubState { A = (byte)a };
+
+        StubOps.Ora(state, (byte)operand);
+
+        state.A.Should().Be((byte)expected);
+        state.Zero.Should().Be(expected == 0);
+    }
+
+    [Theory]
+    [InlineData(0xFF, 0x0F, 0xF0)]
+    [InlineData(0x0F, 0x0F, 0x00)]
+    public void Eor_Masks_And_Sets_Zero(int a, int operand, int expected)
+    {
+        var state = new StubState { A = (byte)a };
+
+        StubOps.Eor(state, (byte)operand);
+
+        state.A.Should().Be((byte)expected);
+        state.Zero.Should().Be(expected == 0);
+    }
+
+    [Theory]
+    [InlineData(0x01, 0x00)]
+    [InlineData(0x00, 0xFF)]
+    public void Dec_Wraps_And_Preserves_Flags(int a, int expected)
+    {
+        var state = new StubState { A = (byte)a, Carry = true, Overflow = true };
+
+        StubOps.Dec(state);
+
+        state.A.Should().Be((byte)expected);
+        state.Zero.Should().Be(expected == 0);
+        state.Carry.Should().BeTrue();
+        state.Overflow.Should().BeTrue();
+    }
+
+    [Theory]
+    [InlineData(0x01, 0x00, true)]
+    [InlineData(0x00, 0xFF, false)]
+    public void Dex_Wraps_And_Sets_Zero(int x, int expected, bool zero)
+    {
+        var state = new StubState { X = (byte)x };
+
+        StubOps.Dex(state);
+
+        state.X.Should().Be((byte)expected);
+        state.Zero.Should().Be(zero);
+    }
+
+    [Fact]
+    public void Clc_And_Sec_Set_Carry()
+    {
+        var state = new StubState { Carry = true };
+        StubOps.Clc(state);
+        state.Carry.Should().BeFalse();
+        StubOps.Sec(state);
+        state.Carry.Should().BeTrue();
+    }
+
+    [Fact]
+    public void Push_Then_Pop_Roundtrips_Through_Delegates()
+    {
+        var memory = new byte[65536];
+        var state = new StubState { A = 0x42 };
+
+        StubOps.Push(state, (a, v) => memory[a] = v, state.A);
+        state.A = 0x00;
+        StubOps.Pop(state, a => memory[a]);
+
+        state.A.Should().Be(0x42);
+        state.Zero.Should().BeFalse();
+        state.StackPointer.Should().Be(0xFF);
+    }
+
+    [Fact]
+    public void Call_Then_Ret_Restores_ProgramCounter()
+    {
+        var memory = new byte[65536];
+        var state = new StubState { ProgramCounter = 0x0100 };
+
+        StubOps.Call(state, (a, v) => memory[a] = v, state.ProgramCounter, 0x0200);
+        state.ProgramCounter.Should().Be(0x0200);
+        StubOps.Ret(state, a => memory[a]);
+        state.ProgramCounter.Should().Be(0x0100);
+        state.StackPointer.Should().Be(0xFF);
+    }
 }

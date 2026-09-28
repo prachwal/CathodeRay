@@ -37,7 +37,7 @@ public sealed class StubCpuTests
     public void Isa_Loads_All_Opcodes()
     {
         StubIsa isa = LoadIsa();
-        isa.Opcodes.Should().HaveCount(18);
+        isa.Opcodes.Should().HaveCount(35);
         isa.Opcodes[0x0C].Should().Be(new StubOpcode("LDA", 4, 3, OperandMode.Address16X));
         isa.Opcodes[0x01].Mnemonic.Should().Be("LDI");
         isa.Opcodes[0x01].Words.Should().Be(2);
@@ -227,6 +227,31 @@ public sealed class StubCpuTests
         cpu.Step();
         cpu.Step();
         cpu.CycleCount.Should().Be(2 + 2 + 1);
+    }
+
+    [Fact]
+    public void Call_Then_Ret_Executes_Subroutine()
+    {
+        // LDI 5; CALL 6; HLT; INC; RET
+        var (cpu, _) = WithProgram(0x01, 0x05, 0x20, 0x06, 0x00, 0xFF, 0x03, 0x21);
+        while (!cpu.State.Halted)
+        {
+            cpu.Step();
+        }
+
+        cpu.State.A.Should().Be(0x06);
+        cpu.State.StackPointer.Should().Be(0xFF);
+    }
+
+    [Fact]
+    public void Reset_Restores_StackPointer()
+    {
+        var (cpu, _) = WithProgram(0x01, 0x05, 0x1E, 0xFF);
+        cpu.Step();
+        cpu.Step();
+        cpu.State.StackPointer.Should().Be(0xFE);
+        cpu.Reset();
+        cpu.State.StackPointer.Should().Be(0xFF);
     }
 
     [Fact]

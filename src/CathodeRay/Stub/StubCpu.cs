@@ -16,6 +16,7 @@ public class StubCpu : ICpu<StubState>
         new RegisterDefinition("C", 1, RegisterRole.Status),
         new RegisterDefinition("V", 1, RegisterRole.Status),
         new RegisterDefinition("Z", 1, RegisterRole.Status),
+        new RegisterDefinition("SP", 8, RegisterRole.StackPointer),
         new RegisterDefinition("PC", 16, RegisterRole.ProgramCounter));
 
     private readonly IBus _bus;
@@ -124,6 +125,7 @@ public class StubCpu : ICpu<StubState>
         State.Overflow = false;
         State.Zero = false;
         State.ProgramCounter = 0;
+        State.StackPointer = 0xFF;
         State.Halted = false;
         CycleCount = 0;
         InstructionCount = 0;
@@ -135,7 +137,7 @@ public class StubCpu : ICpu<StubState>
     /// <inheritdoc/>
     public RegisterView CaptureRegisters() => new(
         Registers,
-        [State.A, State.X, Bit(State.Carry), Bit(State.Overflow), Bit(State.Zero), State.ProgramCounter]);
+        [State.A, State.X, Bit(State.Carry), Bit(State.Overflow), Bit(State.Zero), State.StackPointer, State.ProgramCounter]);
 
     /// <summary>Rejestruje wpis (metadane + handler) w tabeli.</summary>
     /// <param name="table">Rejestr docelowy.</param>
@@ -189,8 +191,10 @@ public class StubCpu : ICpu<StubState>
 
     private static bool Supports(StubOperation operation, OperandMode mode) => operation switch
     {
-        StubOperation.Nop or StubOperation.Inc or StubOperation.Inx or StubOperation.Hlt => mode == OperandMode.None,
-        StubOperation.Sta or StubOperation.Jmp or StubOperation.Bne => IsAddress(mode),
+        StubOperation.Nop or StubOperation.Inc or StubOperation.Inx or StubOperation.Dec or StubOperation.Dex
+            or StubOperation.Tax or StubOperation.Txa or StubOperation.Clc or StubOperation.Sec
+            or StubOperation.Push or StubOperation.Pop or StubOperation.Ret or StubOperation.Hlt => mode == OperandMode.None,
+        StubOperation.Sta or StubOperation.Jmp or StubOperation.Bne or StubOperation.Beq or StubOperation.Call => IsAddress(mode),
         _ => mode == OperandMode.Immediate8 || IsAddress(mode),
     };
 
@@ -201,6 +205,17 @@ public class StubCpu : ICpu<StubState>
     [DoesNotReturn]
     private static void ThrowUnhandled(StubOperation operation) =>
         throw new UnreachableException($"Unhandled operation {operation}.");
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static void Logic(StubState state, StubOperation operation, byte value)
+    {
+        switch (operation)
+        {
+            case StubOperation.And: StubOps.And(state, value); break;
+            case StubOperation.Ora: StubOps.Ora(state, value); break;
+            default: StubOps.Eor(state, value); break;
+        }
+    }
 
     private void Execute(StubOperation operation, OperandMode mode, int operand)
     {
@@ -235,6 +250,41 @@ public class StubCpu : ICpu<StubState>
             case StubOperation.Inx:
                 StubOps.Inx(state);
                 break;
+            case StubOperation.Dec:
+                StubOps.Dec(state);
+                break;
+            case StubOperation.Dex:
+                StubOps.Dex(state);
+                break;
+            case StubOperation.Tax:
+                StubOps.Tax(state);
+                break;
+            case StubOperation.Txa:
+                StubOps.Txa(state);
+                break;
+            case StubOperation.And:
+            case StubOperation.Ora:
+            case StubOperation.Eor:
+                Logic(state, operation, Value(mode, operand, address));
+                break;
+            case StubOperation.Clc:
+                StubOps.Clc(state);
+                break;
+            case StubOperation.Sec:
+                StubOps.Sec(state);
+                break;
+            case StubOperation.Push:
+                StubOps.Push(state, Write, state.A);
+                break;
+            case StubOperation.Pop:
+                StubOps.Pop(state, Read);
+                break;
+            case StubOperation.Call:
+                StubOps.Call(state, Write, state.ProgramCounter, address);
+                break;
+            case StubOperation.Ret:
+                StubOps.Ret(state, Read);
+                break;
             case StubOperation.Sta:
                 Write(address, state.A);
                 break;
@@ -243,6 +293,9 @@ public class StubCpu : ICpu<StubState>
                 break;
             case StubOperation.Bne:
                 StubOps.Bne(state, address);
+                break;
+            case StubOperation.Beq:
+                StubOps.Beq(state, address);
                 break;
             case StubOperation.Hlt:
                 StubOps.Hlt(state);
