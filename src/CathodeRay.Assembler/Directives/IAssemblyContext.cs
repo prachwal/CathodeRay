@@ -32,6 +32,12 @@ public interface IAssemblyContext
     /// <summary>Kończy asemblację (dyrektywa END).</summary>
     void Stop();
 
+    /// <summary>Czyta plik binarny dla <c>.incbin</c>: cudzysłowy, ścieżki jak w <c>.include</c>.</summary>
+    /// <param name="operand">Tekst operandu z nazwą pliku lub <see langword="null"/>.</param>
+    /// <returns>Bajty pliku.</returns>
+    /// <exception cref="AssemblerException">Brak kontekstu pliku, brak pliku lub zła nazwa.</exception>
+    byte[] ReadBinaryFile(string? operand);
+
     /// <summary>Tworzy błąd przypisany do bieżącej linii.</summary>
     /// <param name="message">Opis.</param>
     /// <returns>Wyjątek do rzucenia.</returns>

@@ -1,0 +1,36 @@
+{
+  "title": "Asembler: symbole lokalne + .incbin",
+  "status": "closed",
+  "items": [
+    {
+      "id": "1",
+      "title": "Semantyka tanich etykiet per dialekt (zakres, kolizje, forward)",
+      "status": "done",
+      "note": "Gotowe gdy: wybrana składnia tanich etykiet per dialekt (np. @name w ca65-rodzinie, lokalne $ w z80asm-stylu), zakres = między etykietami globalnymi, kolizja w różnych zakresach dozwolona, forward-ref w zakresie działa"
+    },
+    {
+      "id": "2",
+      "title": "Rdzeń: rozwiązywanie lokalnych, unikalność, listing",
+      "status": "done",
+      "note": "Gotowe gdy: LineParser/TwoPassAssembler rozwijają lokalne do unikalnych wewnętrznych (stabilne w obu przebiegach), duplikat w tym samym zakresie = błąd, listing pokazuje zapis źródłowy"
+    },
+    {
+      "id": "3",
+      "title": "Dyrektywa .incbin (binarka do obrazu, błędy)",
+      "status": "done",
+      "note": "Gotowe gdy: .incbin wstawia bajty pliku do obrazu (jak .byte), brak pliku/poza 64KB = AssemblerException z plikiem i linią, ścieżki jak w .include (względne + --incdir)"
+    },
+    {
+      "id": "4",
+      "title": "Rejestracja .incbin per dialekt",
+      "status": "done",
+      "note": "Gotowe gdy: .incbin w stub/ca65/mos, INCBIN w intel/zilog, operand w cudzysłowie jak .include"
+    },
+    {
+      "id": "5",
+      "title": "Testy + build/test/hygiene",
+      "status": "done",
+      "note": "Gotowe gdy: testy kolizji lokalnych w dwóch procedurach, pętli z forward-ref, .incbin z binarką + błędy, build -warnaserror + test + hygiene OK"
+    }
+  ]
+}

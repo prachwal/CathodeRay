@@ -66,7 +66,8 @@ internal static class AsmCommand
                 using FileStream json = File.OpenRead(isaPath);
                 string entryText = File.ReadAllText(src.FullName);
                 Func<string, string?> reader = path => File.Exists(path) ? File.ReadAllText(path) : null;
-                result = new TwoPassAssembler(target.Load(json), dialect).Assemble(entryText, src.FullName, reader, includePaths);
+                Func<string, byte[]?> binaryReader = path => File.Exists(path) ? File.ReadAllBytes(path) : null;
+                result = new TwoPassAssembler(target.Load(json), dialect).Assemble(entryText, src.FullName, reader, includePaths, binaryReader);
             }
             catch (AssemblerException e)
             {

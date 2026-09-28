@@ -23,6 +23,7 @@ public static partial class SyntaxDialects
             ("DS", Directive.Reserve),
             ("DEFS", Directive.Reserve),
             ("INCLUDE", Directive.Include),
+            ("INCBIN", Directive.Incbin),
             ("IF", Directive.If),
             ("ELIF", Directive.ElseIf),
             ("ELSE", Directive.Else),

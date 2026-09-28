@@ -14,6 +14,7 @@ public static partial class SyntaxDialects
             (".org", Directive.Org),
             (".byte", Directive.Byte),
             (".include", Directive.Include),
+            (".incbin", Directive.Incbin),
             (".if", Directive.If),
             (".elseif", Directive.ElseIf),
             (".else", Directive.Else),

@@ -25,7 +25,7 @@ internal static class SourceLoader
         Func<string, bool> isKeyword,
         IReadOnlyList<string>? includePaths = null)
     {
-        string entry = Normalize(entryFile);
+        string entry = FileResolve.Normalize(entryFile);
         var lines = new List<SourceLine>();
         ExpandText(source, entry, [entry], lines, reader, dialect, isKeyword, includePaths ?? []);
         return lines;
@@ -63,7 +63,7 @@ internal static class SourceLoader
                 throw new AssemblerException(line.Number, "label on .include is not allowed.", file);
             }
 
-            string name = Unquote(line.Operand, line.Number, file);
+            string name = FileResolve.Unquote(line.Operand, ".include", message => new AssemblerException(line.Number, message, file));
             if (Find(name, file, includePaths, reader) is not (string found, string content))
             {
                 throw new AssemblerException(line.Number, $"include file '{name}' not found.", file);
@@ -86,11 +86,7 @@ internal static class SourceLoader
         IReadOnlyList<string> includePaths,
         Func<string, string?> reader)
     {
-        string? home = Path.GetDirectoryName(includer);
-        IEnumerable<string> candidates = home is null
-            ? includePaths.Select(p => Normalize(Path.Combine(p, name)))
-            : new[] { Normalize(Path.Combine(home, name)) }.Concat(includePaths.Select(p => Normalize(Path.Combine(p, name))));
-        foreach (string candidate in candidates)
+        foreach (string candidate in FileResolve.Candidates(name, includer, includePaths))
         {
             if (reader(candidate) is { } content)
             {
@@ -99,30 +95,5 @@ internal static class SourceLoader
         }
 
         return null;
-    }
-
-    private static string Unquote(string? operand, int number, string file)
-    {
-        if (operand is { Length: >= 2 }
-            && ((operand.StartsWith('"') && operand.EndsWith('"'))
-                || (operand.StartsWith('\'') && operand.EndsWith('\'')))
-            && operand[1..^1] is { Length: > 0 } inner)
-        {
-            return inner;
-        }
-
-        throw new AssemblerException(number, operand is null ? ".include needs a file name." : $"expected quoted file name after .include, got '{operand}'.", file);
-    }
-
-    private static string Normalize(string path)
-    {
-        try
-        {
-            return Path.GetFullPath(path);
-        }
-        catch (Exception e) when (e is ArgumentException or NotSupportedException or PathTooLongException)
-        {
-            return path;
-        }
     }
 }

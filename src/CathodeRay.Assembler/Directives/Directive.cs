@@ -21,6 +21,9 @@ public static class Directive
     /// <summary>Wstawia plik (<c>.include</c>, <c>INCLUDE</c>): ekspansja przed pierwszym przebiegiem.</summary>
     public static IDirective Include { get; } = new IncludeDirective();
 
+    /// <summary>Wstawia plik binarny do obrazu (<c>.incbin</c>, <c>INCBIN</c>).</summary>
+    public static IDirective Incbin { get; } = new IncbinDirective();
+
     /// <summary>Blok warunkowy: <c>.if</c> / <c>IF</c> (logika w przebiegu).</summary>
     public static IDirective If { get; } = new ConditionalDirective(ConditionalKind.If);
 

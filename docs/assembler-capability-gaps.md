@@ -55,5 +55,5 @@ Kolumny: **CR** = `src/CathodeRay.Assembler`, **ca65** (6502), **z80asm**
 
 1. Symbole lokalne (tanie etykiety) + `.incbin` — reszta wieloplikowości.
 2. Makra bezparametryczne → z parametrami.
-4. Linker/segmenty albo przynajmniej `.align` + Intel HEX (mniejszy krok).
-5. Zbieranie wszystkich błędów zamiast stopu na pierwszym.
+3. Linker/segmenty albo przynajmniej `.align` + Intel HEX (mniejszy krok).
+4. Zbieranie wszystkich błędów zamiast stopu na pierwszym.

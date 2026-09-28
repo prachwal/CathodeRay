@@ -1,0 +1,42 @@
+{
+  "title": "Asembler: makra (bezparametryczne → z parametrami)",
+  "status": "active",
+  "items": [
+    {
+      "id": "1",
+      "title": "Semantyka makr (definicja, wywołanie, zagnieżdżenia, rekurencja)",
+      "status": "todo",
+      "note": "Gotowe gdy: spisana semantyka: definicja (.macro NAZWA ... .endmacro / MACRO ... ENDM), wywołanie jak mnemonik, zagnieżdżone definicje zabronione, wywołanie w makrze dozwolone, limit rekursji, etykiety w makrze lokalne per rozwinięcie"
+    },
+    {
+      "id": "2",
+      "title": "Makra bezparametryczne (ekspansja przed pass 1, atrybucja)",
+      "status": "todo",
+      "note": "Gotowe gdy: definicje zbierane przed pass 1 (nie emitują), wywołanie wstawia linie z atrybucją makro:plik:linia, błędy w rozwinięciu wskazują wywołanie i definicję"
+    },
+    {
+      "id": "3",
+      "title": "Parametry pozycyjne (+ domyślne) i ich podstawianie",
+      "status": "todo",
+      "note": "Gotowe gdy: parametry pozycyjne + domyślne, podstawianie tokenowe w operandach, zła liczba argumentów = błąd, parametr w wyrażeniu działa"
+    },
+    {
+      "id": "4",
+      "title": "Rejestracja nazw per dialekt (.macro/MACRO)",
+      "status": "todo",
+      "note": "Gotowe gdy: .macro/.endmacro w stub/ca65/mos, MACRO/ENDM w intel/zilog, brak kolizji z mnemonikami, wywołanie makra wygrywa z mnemonikiem o tej samej nazwie (jak w oryginałach) albo jawnie przeciwnie — decyzja w semantyce"
+    },
+    {
+      "id": "5",
+      "title": "Błędy: niezamknięte, redefinicja, limit rekursji",
+      "status": "todo",
+      "note": "Gotowe gdy: niezamknięte makro, .endmacro bez .macro, redefinicja, przekroczona rekursja = AssemblerException z plikiem i linią; test każdego"
+    },
+    {
+      "id": "6",
+      "title": "Testy + golden z referencjami + build/test/hygiene",
+      "status": "todo",
+      "note": "Gotowe gdy: testy definicji/wywołań/parametrów/rekursji + golden z ca65 (.macro) i z80asm (MACRO) bajt w bajt + build -warnaserror + test + hygiene OK"
+    }
+  ]
+}

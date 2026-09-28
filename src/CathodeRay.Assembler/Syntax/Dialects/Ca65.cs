@@ -21,6 +21,7 @@ public static partial class SyntaxDialects
             (".addr", Directive.Word),
             (".res", Directive.Reserve),
             (".include", Directive.Include),
+            (".incbin", Directive.Incbin),
             (".if", Directive.If),
             (".elseif", Directive.ElseIf),
             (".else", Directive.Else),

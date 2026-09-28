@@ -33,14 +33,15 @@ public sealed class TwoPassAssembler(InstructionSet isa, SyntaxDialect dialect)
     /// <param name="entryFile">Ścieżka pliku wejściowego (baza ścieżek względnych, atrybucja błędów i listingu).</param>
     /// <param name="reader">Czyta plik o ścieżce znormalizowanej; <see langword="null"/> = brak pliku.</param>
     /// <param name="includePaths">Dodatkowe katalogi poszukiwań (odpowiednik <c>--incdir</c>).</param>
+    /// <param name="binaryReader">Czyta plik binarny dla <c>.incbin</c>; <see langword="null"/> = brak kontekstu pliku.</param>
     /// <returns>Obraz, symbole i listing.</returns>
     /// <exception cref="AssemblerException">Błąd w źródle (z plikiem).</exception>
-    public AssemblyResult Assemble(string source, string entryFile, Func<string, string?> reader, IReadOnlyList<string>? includePaths = null)
+    public AssemblyResult Assemble(string source, string entryFile, Func<string, string?> reader, IReadOnlyList<string>? includePaths = null, Func<string, byte[]?>? binaryReader = null)
     {
         ArgumentNullException.ThrowIfNull(source);
         ArgumentNullException.ThrowIfNull(entryFile);
         ArgumentNullException.ThrowIfNull(reader);
-        return AssembleCore(SourceLoader.Expand(source, entryFile, reader, dialect, IsKeyword, includePaths));
+        return AssembleCore(SourceLoader.Expand(source, entryFile, reader, dialect, IsKeyword, includePaths), binaryReader, includePaths ?? []);
     }
 
     private static void ResolvePendingAssignments(Pass pass)
@@ -62,20 +63,20 @@ public sealed class TwoPassAssembler(InstructionSet isa, SyntaxDialect dialect)
 
     private bool IsKeyword(string word) => isa.Contains(word) || dialect.Directives.ContainsKey(word);
 
-    private AssemblyResult AssembleCore(IReadOnlyList<SourceLine> lines)
+    private AssemblyResult AssembleCore(IReadOnlyList<SourceLine> lines, Func<string, byte[]?>? binaryReader = null, IReadOnlyList<string>? includePaths = null)
     {
         var symbols = new Dictionary<string, int>(dialect.SymbolComparer);
         var choices = new Dictionary<int, FormChoice>();
 
-        var first = new Pass(this, symbols, choices, final: false);
+        var first = new Pass(this, symbols, choices, final: false, binaryReader, includePaths ?? []);
         first.Run(lines);
         ResolvePendingAssignments(first);
-        var second = new Pass(this, symbols, choices, final: true);
+        var second = new Pass(this, symbols, choices, final: true, binaryReader, includePaths ?? []);
         second.Run(lines);
         return second.Result();
     }
 
-    private sealed class Pass(TwoPassAssembler owner, Dictionary<string, int> symbols, Dictionary<int, FormChoice> choices, bool final)
+    private sealed class Pass(TwoPassAssembler owner, Dictionary<string, int> symbols, Dictionary<int, FormChoice> choices, bool final, Func<string, byte[]?>? binaryReader, IReadOnlyList<string> includePaths)
         : IAssemblyContext
     {
         private readonly byte[] _image = new byte[AddressSpace];
@@ -84,6 +85,7 @@ public sealed class TwoPassAssembler(InstructionSet isa, SyntaxDialect dialect)
         private readonly List<byte> _lineBytes = [];
         private SourceLine _line = new(0, string.Empty, null, null, null);
         private int _lineStart;
+        private string? _scope;
         private bool _stopped;
 
         public int ProgramCounter { get; private set; }
@@ -186,6 +188,32 @@ public sealed class TwoPassAssembler(InstructionSet isa, SyntaxDialect dialect)
 
         public AssemblerException Error(string message) => new(_line.Number, message, _line.File);
 
+        public byte[] ReadBinaryFile(string? operand)
+        {
+            if (binaryReader is null || _line.File is null)
+            {
+                throw Error(".incbin needs file context (assemble a file via CLI, not bare text).");
+            }
+
+            string name = FileResolve.Unquote(operand, ".incbin", Error);
+            foreach (string candidate in FileResolve.Candidates(name, _line.File, includePaths))
+            {
+                if (binaryReader(candidate) is { } data)
+                {
+                    return data;
+                }
+            }
+
+            throw Error($"binary file '{name}' not found.");
+        }
+
+        private static bool IsLocal(string name) => name.Length > 1 && name[0] == '@';
+
+        private string ScopeKey(string name) =>
+            _scope is null
+                ? throw new FormatException($"no preceding global label for '{name}'.")
+                : $"{_scope}\0{name}";
+
         private bool IsConditional(SourceLine line) =>
             line.Keyword is not null
             && owner.Dialect.Directives.TryGetValue(line.Keyword, out IDirective? directive)
@@ -241,8 +269,11 @@ public sealed class TwoPassAssembler(InstructionSet isa, SyntaxDialect dialect)
         private bool EvaluateCondition(SourceLine line) =>
             Evaluate(line.Operand ?? throw Error($"'{line.Keyword}' needs a condition.")) != 0;
 
-        private int? Lookup(string name) =>
-            symbols.TryGetValue(name, out int value) ? value : final ? throw new FormatException($"undefined symbol '{name}'.") : null;
+        private int? Lookup(string name)
+        {
+            string key = IsLocal(name) ? ScopeKey(name) : name;
+            return symbols.TryGetValue(key, out int value) ? value : final ? throw new FormatException($"undefined symbol '{name}'.") : null;
+        }
 
         private void Process(SourceLine line, int index)
         {
@@ -282,13 +313,23 @@ public sealed class TwoPassAssembler(InstructionSet isa, SyntaxDialect dialect)
 
         private void Define(string name, int value)
         {
+            string display = name;
+            if (!IsLocal(name))
+            {
+                _scope = name;
+            }
+            else
+            {
+                name = ScopeKey(name);
+            }
+
             if (!symbols.TryGetValue(name, out int existing))
             {
                 symbols[name] = value;
             }
             else if (!final || existing != value)
             {
-                throw Error(final ? $"phase error: '{name}' changed from {existing} to {value}." : $"duplicate symbol '{name}'.");
+                throw Error(final ? $"phase error: '{display}' changed from {existing} to {value}." : $"duplicate symbol '{display}'.");
             }
         }
 

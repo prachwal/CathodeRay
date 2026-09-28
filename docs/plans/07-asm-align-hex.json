@@ -1,0 +1,30 @@
+{
+  "title": "Asembler: .align + Intel HEX (mniejszy krok linkera)",
+  "status": "queued",
+  "items": [
+    {
+      "id": "1",
+      "title": "Decyzja zakresu: pełne segmenty vs .align + Intel HEX",
+      "status": "todo",
+      "note": "Gotowe gdy: jawna decyzja: pełne segmenty (linker wielomodułowy) albo stop na .align + Intel HEX; decyzja zapisana w docs/assembler-capability-gaps.md"
+    },
+    {
+      "id": "2",
+      "title": "Dyrektywa .align (dopełnienie zerami/wartością)",
+      "status": "todo",
+      "note": "Gotowe gdy: .align N[,wypełnienie] dopełnia PC do wielokrotności N w obu przebiegach identycznie, N niepotęgą 2 / poza zakresem = błąd"
+    },
+    {
+      "id": "3",
+      "title": "Wyjście Intel HEX (opcja CLI, suma kontrolna)",
+      "status": "todo",
+      "note": "Gotowe gdy: cathode asm --format hex pisze Intel HEX (rekordy danych + EOF, suma kontrolna), binarka domyślna bez zmian, test wektora z obliczonym checksum"
+    },
+    {
+      "id": "4",
+      "title": "Testy + build/test/hygiene",
+      "status": "todo",
+      "note": "Gotowe gdy: testy .align (wyrównanie, wypełnienie, błąd N) + HEX (rekordy, checksum, luki) + build -warnaserror + test + hygiene OK"
+    }
+  ]
+}
