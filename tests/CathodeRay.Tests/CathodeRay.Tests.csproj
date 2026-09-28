@@ -27,6 +27,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\CathodeRay\CathodeRay.csproj" />
+    <ProjectReference Include="..\..\src\CathodeRay.C\CathodeRay.C.csproj" />
     <ProjectReference Include="..\..\src\CathodeRay.Cli\CathodeRay.Cli.csproj" />
     <ProjectReference Include="..\..\src\CathodeRay.Assembler\CathodeRay.Assembler.csproj" />
   </ItemGroup>

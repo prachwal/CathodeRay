@@ -2,6 +2,7 @@
   <Folder Name="/src/">
     <Project Path="src/CathodeRay/CathodeRay.csproj" />
     <Project Path="src/CathodeRay.Assembler/CathodeRay.Assembler.csproj" />
+    <Project Path="src/CathodeRay.C/CathodeRay.C.csproj" />
     <Project Path="src/CathodeRay.Cli/CathodeRay.Cli.csproj" />
   </Folder>
   <Folder Name="/tests/">

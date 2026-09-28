@@ -1,0 +1,104 @@
+namespace CathodeRay.C;
+
+/// <summary>Drzewo składni mini-C: program to lista funkcji; typy to <c>uchar</c>/<c>int</c>/<c>void</c>.</summary>
+public static class Ast
+{
+    /// <summary>Wspólny korzeń węzłów.</summary>
+    public abstract record Node;
+
+    /// <summary>Program: lista funkcji.</summary>
+    /// <param name="Functions">Funkcje w kolejności źródła.</param>
+    public sealed record Program(IReadOnlyList<Function> Functions) : Node;
+
+    /// <summary>Definicja funkcji.</summary>
+    /// <param name="ReturnType">Typ wyniku.</param>
+    /// <param name="Name">Nazwa.</param>
+    /// <param name="Params">Parametry.</param>
+    /// <param name="Body">Ciało.</param>
+    public sealed record Function(string ReturnType, string Name, IReadOnlyList<Param> Params, Block Body) : Node;
+
+    /// <summary>Parametr formalny.</summary>
+    /// <param name="Type">Typ.</param>
+    /// <param name="Name">Nazwa.</param>
+    public sealed record Param(string Type, string Name) : Node;
+
+    /// <summary>Wspólny korzeń instrukcji.</summary>
+    public abstract record Stmt : Node;
+
+    /// <summary>Blok <c>{ ... }</c>.</summary>
+    /// <param name="Items">Instrukcje i deklaracje.</param>
+    public sealed record Block(IReadOnlyList<Stmt> Items) : Stmt;
+
+    /// <summary>Deklaracja zmiennej z opcjonalną inicjalizacją.</summary>
+    /// <param name="Type">Typ.</param>
+    /// <param name="Name">Nazwa.</param>
+    /// <param name="Init">Inicjalizator lub <see langword="null"/>.</param>
+    public sealed record Decl(string Type, string Name, Expr? Init) : Stmt;
+
+    /// <summary>Warunek z gałęzią else.</summary>
+    /// <param name="Cond">Warunek.</param>
+    /// <param name="Then">Gałąź prawdy.</param>
+    /// <param name="Else">Gałąź fałszu lub <see langword="null"/>.</param>
+    public sealed record If(Expr Cond, Stmt Then, Stmt? Else) : Stmt;
+
+    /// <summary>Pętla <c>while</c>.</summary>
+    /// <param name="Cond">Warunek.</param>
+    /// <param name="Body">Ciało.</param>
+    public sealed record While(Expr Cond, Stmt Body) : Stmt;
+
+    /// <summary>Pętla <c>for</c>.</summary>
+    /// <param name="Init">Inicjalizacja (deklaracja, wyrażenie lub <see langword="null"/>).</param>
+    /// <param name="Cond">Warunek lub <see langword="null"/> (= prawda).</param>
+    /// <param name="Step">Krok lub <see langword="null"/>.</param>
+    /// <param name="Body">Ciało.</param>
+    public sealed record For(Stmt? Init, Expr? Cond, Expr? Step, Stmt Body) : Stmt;
+
+    /// <summary>Zwrot z funkcji.</summary>
+    /// <param name="Value">Wartość lub <see langword="null"/>.</param>
+    public sealed record Return(Expr? Value) : Stmt;
+
+    /// <summary>Wyrażenie jako instrukcja.</summary>
+    /// <param name="Value">Wyrażenie.</param>
+    public sealed record ExprStmt(Expr Value) : Stmt;
+
+    /// <summary>Pusta instrukcja <c>;</c> (bez kodu).</summary>
+    public sealed record Nop : Stmt;
+
+    /// <summary>Wspólny korzeń wyrażeń.</summary>
+    public abstract record Expr : Node;
+
+    /// <summary>Literał liczbowy (tekst źródłowy, wartość liczy codegen).</summary>
+    /// <param name="Text">Tekst literału.</param>
+    public sealed record Number(string Text) : Expr;
+
+    /// <summary>Odczyt zmiennej.</summary>
+    /// <param name="Name">Nazwa.</param>
+    public sealed record Var(string Name) : Expr;
+
+    /// <summary>Wywołanie funkcji.</summary>
+    /// <param name="Name">Nazwa.</param>
+    /// <param name="Args">Argumenty.</param>
+    public sealed record Call(string Name, IReadOnlyList<Expr> Args) : Expr;
+
+    /// <summary>Operator jednoargumentowy (<c>- ~ !</c>).</summary>
+    /// <param name="Op">Operator.</param>
+    /// <param name="Operand">Operand.</param>
+    public sealed record Unary(string Op, Expr Operand) : Expr;
+
+    /// <summary>Operator dwuargumentowy.</summary>
+    /// <param name="Op">Operator.</param>
+    /// <param name="Left">Lewa strona.</param>
+    /// <param name="Right">Prawa strona.</param>
+    public sealed record Binary(string Op, Expr Left, Expr Right) : Expr;
+
+    /// <summary>Przypisanie (<c>=</c> i złożone, te znormalizowane do prostego).</summary>
+    /// <param name="Name">Nazwa zmiennej.</param>
+    /// <param name="Value">Wartość.</param>
+    public sealed record Assign(string Name, Expr Value) : Expr;
+
+    /// <summary>Operator warunkowy <c>a ? b : c</c>.</summary>
+    /// <param name="Cond">Warunek.</param>
+    /// <param name="Then">Wartość dla prawdy.</param>
+    /// <param name="Else">Wartość dla fałszu.</param>
+    public sealed record Ternary(Expr Cond, Expr Then, Expr Else) : Expr;
+}

@@ -1,0 +1,30 @@
+{
+  "title": "Mini-C: frontend (lexer/parser podzbioru C)",
+  "status": "closed",
+  "items": [
+    {
+      "id": "1",
+      "title": "Gramatyka podzbioru C (deklaracje, wyraż., sterowanie, funkcje)",
+      "status": "done",
+      "note": "Gotowe gdy: spisana gramatyka: uchar/int, funkcje, if/else, while, for, return, operatory +,-,*,/,%,<<,>>,==,!=,<,>,<=,>=,&,|,^,~,!,&&,||, przypisanie, wywołania"
+    },
+    {
+      "id": "2",
+      "title": "Lexer + parser z błędami linia:kolumna",
+      "status": "done",
+      "note": "Gotowe gdy: lexer (liczby dec/hex, identy, operatory, komentarze) + parser rekurencyjny z błędami linia:kolumna jak AssemblerError"
+    },
+    {
+      "id": "3",
+      "title": "AST + pretty-print/debug dump",
+      "status": "done",
+      "note": "Gotowe gdy: AST (FuncDecl, VarDecl, If, While, For, Return, Binary, Unary, Call) + ToString do testów snapshot"
+    },
+    {
+      "id": "4",
+      "title": "Testy: poprawne i błędne programy + build/test/hygiene",
+      "status": "done",
+      "note": "Gotowe gdy: 10+ programów poprawnych i 10+ błędnych (każdy błąd z pozycją) + build -warnaserror + test + hygiene OK"
+    }
+  ]
+}
