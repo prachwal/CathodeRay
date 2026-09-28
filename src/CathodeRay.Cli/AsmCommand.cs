@@ -31,8 +31,10 @@ internal static class AsmCommand
         var isa = new Option<FileInfo>("--isa") { Description = "Plik ISA JSON zamiast domyślnego dla CPU." };
         isa.AcceptExistingOnly();
         var incdir = new Option<DirectoryInfo[]>("--incdir") { Description = "Dodatkowe katalogi poszukiwań .include (można powtarzać)." };
+        var format = new Option<string>("--format", "-f") { Description = "Format wyjścia: bin (domyślnie) albo hex (Intel HEX)." };
+        format.AcceptOnlyFromAmong(["bin", "hex"]);
 
-        var command = new Command("asm", "Asembluje źródło do pliku binarnego.") { source, cpu, syntax, illegal, output, listing, isa, incdir };
+        var command = new Command("asm", "Asembluje źródło do pliku binarnego.") { source, cpu, syntax, illegal, output, listing, isa, incdir, format };
         command.SetAction(parse =>
         {
             TextWriter error = parse.InvocationConfiguration.Error;
@@ -75,8 +77,18 @@ internal static class AsmCommand
                 return 1;
             }
 
-            FileInfo dst = parse.GetValue(output) ?? new FileInfo(Path.ChangeExtension(src.FullName, ".bin"));
-            File.WriteAllBytes(dst.FullName, result.Image);
+            FileInfo dst = parse.GetValue(output)
+                ?? new FileInfo(Path.ChangeExtension(src.FullName, parse.GetValue(format) == "hex" ? ".hex" : ".bin"));
+            if (parse.GetValue(format) == "hex")
+            {
+                using StreamWriter writer = File.CreateText(dst.FullName);
+                result.WriteIntelHex(writer);
+            }
+            else
+            {
+                File.WriteAllBytes(dst.FullName, result.Image);
+            }
+
             if (parse.GetValue(listing) is { } listingFile)
             {
                 using StreamWriter writer = File.CreateText(listingFile.FullName);

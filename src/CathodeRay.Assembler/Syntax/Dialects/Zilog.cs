@@ -27,6 +27,7 @@ public static partial class SyntaxDialects
             ("MACRO", Directive.Macro),
             ("ENDM", Directive.EndMacro),
             ("LOCAL", Directive.Local),
+            ("ALIGN", Directive.Align),
             ("IF", Directive.If),
             ("ELIF", Directive.ElseIf),
             ("ELSE", Directive.Else),

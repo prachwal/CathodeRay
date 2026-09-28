@@ -15,6 +15,8 @@ public sealed record AssemblyResult(
 {
     private const int BytesPerRow = 4;
 
+    private const int HexPerRow = 16;
+
     /// <summary>Wypisuje listing jak oryginalne asemblery: adres, bajty, numer linii, źródło.</summary>
     /// <param name="output">Wyjście.</param>
     public void WriteListing(TextWriter output)
@@ -32,5 +34,27 @@ public sealed record AssemblyResult(
                 output.WriteLine($"{address}  {bytes,-11}  {source}".TrimEnd());
             }
         }
+    }
+
+    /// <summary>Wypisuje obraz w formacie Intel HEX (rekordy danych 00 po 16 bajtów + EOF 01, suma kontrolna).</summary>
+    /// <param name="output">Wyjście.</param>
+    public void WriteIntelHex(TextWriter output)
+    {
+        ArgumentNullException.ThrowIfNull(output);
+        for (int offset = 0; offset < Image.Length; offset += HexPerRow)
+        {
+            byte[] chunk = Image[offset..Math.Min(offset + HexPerRow, Image.Length)];
+            int address = Origin + offset;
+            int sum = chunk.Length + (address >> 8) + (address & 0xFF);
+            foreach (byte b in chunk)
+            {
+                sum += b;
+            }
+
+            string data = string.Concat(chunk.Select(static b => b.ToString("X2", CultureInfo.InvariantCulture)));
+            output.WriteLine(string.Create(CultureInfo.InvariantCulture, $":{chunk.Length:X2}{address:X4}00{data}{(byte)-sum:X2}"));
+        }
+
+        output.WriteLine(":00000001FF");
     }
 }

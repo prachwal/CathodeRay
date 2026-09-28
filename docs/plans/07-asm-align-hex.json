@@ -1,6 +1,6 @@
 {
   "title": "Asembler: .align + Intel HEX (mniejszy krok linkera)",
-  "status": "active",
+  "status": "closed",
   "items": [
     {
       "id": "1",
@@ -11,19 +11,19 @@
     {
       "id": "2",
       "title": "Dyrektywa .align (dopełnienie zerami/wartością)",
-      "status": "todo",
-      "note": "Gotowe gdy: .align N[,wypełnienie] dopełnia PC do wielokrotności N w obu przebiegach identycznie, N niepotęgą 2 / poza zakresem = błąd"
+      "status": "done",
+      "note": "Gotowe gdy: .align N[,wypełnienie] dopełnia PC do wielokrotności N w obu przebiegach identycznie; N<1 / zła liczba operandów / fill poza 0..255 = błąd (dowolne N≥1, jak ca65/z80asm — brak wymogu potęgi 2)"
     },
     {
       "id": "3",
       "title": "Wyjście Intel HEX (opcja CLI, suma kontrolna)",
-      "status": "todo",
+      "status": "done",
       "note": "Gotowe gdy: cathode asm --format hex pisze Intel HEX (rekordy danych + EOF, suma kontrolna), binarka domyślna bez zmian, test wektora z obliczonym checksum"
     },
     {
       "id": "4",
       "title": "Testy + build/test/hygiene",
-      "status": "todo",
+      "status": "done",
       "note": "Gotowe gdy: testy .align (wyrównanie, wypełnienie, błąd N) + HEX (rekordy, checksum, luki) + build -warnaserror + test + hygiene OK"
     }
   ]

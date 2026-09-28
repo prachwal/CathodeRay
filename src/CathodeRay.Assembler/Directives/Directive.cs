@@ -24,14 +24,17 @@ public static class Directive
     /// <summary>Wstawia plik binarny do obrazu (<c>.incbin</c>, <c>INCBIN</c>).</summary>
     public static IDirective Incbin { get; } = new IncbinDirective();
 
+    /// <summary>Symbole lokalne per rozwinięcie (<c>.local</c>, <c>LOCAL</c>).</summary>
+    public static IDirective Local { get; } = new MacroDirective(MacroKind.Local);
+
     /// <summary>Definicja makra (<c>.macro</c>, <c>MACRO</c>).</summary>
     public static IDirective Macro { get; } = new MacroDirective(MacroKind.Macro);
 
     /// <summary>Koniec definicji makra (<c>.endmacro</c>, <c>ENDM</c>).</summary>
     public static IDirective EndMacro { get; } = new MacroDirective(MacroKind.EndMacro);
 
-    /// <summary>Symbole lokalne per rozwinięcie (<c>.local</c>, <c>LOCAL</c>).</summary>
-    public static IDirective Local { get; } = new MacroDirective(MacroKind.Local);
+    /// <summary>Wyrównuje adres (<c>.align</c>, <c>ALIGN</c>).</summary>
+    public static IDirective Align { get; } = new AlignDirective();
 
     /// <summary>Blok warunkowy: <c>.if</c> / <c>IF</c> (logika w przebiegu).</summary>
     public static IDirective If { get; } = new ConditionalDirective(ConditionalKind.If);
