@@ -29,13 +29,13 @@
     {
       "id": "5",
       "title": "[M] Interpreter IR (~300 linii): wyrocznia front-endu niezależna od CPU, uruchamia cały istniejący zestaw testów C; przebiegi na IR: ramki tylko dla funkcji rekurencyjnych i o wziętym adresie (NeedsFrame), wołanie pośrednie w grafie wołań, redukcja siły, stałe i operandy bezpośrednie, martwe zapisy tymczasowych",
-      "status": "todo",
+      "status": "done",
       "note": ""
     },
     {
       "id": "6",
       "title": "[S] Helpery mnożenia i dzielenia (Codegen.Helpers.cs) do stdlib/stub/rt.s, linkowane na żądanie przez istniejącą pętlę nierozwiązanych symboli; znikają flagi _needMul*",
-      "status": "todo",
+      "status": "done",
       "note": ""
     },
     {

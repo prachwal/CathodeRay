@@ -218,15 +218,7 @@ internal sealed partial class StubSelector
         bool isMod = bin.Kind is Ir.BinOp.Mod or Ir.BinOp.ModS;
         if (dst.W == 1)
         {
-            if (isMul)
-            {
-                _needMul = true;
-            }
-            else
-            {
-                _needDiv = true;
-            }
-
+            UseHelper(isMul ? "cc_mul8" : "cc_divmod");
             LoadA(bin.A, 0);
             Line("STA __x@0");
             Octet divisor = ByteOf(bin.B, 0);
@@ -259,19 +251,13 @@ internal sealed partial class StubSelector
         Line("STA cc_w_b");
         LoadA(bin.B, 1);
         Line("STA cc_w_b_h");
-        if (isMul)
-        {
-            _needMul16 = true;
-            Line("CALL cc_mul16");
-        }
-        else
-        {
-            _needDiv16 = true;
-            Line(bin.Kind is Ir.BinOp.DivS or Ir.BinOp.ModS ? "CALL cc_sdiv16" : "CALL cc_div16");
-        }
+        string routine = isMul ? "cc_mul16" : bin.Kind is Ir.BinOp.DivS or Ir.BinOp.ModS ? "cc_sdiv16" : "cc_div16";
+        UseHelper(routine, "cc_w_a", "cc_w_a_h", "cc_w_b", "cc_w_b_h");
+        Line($"CALL {routine}");
 
         if (isMod)
         {
+            UseHelper("cc_w_r", "cc_w_r_h");
             Line("LDA cc_w_r");
             Line($"STA {dst.Sym}");
             Line("LDA cc_w_r_h");

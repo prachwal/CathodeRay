@@ -233,3 +233,19 @@ liczbę parametrów (`printf(fmt, a1..a5)`), więc `...` można tylko deklarowa�
 - Bramka `IrGateTests` porównuje asembler wygenerowany dla korpusu (samples, moduły biblioteki, przykłady z `minic.md`;
   4 warianty: tryb obiektowy × optymalizacja) z zapisanym wzorcem `tests/CathodeRay.Tests/ir-gate.txt` bajt w bajt.
   Wzorzec zapisuje wyjście stuba; zmiana generatora, która świadomie zmienia wyjście (jak przejście na IR), regeneruje go: `UPDATE_IR_GATE=1 dotnet test --filter IrGateTests`.
+
+## Interpreter IR, przebiegi i moduły wykonawcze (plan 30, kroki 5–6)
+
+- `IrInterpreter` wykonuje `Ir.Module` bez procesora (pamięć 64 KB, ramki wg `Saved`, wołania pośrednie, inicjalizatory,
+  wbudowana konsola `putchar/puthex/putdec`). `IrOracle` w testach porównuje wynik `main` z interpretera z wynikiem
+  skompilowanego programu na stubie dla każdego testu używającego `CCodegenTests.RunC` oraz dla samples — semantyka
+  front-endu jest więc sprawdzana niezależnie od celu.
+- Ramki (zapis komórek w prologu i epilogu) mają tylko funkcje na cyklu grafu wołań: wołanie pośrednie ma krawędzie do
+  funkcji o wziętym adresie, wołanie nieznanej funkcji zewnętrznej do funkcji eksportowanych i o wziętym adresie
+  (kod zewnętrzny może wołać z powrotem); biblioteka standardowa i konsola nie wołają kodu użytkownika. Pozostałe funkcje
+  nie zapisują nic, a lokalne tablice i struktury zapisują się tylko w funkcjach z ramką (limit 64 B).
+- Przebiegi IR: mnożenie, dzielenie i reszta bez znaku przez potęgę dwójki to przesunięcie / maska, mnożenie i dzielenie
+  przez 1 to kopia; `t = op …; v = t` staje się `v = op …`, gdy `t` jest martwa (tymczasowe nie żyją między instrukcjami C).
+- Procedury mnożenia i dzielenia stuba to moduły biblioteki (`stdlib/stub/rt_mul8.s`, `rt_div8.s`, `rt16.s`), linkowane
+  przez `cc` na żądanie (nierozwiązane `cc_mul8`, `cc_divmod`, `cc_mul16`, `cc_div16`, `cc_sdiv16`; komórki argumentów
+  `cc_w_*` eksportuje `rt16.s`). Gdy moduł jest całym programem (bez linkera), selektor dołącza użyte moduły do wyjścia.

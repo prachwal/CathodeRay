@@ -11,23 +11,13 @@ internal sealed partial class StubSelector
 
     private readonly StringBuilder _code = new();
 
-    private readonly List<string> _helperCells = [];
+    private readonly HashSet<string> _helperSymbols = new(StringComparer.Ordinal);
 
     private readonly Dictionary<string, string> _addressCells = new(StringComparer.Ordinal);
 
     private readonly List<(string Label, string Sym, int Off)> _addressList = [];
 
     private int _labels;
-
-    private bool _wideCells;
-
-    private bool _needMul;
-
-    private bool _needDiv;
-
-    private bool _needMul16;
-
-    private bool _needDiv16;
 
     public StubSelector(Ir.Module module) => _module = module;
 
@@ -36,59 +26,13 @@ internal sealed partial class StubSelector
     /// <returns>Tekst dla asemblera stuba.</returns>
     public string Emit(bool optimize)
     {
-        Line(".segment \"CODE\"");
-        if (_module.ObjectMode)
-        {
-            foreach (string function in _module.ExternFunctions)
-            {
-                Line($".extern {function}");
-            }
-
-            foreach (string external in _module.ExternCells)
-            {
-                Line($".extern {external}");
-            }
-
-            Line(".extern cc_arg1");
-            Line(".extern cc_arg1_h");
-            for (int arg = 2; arg <= TypeChecker.MaxArgs; arg++)
-            {
-                Line($".extern cc_arg{arg}");
-                Line($".extern cc_arg{arg}_h");
-            }
-
-            Line(".extern cc_ret");
-            Line(".extern cc_ret_h");
-        }
-
         foreach (Ir.Function function in _module.Functions)
         {
             EmitFunction(function);
         }
 
-        if (_needMul)
-        {
-            EmitMul();
-        }
-
-        if (_needDiv)
-        {
-            EmitDiv();
-        }
-
-        if (_needMul16)
-        {
-            EmitMul16();
-        }
-
-        if (_needDiv16)
-        {
-            EmitDiv16();
-            EmitSDiv16();
-        }
-
         string code = optimize ? Peephole.Optimize(_code.ToString()) : _code.ToString();
-        return code + PrintInit() + PrintData() + PrintBss();
+        return Header() + code + RuntimeText() + PrintInit() + PrintData() + PrintBss();
     }
 
     private static string CellHi(string sym) => $"{sym}+1";
@@ -326,6 +270,73 @@ internal sealed partial class StubSelector
         }
     }
 
+    private string Header()
+    {
+        var text = new StringBuilder();
+        text.AppendLine(".segment \"CODE\"");
+        if (!_module.ObjectMode)
+        {
+            return text.ToString();
+        }
+
+        foreach (string function in _module.ExternFunctions)
+        {
+            text.AppendLine($".extern {function}");
+        }
+
+        foreach (string external in _module.ExternCells)
+        {
+            text.AppendLine($".extern {external}");
+        }
+
+        text.AppendLine(".extern cc_arg1");
+        text.AppendLine(".extern cc_arg1_h");
+        for (int arg = 2; arg <= TypeChecker.MaxArgs; arg++)
+        {
+            text.AppendLine($".extern cc_arg{arg}");
+            text.AppendLine($".extern cc_arg{arg}_h");
+        }
+
+        text.AppendLine(".extern cc_ret");
+        text.AppendLine(".extern cc_ret_h");
+        foreach (string symbol in _helperSymbols.Order(StringComparer.Ordinal))
+        {
+            text.AppendLine($".extern {symbol}");
+        }
+
+        return text.ToString();
+    }
+
+    /// <summary>Podprogramy mnożenia i dzielenia to moduły asemblerowe biblioteki (<c>rt_*.s</c>). W trybie obiektowym linkuje je
+    /// <c>cc</c> na żądanie; gdy moduł jest całym programem, dołączamy tu te, których użyto.</summary>
+    private string RuntimeText()
+    {
+        if (_module.ObjectMode || _helperSymbols.Count == 0)
+        {
+            return string.Empty;
+        }
+
+        var text = new StringBuilder();
+        foreach (StdModule module in StdLib.Modules.Where(static m => m.IsAssembly && m.Name.StartsWith("rt", StringComparison.Ordinal)))
+        {
+            if (module.Defines.Any(_helperSymbols.Contains))
+            {
+                text.AppendLine(module.Source);
+            }
+        }
+
+        return text.ToString();
+    }
+
+    /// <summary>Zapisuje, że kod woła symbol modułu wykonawczego (procedurę albo komórkę argumentów).</summary>
+    private void UseHelper(params string[] symbols)
+    {
+        foreach (string symbol in symbols)
+        {
+            _helperSymbols.Add(symbol);
+        }
+    }
+
     private string PrintInit()
     {
         var text = new StringBuilder();
@@ -388,11 +399,6 @@ internal sealed partial class StubSelector
         foreach (string scratch in new[] { "__x@0", "__x@1", "__p@0", "__p@1", "__p@2", "__p@3", "__c@0" })
         {
             text.AppendLine($"{scratch}: .res {(scratch[2] == 'x' ? 1 : 2)}");
-        }
-
-        foreach (string cell in _helperCells)
-        {
-            text.AppendLine($"{cell}: .res 1");
         }
 
         if (!_module.ObjectMode)
