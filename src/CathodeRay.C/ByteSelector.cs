@@ -362,6 +362,26 @@ internal sealed class ByteSelector
             }
         }
 
+        // Optymalizacja: dodawanie 16-bitowe stałej z zerowym bajtem starszym (tylko 6502): zamiast adc #0 użyj bcc skip; inc hi
+        if (bin.Kind == Ir.BinOp.Add && bin.Dst.W == 2 && bin.A is Ir.Cell sameCell && sameCell.Sym == bin.Dst.Sym && sameCell.W == 2 && bin.B is Ir.Imm imm && imm.W == 2 && (imm.Value >> 8) == 0 && _isa is Mos6502Isa)
+        {
+            // Dodaj młodszy bajt (carry zostanie ustawiony jeśli overflow)
+            LoadA(ByteOf(bin.A, 0));
+            Alu(ByteAlu.Add, ByteOf(bin.B, 0), true);
+            StoreA(Dst(bin.Dst, 0));
+
+            // Zamiast lda hi; adc #0; sta hi, użyj bcc skip; inc hi; skip:
+            // Carry flag jest ustawiony jeśli był overflow (dodanie spowodowało >= 256)
+            // bcc = branch if carry clear (brak overflow)
+            string skip = _isa.LocalLabel();
+            Raw($"bcc {skip}");
+            _isa.TryStep([Dst(bin.Dst, 1)], true);
+            Raw($"{skip}:");
+
+            _acc.Clear();
+            return;
+        }
+
         switch (bin.Kind)
         {
             case Ir.BinOp.Add:

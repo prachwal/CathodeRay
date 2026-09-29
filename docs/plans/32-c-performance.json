@@ -76,7 +76,7 @@
     {
       "id": "11",
       "title": "[S] Dodawanie stałej 16-bitowej o zerowym bajcie starszym (`x = y + 5` przy typie 2-bajtowym): zamiast `lda hi ; adc #0 ; sta` użyj `bcc skip ; inc hi` (6502: `inc` na ZP/abs). Ogranicz do celów z `TryStep`/INC pamięci (6502, 6800 nie; 6502 tak). Zacznij od metody obsługującej `Bin` Add z `Imm`, znajdź `TryStep`. Test: `x = y + 3` dla `uint` na 6502 daje kod z `inc` i poprawny wynik na pełnym zakresie (0xFFFE+3).",
-      "status": "todo",
+      "status": "done",
       "note": "",
       "section": "E. Ścieżka 16-bitowa (`ByteSelector.cs`)"
     },

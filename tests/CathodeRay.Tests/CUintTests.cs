@@ -96,4 +96,23 @@ public sealed class CUintTests
         CathodeRay.C.CheckedProgram quiet = CathodeRay.C.TypeChecker.Check(CathodeRay.C.Parser.Parse("int main() { uint b = 2; return b < 1000; }"));
         quiet.Warnings.Should().BeEmpty();
     }
+
+    /// <summary>Plan 32, krok 11: optymalizacja dodawania 16-bitowej stałej z zerowym bajtem starszym na 6502 za pomocą inc zamiast adc #0.</summary>
+    [Theory]
+    [InlineData(0, 3)]
+    [InlineData(0xFFFE, 1)]
+    [InlineData(0x00FF, 0x0102)]
+    [InlineData(0xFF00, 0xFF03)]
+    public void Uint_Add_Constant_With_Zero_High_Byte_On_6502(uint input, uint expected)
+    {
+        // Test na 6502: x = y + 3, gdzie y to input, oczekiwany wynik to expected
+        // Testujemy pełny zakres, w tym 0xFFFE+3 = 0x10001 → 0x0001 (overflow)
+        string source = $$"""
+            uint compute(uint y) { return y + 3; }
+            int main(void) { return compute({{input}}); }
+            """;
+        var result = CcRun.RunOn(source, "6502");
+        result.Value.Should().Be((int)(expected & 0xFFFF), $"for input {input:X4}");
+        result.Stderr.Should().BeEmpty(result.Stderr);
+    }
 }
