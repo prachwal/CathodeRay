@@ -29,6 +29,8 @@ internal sealed partial class Lowering
 
     private readonly List<TypedSymbol> _runtimeInits = [];
 
+    private readonly TargetByteOrder _byteOrder;
+
     private readonly HashSet<string> _localSymbols = new(StringComparer.Ordinal);
 
     private readonly List<string> _externCells = [];
@@ -66,8 +68,9 @@ internal sealed partial class Lowering
     private CheckedFunction? _current;
     private Ir.Function? _initFunction;
 
-    public Lowering(CheckedProgram program, string? fileName, bool objectMode, int? stackLimit)
+    public Lowering(CheckedProgram program, string? fileName, bool objectMode, int? stackLimit, TargetByteOrder byteOrder = TargetByteOrder.Little)
     {
+        _byteOrder = byteOrder;
         _program = program;
         _file = fileName;
         _objectMode = objectMode;

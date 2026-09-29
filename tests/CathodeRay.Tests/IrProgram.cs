@@ -9,6 +9,7 @@ public sealed class IrProgram
 {
     private readonly List<Ir.Ins> _body = [];
     private readonly List<string> _names = [];
+    private readonly List<int> _widths = [];
     private readonly List<Ir.Data> _extraData = [];
     private readonly List<Ir.Function> _extraFunctions = [];
     private int _label;
@@ -44,6 +45,7 @@ public sealed class IrProgram
     {
         _body.Add(new Ir.Store(new Ir.AddrOf("c_res", 0), _names.Count * 2, result, result.W));
         _names.Add(description);
+        _widths.Add(result.W);
         return this;
     }
 
@@ -74,6 +76,17 @@ public sealed class IrProgram
             foreach (bool optimize in new[] { true, false })
             {
                 byte[] actual = TargetHarness.Run(target, module, optimize).Read("c_res", size);
+                if (target.ByteOrder == TargetByteOrder.Big)
+                {
+                    for (int slot = 0; slot < _names.Count; slot++)
+                    {
+                        if (_widths[slot] == 2)
+                        {
+                            (actual[slot * 2], actual[(slot * 2) + 1]) = (actual[(slot * 2) + 1], actual[slot * 2]);
+                        }
+                    }
+                }
+
                 for (int slot = 0; slot < _names.Count; slot++)
                 {
                     if (actual[slot * 2] != expected[slot * 2] || actual[(slot * 2) + 1] != expected[(slot * 2) + 1])

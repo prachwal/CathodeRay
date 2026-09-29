@@ -77,7 +77,7 @@
     {
       "id": "13",
       "title": "[M] M6800Target: LDX p; LDAA off,X, wołanie JSR 0,X, konwencja A:B, big-endian w danych i .word, interpreter 6800",
-      "status": "todo",
+      "status": "done",
       "note": ""
     },
     {

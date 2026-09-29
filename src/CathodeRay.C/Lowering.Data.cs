@@ -82,11 +82,16 @@ internal sealed partial class Lowering
     {
         if (TryConstValue(symbol.Init, out int value))
         {
-            return symbol.Type.Size == 1 ? [(byte)(value & 0xFF)] : [(byte)(value & 0xFF), (byte)((value >> 8) & 0xFF)];
+            return symbol.Type.Size == 1 ? [(byte)(value & 0xFF)] : WordBytes(value);
         }
 
         throw new CCodegenException($"initializer of '{symbol.Name}' must be a constant.");
     }
+
+    /// <summary>Słowo 16-bitowe w kolejności bajtów celu.</summary>
+    private byte[] WordBytes(int value) => _byteOrder == TargetByteOrder.Big
+        ? [(byte)((value >> 8) & 0xFF), (byte)(value & 0xFF)]
+        : [(byte)(value & 0xFF), (byte)((value >> 8) & 0xFF)];
 
     /// <summary>Dane tablicy/struktury: bajty z wpisanymi stałymi i słowami z adresami symboli.</summary>
     private List<Ir.Piece> AggregatePieces(TypedSymbol symbol)
@@ -108,10 +113,13 @@ internal sealed partial class Lowering
                 throw new CCodegenException($"initializer of '{symbol.Name}' must be constant.");
             }
 
-            bytes[offset] = (byte)(value & 0xFF);
             if (type.Size == 2)
             {
-                bytes[offset + 1] = (byte)((value >> 8) & 0xFF);
+                WordBytes(value).CopyTo(bytes, offset);
+            }
+            else
+            {
+                bytes[offset] = (byte)(value & 0xFF);
             }
         }
 

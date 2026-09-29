@@ -280,3 +280,7 @@ liczbę parametrów (`printf(fmt, a1..a5)`), więc `...` można tylko deklarowa�
 - 8080 (krok 12): `Intel8080Isa` — te same prymitywy z mnemonikami Intel (`LXI H,adres; ADD M`, `LHLD`, `PCHL`, `ADD A`/`RAL` dla
   przesunięć), bez instrukcji Z80; `Z80Cpu(intel8080: true)` odrzuca opkody spoza 8080. Nazwy symboli kolidujące z rejestrami
   lub operatorami asemblera (`low`, `c`, `hl` …) dostają przedrostek `cc_r_` (`ByteIsa.Sym`).
+- 6800 (krok 13): `M6800Isa` — big-endian: komórka 2-bajtowa ma starszy bajt pod `sym`, więc `LDX komórka` ładuje wskaźnik, a
+  `LDAA n,X` / `STAA n,X` czytają i piszą bajty; wołanie pośrednie `LDX komórka; JSR 0,X`. Dane początkowe generuje frontend
+  w kolejności bajtów celu (`ICTarget.ByteOrder` → `Lowering`), `.word` w danych zamienia asembler. Do ISA 6800 dopisano
+  brakujące PSHA/PSHB/PULA/PULB. Interpreter `Mc6800Cpu` czyta tablicę opkodów z JSON.

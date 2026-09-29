@@ -24,7 +24,7 @@ public static class Codegen
     public static string Emit(CheckedProgram program, ICTarget target, string? fileName = null, bool objectMode = false, bool optimize = true)
     {
         ArgumentNullException.ThrowIfNull(target);
-        return target.Emit(Lower(program, fileName, objectMode, target.StackLimit), optimize);
+        return target.Emit(Lower(program, fileName, objectMode, target.StackLimit, target.ByteOrder), optimize);
     }
 
     /// <summary>Obniża program do kodu pośredniego.</summary>
@@ -32,10 +32,11 @@ public static class Codegen
     /// <param name="fileName">Nazwa pliku C do adnotacji <c>;c:</c> (null = sama linia).</param>
     /// <param name="objectMode">Tryb obiektowy (linker): moduł deklaruje symbole zewnętrzne.</param>
     /// <param name="stackLimit">Rozmiar stosu sprzętowego do kontroli głębokości wołań (null = bez kontroli).</param>
+    /// <param name="byteOrder">Kolejność bajtów słów w danych początkowych.</param>
     /// <returns>Moduł IR.</returns>
-    public static Ir.Module Lower(CheckedProgram program, string? fileName = null, bool objectMode = false, int? stackLimit = 256)
+    public static Ir.Module Lower(CheckedProgram program, string? fileName = null, bool objectMode = false, int? stackLimit = 256, TargetByteOrder byteOrder = TargetByteOrder.Little)
     {
         ArgumentNullException.ThrowIfNull(program);
-        return new Lowering(program, fileName, objectMode, stackLimit).Run();
+        return new Lowering(program, fileName, objectMode, stackLimit, byteOrder).Run();
     }
 }

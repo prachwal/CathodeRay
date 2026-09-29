@@ -11,13 +11,13 @@ public sealed class CTargetTests
     private static CheckedProgram Checked() => TypeChecker.Check(Parser.Parse(Source));
 
     [Fact]
-    public void Registry_Finds_Targets_Case_Insensitively_And_Exposes_Planned_Names()
+    public void Registry_Finds_Targets_Case_Insensitively_And_Lists_Every_Target()
     {
         CTargets.Find("STUB").Should().BeSameAs(CTargets.Default);
-        CTargets.Find("6800").Should().BeNull();
-        CTargets.Find("6502")!.Name.Should().Be("6502");
-        CTargets.All.Select(static t => t.Name).Should().StartWith("stub");
-        CTargets.Planned.Should().Contain(["6800"]);
+        CTargets.Find("Z80")!.Name.Should().Be("z80");
+        CTargets.Find("pdp11").Should().BeNull();
+        CTargets.All.Select(static t => t.Name).Should().Equal("stub", "6502", "65c02", "z80", "8080", "6800");
+        CTargets.Planned.Should().BeEmpty();
     }
 
     [Fact]
@@ -62,7 +62,7 @@ public sealed class CTargetTests
     }
 
     [Fact]
-    public void Driver_Accepts_Stub_And_Rejects_Unknown_And_Planned_Targets()
+    public void Driver_Accepts_Stub_And_Rejects_Unknown_Targets()
     {
         string dir = Directory.CreateTempSubdirectory("cathode-cpu-").FullName;
         try
@@ -73,10 +73,6 @@ public sealed class CTargetTests
 
             (int okExit, string okError) = Cc("cc", path, "-o", bin, "--cpu", "stub");
             okExit.Should().Be(0, okError);
-
-            (int plannedExit, string plannedError) = Cc("cc", path, "-o", bin, "--cpu", "6800");
-            plannedExit.Should().NotBe(0);
-            plannedError.Should().Contain("target not implemented yet '6800'").And.Contain("available: stub");
 
             (int unknownExit, string unknownError) = Cc("cc", path, "-o", bin, "--cpu", "pdp11");
             unknownExit.Should().NotBe(0);
