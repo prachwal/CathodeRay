@@ -6,7 +6,7 @@ Rozmiar: S = <1 h, M = kilka h, L = dzień+. Kolejność: A -> B -> C -> D -> E;
 
 ## A. Nazwy
 
-- [ ] **1.** [S] Kolizje wielkości liter w asemblerach Intel/Zilog (8080, Z80): ByteIsa.Sym rozróżnia nazwy różniące się tylko wielkością liter deterministycznym sufiksem zależnym od pozycji wielkich liter (spójnym między modułami: funkcje zewnętrzne, globale, extern); test foo/Foo/FOO na z80 i 8080 oraz link dwóch modułów
+- [x] **1.** [S] Kolizje wielkości liter w asemblerach Intel/Zilog (8080, Z80): ByteIsa.Sym rozróżnia nazwy różniące się tylko wielkością liter deterministycznym sufiksem zależnym od pozycji wielkich liter (spójnym między modułami: funkcje zewnętrzne, globale, extern); test foo/Foo/FOO na z80 i 8080 oraz link dwóch modułów
 
 ## B. Strona zerowa 6502
 
@@ -37,4 +37,4 @@ Rozmiar: S = <1 h, M = kilka h, L = dzień+. Kolejność: A -> B -> C -> D -> E;
 
 - [ ] **18.** [S] Testy e2e per pozycja, samples/minic/23_*.c ...; docs/minic.md (usunąć spełnione pozycje z „Nie działa”), docs/targets.md, docs/compare.md, docs/target-sizes.md, hygiene
 
-Postęp: 0/18 gotowych.
+Postęp: 1/18 gotowych.

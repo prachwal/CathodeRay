@@ -44,6 +44,6 @@ public sealed class StubTarget : ICTarget
     public string Emit(Ir.Module module, bool optimize)
     {
         ArgumentNullException.ThrowIfNull(module);
-        return new StubSelector(WideLegalizer.Run(Legalizer.Run(module, wide: true), ByteOrder)).Emit(optimize);
+        return new StubSelector(WideLegalizer.Run(Legalizer.Run(CaseFold.Apply(module), wide: true), ByteOrder)).Emit(optimize);
     }
 }

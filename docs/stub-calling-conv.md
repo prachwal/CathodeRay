@@ -326,3 +326,9 @@ młodszą połową w `cc_ret` i starszą w `cc_rethi` (crt0, DATA). Kolejność 
 `Legalizer(narrow)` → `ByteSelector`; stub pomija drugi `Legalizer`, bo ma własne procedury 16-bitowe.
 Wcześniej złapany błąd: `Load` z komórką wskaźnika w tej samej komórce co wynik (`t = *t`) po rozbiciu niszczył adres drugiej połowy —
 `WideLegalizer` kopiuje wtedy wskaźnik do pomocniczej.
+
+## Nazwy różniące się wielkością liter (plan 31, krok 1)
+
+Asemblery i linker nie rozróżniają wielkości liter w symbolach, a C tak. Przebieg `CaseFold` (IR → IR, pierwszy w `Emit` każdego celu) zamienia
+nazwę z wielką literą na małe litery plus maskę pozycji wielkich w hex (`Foo` → `foo__c1`, `FOO` → `foo__c7`), więc `foo`, `Foo` i `FOO`
+(funkcje, globale, lokalne, etykiety) zostają różne, również między osobno linkowanymi modułami.

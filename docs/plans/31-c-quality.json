@@ -5,7 +5,7 @@
     {
       "id": "1",
       "title": "[S] Kolizje wielkości liter w asemblerach Intel/Zilog (8080, Z80): ByteIsa.Sym rozróżnia nazwy różniące się tylko wielkością liter deterministycznym sufiksem zależnym od pozycji wielkich liter (spójnym między modułami: funkcje zewnętrzne, globale, extern); test foo/Foo/FOO na z80 i 8080 oraz link dwóch modułów",
-      "status": "todo",
+      "status": "done",
       "note": "",
       "section": "A. Nazwy"
     },
