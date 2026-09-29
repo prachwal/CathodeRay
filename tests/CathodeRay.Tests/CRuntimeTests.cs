@@ -117,12 +117,12 @@ public sealed class CRuntimeTests : IDisposable
     {
         var sb = new System.Text.StringBuilder();
         sb.AppendLine("int f0(int a, int b) { int c = a + b; int d = c + 1; return d; }");
-        for (int i = 1; i <= 40; i++)
+        for (int i = 1; i <= 130; i++)
         {
             sb.AppendLine($"int f{i}(int a, int b) {{ int c = a + b; int d = c + 1; return f{i - 1}(c, d); }}");
         }
 
-        sb.AppendLine("int main() { return f40(1, 2); }");
+        sb.AppendLine("int main() { return f130(1, 2); }");
         FluentActions.Invoking(() => CCodegenTests.RunC(sb.ToString()))
             .Should().Throw<CathodeRay.C.CCodegenException>().WithMessage("*of stack*");
     }

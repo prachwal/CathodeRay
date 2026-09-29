@@ -11,6 +11,7 @@ internal sealed partial class Lowering
     private const int MaxSavedAggregate = 64;
 
     private readonly List<Ir.Function> _functionsOut = [];
+    private readonly List<Pending> _pending = [];
 
     private readonly List<Ir.Data> _dataOut = [];
 
@@ -52,8 +53,6 @@ internal sealed partial class Lowering
 
     private IReadOnlyDictionary<Ast.Node, int> _lines = new Dictionary<Ast.Node, int>();
 
-    private HashSet<string> _recursive = [];
-
     private IReadOnlyList<TypedSymbol> _globals = [];
 
     private string _prefix = string.Empty;
@@ -65,6 +64,7 @@ internal sealed partial class Lowering
     private int _switches;
 
     private CheckedFunction? _current;
+    private Ir.Function? _initFunction;
 
     public Lowering(CheckedProgram program, string? fileName, bool objectMode, int? stackLimit)
     {
@@ -86,7 +86,6 @@ internal sealed partial class Lowering
         }
 
         _constants = program.Constants ?? _constants;
-        _recursive = RecursiveFunctions(program);
         _types = new Dictionary<Ast.Expr, CType>(program.GlobalTypes ?? new Dictionary<Ast.Expr, CType>(), ReferenceEqualityComparer.Instance);
         _lines = program.Lines;
         foreach (CheckedFunction function in program.Functions)
@@ -124,6 +123,8 @@ internal sealed partial class Lowering
             LowerGlobalInit(program);
             _dataOut.Add(new Ir.Data(string.Empty, "INIT", 2, [new Ir.SymWord("__cc_init", 0)], false));
         }
+
+        FinalizeFrames();
 
         CheckStack(program.Warnings, _stackLimit);
         string[] externFunctions =
@@ -242,6 +243,7 @@ internal sealed partial class Lowering
         }
 
         var saved = new List<Ir.Owned>();
+        var aggregates = new List<Ir.Owned>();
         var parameters = new List<Ir.Cell>();
         foreach (TypedSymbol param in function.Params)
         {
@@ -266,16 +268,7 @@ internal sealed partial class Lowering
             if (local.Type.Kind is "array" or "struct")
             {
                 AddBss(cell.Sym, local.Type.Size);
-                if (_recursive.Contains(function.Def.Name))
-                {
-                    if (local.Type.Size > MaxSavedAggregate)
-                    {
-                        throw new CCodegenException($"recursive function '{function.Def.Name}' has local '{local.Name}' of {local.Type.Size} B (max {MaxSavedAggregate}).");
-                    }
-
-                    saved.Add(new Ir.Owned(cell.Sym, local.Type.Size, true));
-                }
-
+                aggregates.Add(new Ir.Owned(cell.Sym, local.Type.Size, true));
                 continue;
             }
 
@@ -300,9 +293,8 @@ internal sealed partial class Lowering
         }
 
         saved.AddRange(_extraOwned);
-        _frames[function.Def.Name] = saved.Sum(static o => o.Size) + 2;
         int retW = function.Def.ReturnType == "void" && function.Def.ReturnStars == 0 ? 0 : function.Def.ReturnType == "uchar" && function.Def.ReturnStars == 0 ? 1 : 2;
-        _functionsOut.Add(new Ir.Function(function.Def.Name, function.Def.IsStatic, parameters, retW, saved, DropJumpsToNext(_body)));
+        _pending.Add(new Pending(new Ir.Function(function.Def.Name, function.Def.IsStatic, parameters, retW, [], IrPasses.Optimize(DropJumpsToNext(_body))), saved, aggregates));
         _current = null;
     }
 
@@ -326,16 +318,15 @@ internal sealed partial class Lowering
             AssignVariable(global.Name, global.Init!, 0);
         }
 
-        var saved = new List<Ir.Owned>();
         for (int temp = 0; temp <= _maxTemp; temp++)
         {
-            string sym = TempSym(temp);
-            AddBss(sym, 2);
-            saved.Add(new Ir.Owned(sym, 2, false));
+            AddBss(TempSym(temp), 2);
         }
 
-        _functionsOut.Add(new Ir.Function("__cc_init", true, [], 0, saved, DropJumpsToNext(_body)));
+        _initFunction = new Ir.Function("__cc_init", true, [], 0, [], IrPasses.Optimize(DropJumpsToNext(_body)));
     }
 
     private sealed record VarCell(string Sym, CType Type);
+
+    private sealed record Pending(Ir.Function Function, List<Ir.Owned> Scalars, List<Ir.Owned> Aggregates);
 }

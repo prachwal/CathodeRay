@@ -23,6 +23,59 @@ internal sealed partial class Lowering
 
     private static int Log2(int value) => System.Numerics.BitOperations.Log2((uint)value);
 
+    /// <summary>Mnożenie przez potęgę dwójki to przesunięcie, dzielenie i reszta bez znaku przez potęgę dwójki to
+    /// przesunięcie w prawo i maska; mnożenie i dzielenie przez 1 to kopia.</summary>
+    private Ir.Op? ReduceStrength(Ir.BinOp kind, int width, Ir.Op left, Ir.Op right, int depth)
+    {
+        static bool Power(Ir.Op op, out int value)
+        {
+            value = op is Ir.Imm imm ? imm.Value : 0;
+            return value > 0 && (value & (value - 1)) == 0;
+        }
+
+        Ir.Op? operand = null;
+        int power = 0;
+        if (kind == Ir.BinOp.Mul && Power(right, out int factor))
+        {
+            operand = left;
+            power = factor;
+        }
+        else if (kind == Ir.BinOp.Mul && Power(left, out int leftFactor))
+        {
+            operand = right;
+            power = leftFactor;
+        }
+        else if (kind is Ir.BinOp.Div or Ir.BinOp.Mod && Power(right, out int divisor))
+        {
+            operand = left;
+            power = divisor;
+        }
+
+        if (operand is null)
+        {
+            return null;
+        }
+
+        Ir.Cell target = Temp(depth, width);
+        int shift = Log2(power);
+        switch (kind)
+        {
+            case Ir.BinOp.Mul when shift == 0:
+            case Ir.BinOp.Div when shift == 0:
+                Emit(new Ir.Mov(target, operand));
+                return target;
+            case Ir.BinOp.Mul:
+                Emit(new Ir.Bin(Ir.BinOp.Shl, target, operand, new Ir.Imm(shift, 1)));
+                return target;
+            case Ir.BinOp.Div:
+                Emit(new Ir.Bin(Ir.BinOp.Shr, target, operand, new Ir.Imm(shift, 1)));
+                return target;
+            default:
+                Emit(new Ir.Bin(Ir.BinOp.And, target, operand, new Ir.Imm((power - 1) & Mask(width), width)));
+                return target;
+        }
+    }
+
     private Ir.Cell Dst(Ir.Cell? into, int width, int depth) =>
         into is not null && into.W == width ? into : Temp(depth, width);
 
@@ -208,6 +261,11 @@ internal sealed partial class Lowering
             ">>" => width == 2 && leftType.Kind == "int" ? Ir.BinOp.Sar : Ir.BinOp.Shr,
             _ => throw new CCodegenException($"unknown operator '{op}'."),
         };
+        if (ReduceStrength(kind, width, left, right, depth) is { } reduced)
+        {
+            return reduced;
+        }
+
         bool aliasSafe = kind is Ir.BinOp.Add or Ir.BinOp.Sub or Ir.BinOp.And or Ir.BinOp.Or or Ir.BinOp.Xor;
         Ir.Cell target = aliasSafe ? Dst(into, width, depth) : Temp(depth, width);
         Emit(new Ir.Bin(kind, target, left, right));
