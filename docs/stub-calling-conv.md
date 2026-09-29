@@ -342,3 +342,11 @@ nazwę z wielką literą na małe litery plus maskę pozycji wielkich w hex (`Fo
   trafia do tej samej komórki — wtedy `mustCopy`).
 - `BranchRelaxer` po wyemitowaniu funkcji zamienia trójkę `bXX pomiń; jmp cel; pomiń:` na jeden krótki skok, gdy cel jest w zasięgu
   (liczone na układzie z długimi skokami, więc bezpiecznie); rozmiary instrukcji podaje ISA (`Size`).
+
+## Przebiegi IR i moduły rt (plan 31, kroki 6, 7)
+
+- `IrPasses`: po `ForwardTemporaries` działa propagacja stałych, adresów i kopii w bloku podstawowym oraz składanie działań na stałych (także
+  `AddrOf + stała` i skoków o znanym wyniku), potem usuwanie zapisów do komórek lokalnych, których nikt nie czyta. Dotyczy tylko komórek
+  funkcji (`nazwa__`), których adres nie jest brany. Przy okazji naprawiony błąd: `WideLegalizer` pomijał rozszerzenie `Mov` W=4 ← W=2 w tej samej komórce.
+- Procedury `__cc_*` (mnożenie, dzielenie, przesunięcia, bloki, wersje 32-bitowe) to osobne moduły `stdlib/portable/rt_*.c` linkowane raz na żądanie;
+  moduł obiektowy tylko deklaruje `.extern`, a dołączanie kopii zostało wyłącznie w trybie całego programu bez linkera.

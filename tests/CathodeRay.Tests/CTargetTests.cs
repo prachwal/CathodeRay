@@ -32,7 +32,7 @@ public sealed class CTargetTests
         stub.Layout.Areas.Select(static a => (a.Name, a.Start, a.Size)).Should().Equal(
             ("C_CODE", 0x1000, 0x5F00), ("C_INIT", 0x6F00, 0x100), ("C_BSS", 0x7000, 0x1000), ("C_DATA", 0x8000, 0x8000));
         stub.Layout.Segments.Select(static m => m.Name).Should().Equal("CODE", "INIT", "BSS", "DATA");
-        stub.RuntimeModules.Should().OnlyContain(static m => m.IsAssembly).And.Contain(static m => m.Name == "io.s");
+        stub.RuntimeModules.Should().Contain(static m => m.Name == "io.s").And.Contain(static m => m.Name == "rt_mul32.c");
     }
 
     [Fact]

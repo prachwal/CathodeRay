@@ -44,6 +44,7 @@ public abstract class ByteTarget : ICTarget
     public IReadOnlyList<StdModule> RuntimeModules { get; } =
     [
         new("io.c", StdLib.Portable("io.c"), false, new HashSet<string>(["putchar", "puthex", "putdec"], StringComparer.Ordinal)),
+        .. StdLib.RuntimeModules,
     ];
 
     /// <inheritdoc/>

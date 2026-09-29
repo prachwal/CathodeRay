@@ -363,7 +363,7 @@ internal sealed partial class Lowering
 
         saved.AddRange(_extraOwned);
         int retW = ReturnWidth(function.Def);
-        _pending.Add(new Pending(new Ir.Function(function.Def.Name, function.Def.IsStatic, parameters, retW, [], IrPasses.Optimize(DropJumpsToNext(_body))), saved, aggregates));
+        _pending.Add(new Pending(new Ir.Function(function.Def.Name, function.Def.IsStatic, parameters, retW, [], IrPasses.Optimize(DropJumpsToNext(_body), function.Def.Name)), saved, aggregates));
         _current = null;
     }
 
@@ -393,7 +393,7 @@ internal sealed partial class Lowering
             AddBss(TempSym(temp), _wideTemps.Contains(temp) ? 4 : 2);
         }
 
-        _initFunction = new Ir.Function("__cc_init", true, [], 0, [], IrPasses.Optimize(DropJumpsToNext(_body)));
+        _initFunction = new Ir.Function("__cc_init", true, [], 0, [], IrPasses.Optimize(DropJumpsToNext(_body), "__cc_init"));
     }
 
     private sealed record VarCell(string Sym, CType Type);

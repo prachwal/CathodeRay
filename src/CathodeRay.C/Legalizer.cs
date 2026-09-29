@@ -41,7 +41,7 @@ internal sealed class Legalizer
 
     private static Ir.Module CompileRuntime()
     {
-        CheckedProgram program = TypeChecker.Check(Parser.Parse(StdLib.Portable("rt.c"), StdLib.HeaderReader));
+        CheckedProgram program = TypeChecker.Check(Parser.Parse(StdLib.RuntimeSource, StdLib.HeaderReader));
         return Codegen.Lower(program, "rt.c", objectMode: false, stackLimit: null);
     }
 
@@ -130,9 +130,20 @@ internal sealed class Legalizer
         }
 
         List<Ir.Data> data = [.. _module.Data];
-        AddRuntime(functions, data);
+        IReadOnlyList<string> externs = _module.ExternFunctions;
+        if (_module.ObjectMode)
+        {
+            // moduł obiektowy woła procedury z osobnego modułu rt.c (linkowanego raz na żądanie), zamiast nosić ich kopie
+            string[] missing = [.. _used.Where(name => functions.All(f => f.Name != name) && !externs.Contains(name)).Order(StringComparer.Ordinal)];
+            externs = [.. externs, .. missing];
+        }
+        else
+        {
+            AddRuntime(functions, data);
+        }
+
         data.AddRange(_temps);
-        return _module with { Functions = functions, Data = data };
+        return _module with { Functions = functions, Data = data, ExternFunctions = externs };
     }
 
     private void AddRuntime(List<Ir.Function> functions, List<Ir.Data> data)

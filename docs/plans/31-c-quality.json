@@ -40,14 +40,14 @@
     {
       "id": "6",
       "title": "[M] Przebieg IR: propagacja stałych i kopii w bloku podstawowym, składanie Bin/BrCmp z Imm, martwe komórki lokalne po analizie żywotności na grafie przepływu, lokalne wspólne podwyrażenia; bramka: wyrocznia IR i ir-gate",
-      "status": "todo",
+      "status": "done",
       "note": "",
       "section": "C. Optymalizacje"
     },
     {
       "id": "7",
       "title": "[M] Helpery rt nie jako kopie statyczne w każdym module: wynieść mnożenie/dzielenie/przesunięcia (rt.c) do modułów biblioteki linkowanych raz na żądanie (jak stubowe rt_*.s), w trybie obiektowym zamiast dołączania do modułu (dziś div16 to 1134 B w każdym module)",
-      "status": "todo",
+      "status": "done",
       "note": "",
       "section": "C. Optymalizacje"
     },
