@@ -75,7 +75,7 @@
     {
       "id": "11",
       "title": "[S] Pomiar: skrypt porównawczy z cc65 i SDCC w tools/ (14 funkcji z docs/compare.md, kompilacja i odczyt rozmiaru CODE) oraz tabela docs/compare.md; cel: średnia geometryczna <= 2x cc65 na 6502 i <= 2,5x SDCC na Z80",
-      "status": "todo",
+      "status": "done",
       "note": "",
       "section": "C. Optymalizacje"
     },
