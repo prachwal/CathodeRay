@@ -10,8 +10,9 @@ public static partial class Peephole
 {
     /// <summary>Optymalizuje kod.</summary>
     /// <param name="asm">Tekst asemblera (CODE).</param>
+    /// <param name="volatiles">Symbole <c>volatile</c>: ich odczytów i zapisów reguły nie łączą ani nie usuwają.</param>
     /// <returns>Krótszy, równoważny tekst.</returns>
-    public static string Optimize(string asm)
+    public static string Optimize(string asm, IReadOnlySet<string>? volatiles = null)
     {
         ArgumentNullException.ThrowIfNull(asm);
         var lines = new List<string>(asm.Split('\n'));
@@ -22,7 +23,7 @@ public static partial class Peephole
             var result = new List<string>(lines.Count);
             foreach (string line in lines)
             {
-                if (Try(result, line))
+                if (Try(result, line, volatiles))
                 {
                     changed = true;
                     continue;
@@ -39,7 +40,18 @@ public static partial class Peephole
         return string.Join('\n', lines);
     }
 
-    private static bool Try(List<string> result, string line)
+    private static bool IsVolatile(string operand, IReadOnlySet<string>? volatiles)
+    {
+        if (volatiles is null || volatiles.Count == 0)
+        {
+            return false;
+        }
+
+        int cut = operand.IndexOfAny(['+', '-', ',']);
+        return volatiles.Contains((cut < 0 ? operand : operand[..cut]).Trim());
+    }
+
+    private static bool Try(List<string> result, string line, IReadOnlySet<string>? volatiles)
     {
         (string? label, string op, string operand) = Split(line);
         if (op.Length == 0)
@@ -54,12 +66,12 @@ public static partial class Peephole
         }
 
         (string? prevLabel, string prevOp, string prevOperand) = Split(result[prev]);
-        if (op == "LDA" && label is null && prevOp == "STA" && prevOperand == operand)
+        if (op == "LDA" && label is null && prevOp == "STA" && prevOperand == operand && !IsVolatile(operand, volatiles))
         {
             return true;
         }
 
-        if (prevLabel is null && IsPureLoadA(prevOp) && IsPureLoadA(op))
+        if (prevLabel is null && IsPureLoadA(prevOp) && IsPureLoadA(op) && !IsVolatile(prevOperand, volatiles))
         {
             result.RemoveAt(prev);
             result.Add(line);

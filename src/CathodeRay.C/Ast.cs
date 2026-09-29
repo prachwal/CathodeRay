@@ -22,7 +22,8 @@ public static class Ast
     /// <param name="Stars">Liczba <c>*</c>.</param>
     /// <param name="Name">Nazwa pola.</param>
     /// <param name="ArrayLength">Długość tablicy (0 = skalar).</param>
-    public sealed record FieldDecl(string Type, int Stars, string Name, int ArrayLength) : Node;
+    /// <param name="BitWidth">Szerokość pola bitowego (0 = zwykłe pole).</param>
+    public sealed record FieldDecl(string Type, int Stars, string Name, int ArrayLength, int BitWidth = 0) : Node;
 
     /// <summary>Definicja <c>struct Nazwa { pola };</c>.</summary>
     /// <param name="Name">Nazwa struktury (anonimowe dostają nazwę syntetyczną).</param>

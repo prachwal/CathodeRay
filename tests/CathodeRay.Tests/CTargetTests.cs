@@ -32,7 +32,7 @@ public sealed class CTargetTests
         stub.Layout.Areas.Select(static a => (a.Name, a.Start, a.Size)).Should().Equal(
             ("C_CODE", 0x1000, 0x5F00), ("C_INIT", 0x6F00, 0x100), ("C_BSS", 0x7000, 0x1000), ("C_DATA", 0x8000, 0x8000));
         stub.Layout.Segments.Select(static m => m.Name).Should().Equal("CODE", "INIT", "BSS", "DATA");
-        stub.RuntimeModules.Should().OnlyContain(static m => m.IsAssembly).And.Contain(static m => m.Name == "io.s");
+        stub.RuntimeModules.Should().Contain(static m => m.Name == "io.s").And.Contain(static m => m.Name == "rt_mul32.c");
     }
 
     [Fact]
@@ -40,11 +40,12 @@ public sealed class CTargetTests
     {
         Ir.Module module = Codegen.Lower(Checked(), "t.c", objectMode: true);
 
-        module.Functions.Select(static f => (f.Name, f.IsStatic, f.RetW)).Should().Equal(("helper", false, 2), ("hidden", true, 2), ("main", false, 2));
+        // hidden (static, jedno miejsce wołania) i helper są wstawione do main, więc hidden znika, a helper zostaje jako eksportowany
+        module.Functions.Select(static f => (f.Name, f.IsStatic, f.RetW)).Should().Equal(("helper", false, 2), ("main", false, 2));
         module.Functions[0].Params.Should().Equal([new Ir.Cell("helper__x", 2)]);
         module.Functions[0].Body.OfType<Ir.Bin>().Select(static b => b.Kind).Should().Equal(Ir.BinOp.Add);
         module.Functions[0].Body.OfType<Ir.Ret>().Should().HaveCount(1);
-        module.Functions[2].Body.OfType<Ir.Call>().Select(static c => c.Direct).Should().Equal("hidden", "helper");
+        module.Functions[1].Body.OfType<Ir.Call>().Should().BeEmpty();
         module.Data.Should().OnlyContain(static d => d.Segment == "BSS").And.Contain(static d => d.Sym == "helper__x" && d.Size == 2);
         module.ObjectMode.Should().BeTrue();
     }
@@ -56,7 +57,7 @@ public sealed class CTargetTests
         string plain = CTargets.Default.Emit(module, optimize: false);
         string tuned = CTargets.Default.Emit(module, optimize: true);
 
-        plain.Should().Contain(".proc helper").And.Contain(".proc main").And.Contain("CALL helper");
+        plain.Should().Contain(".proc helper").And.Contain(".proc main");
         tuned.Length.Should().BeLessThan(plain.Length);
         plain.Should().Be(Codegen.Emit(Checked(), "t.c", objectMode: true, optimize: false));
     }

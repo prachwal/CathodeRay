@@ -31,7 +31,7 @@ internal sealed partial class StubSelector
             EmitFunction(function);
         }
 
-        string code = optimize ? Peephole.Optimize(_code.ToString()) : _code.ToString();
+        string code = optimize ? Peephole.Optimize(_code.ToString(), _module.Volatile) : _code.ToString();
         return Header() + code + RuntimeText() + PrintInit() + PrintData() + PrintBss();
     }
 

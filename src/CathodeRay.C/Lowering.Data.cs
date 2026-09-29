@@ -29,6 +29,12 @@ internal sealed partial class Lowering
                 for (int i = 0; i < values.Count; i++)
                 {
                     StructField field = type.Info!.Fields[i];
+                    if (field.BitWidth > 0)
+                    {
+                        AddBits(entries, offset + field.Offset, field, values[i]);
+                        continue;
+                    }
+
                     CollectInit(field.Type, values[i], offset + field.Offset, entries);
                 }
 
@@ -36,6 +42,36 @@ internal sealed partial class Lowering
             default:
                 entries.Add((offset, type, init));
                 break;
+        }
+    }
+
+    /// <summary>Pole bitowe w inicjalizatorze: wartość stała jest sklejana z sąsiadami w jeden zapis jednostki.</summary>
+    private static void AddBits(List<(int Offset, CType Type, Ast.Expr Value)> entries, int offset, StructField field, Ast.Expr value)
+    {
+        if (value is not Ast.Number number || !TryNumber(number.Text, out int constant))
+        {
+            throw new CCodegenException($"bit-field '{field.Name}' needs a constant initializer.");
+        }
+
+        int bits = (constant & ((1 << field.BitWidth) - 1)) << field.BitShift;
+        int at = entries.FindIndex(e => e.Offset == offset && e.Type == field.Type);
+        if (at >= 0 && entries[at].Value is Ast.Number previous && TryNumber(previous.Text, out int old))
+        {
+            bits |= old;
+        }
+        else
+        {
+            at = -1;
+        }
+
+        var merged = (offset, field.Type, (Ast.Expr)new Ast.Number(bits.ToString(System.Globalization.CultureInfo.InvariantCulture)));
+        if (at >= 0)
+        {
+            entries[at] = merged;
+        }
+        else
+        {
+            entries.Add(merged);
         }
     }
 
@@ -93,9 +129,16 @@ internal sealed partial class Lowering
     private bool TryDataConstant(Ast.Expr? expr, CType target, out long value)
     {
         value = 0;
+        if (target.IsFloat)
+        {
+            bool ok = TryFloatConstant(expr, out uint bits);
+            value = bits;
+            return ok;
+        }
+
         if (expr is Ast.Number number && Literal.TryParse(number.Text, out Literal literal) && literal.IsLong)
         {
-            value = literal.Value;
+            value = literal.Type.IsFloat ? (long)BitConverter.Int32BitsToSingle((int)literal.Value) : literal.Value;
             return true;
         }
 
@@ -104,14 +147,16 @@ internal sealed partial class Lowering
             return false;
         }
 
-        value = target.Size == 4 && constant >= 0x8000 ? constant | 0xFFFF0000L : constant;
+        value = target.Size == 8 && constant >= 0x8000 ? (short)constant : target.Size == 4 && constant >= 0x8000 ? constant | 0xFFFF0000L : constant;
         return true;
     }
 
     /// <summary>Liczba w kolejności bajtów celu.</summary>
     private byte[] NumberBytes(long value, int size)
     {
-        byte[] bytes = size == 1 ? [(byte)value] : size == 2 ? [(byte)value, (byte)(value >> 8)] : [(byte)value, (byte)(value >> 8), (byte)(value >> 16), (byte)(value >> 24)];
+        byte[] bytes = size == 1 ? [(byte)value] : size == 2 ? [(byte)value, (byte)(value >> 8)]
+            : size == 4 ? [(byte)value, (byte)(value >> 8), (byte)(value >> 16), (byte)(value >> 24)]
+            : [(byte)value, (byte)(value >> 8), (byte)(value >> 16), (byte)(value >> 24), (byte)(value >> 32), (byte)(value >> 40), (byte)(value >> 48), (byte)(value >> 56)];
         if (_byteOrder == TargetByteOrder.Big)
         {
             Array.Reverse(bytes);

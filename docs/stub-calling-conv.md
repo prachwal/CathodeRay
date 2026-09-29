@@ -326,3 +326,71 @@ młodszą połową w `cc_ret` i starszą w `cc_rethi` (crt0, DATA). Kolejność 
 `Legalizer(narrow)` → `ByteSelector`; stub pomija drugi `Legalizer`, bo ma własne procedury 16-bitowe.
 Wcześniej złapany błąd: `Load` z komórką wskaźnika w tej samej komórce co wynik (`t = *t`) po rozbiciu niszczył adres drugiej połowy —
 `WideLegalizer` kopiuje wtedy wskaźnik do pomocniczej.
+
+## Nazwy różniące się wielkością liter (plan 31, krok 1)
+
+Asemblery i linker nie rozróżniają wielkości liter w symbolach, a C tak. Przebieg `CaseFold` (IR → IR, pierwszy w `Emit` każdego celu) zamienia
+nazwę z wielką literą na małe litery plus maskę pozycji wielkich w hex (`Foo` → `foo__c1`, `FOO` → `foo__c7`), więc `foo`, `Foo` i `FOO`
+(funkcje, globale, lokalne, etykiety) zostają różne, również między osobno linkowanymi modułami.
+
+## Strona zerowa i krótkie skoki 6502/6800 (plan 31, kroki 2, 3, 5)
+
+- `ZeroPageAllocator` (6502/65C02, po legalizacji) przenosi do segmentu `ZP` najczęściej używane nieeksportowane komórki BSS (waga = liczba
+  odwołań × 8^głębokość pętli, wskaźniki z premią), do 16 B na moduł; obszar `C_ZP` to $0010–$00FF. crt0 trzyma tam `__p`, `__q`, `cc_arg1..3`,
+  `cc_ret`, `cc_t0/1` i zeruje cały ZP (`__zp_start`..`__zp_end`), bo komórki lokalne `static` startują od zera. Operandy ZP mają w asemblerze
+  przedrostek `z:` (ca65), co daje relokację Abs8; wskaźnik leżący w ZP idzie wprost do `LDA (zp),Y` bez kopii do `__p` (chyba że wynik odczytu
+  trafia do tej samej komórki — wtedy `mustCopy`).
+- `BranchRelaxer` po wyemitowaniu funkcji zamienia trójkę `bXX pomiń; jmp cel; pomiń:` na jeden krótki skok, gdy cel jest w zasięgu
+  (liczone na układzie z długimi skokami, więc bezpiecznie); rozmiary instrukcji podaje ISA (`Size`).
+
+## Przebiegi IR i moduły rt (plan 31, kroki 6, 7)
+
+- `IrPasses`: po `ForwardTemporaries` działa propagacja stałych, adresów i kopii w bloku podstawowym oraz składanie działań na stałych (także
+  `AddrOf + stała` i skoków o znanym wyniku), potem usuwanie zapisów do komórek lokalnych, których nikt nie czyta. Dotyczy tylko komórek
+  funkcji (`nazwa__`), których adres nie jest brany. Przy okazji naprawiony błąd: `WideLegalizer` pomijał rozszerzenie `Mov` W=4 ← W=2 w tej samej komórce.
+- Procedury `__cc_*` (mnożenie, dzielenie, przesunięcia, bloki, wersje 32-bitowe) to osobne moduły `stdlib/portable/rt_*.c` linkowane raz na żądanie;
+  moduł obiektowy tylko deklaruje `.extern`, a dołączanie kopii zostało wyłącznie w trybie całego programu bez linkera.
+
+## Inlining, mnożenie, indeksowanie i rt w asemblerze (plan 31, kroki 8–10)
+
+- `IrInliner` (po `Lowering`, więc wyrocznia widzi to samo): funkcje liści bez ramki i bez wziętego adresu są wstawiane w miejsca wołań, gdy mają
+  do 10 instrukcji IR albo są `static` z jednym miejscem wołania (do 40); parametry i wynik przechodzą przez komórki wołanej funkcji, potem
+  `IrPasses` składa stałe. Nieużywane funkcje `static` znikają. Eksportowana definicja zostaje.
+- `Legalizer`: mnożenie przez stałą z najwyżej trzema bitami albo 2^n − 1 to przesunięcia i dodawania; `uchar` × `uchar` i dzielenie bajtów wołają
+  `__cc_mul8`/`__cc_divu8`/`__cc_modu8`. Dla 6502 i Z80 mnożenie 16-bitowe i dzielenie bez znaku są ręcznie w asemblerze (`stdlib/target/…`),
+  stoją w `RuntimeModules` przed wersjami z C (`rt_div.c` podzielone na `rt_div.c` i `rt_divs.c`, żeby asembler nie dublował symboli).
+- `IndexFusion` + `Ir.LoadIdx`/`StoreIdx` (tylko dla celów z adresowaniem indeksowanym, dziś 6502/65C02): `[s = i << k;] t = &tab + s;` z odczytem/zapisem przez `t`
+  na tablicy o znanym adresie do 256 B staje się `lda tab,x` (indeks poza tablicą to zachowanie niezdefiniowane).
+- Błąd `Z80Cpu` w testach: `JR` bezwarunkowy liczył cel od adresu przed bajtem przesunięcia; wyszło dopiero na ręcznym dzieleniu Z80.
+
+## Pola bitowe (plan 31, krok 15)
+
+`type name : N;` w `struct`/`union`, typ `char`/`uchar`/`schar`/`int`/`uint`. Pola upakowane od najmłodszego bitu
+w jednostce o rozmiarze typu (bez przekraczania jednostki; zmiana rozmiaru typu otwiera nową jednostkę).
+Odczyt: załaduj jednostkę, przesuń i zamaskuj (typy ze znakiem: `shl` + `sar` na 16 bitach). Zapis (`=`, `op=`, `++`):
+odczyt–modyfikacja–zapis jednostki. Inicjalizator `{...}` wymaga stałych (sklejanych w jeden zapis jednostki).
+Niedozwolone: `&pole`, pola anonimowe (`: 3;`), szerokość większa niż typ.
+
+## float (plan 31, krok 17)
+
+`float` i `double` to ten sam typ: 32 bity IEEE-754 pojedynczej precyzji, w IR zwykła komórka szerokości 4 (jak `long`),
+więc selektory i `WideLegalizer` niczego o nim nie wiedzą. Działania to wołania procedur z `stdlib/portable/rt_float.c`
+(linkowanych raz, na żądanie): `__cc_fadd/fsub/fmul/fdiv`, porównania `__cc_flt/fle/feq/fnz` (`>` i `>=` zamieniają argumenty),
+konwersje `__cc_itof/utof/ltof/ultof` i `__cc_ftol/ftoul`. Negacja to XOR bitu znaku. Literały: `1.5`, `2e3`, `0.5f`
+(bity liczone w kompilatorze), stałe całkowite konwertowane w czasie kompilacji. Konwersje niejawne przy przypisaniu,
+argumentach, `return`, `?:`; całkowite z `float` daje ostrzeżenie. Działania `% & | ^ << >> ~` na `float` są błędem.
+Uproszczenia: wynik obcinany (bez zaokrąglania), liczby zdenormalizowane to zero, brak obsługi NaN/Inf w działaniach.
+Tekst: `ftoa(float, uchar *buf)` z `<stdlib.h>` (6 cyfr ułamka); `printf` celowo nie ma `%f` — wciągnęłoby do każdego programu
+ok. 3 KB arytmetyki 32-bitowej.
+
+## long long (plan 31, krok 16)
+
+`long long` i `unsigned long long` (64 bity). Komórki 8-bajtowe istnieją tylko tuż po obniżeniu funkcji: `Wide8Legalizer` rozbija je
+na połówki 32-bitowe (`sym`, `sym+4`; w BE odwrotnie), zanim ruszą przebiegi IR, więc reszta potoku (interpreter, `WideLegalizer`,
+selektory) nie zna szerokości 8. Dodawanie i odejmowanie: przeniesienie z porównania połówek; przesunięcia o stałą składane
+z przesunięć połówek; porównania decyduje starsza połówka, przy równych młodsza bez znaku. Mnożenie, dzielenie, modulo i
+przesunięcia o zmienną liczbę pozycji to wołania `__cc_mul64/divu64/modu64/divs64/mods64/shl64/shr64/sar64` z `rt_ll64.c` z adresami
+obiektów (`Materialize` kopiuje stałe do komórek `__w8x*`). Argument `long long` jedzie jak struktura: przez adres kopii
+(1 slot), wynik wraca przez `cc_retbuf`. Literały: `123LL`, `5ULL` oraz każda liczba powyżej 32 bitów (`Ir.Imm.High` to starsza połowa).
+Konwersja `float` <-> `long long` nie jest obsługiwana (błąd typów). Tekst: `lltoa`/`ulltoa` z `<stdlib.h>`; `printf` nie ma
+`%lld` (koszt dzielenia 64-bitowego w każdym programie).

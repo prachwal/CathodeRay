@@ -21,9 +21,24 @@ public sealed class Mos6502Target : ByteTarget
 
     /// <inheritdoc/>
     public override TargetLayout Layout { get; } = new(
-        [.. FlatLayout.Areas, new TargetArea("C_ZP", 0x00E0, 0x20)],
+        [.. FlatLayout.Areas, new TargetArea("C_ZP", 0x0010, 0x00F0)],
         [.. FlatLayout.Segments, new TargetSegment("ZP", "C_ZP")]);
 
     /// <inheritdoc/>
+    protected override IReadOnlyList<StdModule> AssemblyRuntime { get; } =
+    [
+        StdLib.TargetModule("6502", "rt_mul.s", "__cc_mul"),
+        StdLib.TargetModule("6502", "rt_div.s", "__cc_divu", "__cc_modu"),
+    ];
+
+    /// <inheritdoc/>
     internal override ByteIsa CreateIsa() => new Mos6502Isa();
+
+    /// <inheritdoc/>
+    internal override Ir.Module Tune(Ir.Module module, ByteIsa isa)
+    {
+        (Ir.Module tuned, HashSet<string> names) = ZeroPageAllocator.Run(module);
+        ((Mos6502Isa)isa).AddZeroPage(names.Select(isa.Sym));
+        return tuned;
+    }
 }

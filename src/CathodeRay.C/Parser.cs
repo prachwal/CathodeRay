@@ -83,31 +83,34 @@ public sealed class Parser
     };
 
     private static bool IsBuiltinType(Token token) =>
-        token is { Kind: TokenKind.Keyword } && token.Text is "uchar" or "int" or "uint" or "long" or "ulong" or "void" or "struct" or "union";
+        token is { Kind: TokenKind.Keyword } && token.Text is "uchar" or "int" or "uint" or "long" or "ulong" or "short" or "unsigned" or "signed" or "float" or "void" or "struct" or "union";
 
     private bool IsType(Token token) =>
-        IsBuiltinType(token) || (token is { Kind: TokenKind.Keyword, Text: "const" }) || (token.Kind == TokenKind.Ident && _typedefs.ContainsKey(token.Text));
+        IsBuiltinType(token) || (token is { Kind: TokenKind.Keyword, Text: "const" or "volatile" }) || (token.Kind == TokenKind.Ident && _typedefs.ContainsKey(token.Text));
 
     /// <summary>Zjada <c>static</c>/<c>extern</c> przed deklaracją.</summary>
     private DeclFlags Modifiers()
     {
         DeclFlags flags = DeclFlags.None;
-        while (Peek() is { Kind: TokenKind.Keyword, Text: "static" or "extern" } modifier)
+        while (Peek() is { Kind: TokenKind.Keyword, Text: "static" or "extern" or "inline" or "register" } modifier)
         {
             Next();
-            flags |= modifier.Text == "static" ? DeclFlags.Static : DeclFlags.Extern;
+            if (modifier.Text is "static" or "extern")
+            {
+                flags |= modifier.Text == "static" ? DeclFlags.Static : DeclFlags.Extern;
+            }
         }
 
         return flags;
     }
 
     private bool StartsDeclaration(Token token) =>
-        IsType(token) || token is { Kind: TokenKind.Keyword, Text: "static" or "extern" };
+        IsType(token) || token is { Kind: TokenKind.Keyword, Text: "static" or "extern" or "inline" or "register" };
 
     /// <summary>Nazwa typu (słowo kluczowe albo alias <c>typedef</c>) z gwiazdkami aliasu.</summary>
     private (string Type, int Stars) TypeSpec()
     {
-        bool isConst = ConsumeConst();
+        (bool isConst, bool isVolatile) = ConsumeQualifiers();
         Token token = Next();
         (string Type, int Stars) spec;
         if (token is { Kind: TokenKind.Keyword, Text: "struct" or "union" })
@@ -120,6 +123,10 @@ public sealed class Parser
 
             spec = ($"struct {name}", 0);
         }
+        else if (token is { Kind: TokenKind.Keyword, Text: "uchar" or "int" or "uint" or "long" or "ulong" or "short" or "unsigned" or "signed" })
+        {
+            spec = (IntegerSpec(token), 0);
+        }
         else
         {
             spec = token.Kind == TokenKind.Ident && _typedefs.TryGetValue(token.Text, out (string Type, int Stars) alias)
@@ -127,20 +134,88 @@ public sealed class Parser
                 : (token.Text, 0);
         }
 
-        isConst |= ConsumeConst();
-        return isConst && !spec.Type.StartsWith("const ", StringComparison.Ordinal) ? ($"const {spec.Type}", spec.Stars) : spec;
+        (bool laterConst, bool laterVolatile) = ConsumeQualifiers();
+        string bare = TypeQualifiers.Split(spec.Type, out bool aliasConst, out bool aliasVolatile);
+        isConst |= laterConst | aliasConst;
+        isVolatile |= laterVolatile | aliasVolatile;
+        return (TypeQualifiers.Join(bare, isConst, isVolatile), spec.Stars);
     }
 
-    private bool ConsumeConst()
+    /// <summary>Składa nazwę typu całkowitego z kilku słów: <c>unsigned char</c>, <c>signed char</c>, <c>unsigned short int</c>, <c>long int</c>,
+    /// <c>unsigned long</c>… (<c>short</c> to <c>int</c>, <c>unsigned</c> to <c>uint</c>, <c>char</c> bez <c>signed</c> to <c>uchar</c>).</summary>
+    private string IntegerSpec(Token first)
     {
-        bool found = false;
-        while (Peek() is { Kind: TokenKind.Keyword, Text: "const" })
+        bool unsigned = false;
+        bool signed = false;
+        int longs = 0;
+        string? baseName = null;
+        Token token = first;
+        while (true)
         {
-            Next();
-            found = true;
+            switch (token.Text)
+            {
+                case "unsigned":
+                    unsigned = true;
+                    break;
+                case "signed":
+                    signed = true;
+                    break;
+                case "short":
+                    break;
+                case "long":
+                    longs++;
+                    break;
+                case "ulong":
+                    unsigned = true;
+                    longs++;
+                    break;
+                case "uint":
+                    unsigned = true;
+                    baseName = "int";
+                    break;
+                default:
+                    baseName = token.Text == "uchar" ? "char" : token.Text;
+                    break;
+            }
+
+            if (Peek() is not { Kind: TokenKind.Keyword, Text: "uchar" or "int" or "uint" or "long" or "ulong" or "short" or "unsigned" or "signed" })
+            {
+                break;
+            }
+
+            token = Next();
         }
 
-        return found;
+        if (baseName == "char")
+        {
+            return signed ? "schar" : "uchar";
+        }
+
+        if (longs > 1)
+        {
+            return unsigned ? "ullong" : "llong";
+        }
+
+        if (longs > 0)
+        {
+            return unsigned ? "ulong" : "long";
+        }
+
+        return unsigned ? "uint" : "int";
+    }
+
+    private (bool Const, bool Volatile) ConsumeQualifiers()
+    {
+        bool isConst = false;
+        bool isVolatile = false;
+        while (Peek() is { Kind: TokenKind.Keyword, Text: "const" or "volatile" } qualifier)
+        {
+            Next();
+            isConst |= qualifier.Text == "const";
+            isVolatile |= qualifier.Text == "volatile";
+        }
+
+        return (isConst, isVolatile);
     }
 
     private void StructBody(string name, int line, bool isUnion = false)
@@ -183,8 +258,18 @@ public sealed class Parser
                 stars = 0;
             }
 
+            int bits = 0;
+            if (Take(":"))
+            {
+                Token width = ExpectKind(TokenKind.Number, "bit-field width");
+                if (!int.TryParse(width.Text, System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out bits) || bits < 1)
+                {
+                    throw new CParseException(width.Line, width.Column, "bit-field width must be a positive literal.");
+                }
+            }
+
             Expect(";");
-            fields.Add(At(at.Line, new Ast.FieldDecl(type, stars, field, length)));
+            fields.Add(At(at.Line, new Ast.FieldDecl(type, stars, field, length, bits)));
         }
 
         _structs.Add(At(line, new Ast.StructDef(name, fields, isUnion)));
@@ -450,7 +535,7 @@ public sealed class Parser
         while (Take("*"))
         {
             count++;
-            ConsumeConst();
+            ConsumeQualifiers();
         }
 
         return count;
@@ -1202,10 +1287,10 @@ public sealed class Parser
             {
                 (string sizeType, int sizeBase) = TypeSpec();
                 int stars = sizeBase + Stars();
-                string bareType = sizeType.StartsWith("const ", StringComparison.Ordinal) ? sizeType[6..] : sizeType;
+                string bareType = TypeQualifiers.Split(sizeType, out _, out _);
                 size = bareType.StartsWith("struct ", StringComparison.Ordinal) && stars == 0
                     ? new Ast.SizeOfType(bareType, stars)
-                    : new Ast.Number(stars > 0 || bareType is "int" or "uint" ? "2" : bareType is "long" or "ulong" ? "4" : "1");
+                    : new Ast.Number(stars > 0 || bareType is "int" or "uint" ? "2" : bareType is "long" or "ulong" or "float" ? "4" : bareType is "llong" or "ullong" ? "8" : "1");
             }
             else
             {

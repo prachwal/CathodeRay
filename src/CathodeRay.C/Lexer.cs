@@ -8,7 +8,7 @@ public static class Lexer
 {
     private static readonly HashSet<string> Keywords = new(StringComparer.Ordinal)
     {
-        "uchar", "int", "void", "if", "else", "while", "for", "return", "break", "continue", "do", "switch", "case", "default", "sizeof", "enum", "typedef", "goto", "struct", "static", "extern", "const", "uint", "long", "ulong", "union",
+        "uchar", "int", "void", "if", "else", "while", "for", "return", "break", "continue", "do", "switch", "case", "default", "sizeof", "enum", "typedef", "goto", "struct", "static", "extern", "const", "uint", "long", "ulong", "union", "short", "unsigned", "signed", "volatile", "inline", "register", "float", "double",
     };
 
     private static readonly string[] Operators =
@@ -103,13 +103,21 @@ public static class Lexer
                 {
                     text = "uchar";
                 }
+                else if (text == "double")
+                {
+                    text = "float";
+                }
 
                 tokens.Add(new Token(Keywords.Contains(text) ? TokenKind.Keyword : TokenKind.Ident, text, line, startCol));
             }
             else if (char.IsAsciiDigit(c))
             {
                 int start = pos, startCol = col;
-                while (pos < source.Length && (char.IsAsciiLetterOrDigit(source[pos]) || source[pos] == '_'))
+                bool hex = c == '0' && pos + 1 < source.Length && source[pos + 1] is 'x' or 'X';
+                while (pos < source.Length && (char.IsAsciiLetterOrDigit(source[pos]) || source[pos] == '_'
+                    || (!hex && source[pos] == '.' && !source[start..pos].Contains('.'))
+                    || (!hex && source[pos] is '+' or '-' && source[pos - 1] is 'e' or 'E' && char.IsAsciiDigit(source[start])
+                        && pos + 1 < source.Length && char.IsAsciiDigit(source[pos + 1]))))
                 {
                     pos++;
                     col++;

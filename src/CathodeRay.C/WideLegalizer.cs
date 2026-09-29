@@ -183,7 +183,7 @@ internal sealed class WideLegalizer
     {
         (Ir.Cell dstLow, Ir.Cell dstHigh) = Halves(mov.Dst);
         (Ir.Op low, Ir.Op high) = Halves(mov.Src);
-        if (mov.Src is Ir.Cell same && same.Sym == mov.Dst.Sym)
+        if (mov.Src is Ir.Cell { W: 4 } same && same.Sym == mov.Dst.Sym)
         {
             return;
         }

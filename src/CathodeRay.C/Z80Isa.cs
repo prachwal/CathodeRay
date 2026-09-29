@@ -62,6 +62,37 @@ internal sealed class Z80Isa : ByteIsa
         _ => $"jp nc,{label}",
     });
 
+    public override bool TryStep(IReadOnlyList<string> bytes, bool increment)
+    {
+        string op = increment ? "inc" : "dec";
+        L($"ld hl,{bytes[0]}");
+        if (bytes.Count == 1)
+        {
+            L($"{op} (hl)");
+            return true;
+        }
+
+        string skip = LocalLabel();
+        if (increment)
+        {
+            L("inc (hl)");
+            L($"jr nz,{skip}");
+            L("inc hl");
+            L("inc (hl)");
+            L($"{skip}:");
+            return true;
+        }
+
+        L("ld a,(hl)");
+        L("dec (hl)");
+        L("or a");
+        L($"jr nz,{skip}");
+        L("inc hl");
+        L("dec (hl)");
+        L($"{skip}:");
+        return true;
+    }
+
     public override void PushA() => L("push af");
 
     public override void PopA() => L("pop af");
@@ -76,7 +107,7 @@ internal sealed class Z80Isa : ByteIsa
 
     public override void Return() => L("ret");
 
-    public override void PtrSetup(string cell, int offset)
+    public override void PtrSetup(string cell, int offset, bool mustCopy = false)
     {
         L($"ld hl,({cell})");
         if (offset is > 0 and <= 3)

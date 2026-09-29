@@ -47,7 +47,7 @@ public sealed partial class TypeChecker
         && (a.Sig is null ? b.Sig is null : b.Sig is not null && SameShape(a.Sig.Return, b.Sig.Return)
             && a.Sig.Params.Count == b.Sig.Params.Count && a.Sig.Params.Zip(b.Sig.Params).All(static pair => SameShape(pair.First, pair.Second)));
 
-    private static int ArgSlots(CType type) => type.Size == 4 && type.IsInteger ? 2 : 1;
+    private static int ArgSlots(CType type) => type.Size == 4 && (type.IsInteger || type.IsFloat) ? 2 : 1;
 
     private static void RequireWritable(CType target, string what)
     {
@@ -62,7 +62,7 @@ public sealed partial class TypeChecker
     private static CType NumberType(string text) => ParseLiteral(text).Type;
 
     private static Literal ParseLiteral(string text) =>
-        Literal.TryParse(text, out Literal literal) ? literal : throw new CTypeException($"invalid number '{text}' (0..4294967295).");
+        Literal.TryParse(text, out Literal literal) ? literal : throw new CTypeException($"invalid number '{text}' (0..18446744073709551615).");
 
     private void CheckInit(Ast.Decl decl)
     {
@@ -163,8 +163,7 @@ public sealed partial class TypeChecker
 
     private CType Declared(string type, int stars, int length = 0)
     {
-        bool isConst = type.StartsWith("const ", StringComparison.Ordinal);
-        string bare = isConst ? type[6..] : type;
+        string bare = TypeQualifiers.Split(type, out bool isConst, out bool isVolatile);
         var dimensions = new List<int>();
         int innerStars = 0;
         int bracket = bare.IndexOf('[', StringComparison.Ordinal);
@@ -186,9 +185,9 @@ public sealed partial class TypeChecker
             : bare.StartsWith("struct ", StringComparison.Ordinal)
             ? CType.Struct(_structs.TryGetValue(bare[7..], out StructInfo? info) ? info : throw new CTypeException($"unknown {bare}."))
             : CType.FromName(bare);
-        if (isConst)
+        if (isConst || isVolatile)
         {
-            result = result with { IsConst = true };
+            result = result with { IsConst = isConst, IsVolatile = isVolatile };
         }
 
         for (int i = 0; i < innerStars; i++)
@@ -276,11 +275,14 @@ public sealed partial class TypeChecker
         }
 
         int offset = 0;
+        int unitOffset = 0;
+        int unitSize = 0;
+        int bitPos = 0;
         bool union = defs[name].IsUnion;
         info.IsUnion = union;
         foreach (Ast.FieldDecl field in defs[name].Fields)
         {
-            string bareField = field.Type.StartsWith("const ", StringComparison.Ordinal) ? field.Type[6..] : field.Type;
+            string bareField = TypeQualifiers.Split(field.Type, out _, out _);
             if (bareField.StartsWith("struct ", StringComparison.Ordinal) && field.Stars == 0 && defs.ContainsKey(bareField[7..]))
             {
                 LayoutStruct(defs, bareField[7..], visiting);
@@ -297,6 +299,39 @@ public sealed partial class TypeChecker
                 throw new CTypeException($"duplicate field '{field.Name}' in struct '{name}'.");
             }
 
+            if (field.BitWidth > 0)
+            {
+                if (type.Kind is not ("uchar" or "schar" or "int" or "uint") || field.ArrayLength > 0)
+                {
+                    throw new CTypeException($"bit-field '{field.Name}' must have type char, int or their unsigned variants.");
+                }
+
+                if (field.BitWidth > type.Size * 8)
+                {
+                    throw new CTypeException($"bit-field '{field.Name}' is wider than its type.");
+                }
+
+                if (union)
+                {
+                    info.Fields.Add(new StructField(field.Name, type, 0, field.BitWidth, 0));
+                    offset = Math.Max(offset, type.Size);
+                    continue;
+                }
+
+                if (unitSize != type.Size || bitPos + field.BitWidth > type.Size * 8)
+                {
+                    unitOffset = offset;
+                    unitSize = type.Size;
+                    bitPos = 0;
+                    offset += type.Size;
+                }
+
+                info.Fields.Add(new StructField(field.Name, type, unitOffset, field.BitWidth, bitPos));
+                bitPos += field.BitWidth;
+                continue;
+            }
+
+            unitSize = 0;
             info.Fields.Add(new StructField(field.Name, type, union ? 0 : offset));
             offset = union ? Math.Max(offset, type.Size) : offset + type.Size;
         }
@@ -615,7 +650,7 @@ public sealed partial class TypeChecker
     private void CheckSwitch(Ast.Switch stmt)
     {
         CType type = TypeOf(stmt.Value);
-        if (type.Kind is not ("uchar" or "int" or "uint"))
+        if (type.Kind is not ("uchar" or "schar" or "int" or "uint"))
         {
             throw new CTypeException("switch needs an integer value.");
         }
@@ -711,8 +746,17 @@ public sealed partial class TypeChecker
             return;
         }
 
-        Assignable(target, TypeOf(value), where);
+        CType valueType = TypeOf(value);
+        if (target.Kind == "schar" && valueType.Kind is "int" or "uint" && ConstantValue(value) is int constant && (short)constant is >= sbyte.MinValue and <= sbyte.MaxValue)
+        {
+            return;
+        }
+
+        Assignable(target, valueType, where);
     }
+
+    private int? ConstantValue(Ast.Expr expr) =>
+        expr is Ast.Number number && !ParseLiteral(number.Text).IsLong ? NumberValue(number.Text) & 0xFFFF : _constants.TryGetValue(expr, out int folded) ? folded : null;
 
     private void Assignable(CType target, CType value, string where)
     {
@@ -726,7 +770,7 @@ public sealed partial class TypeChecker
             return;
         }
 
-        if (SameShape(target, value) || (target.IsInteger && target.Kind != "uchar" && value.IsInteger && value.Size <= target.Size))
+        if (SameShape(target, value) || (target.IsInteger && target.Kind != "uchar" && value.IsInteger && value.Size <= target.Size) || (target.Kind == "uchar" && value.Kind == "schar"))
         {
             if (target.Kind == "ptr" && value.Base is { IsConst: true } && target.Base is { IsConst: false })
             {
@@ -739,6 +783,22 @@ public sealed partial class TypeChecker
         if (target.IsInteger && value.IsInteger && value.Size > target.Size)
         {
             _warnings.Add($"{where}: narrowing {value.Kind} to {target.Kind}.");
+            return;
+        }
+
+        if ((target.IsFloat && value.Kind is "llong" or "ullong") || (value.IsFloat && target.Kind is "llong" or "ullong"))
+        {
+            throw new CTypeException($"{where}: conversion between float and long long is not supported.");
+        }
+
+        if (target.IsFloat && value.IsInteger)
+        {
+            return;
+        }
+
+        if (target.IsInteger && value.IsFloat)
+        {
+            _warnings.Add($"{where}: converting float to {target.Kind}.");
             return;
         }
 
@@ -790,7 +850,7 @@ public sealed partial class TypeChecker
             case Ast.OffsetOf offset:
                 value = OffsetOfField(offset);
                 return true;
-            case Ast.Cast cast when Declared(cast.Type, cast.Stars).Size != 4 && TypeOf(cast.Value).Size != 4 && TryConst(cast.Value, out int cast0):
+            case Ast.Cast cast when Declared(cast.Type, cast.Stars).Size < 4 && TypeOf(cast.Value).Size < 4 && TryConst(cast.Value, out int cast0):
                 value = Declared(cast.Type, cast.Stars).Size == 1 ? cast0 & 0xFF : cast0 & 0xFFFF;
                 return true;
             case Ast.Unary unary when TryConst(unary.Operand, out int operand):
@@ -867,6 +927,11 @@ public sealed partial class TypeChecker
                 return MemberType(member).Decay();
             case Ast.AddressOfExpr addressOf:
             {
+                if (addressOf.Target is Ast.Member { } bitMember && MemberInfo(bitMember).Find(bitMember.Name) is { BitWidth: > 0 })
+                {
+                    throw new CTypeException("cannot take the address of a bit-field.");
+                }
+
                 CType target = addressOf.Target is Ast.Member m ? MemberType(m) : TypeOf(addressOf.Target);
                 _ = TypeOf(addressOf.Target);
                 return CType.Pointer(target.Kind == "array" && target.Base is not null ? target.Base : target);
@@ -961,7 +1026,7 @@ public sealed partial class TypeChecker
             return target;
         }
 
-        if (target.Kind is "struct" or "array" || source.Kind is "struct" or "void")
+        if (target.Kind is "struct" or "array" || source.Kind is "struct" or "void" || (target.IsFloat && source.Kind is "ptr" or "fptr" or "llong" or "ullong") || (source.IsFloat && target.Kind is "ptr" or "fptr" or "llong" or "ullong"))
         {
             throw new CTypeException($"cannot cast {source} to {target}.");
         }
@@ -1020,7 +1085,7 @@ public sealed partial class TypeChecker
         for (int i = function.Params.Count; i < call.Args.Count; i++)
         {
             CType extra = TypeOf(call.Args[i]).Decay();
-            if (extra.Kind is "void" or "struct")
+            if (extra.Kind is "void" or "struct" or "llong" or "ullong")
             {
                 throw new CTypeException($"argument {i + 1} of '{call.Name}' must be a value.");
             }
@@ -1047,7 +1112,7 @@ public sealed partial class TypeChecker
 
         return unary.Op switch
         {
-            "-" or "~" => operand.Kind is "void" or "ptr" or "array" or "fptr"
+            "-" or "~" => operand.Kind is "void" or "ptr" or "array" or "fptr" || (operand.IsFloat && unary.Op == "~")
                 ? throw new CTypeException($"operator '{unary.Op}' needs arithmetic operands.")
                 : operand,
             "!" => operand.Kind == "void"
@@ -1107,6 +1172,11 @@ public sealed partial class TypeChecker
             return SameShape(left.Base!, right.Base!) ? CType.Int : throw new CTypeException("pointer difference needs pointers to the same type.");
         }
 
+        if (binary.Op is "+" or "-" && ((left.Kind == "ptr" && right.IsFloat) || (right.Kind == "ptr" && left.IsFloat)))
+        {
+            throw new CTypeException($"operator '{binary.Op}' needs an integer offset.");
+        }
+
         if (binary.Op is "+" or "-")
         {
             if (left.Kind == "ptr" && right.Kind != "ptr" && right.Kind != "void")
@@ -1123,6 +1193,11 @@ public sealed partial class TypeChecker
         if (left.Kind == "ptr" || right.Kind == "ptr")
         {
             throw new CTypeException($"operator '{binary.Op}' is not supported for pointers.");
+        }
+
+        if ((left.IsFloat || right.IsFloat) && binary.Op is not ("+" or "-" or "*" or "/"))
+        {
+            throw new CTypeException($"operator '{binary.Op}' is not supported for float.");
         }
 
         return CType.Promote(left, right);
@@ -1188,25 +1263,29 @@ public sealed partial class TypeChecker
         return CType.Promote(then, els);
     }
 
+    private StructInfo MemberInfo(Ast.Member member)
+    {
+        CType baseType = TypeOf(member.Base);
+        if (member.Arrow)
+        {
+            return baseType is { Kind: "ptr", Base: { Kind: "struct" } target }
+                ? target.Info!
+                : throw new CTypeException("'->' needs a pointer to a struct.");
+        }
+
+        return baseType.Kind == "struct" ? baseType.Info! : throw new CTypeException("'.' needs a struct.");
+    }
+
     /// <summary>Typ pola bez rozpadu tablicy (struct przez <c>.</c> albo wskaźnik przez <c>-&gt;</c>).</summary>
     private CType MemberType(Ast.Member member)
     {
         CType baseType = TypeOf(member.Base);
-        StructInfo info;
-        if (member.Arrow)
-        {
-            info = baseType is { Kind: "ptr", Base: { Kind: "struct" } target }
-                ? target.Info!
-                : throw new CTypeException("'->' needs a pointer to a struct.");
-        }
-        else
-        {
-            info = baseType.Kind == "struct" ? baseType.Info! : throw new CTypeException("'.' needs a struct.");
-        }
-
+        StructInfo info = MemberInfo(member);
         CType fieldType = info.Find(member.Name)?.Type ?? throw new CTypeException($"struct '{info.Name}' has no field '{member.Name}'.");
-        bool constBase = member.Arrow ? baseType.Base!.IsConst : baseType.IsConst;
-        return constBase && !fieldType.IsConst ? fieldType with { IsConst = true } : fieldType;
+        CType owner = member.Arrow ? baseType.Base! : baseType;
+        return (owner.IsConst && !fieldType.IsConst) || (owner.IsVolatile && !fieldType.IsVolatile)
+            ? fieldType with { IsConst = fieldType.IsConst || owner.IsConst, IsVolatile = fieldType.IsVolatile || owner.IsVolatile }
+            : fieldType;
     }
 
     private CType DerefType(Ast.Deref deref)
@@ -1241,7 +1320,7 @@ public sealed partial class TypeChecker
             throw new CTypeException("cannot index a void pointer.");
         }
 
-        if (offset.Kind == "void" || offset.Kind == "ptr")
+        if (offset.Kind is "void" or "ptr" or "float")
         {
             throw new CTypeException("index needs an arithmetic offset.");
         }

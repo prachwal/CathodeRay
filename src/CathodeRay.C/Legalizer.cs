@@ -41,7 +41,7 @@ internal sealed class Legalizer
 
     private static Ir.Module CompileRuntime()
     {
-        CheckedProgram program = TypeChecker.Check(Parser.Parse(StdLib.Portable("rt.c"), StdLib.HeaderReader));
+        CheckedProgram program = TypeChecker.Check(Parser.Parse(StdLib.RuntimeSource, StdLib.HeaderReader));
         return Codegen.Lower(program, "rt.c", objectMode: false, stackLimit: null);
     }
 
@@ -51,6 +51,22 @@ internal sealed class Legalizer
         Ir.Imm imm => imm.W,
         _ => 2,
     };
+
+    /// <summary>Mnożenie przez stałą, którą da się zapisać kilkoma przesunięciami i dodawaniami (do trzech bitów albo 2^n - 1).</summary>
+    private static (Ir.Op Operand, int Value)? ConstantFactor(Ir.Bin bin)
+    {
+        (Ir.Op other, Ir.Imm? constant) = bin.B is Ir.Imm right ? (bin.A, right) : bin.A is Ir.Imm left ? (bin.B, left) : (bin.A, null);
+        if (constant is null)
+        {
+            return null;
+        }
+
+        long value = (uint)constant.Value & (constant.W == 1 ? 0xFFL : constant.W == 2 ? 0xFFFFL : 0xFFFFFFFFL);
+        long masked = value & (bin.Dst.W == 1 ? 0xFFL : bin.Dst.W == 2 ? 0xFFFFL : 0xFFFFFFFFL);
+        int bits = System.Numerics.BitOperations.PopCount((ulong)masked);
+        bool nearPower = masked > 2 && System.Numerics.BitOperations.IsPow2(masked + 1);
+        return masked >= 2 && (bits <= 3 || nearPower) ? (other, (int)masked) : null;
+    }
 
     private static IEnumerable<string> References(Ir.Function function)
     {
@@ -130,9 +146,20 @@ internal sealed class Legalizer
         }
 
         List<Ir.Data> data = [.. _module.Data];
-        AddRuntime(functions, data);
+        IReadOnlyList<string> externs = _module.ExternFunctions;
+        if (_module.ObjectMode)
+        {
+            // moduł obiektowy woła procedury z osobnego modułu rt.c (linkowanego raz na żądanie), zamiast nosić ich kopie
+            string[] missing = [.. _used.Where(name => functions.All(f => f.Name != name) && !externs.Contains(name)).Order(StringComparer.Ordinal)];
+            externs = [.. externs, .. missing];
+        }
+        else
+        {
+            AddRuntime(functions, data);
+        }
+
         data.AddRange(_temps);
-        return _module with { Functions = functions, Data = data };
+        return _module with { Functions = functions, Data = data, ExternFunctions = externs };
     }
 
     private void AddRuntime(List<Ir.Function> functions, List<Ir.Data> data)
@@ -155,7 +182,15 @@ internal sealed class Legalizer
                 continue;
             }
 
-            included.Add(function with { IsStatic = true });
+            // procedura z biblioteki dostaje rozpiskę bieżącej fazy (jej mnożenia i przesunięcia mogą wołać dalsze procedury)
+            var rewritten = new List<Ir.Ins>();
+            foreach (Ir.Ins ins in function.Body)
+            {
+                Rewrite(ins, rewritten);
+            }
+
+            function = function with { Body = rewritten, IsStatic = true };
+            included.Add(function);
             foreach (string reference in References(function))
             {
                 symbols.Add(reference);
@@ -184,14 +219,21 @@ internal sealed class Legalizer
     {
         switch (ins)
         {
+            case Ir.Call { Direct: { } routine } when routine.StartsWith("__cc_", StringComparison.Ordinal):
+                _used.Add(routine);
+                output.Add(ins);
+                break;
+            case Ir.Bin { Kind: Ir.BinOp.Mul } bin when Handles(bin.Dst) && ConstantFactor(bin) is { } factor:
+                MultiplyByConstant(bin, factor.Operand, factor.Value, output);
+                break;
             case Ir.Bin { Kind: Ir.BinOp.Mul } bin when Handles(bin.Dst):
-                CallBinary(_wide ? "__cc_mul32" : "__cc_mul", bin, bin.A, bin.B, output);
+                CallBinary(_wide ? "__cc_mul32" : bin.Dst.W == 1 ? "__cc_mul8" : "__cc_mul", bin, bin.A, bin.B, output);
                 break;
             case Ir.Bin { Kind: Ir.BinOp.Div } bin when Handles(bin.Dst):
-                CallBinary(_wide ? "__cc_divu32" : "__cc_divu", bin, bin.A, bin.B, output);
+                CallBinary(_wide ? "__cc_divu32" : bin.Dst.W == 1 ? "__cc_divu8" : "__cc_divu", bin, bin.A, bin.B, output);
                 break;
             case Ir.Bin { Kind: Ir.BinOp.Mod } bin when Handles(bin.Dst):
-                CallBinary(_wide ? "__cc_modu32" : "__cc_modu", bin, bin.A, bin.B, output);
+                CallBinary(_wide ? "__cc_modu32" : bin.Dst.W == 1 ? "__cc_modu8" : "__cc_modu", bin, bin.A, bin.B, output);
                 break;
             case Ir.Bin { Kind: Ir.BinOp.DivS } bin when Handles(bin.Dst):
                 CallBinary(_wide ? "__cc_divs32" : "__cc_divs", bin, SignExtend(bin.A, 0, output), SignExtend(bin.B, 1, output), output);
@@ -228,10 +270,47 @@ internal sealed class Legalizer
     /// <summary>Czy ta faza zajmuje się operacją o takim wyniku (32-bitowe w fazie szerokiej, pozostałe w wąskiej).</summary>
     private bool Handles(Ir.Cell dst) => _wide == (dst.W == 4);
 
+    private void MultiplyByConstant(Ir.Bin bin, Ir.Op operand, int value, List<Ir.Ins> output)
+    {
+        int width = bin.Dst.W;
+        Ir.Cell acc = Temp(width, 2);
+        long mask = width == 1 ? 0xFFL : width == 2 ? 0xFFFFL : 0xFFFFFFFFL;
+        long v = (uint)value & mask;
+        if (System.Numerics.BitOperations.IsPow2(v + 1) && System.Numerics.BitOperations.PopCount((ulong)v) > 3)
+        {
+            // 2^n - 1 = (x << n) - x
+            output.Add(new Ir.Bin(Ir.BinOp.Shl, acc, operand, new Ir.Imm(System.Numerics.BitOperations.Log2((ulong)(v + 1)), 1)));
+            output.Add(new Ir.Bin(Ir.BinOp.Sub, acc, acc, operand));
+            output.Add(new Ir.Mov(bin.Dst, acc));
+            return;
+        }
+
+        Ir.Cell term = Temp(width, 3);
+        bool first = true;
+        for (int bit = 0; bit < width * 8; bit++)
+        {
+            if ((v & (1L << bit)) == 0)
+            {
+                continue;
+            }
+
+            Ir.Cell target = first ? acc : term;
+            output.Add(bit == 0 ? new Ir.Mov(target, operand) : new Ir.Bin(Ir.BinOp.Shl, target, operand, new Ir.Imm(bit, 1)));
+            if (!first)
+            {
+                output.Add(new Ir.Bin(Ir.BinOp.Add, acc, acc, term));
+            }
+
+            first = false;
+        }
+
+        output.Add(new Ir.Mov(bin.Dst, acc));
+    }
+
     private void CallBinary(string name, Ir.Bin bin, Ir.Op a, Ir.Op b, List<Ir.Ins> output)
     {
         _used.Add(name);
-        int width = _wide ? 4 : 2;
+        int width = _wide ? 4 : bin.Dst.W == 1 && name.EndsWith('8') ? 1 : 2;
         Ir.Cell result = bin.Dst.W == width ? bin.Dst : Temp(width, 2);
         output.Add(new Ir.Call(name, null, [a, b], [width, width], result));
         if (result != bin.Dst)

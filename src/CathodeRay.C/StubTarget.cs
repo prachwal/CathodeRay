@@ -38,12 +38,12 @@ public sealed class StubTarget : ICTarget
     public string Crt0 => C.Crt0.Source;
 
     /// <inheritdoc/>
-    public IReadOnlyList<StdModule> RuntimeModules => [.. StdLib.Modules.Where(static m => m.IsAssembly)];
+    public IReadOnlyList<StdModule> RuntimeModules => [.. StdLib.Modules.Where(static m => m.IsAssembly), .. StdLib.RuntimeModules];
 
     /// <inheritdoc/>
     public string Emit(Ir.Module module, bool optimize)
     {
         ArgumentNullException.ThrowIfNull(module);
-        return new StubSelector(WideLegalizer.Run(Legalizer.Run(module, wide: true), ByteOrder)).Emit(optimize);
+        return new StubSelector(WideLegalizer.Run(Legalizer.Run(CaseFold.Apply(module), wide: true), ByteOrder)).Emit(optimize);
     }
 }

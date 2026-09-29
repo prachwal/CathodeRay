@@ -319,8 +319,12 @@ public sealed class Z80Cpu
             }
 
             case 3:
-                Pc = (ushort)(Pc + (sbyte)Fetch());
+            {
+                sbyte offset = (sbyte)Fetch();
+                Pc = (ushort)(Pc + offset);
                 break;
+            }
+
             case >= 4:
             {
                 sbyte offset = (sbyte)Fetch();
@@ -640,6 +644,20 @@ public sealed class Z80Cpu
                 SetFlags(diff >> 8, diff < 0, false, overflow, true);
                 F = (byte)((F & ~FlagZ) | ((diff & 0xFFFF) == 0 ? FlagZ : 0));
                 Hl = (ushort)diff;
+                break;
+            }
+
+            case 0x4A:
+            case 0x5A:
+            case 0x6A:
+            case 0x7A:
+            {
+                int rhs = GetRp((op >> 4) & 3);
+                int sum = Hl + rhs + (Flag(FlagC) ? 1 : 0);
+                bool overflow = (~(Hl ^ rhs) & (Hl ^ sum) & 0x8000) != 0;
+                SetFlags(sum >> 8, sum > 0xFFFF, false, overflow, false);
+                F = (byte)((F & ~FlagZ) | ((sum & 0xFFFF) == 0 ? FlagZ : 0));
+                Hl = (ushort)sum;
                 break;
             }
 

@@ -186,6 +186,18 @@ internal sealed partial class Lowering
             return;
         }
 
+        if (ReturnsLL(def))
+        {
+            if (ret.Value is not null)
+            {
+                _usesReturnBuffer = true;
+                Emit(new Ir.Store(new Ir.AddrOf(ReturnBuffer, 0), 0, Convert(Value(ret.Value, 0), TypeOf(ret.Value), ReturnCType(def), 1), 8));
+            }
+
+            Emit(new Ir.Ret(null, 0));
+            return;
+        }
+
         int retW = ReturnWidth(def);
         if (ret.Value is null)
         {
@@ -198,7 +210,7 @@ internal sealed partial class Lowering
             throw new CCodegenException("return with a value needs a function.");
         }
 
-        Emit(new Ir.Ret(Extend(Value(ret.Value, 0), TypeOf(ret.Value), retW == 4, 1), retW));
+        Emit(new Ir.Ret(Convert(Value(ret.Value, 0), TypeOf(ret.Value), ReturnCType(def), 1), retW));
     }
 
     /// <summary>switch: wartość do własnej komórki (chronionej ramką), łańcuch porównań ze stałymi,
@@ -257,7 +269,7 @@ internal sealed partial class Lowering
 
         foreach ((int offset, CType entryType, Ast.Expr value) in entries)
         {
-            Emit(new Ir.Store(target, offset, Extend(Value(value, 0), TypeOf(value), entryType.Size == 4, 1), Width(entryType)));
+            Emit(new Ir.Store(target, offset, Convert(Value(value, 0), TypeOf(value), entryType, 1), Width(entryType)));
         }
     }
 }

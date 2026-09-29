@@ -16,5 +16,12 @@ public sealed class Z80Target : ByteTarget
     public override int? StackLimit => 2048;
 
     /// <inheritdoc/>
+    protected override IReadOnlyList<StdModule> AssemblyRuntime { get; } =
+    [
+        StdLib.TargetModule("z80", "rt_mul.s", "__cc_mul"),
+        StdLib.TargetModule("z80", "rt_div.s", "__cc_divu", "__cc_modu"),
+    ];
+
+    /// <inheritdoc/>
     internal override ByteIsa CreateIsa() => new Z80Isa();
 }

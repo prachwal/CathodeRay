@@ -18,6 +18,9 @@ public sealed class CStdSamplesTests
     [InlineData("20_matrix.c", 591)]
     [InlineData("21_long.c", 6360)]
     [InlineData("22_misc.c", 1261)]
+    [InlineData("23_types.c", 4677)]
+    [InlineData("24_float.c", 1078)]
+    [InlineData("25_longlong.c", 2020)]
     public void Sample_Returns_Expected_Value(string file, int expected)
     {
         CcRun.Run(Sample(file)).Value.Should().Be(expected);
@@ -39,5 +42,23 @@ public sealed class CStdSamplesTests
 
         result.Console.Should().Be("fib=102334155 fact=1c8cfc00\nsum=2000100004 big=4000000000\n");
         result.Value.Should().Be(6360);
+    }
+
+    [Fact]
+    public void Float_Sample_Prints_Decimal_Text()
+    {
+        CcRun.Run(Sample("24_float.c")).Console.Should().Be("19.634937\n16.711645\n-0.125000\n");
+    }
+
+    [Fact]
+    public void LongLong_Sample_Prints_Sixty_Four_Bit_Numbers()
+    {
+        CcRun.Run(Sample("25_longlong.c")).Console.Should().Be("2880067194370816120\n2432902008176640000\n-2743766045621\n");
+    }
+
+    [Fact]
+    public void Types_Sample_Reports_Flags()
+    {
+        CcRun.Run(Sample("23_types.c")).Console.Should().Be("flags ok\n");
     }
 }

@@ -101,9 +101,10 @@ public static class Ir
     public sealed record Cell(string Sym, int W) : Op;
 
     /// <summary>Stała.</summary>
-    /// <param name="Value">Wartość (młodsze <paramref name="W"/> bajtów).</param>
+    /// <param name="Value">Wartość (młodsze <paramref name="W"/> bajtów; dla szerokości 8 młodsze 32 bity).</param>
     /// <param name="W">Szerokość w bajtach.</param>
-    public sealed record Imm(int Value, int W) : Op;
+    /// <param name="High">Starsze 32 bity stałej 8-bajtowej (dla pozostałych szerokości 0).</param>
+    public sealed record Imm(int Value, int W, int High = 0) : Op;
 
     /// <summary>Adres symbolu z przesunięciem (wartość 16-bitowa; bez ukrytych komórek w generatorze).</summary>
     /// <param name="Sym">Symbol (zmienna, funkcja, napis).</param>
@@ -136,14 +137,36 @@ public static class Ir
     /// <param name="Ptr">Adres bazowy: komórka 16-bitowa albo <see cref="AddrOf"/>.</param>
     /// <param name="Off">Stałe przesunięcie.</param>
     /// <param name="Bytes">Liczba czytanych bajtów (1 lub 2).</param>
-    public sealed record Load(Cell Dst, Op Ptr, int Off, int Bytes) : Ins;
+    /// <param name="Volatile">Odczyt obiektu <c>volatile</c>: nie wolno go usunąć, nawet gdy wynik nie jest używany.</param>
+    public sealed record Load(Cell Dst, Op Ptr, int Off, int Bytes, bool Volatile = false) : Ins;
 
     /// <summary>Zapis pod adres <c>Ptr + Off</c> (młodsze <paramref name="Bytes"/> bajtów wartości).</summary>
     /// <param name="Ptr">Adres bazowy.</param>
     /// <param name="Off">Stałe przesunięcie.</param>
     /// <param name="Value">Wartość.</param>
     /// <param name="Bytes">Liczba zapisywanych bajtów (1 lub 2).</param>
-    public sealed record Store(Op Ptr, int Off, Op Value, int Bytes) : Ins;
+    /// <param name="Volatile">Zapis obiektu <c>volatile</c>.</param>
+    public sealed record Store(Op Ptr, int Off, Op Value, int Bytes, bool Volatile = false) : Ins;
+
+    /// <summary>Odczyt z tablicy o znanym adresie z indeksem w komórce: adres = <c>Sym + Off + (Index &lt;&lt; Shift)</c>. Powstaje dopiero
+    /// tuż przed selektorem celu z indeksowaniem (<see cref="IndexFusion"/>), więc interpreter i przebiegi IR go nie widzą. Używany
+    /// jest tylko młodszy bajt indeksu (tablica ma najwyżej 256 B).</summary>
+    /// <param name="Dst">Cel.</param>
+    /// <param name="Sym">Tablica.</param>
+    /// <param name="Off">Stałe przesunięcie.</param>
+    /// <param name="Index">Komórka indeksu.</param>
+    /// <param name="Shift">Przesunięcie indeksu (rozmiar elementu = 1 &lt;&lt; Shift).</param>
+    /// <param name="Bytes">Liczba czytanych bajtów.</param>
+    public sealed record LoadIdx(Cell Dst, string Sym, int Off, Cell Index, int Shift, int Bytes) : Ins;
+
+    /// <summary>Zapis do tablicy o znanym adresie z indeksem w komórce (zob. <see cref="LoadIdx"/>).</summary>
+    /// <param name="Sym">Tablica.</param>
+    /// <param name="Off">Stałe przesunięcie.</param>
+    /// <param name="Index">Komórka indeksu.</param>
+    /// <param name="Shift">Przesunięcie indeksu.</param>
+    /// <param name="Value">Wartość.</param>
+    /// <param name="Bytes">Liczba zapisywanych bajtów.</param>
+    public sealed record StoreIdx(string Sym, int Off, Cell Index, int Shift, Op Value, int Bytes) : Ins;
 
     /// <summary>Kopiowanie bloku pamięci (rozłączne obszary).</summary>
     /// <param name="Dst">Adres celu.</param>
@@ -231,10 +254,12 @@ public static class Ir
     /// <param name="ExternFunctions">Funkcje zdefiniowane w innych modułach, do których moduł się odwołuje.</param>
     /// <param name="ExternCells">Zmienne <c>extern</c>.</param>
     /// <param name="ObjectMode">Tryb obiektowy (linker); w przeciwnym razie moduł jest całym programem.</param>
+    /// <param name="Volatile">Symbole obiektów <c>volatile</c>: przebiegi i selektory zachowują każdy odczyt i zapis.</param>
     public sealed record Module(
         IReadOnlyList<Function> Functions,
         IReadOnlyList<Data> Data,
         IReadOnlyList<string> ExternFunctions,
         IReadOnlyList<string> ExternCells,
-        bool ObjectMode);
+        bool ObjectMode,
+        IReadOnlySet<string>? Volatile = null);
 }

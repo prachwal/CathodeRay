@@ -98,9 +98,67 @@ internal sealed partial class Lowering
         }
 
         (Ir.Op pointer, int offset) = LValueAddr(expr, depth);
+        if (expr is Ast.Member { } bitMember && FieldOf(bitMember) is { BitWidth: > 0 } bitField)
+        {
+            return ReadBits(pointer, offset, bitField, depth, into);
+        }
+
         int width = Width(type);
         Ir.Cell dst = Dst(into, width, depth);
-        Emit(new Ir.Load(dst, pointer, offset, width));
+        Emit(new Ir.Load(dst, pointer, offset, width, type.IsVolatile));
         return dst;
+    }
+
+    /// <summary>Odczyt pola bitowego: jednostka pamięci, przesunięcie i maska (z rozszerzeniem znaku dla typów ze znakiem).
+    /// Obliczenia na 16 bitach, wynik zwężony do szerokości typu pola.</summary>
+    private Ir.Cell ReadBits(Ir.Op pointer, int offset, StructField field, int depth, Ir.Cell? into = null)
+    {
+        int width = Width(field.Type);
+        Ir.Cell unit = Temp(depth + 1, width);
+        Emit(new Ir.Load(unit, pointer, offset, width, field.Type.IsVolatile));
+        Ir.Cell wide = Temp(depth + 2, 2);
+        Emit(new Ir.Mov(wide, unit));
+        if (field.Type.Kind is "int" or "schar")
+        {
+            int left = 16 - field.BitShift - field.BitWidth;
+            if (left > 0)
+            {
+                Emit(new Ir.Bin(Ir.BinOp.Shl, wide, wide, new Ir.Imm(left, 1)));
+            }
+
+            Emit(new Ir.Bin(Ir.BinOp.Sar, wide, wide, new Ir.Imm(16 - field.BitWidth, 1)));
+        }
+        else
+        {
+            if (field.BitShift > 0)
+            {
+                Emit(new Ir.Bin(Ir.BinOp.Shr, wide, wide, new Ir.Imm(field.BitShift, 1)));
+            }
+
+            Emit(new Ir.Bin(Ir.BinOp.And, wide, wide, new Ir.Imm((1 << field.BitWidth) - 1, 2)));
+        }
+
+        Ir.Cell result = Dst(into, width, depth);
+        Emit(new Ir.Mov(result, wide));
+        return result;
+    }
+
+    /// <summary>Zapis pola bitowego: odczyt jednostki, wyczyszczenie pola, wstawienie wartości, zapis.</summary>
+    private void WriteBits(Ir.Op pointer, int offset, Ir.Op value, StructField field, int depth)
+    {
+        int width = Width(field.Type);
+        int mask = (1 << field.BitWidth) - 1;
+        Ir.Cell unit = Temp(depth + 1, width);
+        Emit(new Ir.Load(unit, pointer, offset, width, field.Type.IsVolatile));
+        Emit(new Ir.Bin(Ir.BinOp.And, unit, unit, new Ir.Imm(~(mask << field.BitShift) & Mask(width), width)));
+        Ir.Cell part = Temp(depth + 2, width);
+        Emit(new Ir.Bin(Ir.BinOp.And, part, value, new Ir.Imm(mask, width)));
+        if (field.BitShift > 0)
+        {
+            Emit(new Ir.Bin(Ir.BinOp.Shl, part, part, new Ir.Imm(field.BitShift, 1)));
+        }
+
+        Emit(new Ir.Bin(Ir.BinOp.Or, unit, unit, part));
+        Emit(new Ir.Store(pointer, offset, unit, width, field.Type.IsVolatile));
     }
 }

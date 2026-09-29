@@ -78,7 +78,7 @@ public sealed class IrPassesTests
     [Fact]
     public void Static_Functions_Without_Unknown_Callers_Stay_Frameless()
     {
-        const string Source = "static int hidden(int n) { return n + 2; }\nint callback(int n);\nint main() { return hidden(1) + callback(3); }";
+        const string Source = "static int hidden(int n) { int t = n + 2; t = t ^ n; t = t + 5; t = t ^ 9; t = t + n; t = t ^ 3; t = t + 7; t = t ^ n; t = t + 1; t = t ^ 6; t = t + n; t = t ^ 2; return t; }\nint callback(int n);\nint main() { return hidden(1) + hidden(2) + callback(3); }";
         Ir.Module module = Lower(Source, objectMode: true);
 
         Fn(module, "hidden").Saved.Should().BeEmpty();
