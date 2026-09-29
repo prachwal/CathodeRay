@@ -20,11 +20,11 @@ Rozmiar: S = <1 h, M = kilka h, L = dzień+. Kolejność: A → B → C → D. A
 
 ## C. Wielocelowość (kompilator nie jest związany ze stubem)
 
-- [ ] **11.** [M] Interfejs celu: ICodegenTarget (nazwa, tłumaczenie/emisja, crt0, biblioteki asemblerowe, układ pamięci LinkerConfig, konwencja wołań, endianness) + TargetRegistry/factory po nazwie (cc --cpu stub|6502|65c02|8080|z80|6800), StubTarget jako pierwsza implementacja; Crt0, io.s, DefaultConfig i wybór ISA przeniesione do celu; testy parametryzowane po celu
-- [ ] **12.** [M] Retargeter asm->asm: klasa AsmTranslator per CPU tłumaczy ~42 instrukcji stuba (flagi, adresowanie ,X, ADD/SUB/CPA d8, PUSH/POP, SHL/SHR, INC/DEC bez zmiany C, BCS/BCC) na instrukcje docelowe, z mapą przesunięć operandów dla kodu samomodyfikującego (label+1) i tłumaczeniem bibliotek .s
-- [ ] **13.** [M] Cel 6502/65C02: Mos6502Target (A/X, CLC/SEC+ADC/SBC, PHA/PLA, JSR/RTS, ASL/LSR, INC A tylko na 65C02), crt0, io.s, layout; NMOS bez INC A/DEC A rozwijane przez PHA/CLC... z zachowaniem C
+- [ ] **11.** [M] Interfejs maszyny w dwóch warstwach: IMachine z ~30 prymitywami (Lda/Sta/Add/Adc/Sub/Cmp/Branch/Call/Ret/PatchOperand…) oraz operacjami złożonymi z domyślną implementacją na prymitywach (Load16/Store16/Add16/Sub16/Compare16/Copy, LoadIndirect/StoreIndirect(wskaźnik, offset), Push/Pop komórek, wywołanie z argumentami); Codegen zamiast AppendLine("LDA …") woła IMachine (mechaniczna zamiana ~790 miejsc, testy jako siatka); TargetRegistry/factory po nazwie (cc --cpu), StubMachine jako pierwsza implementacja; Crt0, io.s, DefaultConfig i ISA przeniesione do celu
+- [ ] **12.** [M] Wspólne testy jednostkowe maszyn: każda implementacja IMachine przechodzi ten sam zestaw sekwencji operacji (semantyka flag, przeniesienie przy SUB/CMP, Z po załadowaniu, 16-bitowe Add/Compare, pośredni odczyt/zapis) uruchamianych na interpreterze celu
+- [ ] **13.** [M] Cel 6502/65C02: Mos6502Machine (komórki i tymczasowe na stronie zerowej, LoadIndirect/StoreIndirect przez (zp),Y zamiast łatania operandów, CLC/SEC+ADC/SBC, PHA/PLA, JSR/RTS, ASL/LSR, INC A tylko na 65C02), crt0, io.s, layout
 - [ ] **14.** [M] Interpretery testowe (w tests/, bez zależności): minimalny 6502 (tylko używane instrukcje) i harness uruchamiający wszystkie testy mini-C na wybranym celu; ta sama macierz testów dla stub i 6502
-- [ ] **15.** [L] Cele 8080 i Z80: odwrócone C przy SUB/CP, Z po ładowaniu przez ORA A, indeksowanie przez HL/IX, PUSH PSW, adresowanie a16 przez LDA/STA, interpretery testowe, tabela rozmiar/cykle
+- [ ] **15.** [L] Cele Z80 i 8080: przeciążenia operacji złożonych zamiast gołych prymitywów (Load16/Add16 przez HL/DE/BC i ADD HL,rr, LoadIndirect przez LD A,(HL), tymczasowe w BC/DE, indeksowanie przez IX na Z80), odwrócone C przy SUB/CP, Z po ładowaniu (ORA A), interpretery testowe, tabela rozmiar/cykle; 8080 bez IX (HL+DE)
 - [ ] **16.** [M] Cel 6800: big-endian w adresach i .word (łatanie operandów w odwrotnej kolejności, RelocKind), interpreter testowy
 
 ## D. Zamknięcie
