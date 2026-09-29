@@ -19,6 +19,9 @@ namespace CathodeRay.C;
 /// przez <c>cc_mul16</c>/<c>cc_div16</c>. Literały: znak = uchar, napis = <c>uchar*</c> (DATA).</summary>
 public sealed partial class Codegen
 {
+    /// <summary>Największa lokalna tablica/struktura funkcji rekurencyjnej (zapisywana bajt po bajcie na stosie).</summary>
+    private const int MaxSavedAggregate = 64;
+
     private readonly List<(string Name, CType Type, byte[]? Init)> _data = [];
 
     private readonly Dictionary<string, Cell> _cells = new(StringComparer.Ordinal);
@@ -45,6 +48,7 @@ public sealed partial class Codegen
 
     private int _switches;
     private int _assignOps;
+    private HashSet<string> _recursive = [];
     private IReadOnlyDictionary<Ast.Expr, int> _constants = new Dictionary<Ast.Expr, int>();
 
     private IReadOnlyDictionary<Ast.Node, int> _lines = new Dictionary<Ast.Node, int>();
@@ -370,6 +374,7 @@ public sealed partial class Codegen
         }
 
         _constants = program.Constants ?? _constants;
+        _recursive = RecursiveFunctions(program);
         _types = new Dictionary<Ast.Expr, CType>(program.GlobalTypes ?? new Dictionary<Ast.Expr, CType>(), ReferenceEqualityComparer.Instance);
         _lines = program.Lines;
         _file = fileName;
@@ -616,6 +621,24 @@ public sealed partial class Codegen
             var cell = new Cell($"{_prefix}__{local.Name}", local.Type);
             _cells[local.Name] = cell;
             DataCell(cell.Lo, local.Type);
+            if (local.Type.Kind is "array" or "struct")
+            {
+                if (_recursive.Contains(function.Def.Name))
+                {
+                    if (local.Type.Size > MaxSavedAggregate)
+                    {
+                        throw new CCodegenException($"recursive function '{function.Def.Name}' has local '{local.Name}' of {local.Type.Size} B (max {MaxSavedAggregate}).");
+                    }
+
+                    for (int i = 0; i < local.Type.Size; i++)
+                    {
+                        owned.Add(i == 0 ? cell.Lo : $"{cell.Lo}+{i}");
+                    }
+                }
+
+                continue;
+            }
+
             owned.Add(cell.Lo);
             if (IsWide(local.Type))
             {

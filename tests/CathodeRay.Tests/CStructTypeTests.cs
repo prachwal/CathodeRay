@@ -263,4 +263,48 @@ public sealed class CStructTypeTests
             """;
         Run(Source).Should().Be('e' + 'f' + 'y' + 22 + 33 + 2 + 2 + 6);
     }
+
+    [Fact]
+    public void Recursive_Function_Keeps_Local_Array_And_Struct_Per_Frame()
+    {
+        const string Source = """
+            struct P { uchar a; int b; };
+            int depth(int n) {
+                uchar tag[3] = {1, 2, 3};
+                struct P p = {n, n * 10};
+                int below = 0;
+                if (n > 0) below = depth(n - 1);
+                tag[0] += n;
+                return below + tag[0] + tag[2] + p.a + p.b;
+            }
+            int main() { return depth(3); }
+            """;
+        Run(Source).Should().Be(88);
+    }
+
+    [Fact]
+    public void Recursive_Function_With_Oversized_Local_Is_Rejected()
+    {
+        FluentActions.Invoking(() => Run("int f(int n) { uchar big[100]; big[0] = n; if (n > 0) f(n - 1); return big[0]; } int main() { return f(2); }"))
+            .Should().Throw<CCodegenException>().WithMessage("*recursive function 'f'*100 B*");
+    }
+
+    [Fact]
+    public void Large_Struct_Copy_And_Local_Initializer_Beyond_255_Bytes()
+    {
+        const string Source = """
+            struct Big { uchar head; uchar body[298]; uchar tail; };
+            struct Big a;
+            struct Big b;
+            int main() {
+                for (int i = 0; i < 298; i++) a.body[i] = i;
+                a.head = 1;
+                a.tail = 7;
+                b = a;
+                uchar loc[300] = {5};
+                return sizeof(struct Big) + b.head + b.body[255] + b.body[297] + b.tail + loc[0] + loc[299] + loc[256];
+            }
+            """;
+        Run(Source).Should().Be(1 + 255 + (297 & 255) + 7 + 5 + 0 + 0 + 300);
+    }
 }

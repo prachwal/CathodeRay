@@ -182,27 +182,27 @@ public sealed partial class Codegen
         _code.AppendLine($"STA {ihi}");
     }
 
-    /// <summary>Kopiuje strukturę (adres celu w Temp(depth), źródło liczone z lwartości) bajt po bajcie.</summary>
+    /// <summary>Kopiuje strukturę (adres celu w Temp(depth), źródło liczone z lwartości) bajt po bajcie;
+    /// licznik 16-bit, więc bez limitu rozmiaru.</summary>
     private void EmitStructCopy(int depth, string dstLo, string dstHi, Ast.Expr source, int size)
     {
-        if (size > 255)
-        {
-            throw new CCodegenException($"struct copy of {size} B is not supported (max 255).");
-        }
-
         if (size == 0)
         {
             return;
         }
 
         EvalLvalueAddr(source, depth + 1, out string srcLo, out string srcHi);
-        string count = Temp(depth + 2, hi: false);
-        string bytes = Temp(depth + 2, hi: true);
+        string countLo = Temp(depth + 2, hi: false);
+        string countHi = Temp(depth + 2, hi: true);
+        string bytes = Temp(depth + 3, hi: false);
         string loop = Label("copy");
         string load = Label("cld");
         string store = Label("cst");
-        _code.AppendLine($"LDI {size}");
-        _code.AppendLine($"STA {count}");
+        string noBorrow = Label("cnb");
+        _code.AppendLine($"LDI {size & 0xFF}");
+        _code.AppendLine($"STA {countLo}");
+        _code.AppendLine($"LDI {(size >> 8) & 0xFF}");
+        _code.AppendLine($"STA {countHi}");
         _code.AppendLine($"{loop}:");
         _code.AppendLine($"LDA {srcLo}");
         _code.AppendLine($"STA {load}+1");
@@ -226,9 +226,16 @@ public sealed partial class Codegen
             _code.AppendLine($"STA {ph}");
         }
 
-        _code.AppendLine($"LDA {count}");
+        _code.AppendLine($"LDA {countLo}");
         _code.AppendLine("SUB 1");
-        _code.AppendLine($"STA {count}");
+        _code.AppendLine($"STA {countLo}");
+        _code.AppendLine($"BCS {noBorrow}");
+        _code.AppendLine($"LDA {countHi}");
+        _code.AppendLine("SUB 1");
+        _code.AppendLine($"STA {countHi}");
+        _code.AppendLine($"{noBorrow}: LDX 0");
+        _code.AppendLine($"LDA {countLo}");
+        _code.AppendLine($"ORA {countHi},X");
         _code.AppendLine($"BNE {loop}");
     }
 

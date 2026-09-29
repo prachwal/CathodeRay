@@ -5,31 +5,31 @@
     {
       "id": "1",
       "title": "[S] Różnica wskaźników p - q (dzielona przez rozmiar elementu, cc_div16) i czytelny błąd dla int - ptr; sizeof(*p), sizeof(a[0]), sizeof(wyrażenie) rozstrzygane w checkerze",
-      "status": "todo",
+      "status": "done",
       "note": ""
     },
     {
       "id": "2",
       "title": "[M] Stałe w checkerze zamiast w parserze i codegenie: jedno miejsce składania (sizeof, enum, działania), dzięki temu sizeof(struct S) i sizeof x działają jako długość tablicy, case i inicjalizator; usunąć duplikaty Fold/TryConstValue",
-      "status": "todo",
+      "status": "done",
       "note": ""
     },
     {
       "id": "3",
       "title": "[M] Adresy w inicjalizatorach agregatów globalnych: emisja tablicy/struktury jako mieszanki .byte i .word symbol (uchar *names[] = {\"a\", \"b\"}, struct z polem-wskaźnikiem)",
-      "status": "todo",
+      "status": "done",
       "note": ""
     },
     {
       "id": "4",
       "title": "[M] Lokalne tablice i struktury w rekurencji: prolog/epilog zapisuje je na stosie (pętla PUSH/POP do 64 B) albo błąd kompilacji z wyjaśnieniem; kontrola stosu z planu 27 liczy ich rozmiar",
-      "status": "todo",
+      "status": "done",
       "note": ""
     },
     {
       "id": "5",
       "title": "[S] Kopiowanie struktur i lokalne inicjalizatory większe niż 255 B (licznik 16-bit)",
-      "status": "todo",
+      "status": "done",
       "note": ""
     },
     {

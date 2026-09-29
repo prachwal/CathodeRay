@@ -214,22 +214,22 @@ public sealed partial class Codegen
     private void EmitAggregateInit(Ast.Decl decl)
     {
         (string cell, CType type) = CellOf(decl.Name);
-        if (type.Size > 256)
-        {
-            throw new CCodegenException($"local initializer of '{decl.Name}' larger than 256 B.");
-        }
-
         var entries = new List<(int Offset, CType Type, Ast.Expr Value)>();
         CollectInit(type, decl.Init!, 0, entries);
         if (entries.Sum(static e => e.Type.Size) < type.Size)
         {
-            string loop = Label("zero");
             _code.AppendLine("LDI 0");
-            _code.AppendLine("LDX 0");
-            _code.AppendLine($"{loop}: STA {cell},X");
-            _code.AppendLine("INX");
-            _code.AppendLine($"CPX {type.Size & 0xFF}");
-            _code.AppendLine($"BNE {loop}");
+            for (int page = 0; page * 256 < type.Size; page++)
+            {
+                int length = Math.Min(256, type.Size - (page * 256));
+                string loop = Label("zero");
+                string at = page == 0 ? cell : $"{cell}+{page * 256}";
+                _code.AppendLine("LDX 0");
+                _code.AppendLine($"{loop}: STA {at},X");
+                _code.AppendLine("INX");
+                _code.AppendLine($"CPX {length & 0xFF}");
+                _code.AppendLine($"BNE {loop}");
+            }
         }
 
         foreach ((int offset, CType entryType, Ast.Expr value) in entries)

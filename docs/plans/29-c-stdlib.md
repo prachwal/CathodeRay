@@ -4,11 +4,11 @@ Rozmiar: S = <1 h, M = kilka h, L = dzień. Kolejność: A → B → C → D →
 
 ## A. Domknięcie ograniczeń z planu 28
 
-- [ ] **1.** [S] Różnica wskaźników p - q (dzielona przez rozmiar elementu, cc_div16) i czytelny błąd dla int - ptr; sizeof(*p), sizeof(a[0]), sizeof(wyrażenie) rozstrzygane w checkerze
-- [ ] **2.** [M] Stałe w checkerze zamiast w parserze i codegenie: jedno miejsce składania (sizeof, enum, działania), dzięki temu sizeof(struct S) i sizeof x działają jako długość tablicy, case i inicjalizator; usunąć duplikaty Fold/TryConstValue
-- [ ] **3.** [M] Adresy w inicjalizatorach agregatów globalnych: emisja tablicy/struktury jako mieszanki .byte i .word symbol (uchar *names[] = {"a", "b"}, struct z polem-wskaźnikiem)
-- [ ] **4.** [M] Lokalne tablice i struktury w rekurencji: prolog/epilog zapisuje je na stosie (pętla PUSH/POP do 64 B) albo błąd kompilacji z wyjaśnieniem; kontrola stosu z planu 27 liczy ich rozmiar
-- [ ] **5.** [S] Kopiowanie struktur i lokalne inicjalizatory większe niż 255 B (licznik 16-bit)
+- [x] **1.** [S] Różnica wskaźników p - q (dzielona przez rozmiar elementu, cc_div16) i czytelny błąd dla int - ptr; sizeof(*p), sizeof(a[0]), sizeof(wyrażenie) rozstrzygane w checkerze
+- [x] **2.** [M] Stałe w checkerze zamiast w parserze i codegenie: jedno miejsce składania (sizeof, enum, działania), dzięki temu sizeof(struct S) i sizeof x działają jako długość tablicy, case i inicjalizator; usunąć duplikaty Fold/TryConstValue
+- [x] **3.** [M] Adresy w inicjalizatorach agregatów globalnych: emisja tablicy/struktury jako mieszanki .byte i .word symbol (uchar *names[] = {"a", "b"}, struct z polem-wskaźnikiem)
+- [x] **4.** [M] Lokalne tablice i struktury w rekurencji: prolog/epilog zapisuje je na stosie (pętla PUSH/POP do 64 B) albo błąd kompilacji z wyjaśnieniem; kontrola stosu z planu 27 liczy ich rozmiar
+- [x] **5.** [S] Kopiowanie struktur i lokalne inicjalizatory większe niż 255 B (licznik 16-bit)
 
 ## B. Preprocesor
 
@@ -38,4 +38,4 @@ Rozmiar: S = <1 h, M = kilka h, L = dzień. Kolejność: A → B → C → D →
 
 - [ ] **18.** [S] Testy e2e per pozycja, samples/minic/13_strings.c, 14_macros.c, 15_funcptr.c, 16_printf.c, hygiene, aktualizacja planów
 
-Postęp: 0/18 gotowych.
+Postęp: 5/18 gotowych.

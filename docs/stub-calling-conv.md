@@ -141,5 +141,15 @@ brak `ADD`/`SUB` z pamięci absolutnej (tryb `,X` z `X = 0`).
   Przekazywanie i zwrot struktury **przez wartość** jest błędem typów (użyj wskaźnika).
 - Inicjalizatory `{a, b}` z zagnieżdżeniem (`{ {1,2}, "ab", 0 }`), brakujące pola zerowane;
   globalne muszą być stałe (bajty w DATA), lokalne mogą być wyrażeniami.
-- Ograniczenia: lokalne struktury i tablice nie są zapisywane na stosie przy rekurencji (jak tablice);
-  brak porównania i różnicy wskaźników (`p - q`); `sizeof(struct S)` nie działa jako długość tablicy.
+- Ograniczenia: brak przekazywania struktur przez wartość.
+
+## Plan 29 A: stałe, wskaźniki, rekurencja
+
+- Checker liczy stałe wyrażenia (`sizeof` typu/zmiennej/wyrażenia/struktury, działania, porównania) do `Constants`;
+  stała <= 255 ma typ `uchar`, wyżej `int`. Używają jej długości tablic, `case`, inicjalizatory globalne i codegen.
+- `p - q` (ten sam typ wskaźnika) daje `int` w elementach; `int - ptr` nadal błąd.
+- Globalne tablice i struktury mogą mieć w środku adresy (`&g`, `&a[1]`, `&s.f`, napisy, `tab + 2`): dane wychodzą
+  jako mieszanka `.byte` i `.word symbol`.
+- Lokalne tablice i struktury funkcji rekurencyjnych (także wzajemnie) są zapisywane na stosie bajt po bajcie
+  (limit 64 B na obiekt); w pozostałych funkcjach nie kosztują nic.
+- Kopiowanie struktur i lokalne inicjalizatory nie mają już limitu 255/256 B.
