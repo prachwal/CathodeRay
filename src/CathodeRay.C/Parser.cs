@@ -253,8 +253,18 @@ public sealed class Parser
                 stars = 0;
             }
 
+            int bits = 0;
+            if (Take(":"))
+            {
+                Token width = ExpectKind(TokenKind.Number, "bit-field width");
+                if (!int.TryParse(width.Text, System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out bits) || bits < 1)
+                {
+                    throw new CParseException(width.Line, width.Column, "bit-field width must be a positive literal.");
+                }
+            }
+
             Expect(";");
-            fields.Add(At(at.Line, new Ast.FieldDecl(type, stars, field, length)));
+            fields.Add(At(at.Line, new Ast.FieldDecl(type, stars, field, length, bits)));
         }
 
         _structs.Add(At(line, new Ast.StructDef(name, fields, isUnion)));

@@ -103,7 +103,7 @@
     {
       "id": "15",
       "title": "[L] Pola bitowe struct { uint a:3; uint b:5; }: układ od najmłodszego bitu w bajcie/słowie, odczyt przez przesunięcie i maskę, zapis jako odczyt-modyfikacja-zapis, sizeof, zakaz adresu pola, inicjalizatory",
-      "status": "todo",
+      "status": "done",
       "note": "",
       "section": "D. Typy i kwalifikatory"
     },

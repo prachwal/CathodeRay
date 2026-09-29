@@ -275,6 +275,9 @@ public sealed partial class TypeChecker
         }
 
         int offset = 0;
+        int unitOffset = 0;
+        int unitSize = 0;
+        int bitPos = 0;
         bool union = defs[name].IsUnion;
         info.IsUnion = union;
         foreach (Ast.FieldDecl field in defs[name].Fields)
@@ -296,6 +299,39 @@ public sealed partial class TypeChecker
                 throw new CTypeException($"duplicate field '{field.Name}' in struct '{name}'.");
             }
 
+            if (field.BitWidth > 0)
+            {
+                if (type.Kind is not ("uchar" or "schar" or "int" or "uint") || field.ArrayLength > 0)
+                {
+                    throw new CTypeException($"bit-field '{field.Name}' must have type char, int or their unsigned variants.");
+                }
+
+                if (field.BitWidth > type.Size * 8)
+                {
+                    throw new CTypeException($"bit-field '{field.Name}' is wider than its type.");
+                }
+
+                if (union)
+                {
+                    info.Fields.Add(new StructField(field.Name, type, 0, field.BitWidth, 0));
+                    offset = Math.Max(offset, type.Size);
+                    continue;
+                }
+
+                if (unitSize != type.Size || bitPos + field.BitWidth > type.Size * 8)
+                {
+                    unitOffset = offset;
+                    unitSize = type.Size;
+                    bitPos = 0;
+                    offset += type.Size;
+                }
+
+                info.Fields.Add(new StructField(field.Name, type, unitOffset, field.BitWidth, bitPos));
+                bitPos += field.BitWidth;
+                continue;
+            }
+
+            unitSize = 0;
             info.Fields.Add(new StructField(field.Name, type, union ? 0 : offset));
             offset = union ? Math.Max(offset, type.Size) : offset + type.Size;
         }
@@ -875,6 +911,11 @@ public sealed partial class TypeChecker
                 return MemberType(member).Decay();
             case Ast.AddressOfExpr addressOf:
             {
+                if (addressOf.Target is Ast.Member { } bitMember && MemberInfo(bitMember).Find(bitMember.Name) is { BitWidth: > 0 })
+                {
+                    throw new CTypeException("cannot take the address of a bit-field.");
+                }
+
                 CType target = addressOf.Target is Ast.Member m ? MemberType(m) : TypeOf(addressOf.Target);
                 _ = TypeOf(addressOf.Target);
                 return CType.Pointer(target.Kind == "array" && target.Base is not null ? target.Base : target);
@@ -1196,22 +1237,24 @@ public sealed partial class TypeChecker
         return CType.Promote(then, els);
     }
 
+    private StructInfo MemberInfo(Ast.Member member)
+    {
+        CType baseType = TypeOf(member.Base);
+        if (member.Arrow)
+        {
+            return baseType is { Kind: "ptr", Base: { Kind: "struct" } target }
+                ? target.Info!
+                : throw new CTypeException("'->' needs a pointer to a struct.");
+        }
+
+        return baseType.Kind == "struct" ? baseType.Info! : throw new CTypeException("'.' needs a struct.");
+    }
+
     /// <summary>Typ pola bez rozpadu tablicy (struct przez <c>.</c> albo wskaźnik przez <c>-&gt;</c>).</summary>
     private CType MemberType(Ast.Member member)
     {
         CType baseType = TypeOf(member.Base);
-        StructInfo info;
-        if (member.Arrow)
-        {
-            info = baseType is { Kind: "ptr", Base: { Kind: "struct" } target }
-                ? target.Info!
-                : throw new CTypeException("'->' needs a pointer to a struct.");
-        }
-        else
-        {
-            info = baseType.Kind == "struct" ? baseType.Info! : throw new CTypeException("'.' needs a struct.");
-        }
-
+        StructInfo info = MemberInfo(member);
         CType fieldType = info.Find(member.Name)?.Type ?? throw new CTypeException($"struct '{info.Name}' has no field '{member.Name}'.");
         CType owner = member.Arrow ? baseType.Base! : baseType;
         return (owner.IsConst && !fieldType.IsConst) || (owner.IsVolatile && !fieldType.IsVolatile)

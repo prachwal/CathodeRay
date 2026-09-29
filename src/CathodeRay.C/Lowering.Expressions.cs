@@ -440,6 +440,12 @@ internal sealed partial class Lowering
 
         Ir.Op value = Widen(Value(assignTo.Value, depth), TypeOf(assignTo.Value), Width(element), depth + 2);
         (Ir.Op pointer, int offset) = LValueAddr(assignTo.Target, depth + 1);
+        if (assignTo.Target is Ast.Member { } bitMember && FieldOf(bitMember) is { BitWidth: > 0 } bitField)
+        {
+            WriteBits(pointer, offset, value, bitField, depth + 2);
+            return value;
+        }
+
         Emit(new Ir.Store(pointer, offset, value, Width(element), element.IsVolatile));
         return value;
     }
@@ -450,10 +456,28 @@ internal sealed partial class Lowering
         CType element = TypeOf(assign.Target);
         int width = Width(element);
         (Ir.Op pointer, int offset) = LValueAddr(assign.Target, depth);
-        Ir.Cell current = Temp(depth + 1, width);
-        Emit(new Ir.Load(current, pointer, offset, width));
-        Ir.Op operand = Value(assign.Value, depth + 2);
-        Ir.Op result = Arith(assign.Op, TypeOf(assign.Combined), element, TypeOf(assign.Value), current, operand, depth + 1, null);
+        StructField? bitField = assign.Target is Ast.Member { } bitMember && FieldOf(bitMember) is { BitWidth: > 0 } found ? found : null;
+        Ir.Op current;
+        if (bitField is not null)
+        {
+            current = ReadBits(pointer, offset, bitField, depth + 1);
+        }
+        else
+        {
+            Ir.Cell loaded = Temp(depth + 1, width);
+            Emit(new Ir.Load(loaded, pointer, offset, width));
+            current = loaded;
+        }
+
+        int extra = bitField is null ? 0 : 3;
+        Ir.Op operand = Value(assign.Value, depth + 2 + extra);
+        Ir.Op result = Arith(assign.Op, TypeOf(assign.Combined), element, TypeOf(assign.Value), current, operand, depth + 1 + extra, null);
+        if (bitField is not null)
+        {
+            WriteBits(pointer, offset, result, bitField, depth + 5);
+            return result;
+        }
+
         Emit(new Ir.Store(pointer, offset, result, width));
         return result;
     }

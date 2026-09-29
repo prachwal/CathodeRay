@@ -362,3 +362,11 @@ nazwę z wielką literą na małe litery plus maskę pozycji wielkich w hex (`Fo
 - `IndexFusion` + `Ir.LoadIdx`/`StoreIdx` (tylko dla celów z adresowaniem indeksowanym, dziś 6502/65C02): `[s = i << k;] t = &tab + s;` z odczytem/zapisem przez `t`
   na tablicy o znanym adresie do 256 B staje się `lda tab,x` (indeks poza tablicą to zachowanie niezdefiniowane).
 - Błąd `Z80Cpu` w testach: `JR` bezwarunkowy liczył cel od adresu przed bajtem przesunięcia; wyszło dopiero na ręcznym dzieleniu Z80.
+
+## Pola bitowe (plan 31, krok 15)
+
+`type name : N;` w `struct`/`union`, typ `char`/`uchar`/`schar`/`int`/`uint`. Pola upakowane od najmłodszego bitu
+w jednostce o rozmiarze typu (bez przekraczania jednostki; zmiana rozmiaru typu otwiera nową jednostkę).
+Odczyt: załaduj jednostkę, przesuń i zamaskuj (typy ze znakiem: `shl` + `sar` na 16 bitach). Zapis (`=`, `op=`, `++`):
+odczyt–modyfikacja–zapis jednostki. Inicjalizator `{...}` wymaga stałych (sklejanych w jeden zapis jednostki).
+Niedozwolone: `&pole`, pola anonimowe (`: 3;`), szerokość większa niż typ.

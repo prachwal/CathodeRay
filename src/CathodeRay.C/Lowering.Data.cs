@@ -29,6 +29,12 @@ internal sealed partial class Lowering
                 for (int i = 0; i < values.Count; i++)
                 {
                     StructField field = type.Info!.Fields[i];
+                    if (field.BitWidth > 0)
+                    {
+                        AddBits(entries, offset + field.Offset, field, values[i]);
+                        continue;
+                    }
+
                     CollectInit(field.Type, values[i], offset + field.Offset, entries);
                 }
 
@@ -36,6 +42,36 @@ internal sealed partial class Lowering
             default:
                 entries.Add((offset, type, init));
                 break;
+        }
+    }
+
+    /// <summary>Pole bitowe w inicjalizatorze: wartość stała jest sklejana z sąsiadami w jeden zapis jednostki.</summary>
+    private static void AddBits(List<(int Offset, CType Type, Ast.Expr Value)> entries, int offset, StructField field, Ast.Expr value)
+    {
+        if (value is not Ast.Number number || !TryNumber(number.Text, out int constant))
+        {
+            throw new CCodegenException($"bit-field '{field.Name}' needs a constant initializer.");
+        }
+
+        int bits = (constant & ((1 << field.BitWidth) - 1)) << field.BitShift;
+        int at = entries.FindIndex(e => e.Offset == offset && e.Type == field.Type);
+        if (at >= 0 && entries[at].Value is Ast.Number previous && TryNumber(previous.Text, out int old))
+        {
+            bits |= old;
+        }
+        else
+        {
+            at = -1;
+        }
+
+        var merged = (offset, field.Type, (Ast.Expr)new Ast.Number(bits.ToString(System.Globalization.CultureInfo.InvariantCulture)));
+        if (at >= 0)
+        {
+            entries[at] = merged;
+        }
+        else
+        {
+            entries.Add(merged);
         }
     }
 
