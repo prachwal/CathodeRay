@@ -17,13 +17,13 @@
     {
       "id": "3",
       "title": "[M] Dane i komórki do IR: IrData z typowanymi wartościami (nie bajtami), Cell z szerokością W (1/2/4) zamiast par lo/hi, znika Hi(); nazewnictwo x_h / x+1 i kolejność bajtów należą do celu",
-      "status": "todo",
+      "status": "done",
       "note": ""
     },
     {
       "id": "4",
       "title": "[L] Zamiana lowering na prawdziwe instrukcje IR po jednym pliku na commit: Pointers -> Load/Store/CopyBlock, Conditions -> BrCmp (porównanie i skok razem), Calls -> Call/Ret (ABI w celu), Expressions/Wide -> Bin/Un/Mov; metryka: liczba Raw spada do 0; przeniesione ciała emisji trafiają do StubTarget (łatanie operandów zostaje tylko tam)",
-      "status": "todo",
+      "status": "done",
       "note": ""
     },
     {

@@ -1,8 +1,8 @@
 namespace CathodeRay.C;
 
-/// <summary>Generator kodu: wykrywanie funkcji rekurencyjnych (lokalne tablice i struktury takich funkcji
+/// <summary>Lowering: wykrywanie funkcji rekurencyjnych (lokalne tablice i struktury takich funkcji
 /// trzeba zapisywać na stosie razem z ramką).</summary>
-public sealed partial class Codegen
+internal sealed partial class Lowering
 {
     private static HashSet<string> RecursiveFunctions(CheckedProgram program)
     {

@@ -33,5 +33,5 @@ public interface ICTarget
     /// <param name="module">Kod pośredni.</param>
     /// <param name="optimize">Włącz optymalizacje celu.</param>
     /// <returns>Źródło dla asemblera.</returns>
-    string Emit(IrModule module, bool optimize);
+    string Emit(Ir.Module module, bool optimize);
 }

@@ -8,8 +8,8 @@ Rozmiar: S = <1 h, M = kilka h, L = dzień+. Kolejność: A -> B -> C -> D. Krok
 
 - [x] **1.** [S] Rejestr celów i --cpu: ICTarget (Name, AssemblerCpu, Endianness, StackLimit, DefaultLayout, Crt0, RuntimeModules, Emit) i CTargets.All/Find (ten sam kształt co AssemblerTargets); StubTarget przejmuje crt0, io.s, DefaultConfig z CcCommand i nazwę ISA; inne nazwy dają czytelny błąd 'target not implemented'
 - [x] **2.** [M] IR pod spodem: Codegen zamiast AppendLine buduje IrModule (Ins: Raw z tekstem stuba), StubTarget drukuje go bez zmian; bramka: asembler wyjściowy wszystkich samples i testów bajt w bajt taki sam jak przed zmianą (test różnicowy), Peephole staje się prywatnym elementem StubTarget
-- [ ] **3.** [M] Dane i komórki do IR: IrData z typowanymi wartościami (nie bajtami), Cell z szerokością W (1/2/4) zamiast par lo/hi, znika Hi(); nazewnictwo x_h / x+1 i kolejność bajtów należą do celu
-- [ ] **4.** [L] Zamiana lowering na prawdziwe instrukcje IR po jednym pliku na commit: Pointers -> Load/Store/CopyBlock, Conditions -> BrCmp (porównanie i skok razem), Calls -> Call/Ret (ABI w celu), Expressions/Wide -> Bin/Un/Mov; metryka: liczba Raw spada do 0; przeniesione ciała emisji trafiają do StubTarget (łatanie operandów zostaje tylko tam)
+- [x] **3.** [M] Dane i komórki do IR: IrData z typowanymi wartościami (nie bajtami), Cell z szerokością W (1/2/4) zamiast par lo/hi, znika Hi(); nazewnictwo x_h / x+1 i kolejność bajtów należą do celu
+- [x] **4.** [L] Zamiana lowering na prawdziwe instrukcje IR po jednym pliku na commit: Pointers -> Load/Store/CopyBlock, Conditions -> BrCmp (porównanie i skok razem), Calls -> Call/Ret (ABI w celu), Expressions/Wide -> Bin/Un/Mov; metryka: liczba Raw spada do 0; przeniesione ciała emisji trafiają do StubTarget (łatanie operandów zostaje tylko tam)
 - [ ] **5.** [M] Interpreter IR (~300 linii): wyrocznia front-endu niezależna od CPU, uruchamia cały istniejący zestaw testów C; przebiegi na IR: ramki tylko dla funkcji rekurencyjnych i o wziętym adresie (NeedsFrame), wołanie pośrednie w grafie wołań, redukcja siły, stałe i operandy bezpośrednie, martwe zapisy tymczasowych
 - [ ] **6.** [S] Helpery mnożenia i dzielenia (Codegen.Helpers.cs) do stdlib/stub/rt.s, linkowane na żądanie przez istniejącą pętlę nierozwiązanych symboli; znikają flagi _needMul*
 
@@ -36,4 +36,4 @@ Rozmiar: S = <1 h, M = kilka h, L = dzień+. Kolejność: A -> B -> C -> D. Krok
 - [ ] **19.** [S] union, operator przecinka, konkatenacja napisów, \xHH, # i ## w makrach, enum z sizeof(struct)
 - [ ] **20.** [S] Testy e2e per pozycja, samples/minic/17_casts.c, 18_voidptr.c, 19_matrix.c, 20_long.c, tabela rozmiar/cykle per cel (golden tylko dla rozmiaru, nie dla poprawności), docs/targets.md (jak dodać CPU), docs/minic.md, hygiene
 
-Postęp: 2/20 gotowych.
+Postęp: 4/20 gotowych.

@@ -2,8 +2,8 @@ using System.Text;
 
 namespace CathodeRay.C;
 
-/// <summary>Generator kodu: podprogramy pomocnicze emitowane w module (mnożenie, dzielenie).</summary>
-public sealed partial class Codegen
+/// <summary>Selektor stuba: podprogramy pomocnicze emitowane w module (mnożenie, dzielenie), gdy IR ich używa.</summary>
+internal sealed partial class StubSelector
 {
     private void WideCells()
     {
@@ -15,7 +15,7 @@ public sealed partial class Codegen
         _wideCells = true;
         foreach (string cell in new[] { "cc_w_a", "cc_w_a_h", "cc_w_b", "cc_w_b_h", "cc_w_r", "cc_w_r_h", "cc_w_n", "cc_w_sa", "cc_w_sb", "cc_w_q", "cc_w_q_h" })
         {
-            DataCell(cell, CType.UChar);
+            _helperCells.Add(cell);
         }
     }
 
@@ -88,7 +88,7 @@ public sealed partial class Codegen
         _code.AppendLine("ADC cc_w_r_h,X");
         _code.AppendLine("STA cc_w_r_h");
         _code.AppendLine("BCS cc_d16_sub");
-        EmitIntCompare(">=", "cc_w_r", "cc_w_r_h", "cc_w_b", "cc_w_b_h", "cc_d16_next");
+        BranchCompare(Ir.Cond.Ltu, new Ir.Cell("cc_w_r", 2), new Ir.Cell("cc_w_b", 2), "cc_d16_next");
         _code.AppendLine("cc_d16_sub: NOP");
         EmitSub16("cc_w_r", "cc_w_r_h", "cc_w_b", "cc_w_b_h");
         _code.AppendLine("LDA cc_w_a");
@@ -218,9 +218,9 @@ public sealed partial class Codegen
         _code.AppendLine("cc_m_done: LDA cc_m_acc");
         _code.AppendLine("RET");
         _code.AppendLine(".endproc");
-        DataCell("cc_m_acc", CType.UChar);
-        DataCell("cc_m_a", CType.UChar);
-        DataCell("cc_m_b", CType.UChar);
+        _helperCells.Add("cc_m_acc");
+        _helperCells.Add("cc_m_a");
+        _helperCells.Add("cc_m_b");
     }
 
     /// <summary>A / X bez znaku: iloraz w A, reszta w X (X=0 daje 0/0). Dzielenie pisemne w 8 krokach;
@@ -268,8 +268,8 @@ public sealed partial class Codegen
         _code.AppendLine("TAX");
         _code.AppendLine("RET");
         _code.AppendLine(".endproc");
-        DataCell("cc_d_n", CType.UChar);
-        DataCell("cc_d_r", CType.UChar);
-        DataCell("cc_d_c", CType.UChar);
+        _helperCells.Add("cc_d_n");
+        _helperCells.Add("cc_d_r");
+        _helperCells.Add("cc_d_c");
     }
 }

@@ -215,9 +215,21 @@ liczbę parametrów (`printf(fmt, a1..a5)`), więc `...` można tylko deklarowa�
   zapowiedziane i dają komunikat „target not implemented yet”). Cel (`ICTarget`) dostarcza crt0, moduły
   asemblerowe biblioteki (`io.s`), domyślny układ pamięci, limit stosu i drukuje kod pośredni jako asembler
   swojego CPU (`Emit`). Front-end C nie zależy od asemblera: układ pamięci to dane (`TargetLayout`), a `cc` zamienia je na `LinkerConfig`.
-- Generator (`Codegen.Lower`) zwraca `IrModule` (kod jako `IrFunction` i luźne `Raw`, oraz segmenty INIT/DATA/BSS).
-  Na tym etapie instrukcje to jeszcze `Raw` z mnemonikami stuba, więc `StubTarget` drukuje je bez zmian
-  (a `Peephole` jest jego prywatnym przebiegiem). Kolejne kroki planu zastępują `Raw` typowanymi operacjami na komórkach.
+- Front-end (`Lowering`) obniża program do kodu pośredniego `Ir.Module`: funkcje (`Ir.Function`: parametry, szerokość
+  wyniku, zapisywana ramka, instrukcje), dane (`Ir.Data` z typowanymi fragmentami: bajty i słowa z adresem symbolu) i
+  deklaracje zewnętrzne. Instrukcje to trójadresowe operacje na komórkach (`Cell` = symbol + szerokość 1/2, `Imm`,
+  `AddrOf`): `Mov`, `Bin`, `Un`, `Load`, `Store`, `CopyBlock`, `Fill`, `BrCmp` (porównanie i skok razem, warianty ze znakiem
+  i bez), `Jmp`, `Label`, `Call`, `Ret`, `Src`. Operandy węższe od wyniku są rozszerzane zerem. Front-end nie zna flag,
+  konwencji wołań, rozmieszczenia komórek, kodowania instrukcji ani kolejności bajtów.
+- `StubTarget` drukuje moduł przez `StubSelector`: każda operacja IR to samodzielny ciąg instrukcji pamięć-pamięć
+  (A jako akumulator, `X=0` dla trybu `,X`); dostęp przez wskaźnik i wołanie pośrednie to kod samomodyfikujący, który
+  zostaje wyłącznie w selektorze stuba. Komórka 2-bajtowa ma młodszy bajt pod `sym`, starszy pod `sym+1` (cele wybierają
+  własne rozmieszczenie); tymczasowe nazywają się `funkcja__t@N`, napisy `funkcja__s@N`, pomocnicze stuba `__x@N`/`__p@N`/`__a@N`
+  (znak `@` jest dozwolony w etykietach asemblera, a niedozwolony w identyfikatorach C, więc nazwy się nie zderzają).
+  `Peephole` jest prywatnym przebiegiem tego celu. Ramki (zapisywanie komórek), kontrola stosu i wykrywanie rekurencji są
+  w front-endzie, bo nie zależą od CPU; sposób zapisu ramki należy do celu.
+- Nowy generator produkuje o 35–60% mniej kodu niż dawny (zmienne i stałe są operandami bezpośrednimi, bez kopii do
+  tymczasowych): np. `13_strings` 9519 → 4978 B, `10_struct` 2189 → 913 B.
 - Bramka `IrGateTests` porównuje asembler wygenerowany dla korpusu (samples, moduły biblioteki, przykłady z `minic.md`;
   4 warianty: tryb obiektowy × optymalizacja) z zapisanym wzorcem `tests/CathodeRay.Tests/ir-gate.txt` bajt w bajt.
-  Zmiana generatora, która świadomie zmienia wyjście, regeneruje wzorzec: `UPDATE_IR_GATE=1 dotnet test --filter IrGateTests`.
+  Wzorzec zapisuje wyjście stuba; zmiana generatora, która świadomie zmienia wyjście (jak przejście na IR), regeneruje go: `UPDATE_IR_GATE=1 dotnet test --filter IrGateTests`.

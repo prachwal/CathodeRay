@@ -35,35 +35,29 @@ public sealed class CTargetTests
     }
 
     [Fact]
-    public void Lowering_Groups_Functions_And_The_Target_Prints_Them_Unchanged()
+    public void Lowering_Produces_Typed_Functions_And_Data()
     {
-        IrModule module = Codegen.Lower(Checked(), "t.c", objectMode: true);
+        Ir.Module module = Codegen.Lower(Checked(), "t.c", objectMode: true);
 
-        module.Code.OfType<IrFunction>().Select(static f => (f.Name, f.IsStatic)).Should().Equal(("helper", false), ("hidden", true), ("main", false));
-        module.Code.OfType<IrFunction>().Should().OnlyContain(static f => f.Body.All(static i => i is Raw));
-        module.Data.Should().NotBeEmpty();
-        module.Bss.Should().NotBeEmpty();
-
-        foreach (bool optimize in new[] { false, true })
-        {
-            CTargets.Default.Emit(module, optimize).Should().Be(Codegen.Emit(Checked(), "t.c", objectMode: true, optimize: optimize));
-        }
+        module.Functions.Select(static f => (f.Name, f.IsStatic, f.RetW)).Should().Equal(("helper", false, 2), ("hidden", true, 2), ("main", false, 2));
+        module.Functions[0].Params.Should().Equal([new Ir.Cell("helper__x", 2)]);
+        module.Functions[0].Body.OfType<Ir.Bin>().Select(static b => b.Kind).Should().Equal(Ir.BinOp.Add);
+        module.Functions[0].Body.OfType<Ir.Ret>().Should().HaveCount(1);
+        module.Functions[2].Body.OfType<Ir.Call>().Select(static c => c.Direct).Should().Equal("hidden", "helper");
+        module.Data.Should().OnlyContain(static d => d.Segment == "BSS").And.Contain(static d => d.Sym == "helper__x" && d.Size == 2);
+        module.ObjectMode.Should().BeTrue();
     }
 
     [Fact]
-    public void Peephole_Belongs_To_The_Target_And_Runs_Only_When_Asked()
+    public void Target_Prints_The_Module_And_Optimization_Is_The_Targets_Choice()
     {
-        IrModule module = new([new Raw("STA x\nLDA x\nRET\n")], [], [], []);
+        Ir.Module module = Codegen.Lower(Checked(), "t.c", objectMode: true);
+        string plain = CTargets.Default.Emit(module, optimize: false);
+        string tuned = CTargets.Default.Emit(module, optimize: true);
 
-        CTargets.Default.Emit(module, optimize: false).Should().Be("STA x\nLDA x\nRET\n");
-        CTargets.Default.Emit(module, optimize: true).Should().Be("STA x\nRET\n");
-    }
-
-    [Fact]
-    public void Unprintable_Items_Are_Rejected_By_A_Target()
-    {
-        FluentActions.Invoking(() => CTargets.Default.Emit(new IrModule([new Unknown()], [], [], []), optimize: false))
-            .Should().Throw<InvalidOperationException>().WithMessage("*Unknown*");
+        plain.Should().Contain(".proc helper").And.Contain(".proc main").And.Contain("CALL helper");
+        tuned.Length.Should().BeLessThan(plain.Length);
+        plain.Should().Be(Codegen.Emit(Checked(), "t.c", objectMode: true, optimize: false));
     }
 
     [Fact]
@@ -99,6 +93,4 @@ public sealed class CTargetTests
         int exit = CathodeRay.Cli.CliApp.CreateRoot().Parse(args).Invoke(new System.CommandLine.InvocationConfiguration { Output = new StringWriter(), Error = error });
         return (exit, error.ToString());
     }
-
-    private sealed record Unknown : IrItem;
 }

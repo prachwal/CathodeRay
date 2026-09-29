@@ -1,9 +1,7 @@
-using System.Text;
-
 namespace CathodeRay.C;
 
 /// <summary>Cel „stub”: minimalny procesor akumulatorowy (A, X, tylko adresowanie absolutne; wskaźniki przez
-/// łatanie operandów). Kod pośredni zawiera na razie gotowe mnemoniki stuba (<see cref="Raw"/>), więc druk to złączenie.</summary>
+/// łatanie operandów). Dobór instrukcji: <see cref="StubSelector"/>; optymalizator okienkowy (<see cref="Peephole"/>) jest jego prywatnym przebiegiem.</summary>
 public sealed class StubTarget : ICTarget
 {
     /// <inheritdoc/>
@@ -43,36 +41,9 @@ public sealed class StubTarget : ICTarget
     public IReadOnlyList<StdModule> RuntimeModules => [.. StdLib.Modules.Where(static m => m.IsAssembly)];
 
     /// <inheritdoc/>
-    public string Emit(IrModule module, bool optimize)
+    public string Emit(Ir.Module module, bool optimize)
     {
         ArgumentNullException.ThrowIfNull(module);
-        string code = Print(module.Code);
-        if (optimize)
-        {
-            code = Peephole.Optimize(code);
-        }
-
-        return code + Print(module.Init) + Print(module.Data) + Print(module.Bss);
-    }
-
-    private static string Print(IEnumerable<IrItem> items)
-    {
-        var text = new StringBuilder();
-        foreach (IrItem item in items)
-        {
-            switch (item)
-            {
-                case Raw raw:
-                    text.Append(raw.Text);
-                    break;
-                case IrFunction function:
-                    text.Append(Print(function.Body));
-                    break;
-                default:
-                    throw new InvalidOperationException($"StubTarget cannot print {item.GetType().Name}.");
-            }
-        }
-
-        return text.ToString();
+        return new StubSelector(module).Emit(optimize);
     }
 }
