@@ -20,6 +20,7 @@ public static class Linker
         }
 
         string cpu = modules[0].Module.Cpu;
+        Isa.Endianness endianness = AssemblerTargets.Find(cpu)?.Endianness ?? Isa.Endianness.Little;
         if (modules.Any(m => !string.Equals(m.Module.Cpu, cpu, StringComparison.OrdinalIgnoreCase)))
         {
             throw new LinkerException("All modules must target the same CPU.");
@@ -147,7 +148,7 @@ public static class Linker
                     throw new LinkerException($"Undefined symbol '{reloc.Symbol}' (imported by {modules[m].File}).");
                 }
 
-                Apply(image, modules[m].File, reloc, baseAddress + reloc.Offset, target + reloc.Addend);
+                Apply(image, modules[m].File, reloc, baseAddress + reloc.Offset, target + reloc.Addend, endianness);
             }
         }
 
@@ -216,7 +217,7 @@ public static class Linker
         return [.. rows.OrderBy(static r => r.Address).ThenBy(static r => r.Order).Select(static r => r.Row)];
     }
 
-    private static void Apply(Dictionary<int, byte> image, string file, Relocation reloc, int position, int value)
+    private static void Apply(Dictionary<int, byte> image, string file, Relocation reloc, int position, int value, Isa.Endianness endianness)
     {
         switch (reloc.Kind)
         {
@@ -225,8 +226,14 @@ public static class Linker
                 image[position] = (byte)value;
                 break;
             case RelocKind.Abs16 when value is >= 0 and <= ushort.MaxValue:
+                image[position] = endianness == Isa.Endianness.Little ? (byte)value : (byte)(value >> 8);
+                image[position + 1] = endianness == Isa.Endianness.Little ? (byte)(value >> 8) : (byte)value;
+                break;
+            case RelocKind.Lo8 when value is >= 0 and <= ushort.MaxValue:
                 image[position] = (byte)value;
-                image[position + 1] = (byte)(value >> 8);
+                break;
+            case RelocKind.Hi8 when value is >= 0 and <= ushort.MaxValue:
+                image[position] = (byte)(value >> 8);
                 break;
             case RelocKind.Rel8:
                 int offset = value - (position + 1);

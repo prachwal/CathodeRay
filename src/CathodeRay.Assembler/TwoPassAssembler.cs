@@ -455,6 +455,28 @@ public sealed class TwoPassAssembler(InstructionSet isa, SyntaxDialect dialect)
 
         public int EvaluateEmission(string expression, FieldKind kind, out bool relocated)
         {
+            if (final && objectMode && kind == FieldKind.Byte && owner.Dialect.LowHighPrefixes && HalfPrefix(expression) is { } half)
+            {
+                string inner = expression.Trim()[1..];
+                bool hasSymbol = TryEvaluate(inner) is null || SingleSymbol(inner) is not null;
+                if (hasSymbol)
+                {
+                    return EvaluateEmissionCore(inner, kind, half, out relocated);
+                }
+            }
+
+            return EvaluateEmissionCore(expression, kind, '\0', out relocated);
+        }
+
+        /// <summary>Znak <c>&lt;</c> albo <c>&gt;</c> na początku wyrażenia (młodszy / starszy bajt adresu).</summary>
+        private static char? HalfPrefix(string expression)
+        {
+            string trimmed = expression.Trim();
+            return trimmed.Length > 1 && trimmed[0] is '<' or '>' ? trimmed[0] : null;
+        }
+
+        private int EvaluateEmissionCore(string expression, FieldKind kind, char half, out bool relocated)
+        {
             relocated = false;
             int? value = TryEvaluate(expression);
             if (value is not null)
@@ -472,7 +494,7 @@ public sealed class TwoPassAssembler(InstructionSet isa, SyntaxDialect dialect)
 
                 relocated = true;
                 int bas = EvalWith(expression, defined, 0);
-                Relocate(kind, defined, bas);
+                Relocate(kind, defined, bas, half);
                 return bas;
             }
 
@@ -493,20 +515,25 @@ public sealed class TwoPassAssembler(InstructionSet isa, SyntaxDialect dialect)
             }
 
             relocated = true;
-            Relocate(kind, symbol, addend);
+            Relocate(kind, symbol, addend, half);
             return addend;
         }
 
-        private void Relocate(FieldKind kind, string symbol, int addend)
+        private void Relocate(FieldKind kind, string symbol, int addend, char half = '\0')
         {
             SegmentState segment = EnsureSegment(_segment);
             int origin = segmentOrigins.GetValueOrDefault(_segment, 0);
-            RelocKind reloc = kind switch
+            RelocKind reloc = half switch
             {
-                FieldKind.Word => RelocKind.Abs16,
-                FieldKind.Relative8 => RelocKind.Rel8,
-                FieldKind.Displacement8 => RelocKind.Disp8,
-                _ => RelocKind.Abs8,
+                '<' => RelocKind.Lo8,
+                '>' => RelocKind.Hi8,
+                _ => kind switch
+                {
+                    FieldKind.Word => RelocKind.Abs16,
+                    FieldKind.Relative8 => RelocKind.Rel8,
+                    FieldKind.Displacement8 => RelocKind.Disp8,
+                    _ => RelocKind.Abs8,
+                },
             };
             Relocations.Add(
                 new Relocation(

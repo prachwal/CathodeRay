@@ -17,6 +17,9 @@ public sealed record AssemblerTarget(
     Func<Stream, InstructionSet> Load,
     IReadOnlyList<SyntaxDialect> Syntaxes)
 {
+    /// <summary>Kolejność bajtów słów w kodzie maszynowym (linker zapisuje wg niej relokacje <c>Abs16</c>).</summary>
+    public Endianness Endianness { get; init; } = Endianness.Little;
+
     /// <summary>Dialekt domyślny.</summary>
     public SyntaxDialect DefaultSyntax => Syntaxes[0];
 
