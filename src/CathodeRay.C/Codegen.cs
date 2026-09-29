@@ -9,14 +9,18 @@ namespace CathodeRay.C;
 /// Dwa inty nie mieszczą się w (A,X): arg2 idzie przez umówione komórki
 /// <c>cc_arg2</c>/<c>cc_arg2_h</c> (caller kopiuje tuż przed CALL, callee
 /// odczytuje w prologu — bezpieczne przy zagnieżdżeniu).
+/// Ramki (plan 20): callee-saves — prolog chowa wejście do cc_arg1(_h),
+/// PUSHuje własne komórki (parametry, lokale, tempy), potem storuje parametry;
+/// epilog chowa wynik do cc_ret(_h), POPuje, odtwarza A/X, RET. Globale
+/// współdzielone. Rekurencja działa (limit: strona stosu 01xxh).
 /// Podzbiór v1: pełny uchar; int: pamięć, load/store, +,-, porównania, konwersje.
 /// Bez: int *,/,%,&lt;&lt;,&gt;&gt;,&amp;,|,^, wskaźników, tablic (jawny błąd).</summary>
 public sealed class Codegen
 {
-    private readonly StringBuilder _code = new();
     private readonly List<(string Name, int Size, byte[]? Init)> _data = [];
     private readonly Dictionary<string, Cell> _cells = new(StringComparer.Ordinal);
     private readonly Dictionary<string, CheckedFunction> _functions = new(StringComparer.Ordinal);
+    private StringBuilder _code = new();
     private IReadOnlyList<TypedSymbol> _globals = [];
     private int _labels;
     private int _maxTemp = -1;
@@ -90,6 +94,10 @@ public sealed class Codegen
 
         DataCell("cc_arg2", CType.UChar);
         DataCell("cc_arg2_h", CType.UChar);
+        DataCell("cc_ret", CType.UChar);
+        DataCell("cc_ret_h", CType.UChar);
+        DataCell("cc_arg1", CType.UChar);
+        DataCell("cc_arg1_h", CType.UChar);
 
         _code.AppendLine(".segment \"CODE\"");
         if (_functions.ContainsKey("main"))
@@ -165,11 +173,17 @@ public sealed class Codegen
             _cells[global.Name] = new Cell($"cc_g_{global.Name}", global.Type);
         }
 
+        var owned = new List<string>();
         foreach (TypedSymbol param in function.Params)
         {
             var cell = new Cell($"{_prefix}__{param.Name}", param.Type);
             _cells[param.Name] = cell;
             DataCell(cell.Lo, param.Type);
+            owned.Add(cell.Lo);
+            if (param.Type.Size == 2)
+            {
+                owned.Add($"{cell.Lo}_h");
+            }
         }
 
         foreach (TypedSymbol local in function.Locals)
@@ -177,12 +191,71 @@ public sealed class Codegen
             var cell = new Cell($"{_prefix}__{local.Name}", local.Type);
             _cells[local.Name] = cell;
             DataCell(cell.Lo, local.Type);
+            owned.Add(cell.Lo);
+            if (local.Type.Size == 2)
+            {
+                owned.Add($"{cell.Lo}_h");
+            }
         }
 
         _maxTemp = -1;
         _code.AppendLine($".proc {function.Def.Name}");
         _code.AppendLine($".global {function.Def.Name}");
+        _code.AppendLine("STA cc_arg1");
+        _code.AppendLine("TXA");
+        _code.AppendLine("STA cc_arg1_h");
 
+        StringBuilder outer = _code;
+        var body = new StringBuilder();
+        _code = body;
+        try
+        {
+            EmitParamStores(function);
+            foreach (Ast.Stmt item in function.Def.Body.Items)
+            {
+                EmitStmt(item);
+            }
+        }
+        finally
+        {
+            _code = outer;
+        }
+
+        for (int temp = 0; temp <= _maxTemp; temp++)
+        {
+            DataCell($"{_prefix}__t{temp}", CType.UChar);
+            DataCell($"{_prefix}__t{temp}_h", CType.UChar);
+            owned.Add($"{_prefix}__t{temp}");
+            owned.Add($"{_prefix}__t{temp}_h");
+        }
+
+        foreach (string cell in owned)
+        {
+            _code.AppendLine($"LDA {cell}");
+            _code.AppendLine("PUSH");
+        }
+
+        _code.Append(body.ToString());
+        _code.AppendLine($"{_prefix}__ret:");
+        _code.AppendLine("STA cc_ret");
+        _code.AppendLine("TXA");
+        _code.AppendLine("STA cc_ret_h");
+        for (int i = owned.Count - 1; i >= 0; i--)
+        {
+            _code.AppendLine("POP");
+            _code.AppendLine($"STA {owned[i]}");
+        }
+
+        _code.AppendLine("LDA cc_ret");
+        _code.AppendLine("LDA cc_ret_h");
+        _code.AppendLine("TAX");
+        _code.AppendLine("LDA cc_ret");
+        _code.AppendLine("RET");
+        _code.AppendLine(".endproc");
+    }
+
+    private void EmitParamStores(CheckedFunction function)
+    {
         for (int i = 0; i < function.Params.Count; i++)
         {
             Cell cell = _cells[function.Params[i].Name];
@@ -190,8 +263,9 @@ public sealed class Codegen
             {
                 if (i == 0)
                 {
+                    _code.AppendLine("LDA cc_arg1");
                     _code.AppendLine($"STA {cell.Lo}");
-                    _code.AppendLine("TXA");
+                    _code.AppendLine("LDA cc_arg1_h");
                     _code.AppendLine($"STA {cell.Lo}_h");
                 }
                 else
@@ -204,27 +278,14 @@ public sealed class Codegen
             }
             else if (i == 0)
             {
+                _code.AppendLine("LDA cc_arg1");
                 _code.AppendLine($"STA {cell.Lo}");
             }
             else
             {
-                _code.AppendLine("TXA");
+                _code.AppendLine("LDA cc_arg1_h");
                 _code.AppendLine($"STA {cell.Lo}");
             }
-        }
-
-        foreach (Ast.Stmt item in function.Def.Body.Items)
-        {
-            EmitStmt(item);
-        }
-
-        _code.AppendLine($"{_prefix}__ret:");
-        _code.AppendLine("RET");
-        _code.AppendLine(".endproc");
-        for (int t = 0; t <= _maxTemp; t++)
-        {
-            DataCell($"{_prefix}__t{t}", CType.UChar);
-            DataCell($"{_prefix}__t{t}_h", CType.UChar);
         }
     }
 

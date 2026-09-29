@@ -28,6 +28,19 @@ bez zgadywania. Stub ma tylko `A`, `X` i stos na `A` — reszta to umowa.
   to zwykłe komórki absolutne (jak globalne). Rekurencja wymaga ręcznego
   odkładania stanu na stos.
 
+## Ramki (plan 20): callee-saves na stosie sprzętowym
+
+Decyzja (item 1): zamiast wirtualnego stosu w `X` — callee odkłada własne
+komórki (parametry, lokale, tempy) na stos sprzętowy (`PUSH` po `A`, strona
+`01xxh`) przy wejściu i odtwarza przy wyjściu. Globale współdzielone (bez
+odkładania). Rekurencja działa do wyczerpania strony stosu (~256 B).
+
+Kolejność prologu (krytyczna): wpierw schowek wejścia (`cc_arg1`/`cc_arg1_h`,
+bo `LDA` przy `PUSH` niszczy `A`), potem `PUSH`e, potem `stor`y parametrów.
+Epilog: wynik do `cc_ret`/`cc_ret_h`, `POP`y, odtworzenie `A`/`X`, `RET`.
+`cc_arg2` (2. int-arg) i `cc_ret` żyją tylko bez `CALL` pomiędzy zapisem
+a odczytem, więc zagnieżdżenie jest bezpieczne.
+
 ## Wzorce codegen
 
 ```

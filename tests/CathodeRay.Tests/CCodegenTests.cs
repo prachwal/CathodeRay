@@ -27,6 +27,7 @@ public sealed class CCodegenTests
 
         StubIsa isa = StubIsa.FromJsonFile(Repo.IsaFile("mcp_stub_instructions.json"));
         var cpu = new StubCpu(isa, bus);
+        cpu.State.ProgramCounter = (ushort)origins["CODE"];
         for (int steps = 0; !cpu.State.Halted; steps++)
         {
             steps.Should().BeLessThan(100_000, "program ma się zatrzymać");
@@ -41,17 +42,29 @@ public sealed class CCodegenTests
     {
         const string Source = """
             int fib(int n) {
-                int a = 0;
-                int b = 1;
-                int i = 0;
-                while (i < n) { int t = a + b; a = b; b = t; i = i + 1; }
-                return a;
+                if (n < 2) return n;
+                return fib(n - 1) + fib(n - 2);
             }
             int main() { return fib(7); }
             """;
         var (cpu, _, _) = RunC(Source);
 
         cpu.State.A.Should().Be(13);
+    }
+
+    [Fact]
+    public void Recursive_Sum_Reaches_Depth_11()
+    {
+        const string Source = """
+            int sum(int n) {
+                if (n <= 0) return 0;
+                return n + sum(n - 1);
+            }
+            int main() { return sum(10); }
+            """;
+        var (cpu, _, _) = RunC(Source);
+
+        cpu.State.A.Should().Be(55);
     }
 
     [Fact]
