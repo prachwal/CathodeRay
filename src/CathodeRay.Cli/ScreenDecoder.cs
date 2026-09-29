@@ -1,22 +1,41 @@
 namespace CathodeRay.Cli;
 
-/// <summary>Dekoder ekranu tekstowego: 1000 B pamięci (wierszami) na tekst 40x25.</summary>
-internal static class ScreenDecoder
+/// <summary>Dekoder ekranu tekstowego: obszar pamięci (wierszami) na tekst o danej szerokości i wysokości.</summary>
+internal sealed class ScreenDecoder
 {
+    /// <summary>Tworzy dekoder.</summary>
+    /// <param name="width">Szerokość w znakach (domyślnie 40).</param>
+    /// <param name="height">Wysokość w wierszach (domyślnie 25).</param>
+    public ScreenDecoder(int width = 40, int height = 25)
+    {
+        if (width < 1)
+        {
+            throw new ArgumentOutOfRangeException(nameof(width), "Width must be positive.");
+        }
+
+        if (height < 1)
+        {
+            throw new ArgumentOutOfRangeException(nameof(height), "Height must be positive.");
+        }
+
+        Width = width;
+        Height = height;
+    }
+
     /// <summary>Szerokość ekranu w znakach.</summary>
-    public const int Width = 40;
+    public int Width { get; }
 
     /// <summary>Wysokość ekranu w wierszach.</summary>
-    public const int Height = 25;
+    public int Height { get; }
 
     /// <summary>Rozmiar bufora ekranu w bajtach.</summary>
-    public const int Size = Width * Height;
+    public int Size => Width * Height;
 
     /// <summary>Dekoduje bufor na wiersze tekstu (0/niedrukowalne to spacja, końcowe spacje cięte).</summary>
     /// <param name="memory">Odczyt bajtu spod adresu.</param>
     /// <param name="address">Adres bufora.</param>
     /// <returns>Wiersze tekstu (dokładnie <see cref="Height"/>).</returns>
-    public static IReadOnlyList<string> Render(Func<ushort, byte> memory, int address)
+    public IReadOnlyList<string> Render(Func<ushort, byte> memory, int address)
     {
         var rows = new List<string>(Height);
         for (int row = 0; row < Height; row++)
@@ -38,6 +57,6 @@ internal static class ScreenDecoder
     /// <param name="rows">Wiersze z <see cref="Render"/>.</param>
     /// <param name="address">Adres bufora (do nagłówka).</param>
     /// <returns>Tekst Markdown.</returns>
-    public static string ToMarkdown(IReadOnlyList<string> rows, int address) =>
-        $"# Screen dump (40x25 @ ${address:X4})\n\n```text\n{string.Join("\n", rows)}\n```\n";
+    public string ToMarkdown(IReadOnlyList<string> rows, int address) =>
+        $"# Screen dump ({Width}x{Height} @ ${address:X4})\n\n```text\n{string.Join("\n", rows)}\n```\n";
 }

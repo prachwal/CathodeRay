@@ -61,12 +61,12 @@ public sealed class ScreenTests : IDisposable
             """;
         var (_, bus, result) = RunAsm(Driver, "screentest.asm");
         int buf = result.Symbols["__scr_buf"];
-        IReadOnlyList<string> rows = ScreenDecoder.Render(bus.Read, buf);
+        IReadOnlyList<string> rows = new ScreenDecoder().Render(bus.Read, buf);
 
         rows.Should().HaveCount(25);
         rows[0].Should().Be("Hi");
         rows.Skip(1).Should().OnlyContain(static s => s.Length == 0);
-        string md = ScreenDecoder.ToMarkdown(rows, buf);
+        string md = new ScreenDecoder().ToMarkdown(rows, buf);
         md.Should().Contain($"# Screen dump (40x25 @ ${buf:X4})");
         md.Should().Contain("```text\nHi\n");
     }
@@ -85,7 +85,7 @@ public sealed class ScreenTests : IDisposable
         var (_, bus, result) = RunAsm(Driver, "screentest.asm");
         int buf = result.Symbols["__scr_buf"];
 
-        ScreenDecoder.Render(bus.Read, buf).Should().OnlyContain(static s => s.Length == 0);
+        new ScreenDecoder().Render(bus.Read, buf).Should().OnlyContain(static s => s.Length == 0);
         bus.Read((ushort)result.Symbols["__scr_cur"]).Should().Be(0);
     }
 
@@ -131,7 +131,22 @@ public sealed class ScreenTests : IDisposable
         }
 
         int buf = result.Symbols["__scr_buf"];
-        ScreenDecoder.Render(bus.Read, buf)[0].Should().Be("ABC");
+        new ScreenDecoder().Render(bus.Read, buf)[0].Should().Be("ABC");
+    }
+
+    [Fact]
+    public void Decoder_Accepts_Custom_Size_From_Constructor()
+    {
+        byte[] memory = [65, 66, 0, 67, 68, 69, 7, 68];
+        var decoder = new ScreenDecoder(4, 2);
+
+        decoder.Width.Should().Be(4);
+        decoder.Height.Should().Be(2);
+        decoder.Size.Should().Be(8);
+        decoder.Render(a => memory[a], 0).Should().Equal("AB C", "DE D");
+        decoder.ToMarkdown(["AB C", "DE D"], 0x100).Should().Contain("# Screen dump (4x2 @ $0100)");
+        FluentActions.Invoking(() => new ScreenDecoder(0, 25)).Should().Throw<ArgumentOutOfRangeException>();
+        FluentActions.Invoking(() => new ScreenDecoder(40, 0)).Should().Throw<ArgumentOutOfRangeException>();
     }
 
     [Fact]

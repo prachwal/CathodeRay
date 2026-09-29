@@ -117,23 +117,24 @@ internal static class StubCommands
 
             if (parse.GetValue(screenAt) is { } screenText)
             {
+                var screen = new ScreenDecoder();
                 if (!CathodeRay.NumberLiteral.TryParse(screenText, out int screenAddress)
                     || screenAddress is < 0 or > ushort.MaxValue
-                    || screenAddress + ScreenDecoder.Size > 0x10000)
+                    || screenAddress + screen.Size > 0x10000)
                 {
-                    error.WriteLine($"Invalid --screen-at '{screenText}' (expected $0000..$FFFF, +1000 B in range).");
+                    error.WriteLine($"Invalid --screen-at '{screenText}' (expected $0000..$FFFF, +{screen.Size} B in range).");
                     return 1;
                 }
 
-                IReadOnlyList<string> rows = ScreenDecoder.Render(bus.Read, screenAddress);
+                IReadOnlyList<string> rows = screen.Render(bus.Read, screenAddress);
                 if (parse.GetValue(screenOut) is { } screenFile)
                 {
-                    File.WriteAllText(screenFile.FullName, ScreenDecoder.ToMarkdown(rows, screenAddress));
-                    output.WriteLine($"screen ({ScreenDecoder.Width}x{ScreenDecoder.Height} @ ${screenAddress:X4}) -> {screenFile.Name}");
+                    File.WriteAllText(screenFile.FullName, screen.ToMarkdown(rows, screenAddress));
+                    output.WriteLine($"screen ({screen.Width}x{screen.Height} @ ${screenAddress:X4}) -> {screenFile.Name}");
                 }
                 else
                 {
-                    output.WriteLine(ScreenDecoder.ToMarkdown(rows, screenAddress));
+                    output.WriteLine(screen.ToMarkdown(rows, screenAddress));
                 }
             }
 
