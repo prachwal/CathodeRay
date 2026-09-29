@@ -234,7 +234,10 @@ public sealed class ScreenTests : IDisposable
         return (exit, output.ToString(), error.ToString());
     }
 
-    private static IReadOnlyList<string> RunCScreen(string name, int maxSteps = 500_000)
+    private static IReadOnlyList<string> RunCScreen(string name, int maxSteps = 500_000) =>
+        RunCScreenFull(name, maxSteps).Rows;
+
+    private static (IReadOnlyList<string> Rows, StubBus Bus, int Buf) RunCScreenFull(string name, int maxSteps = 500_000)
     {
         string screen = File.ReadAllText(Path.Combine(LibDir(), "screen.s"));
         string path = Repo.Path("samples", "minic", name);
@@ -264,7 +267,7 @@ public sealed class ScreenTests : IDisposable
             cpu.Step();
         }
 
-        return new ScreenDecoder().Render(bus.Read, result.Symbols["__scr_buf"]);
+        return (new ScreenDecoder().Render(bus.Read, result.Symbols["__scr_buf"]), bus, result.Symbols["__scr_buf"]);
     }
 
     [Fact]
@@ -318,5 +321,40 @@ public sealed class ScreenTests : IDisposable
 
         rows[0].Should().Be("A B");
         rows.Skip(1).Should().OnlyContain(static s => s.Length == 0);
+    }
+
+    [Fact]
+    public void Demo_Goto_Corners_And_Clamps_Out_Of_Range()
+    {
+        var (rows, bus, buf) = RunCScreenFull("scr_goto.c");
+
+        bus.Read((ushort)buf).Should().Be(65);
+        bus.Read((ushort)(buf + 39)).Should().Be(66);
+        bus.Read((ushort)(buf + 960)).Should().Be(67);
+        bus.Read((ushort)(buf + 999)).Should().Be(69);
+        rows[0][0].Should().Be('A');
+        rows[24][39].Should().Be('E');
+    }
+
+    [Fact]
+    public void Demo_Newline_Moves_To_Next_Row_Start()
+    {
+        IReadOnlyList<string> rows = RunCScreen("scr_nl.c");
+
+        rows[0].Should().Be("A");
+        rows[1].Should().Be("B");
+        rows[2].Should().BeEmpty();
+        rows[3].Should().Be("C");
+        rows.Skip(4).Should().OnlyContain(static s => s.Length == 0);
+    }
+
+    [Fact]
+    public void Demo_Newline_At_Bottom_Scrolls()
+    {
+        IReadOnlyList<string> rows = RunCScreen("scr_nlscroll.c");
+
+        rows[23].Should().Be("A");
+        rows[24].Should().Be("B");
+        rows.Take(23).Should().OnlyContain(static s => s.Length == 0);
     }
 }
