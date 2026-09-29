@@ -1,4 +1,4 @@
-# Mini-C: biblioteka standardowa, preprocesor, static/const/wskaźniki do funkcji, optymalizacja (status: otwarty)
+# Mini-C: biblioteka standardowa, preprocesor, static/const/wskaźniki do funkcji, optymalizacja (status: zamknięty)
 
 Rozmiar: S = <1 h, M = kilka h, L = dzień. Kolejność: A → B → C → D → E → F; D zależy od B (nagłówki) i C (static/const), printf od wskaźników do stałych z A.
 
@@ -30,12 +30,12 @@ Rozmiar: S = <1 h, M = kilka h, L = dzień. Kolejność: A → B → C → D →
 
 ## E. Jakość kodu i narzędzia
 
-- [ ] **15.** [M] Optymalizator peephole na tekście asm przed asemblacją: STA x; LDA x, JMP na następną etykietę, LDA po LDA, martwe ładowania temp; miara: rozmiar CODE samples/minic przed/po i test, że wyniki się nie zmieniają (flaga cc -O0 wyłącza)
-- [ ] **16.** [S] Ostrzeżenia checkera: nieużywana zmienna/parametr, brak return w funkcji nie-void, kod po return/break/goto, przypisanie w warunku; cc -Werror
-- [ ] **17.** [S] docs/minic.md: pełna specyfikacja języka (typy, operatory, konstrukcje, konwencje, ograniczenia) zebrana z docs/stub-calling-conv.md; tabela 'wspierane / niewspierane' testowana przykładami z samples/minic
+- [x] **15.** [M] Optymalizator peephole na tekście asm przed asemblacją: STA x; LDA x, JMP na następną etykietę, LDA po LDA, martwe ładowania temp; miara: rozmiar CODE samples/minic przed/po i test, że wyniki się nie zmieniają (flaga cc -O0 wyłącza)
+- [x] **16.** [S] Ostrzeżenia checkera: nieużywana zmienna/parametr, brak return w funkcji nie-void, kod po return/break/goto, przypisanie w warunku; cc -Werror
+- [x] **17.** [S] docs/minic.md: pełna specyfikacja języka (typy, operatory, konstrukcje, konwencje, ograniczenia) zebrana z docs/stub-calling-conv.md; tabela 'wspierane / niewspierane' testowana przykładami z samples/minic
 
 ## F. Zamknięcie
 
-- [ ] **18.** [S] Testy e2e per pozycja, samples/minic/13_strings.c, 14_macros.c, 15_funcptr.c, 16_printf.c, hygiene, aktualizacja planów
+- [x] **18.** [S] Testy e2e per pozycja, samples/minic/13_strings.c, 14_macros.c, 15_funcptr.c, 16_printf.c, hygiene, aktualizacja planów
 
-Postęp: 14/18 gotowych.
+Postęp: 18/18 gotowych.

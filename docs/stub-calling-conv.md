@@ -1,5 +1,7 @@
 # Konwencja wołań stub (mini-C)
 
+Opis języka: [minic.md](minic.md) (przykłady testowane). Ten plik to konwencje, układ pamięci i decyzje projektowe.
+
 Cel: spisane zasady, żeby dwa podprogramy (i kiedyś kompilator) dogadywały się
 bez zgadywania. Stub ma tylko `A`, `X` i stos na `A` — reszta to umowa.
 

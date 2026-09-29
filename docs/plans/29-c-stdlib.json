@@ -1,6 +1,6 @@
 {
   "title": "Mini-C: biblioteka standardowa, preprocesor, static/const/wskaźniki do funkcji, optymalizacja",
-  "status": "open",
+  "status": "closed",
   "items": [
     {
       "id": "1",
@@ -89,25 +89,25 @@
     {
       "id": "15",
       "title": "[M] Optymalizator peephole na tekście asm przed asemblacją: STA x; LDA x, JMP na następną etykietę, LDA po LDA, martwe ładowania temp; miara: rozmiar CODE samples/minic przed/po i test, że wyniki się nie zmieniają (flaga cc -O0 wyłącza)",
-      "status": "todo",
+      "status": "done",
       "note": ""
     },
     {
       "id": "16",
       "title": "[S] Ostrzeżenia checkera: nieużywana zmienna/parametr, brak return w funkcji nie-void, kod po return/break/goto, przypisanie w warunku; cc -Werror",
-      "status": "todo",
+      "status": "done",
       "note": ""
     },
     {
       "id": "17",
       "title": "[S] docs/minic.md: pełna specyfikacja języka (typy, operatory, konstrukcje, konwencje, ograniczenia) zebrana z docs/stub-calling-conv.md; tabela 'wspierane / niewspierane' testowana przykładami z samples/minic",
-      "status": "todo",
+      "status": "done",
       "note": ""
     },
     {
       "id": "18",
       "title": "[S] Testy e2e per pozycja, samples/minic/13_strings.c, 14_macros.c, 15_funcptr.c, 16_printf.c, hygiene, aktualizacja planów",
-      "status": "todo",
+      "status": "done",
       "note": ""
     }
   ]

@@ -10,6 +10,25 @@ public static class CcRun
 {
     public sealed record Result(int Value, string Console, string Stderr, long Steps);
 
+    /// <summary>Tylko kompilacja i linkowanie: kod wyjścia i stderr.</summary>
+    public static (int Exit, string Stderr) Compile(string source, params string[] extra)
+    {
+        string dir = Directory.CreateTempSubdirectory("cathode-cc-compile-").FullName;
+        try
+        {
+            string main = Path.Combine(dir, "main.c");
+            File.WriteAllText(main, source);
+            var error = new StringWriter();
+            string[] args = ["cc", main, "-o", Path.Combine(dir, "p.bin"), .. extra];
+            int exit = CliApp.CreateRoot().Parse(args).Invoke(new System.CommandLine.InvocationConfiguration { Output = new StringWriter(), Error = error });
+            return (exit, error.ToString());
+        }
+        finally
+        {
+            Directory.Delete(dir, recursive: true);
+        }
+    }
+
     public static Result Run(string source, params string[] extra)
     {
         string dir = Directory.CreateTempSubdirectory("cathode-cc-run-").FullName;
