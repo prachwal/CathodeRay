@@ -59,7 +59,7 @@
     {
       "id": "10",
       "title": "[L] Wskaźniki do funkcji: typedef void (*handler)(int); wywołanie przez zmienną i pole struktury, tablice funkcji, adres funkcji (&f, f); CALL przez łatany operand jak w crt0",
-      "status": "todo",
+      "status": "done",
       "note": ""
     },
     {

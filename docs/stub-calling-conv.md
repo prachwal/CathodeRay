@@ -175,3 +175,12 @@ brak `ADD`/`SUB` z pamięci absolutnej (tryb `,X` z `X = 0`).
 - `const`: `const T x`, `T const x`, `const T *p` (pełna kontrola: zapis przez wskaźnik do const, `discards const`
   przy przypisaniu `const T*` do `T*`), `const` w polach i strukturach. `T * const p` jest parsowane, ale
   wskaźnik pozostaje zapisywalny. Dane const nie trafiają do osobnej pamięci (RAM bez ochrony).
+
+## Wskaźniki do funkcji (plan 29 C)
+
+- Deklaracje `int (*op)(int, int)`, `typedef int (*binop)(int, int);`, tablice `binop tab[3] = { add, sub, mul }`,
+  pola struktur, parametry i globalne z inicjalizatorem (`.word etykieta`). Nazwa funkcji i `&f` to adres.
+- Wołanie `op(x, y)`, `(*op)(x, y)`, `tab[i](x)`, `s.cb(x)`, `p->cb(x)`: argumenty jak w zwykłym wywołaniu
+  (A, X, `cc_arg2..6`), adres wpisywany w operand `CALL` tuż przed skokiem. Porównania i `if (f)` działają, arytmetyka nie.
+- Wołanie pośrednie nie trafia do grafu wołań: rekurencja przez wskaźnik nie jest wykrywana (lokalne tablice takiej
+  funkcji nie są zapisywane na stosie), a kontrola stosu jej nie zna.

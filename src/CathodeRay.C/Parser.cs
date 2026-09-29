@@ -141,6 +141,18 @@ public sealed class Parser
 
             (string type, int baseStars) = TypeSpec();
             int stars = baseStars + Stars();
+            if (TryFnPtr(type, stars, out string fieldFn, out string fieldFnName, out int fieldFnLength, out Ast.Expr? fieldFnExpr))
+            {
+                if (fieldFnExpr is not null)
+                {
+                    throw new CParseException(at.Line, at.Column, "field array needs a literal length.");
+                }
+
+                Expect(";");
+                fields.Add(At(at.Line, new Ast.FieldDecl(fieldFn, 0, fieldFnName, fieldFnLength)));
+                continue;
+            }
+
             string field = ExpectKind(TokenKind.Ident, "field name").Text;
             int length = ArrayLength(out bool unsized, out Ast.Expr? fieldLength);
             if (unsized || fieldLength is not null)
@@ -166,8 +178,81 @@ public sealed class Parser
 
         (string type, int baseStars) = TypeSpec();
         int stars = baseStars + Stars();
-        _typedefs[ExpectKind(TokenKind.Ident, "type name").Text] = (type, stars);
+        if (TryFnPtr(type, stars, out string fnType, out string alias, out _, out _))
+        {
+            _typedefs[alias] = (fnType, 0);
+        }
+        else
+        {
+            _typedefs[ExpectKind(TokenKind.Ident, "type name").Text] = (type, stars);
+        }
+
         Expect(";");
+    }
+
+    /// <summary>Deklarator wskaźnika do funkcji <c>(*nazwa[n])(typy)</c> po typie wyniku; typ zapisany jako
+    /// <c>fptr&lt;wynik;par1;par2&gt;</c> (gwiazdki jako sufiks <c>*</c>).</summary>
+    private bool TryFnPtr(string returnType, int returnStars, out string fnType, out string name, out int length, out Ast.Expr? lengthExpr)
+    {
+        fnType = string.Empty;
+        name = string.Empty;
+        length = 0;
+        lengthExpr = null;
+        if (Peek() is not { Kind: TokenKind.Punct, Text: "(" } || Peek(1) is not { Kind: TokenKind.Punct, Text: "*" })
+        {
+            return false;
+        }
+
+        Next();
+        Next();
+        name = ExpectKind(TokenKind.Ident, "function pointer name").Text;
+        length = ArrayLength(out bool unsized, out lengthExpr);
+        if (unsized)
+        {
+            Token at = Peek();
+            throw new CParseException(at.Line, at.Column, "function pointer array needs a length.");
+        }
+
+        Expect(")");
+        Expect("(");
+        var parameters = new List<string>();
+        if (!Take(")"))
+        {
+            do
+            {
+                Token at = Peek();
+                if (!IsType(at))
+                {
+                    throw new CParseException(at.Line, at.Column, $"expected parameter type, got '{at.Text}'.");
+                }
+
+                (string type, int baseStars) = TypeSpec();
+                int stars = baseStars + Stars();
+                if (TryFnPtr(type, stars, out string inner, out _, out _, out _))
+                {
+                    parameters.Add(inner);
+                    continue;
+                }
+
+                if (Peek().Kind == TokenKind.Ident)
+                {
+                    Next();
+                }
+
+                if (type == "void" && stars == 0)
+                {
+                    continue;
+                }
+
+                parameters.Add(type + new string('*', stars));
+            }
+            while (Take(","));
+
+            Expect(")");
+        }
+
+        fnType = $"fptr<{returnType + new string('*', returnStars)};{string.Join(";", parameters)}>";
+        return true;
     }
 
     private T At<T>(int line, T node)
@@ -246,6 +331,13 @@ public sealed class Parser
             }
 
             int stars = baseStars + Stars();
+            if (TryFnPtr(typeName, stars, out string fnType, out string fnName, out int fnLength, out Ast.Expr? fnLengthExpr))
+            {
+                globals.Add(DeclRest(fnType, fnName, 0, type.Line, flags, (fnLength, false, fnLengthExpr), Peek()));
+                Expect(";");
+                continue;
+            }
+
             string name = ExpectKind(TokenKind.Ident, "name").Text;
             if (Peek() is { Kind: TokenKind.Punct, Text: "(" })
             {
@@ -340,6 +432,12 @@ public sealed class Parser
 
                 (string paramTypeName, int paramBase) = TypeSpec();
                 int stars = paramBase + Stars();
+                if (TryFnPtr(paramTypeName, stars, out string paramFn, out string paramFnName, out _, out _))
+                {
+                    parameters.Add(new Ast.Param(paramFn, paramFnName, 0));
+                    continue;
+                }
+
                 parameters.Add(new Ast.Param(paramTypeName, ExpectKind(TokenKind.Ident, "parameter name").Text, stars));
             }
             while (Take(","));
@@ -602,8 +700,17 @@ public sealed class Parser
         Token typeToken = Peek();
         (string type, int baseStars) = TypeSpec();
         int stars = baseStars + Stars();
-        string name = ExpectKind(TokenKind.Ident, "variable name").Text;
-        Ast.Decl decl = DeclTail(type, name, stars, typeToken.Line, flags);
+        Ast.Decl decl;
+        if (TryFnPtr(type, stars, out string fnType, out string fnName, out int fnLength, out Ast.Expr? fnLengthExpr))
+        {
+            decl = DeclRest(fnType, fnName, 0, typeToken.Line, flags, (fnLength, false, fnLengthExpr), Peek());
+        }
+        else
+        {
+            string name = ExpectKind(TokenKind.Ident, "variable name").Text;
+            decl = DeclTail(type, name, stars, typeToken.Line, flags);
+        }
+
         Expect(";");
         return decl;
     }
@@ -614,6 +721,12 @@ public sealed class Parser
     {
         Token open = Peek();
         int length = ArrayLength(out bool unsized, out Ast.Expr? lengthExpr);
+        return DeclRest(type, name, stars, line, flags, (length, unsized, lengthExpr), open);
+    }
+
+    private Ast.Decl DeclRest(string type, string name, int stars, int line, DeclFlags flags, (int Length, bool Unsized, Ast.Expr? Expr) array, Token open)
+    {
+        (int length, bool unsized, Ast.Expr? lengthExpr) = array;
         Ast.Expr? init = null;
         if (Take("="))
         {
@@ -830,6 +943,23 @@ public sealed class Parser
                 Ast.Expr index = Expression();
                 Expect("]");
                 baseValue = new Ast.Index(baseValue, index);
+            }
+            else if (Peek() is { Kind: TokenKind.Punct, Text: "(" })
+            {
+                Next();
+                var arguments = new List<Ast.Expr>();
+                if (!Take(")"))
+                {
+                    do
+                    {
+                        arguments.Add(Expression());
+                    }
+                    while (Take(","));
+
+                    Expect(")");
+                }
+
+                baseValue = new Ast.CallExpr(baseValue, arguments);
             }
             else if (Peek() is { Kind: TokenKind.Punct, Text: "." or "->" } access)
             {

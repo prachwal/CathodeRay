@@ -124,7 +124,7 @@ public sealed partial class Codegen
         return false;
     }
 
-    private static bool IsWide(CType type) => type.Kind is "int" or "ptr";
+    private static bool IsWide(CType type) => type.Kind is "int" or "ptr" or "fptr";
 
     private static int ElemSize(CType type) => type.Kind == "uchar" ? 1 : 2;
 
@@ -256,7 +256,7 @@ public sealed partial class Codegen
         {
             if (!TryConstValue(expr, out int value))
             {
-                if (type.Kind == "ptr" && SymbolInit(expr) is { } address)
+                if (type.Kind is "ptr" or "fptr" && SymbolInit(expr) is { } address)
                 {
                     (symbols ??= [])[offset] = address;
                     continue;
@@ -288,6 +288,10 @@ public sealed partial class Codegen
         {
             case Ast.Str str:
                 return StringLabel(str.Value);
+            case Ast.Var function when !_globalsByName.ContainsKey(function.Name) && _functions.ContainsKey(function.Name):
+                return function.Name;
+            case Ast.AddressOf function when !_globalsByName.ContainsKey(function.Name) && _functions.ContainsKey(function.Name):
+                return function.Name;
             case Ast.AddressOf address:
                 return $"cc_g_{address.Name}";
             case Ast.AddressOfExpr addressOf when GlobalLvalue(addressOf.Target) is var (symbol, offset):
@@ -373,7 +377,7 @@ public sealed partial class Codegen
         bool tableInit = aggregate && symbol.Init is Ast.InitList or Ast.Str;
         if (symbol.Init is not null && !tableInit && !TryConstValue(symbol.Init, out _))
         {
-            if (symbol.Type.Kind == "ptr" && SymbolInit(symbol.Init) is { } address)
+            if (symbol.Type.Kind is "ptr" or "fptr" && SymbolInit(symbol.Init) is { } address)
             {
                 _words.Add((label, address));
                 _wordGlobals.Add(label);
@@ -772,7 +776,7 @@ public sealed partial class Codegen
     private string KindOf(Ast.Expr expr) =>
         _types.TryGetValue(expr, out CType? type) ? type.Kind : "uchar";
 
-    private bool IsWideKind(Ast.Expr expr) => KindOf(expr) is "int" or "ptr";
+    private bool IsWideKind(Ast.Expr expr) => KindOf(expr) is "int" or "ptr" or "fptr";
 
     private string StringLabel(string value)
     {
@@ -784,10 +788,6 @@ public sealed partial class Codegen
 
         return label;
     }
-
-    private bool ReturnsInt(Ast.Call call) =>
-        _functions.TryGetValue(call.Name, out CheckedFunction? target)
-        && (target.Def.ReturnType == "int" || target.Def.ReturnStars > 0);
 
     private sealed record Cell(string Lo, CType Type);
 }

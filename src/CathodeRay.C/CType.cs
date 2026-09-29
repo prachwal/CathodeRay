@@ -6,7 +6,8 @@ namespace CathodeRay.C;
 /// <param name="Length">Długość tablicy (0 = nie-tablica).</param>
 /// <param name="Info">Układ struktury (tylko <c>struct</c>).</param>
 /// <param name="IsConst">Wartość tylko do odczytu (<c>const</c>).</param>
-public sealed record CType(string Kind, CType? Base = null, int Length = 0, StructInfo? Info = null, bool IsConst = false)
+/// <param name="Sig">Sygnatura (tylko <c>fptr</c>, wskaźnik do funkcji).</param>
+public sealed record CType(string Kind, CType? Base = null, int Length = 0, StructInfo? Info = null, bool IsConst = false, FuncSig? Sig = null)
 {
     /// <summary>8-bit bez znaku.</summary>
     public static CType UChar { get; } = new("uchar");
@@ -31,6 +32,11 @@ public sealed record CType(string Kind, CType? Base = null, int Length = 0, Stru
     /// <returns>Typ wskaźnikowy.</returns>
     public static CType Pointer(CType @base) => new("ptr", @base);
 
+    /// <summary>Wskaźnik do funkcji o danej sygnaturze (2 bajty jak wskaźnik).</summary>
+    /// <param name="sig">Sygnatura.</param>
+    /// <returns>Typ <c>fptr</c>.</returns>
+    public static CType FuncPtr(FuncSig sig) => new("fptr", null, 0, null, false, sig);
+
     /// <summary>Struktura o danym układzie.</summary>
     /// <param name="info">Układ.</param>
     /// <returns>Typ strukturalny.</returns>
@@ -52,6 +58,7 @@ public sealed record CType(string Kind, CType? Base = null, int Length = 0, Stru
         "ptr" => Base + "*",
         "array" => Base + "[" + Length + "]",
         "struct" => "struct " + Info?.Name,
+        "fptr" => Sig!.Return + " (*)(" + string.Join(", ", Sig.Params) + ")",
         _ => Kind,
     };
 

@@ -31,6 +31,9 @@ public sealed partial class Codegen
             case Ast.Call call:
                 EmitCall(call, depth);
                 break;
+            case Ast.CallExpr callExpr:
+                EmitCallExpr(callExpr, depth);
+                break;
             case Ast.Unary unary:
                 EmitUnary(unary, depth);
                 break;
@@ -78,6 +81,9 @@ public sealed partial class Codegen
                 _code.AppendLine("TXA");
                 _code.AppendLine($"STA {hi}");
                 break;
+            case Ast.Var variable when !_cells.ContainsKey(variable.Name) && _functions.ContainsKey(variable.Name):
+                EmitAddressOf(variable.Name, lo, hi);
+                break;
             case Ast.Var variable:
             {
                 (string cell, CType vtype) = CellOf(variable.Name);
@@ -104,15 +110,15 @@ public sealed partial class Codegen
                 break;
             }
 
-            case Ast.Call call when ReturnsInt(call):
-                EmitCall(call, depth);
+            case Ast.Call or Ast.CallExpr when IsWideKind(expr):
+                EmitAnyCall(expr, depth);
                 _code.AppendLine($"STA {lo}");
                 _code.AppendLine("TXA");
                 _code.AppendLine($"STA {hi}");
                 _code.AppendLine($"LDA {lo}");
                 break;
-            case Ast.Call call:
-                EmitCall(call, depth);
+            case Ast.Call or Ast.CallExpr:
+                EmitAnyCall(expr, depth);
                 _code.AppendLine($"STA {lo}");
                 _code.AppendLine("LDX 0");
                 _code.AppendLine("TXA");
@@ -128,6 +134,9 @@ public sealed partial class Codegen
             case Ast.Binary binary when binary.Op is "+" or "-":
                 EvalIntArith(binary, depth, lo, hi);
                 break;
+            case Ast.AddressOf addressOf when !_cells.ContainsKey(addressOf.Name) && _functions.ContainsKey(addressOf.Name):
+                EmitAddressOf(addressOf.Name, lo, hi);
+                break;
             case Ast.AddressOf addressOf:
             {
                 (string acell, _) = CellOf(addressOf.Name);
@@ -135,6 +144,13 @@ public sealed partial class Codegen
                 break;
             }
 
+            case Ast.Deref { Pointer: var target } when KindOf(target) == "fptr":
+                EvalInt(target, depth, out string flo, out string fhi);
+                _code.AppendLine($"LDA {flo}");
+                _code.AppendLine($"STA {lo}");
+                _code.AppendLine($"LDA {fhi}");
+                _code.AppendLine($"STA {hi}");
+                break;
             case Ast.Deref deref:
                 EvalPtrAddr(deref, depth, out string dalo, out string dahi);
                 PatchedLoad(dalo, dahi, ElemSize(TypeOfDeref(deref)), lo, hi, depth);

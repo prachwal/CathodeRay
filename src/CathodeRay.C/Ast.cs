@@ -192,6 +192,11 @@ public static class Ast
     /// <param name="Arrow"><see langword="true"/> dla <c>-&gt;</c>.</param>
     public sealed record Member(Expr Base, string Name, bool Arrow) : Expr;
 
+    /// <summary>Wywołanie przez wyrażenie: <c>tbl[i](x)</c>, <c>(*f)(x)</c>, <c>s.cb(x)</c> (wskaźnik do funkcji).</summary>
+    /// <param name="Callee">Wyrażenie o typie wskaźnika do funkcji.</param>
+    /// <param name="Args">Argumenty.</param>
+    public sealed record CallExpr(Expr Callee, IReadOnlyList<Expr> Args) : Expr;
+
     /// <summary>Adres lwartości innej niż zmienna: <c>&amp;s.f</c>, <c>&amp;a[i]</c>, <c>&amp;*p</c>.</summary>
     /// <param name="Target">Lwartość.</param>
     public sealed record AddressOfExpr(Expr Target) : Expr;

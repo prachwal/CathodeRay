@@ -106,6 +106,14 @@ public sealed partial class Codegen
                 }
 
                 break;
+            case Ast.CallExpr callExpr:
+                CallsIn(callExpr.Callee, calls);
+                foreach (Ast.Expr arg in callExpr.Args)
+                {
+                    CallsIn(arg, calls);
+                }
+
+                break;
             case Ast.Unary unary:
                 CallsIn(unary.Operand, calls);
                 break;

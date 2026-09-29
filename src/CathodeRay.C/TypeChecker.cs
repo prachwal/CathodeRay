@@ -49,7 +49,9 @@ public sealed class TypeChecker
     /// <summary>Ten sam kształt typu, pomijając <c>const</c> (tablice, wskaźniki i struktury rekurencyjnie).</summary>
     private static bool SameShape(CType a, CType b) =>
         a.Kind == b.Kind && a.Length == b.Length && a.Info == b.Info
-        && (a.Base is null ? b.Base is null : b.Base is not null && SameShape(a.Base, b.Base));
+        && (a.Base is null ? b.Base is null : b.Base is not null && SameShape(a.Base, b.Base))
+        && (a.Sig is null ? b.Sig is null : b.Sig is not null && SameShape(a.Sig.Return, b.Sig.Return)
+            && a.Sig.Params.Count == b.Sig.Params.Count && a.Sig.Params.Zip(b.Sig.Params).All(static pair => SameShape(pair.First, pair.Second)));
 
     private static void RequireWritable(CType target, string what)
     {
@@ -181,7 +183,9 @@ public sealed class TypeChecker
     {
         bool isConst = type.StartsWith("const ", StringComparison.Ordinal);
         string bare = isConst ? type[6..] : type;
-        CType result = bare.StartsWith("struct ", StringComparison.Ordinal)
+        CType result = bare.StartsWith("fptr<", StringComparison.Ordinal)
+            ? DeclaredFuncPtr(bare)
+            : bare.StartsWith("struct ", StringComparison.Ordinal)
             ? CType.Struct(_structs.TryGetValue(bare[7..], out StructInfo? info) ? info : throw new CTypeException($"unknown {bare}."))
             : CType.FromName(bare);
         if (isConst)
@@ -195,6 +199,40 @@ public sealed class TypeChecker
         }
 
         return length > 0 ? CType.Array(result, length) : result;
+    }
+
+    /// <summary>Rozkłada zakodowany typ <c>fptr&lt;wynik;par1;par2&gt;</c> na sygnaturę.</summary>
+    private CType DeclaredFuncPtr(string encoded)
+    {
+        string inner = encoded["fptr<".Length..^1];
+        var parts = new List<string>();
+        int depth = 0;
+        int start = 0;
+        for (int i = 0; i < inner.Length; i++)
+        {
+            if (inner[i] == '<')
+            {
+                depth++;
+            }
+            else if (inner[i] == '>')
+            {
+                depth--;
+            }
+            else if (inner[i] == ';' && depth == 0)
+            {
+                parts.Add(inner[start..i]);
+                start = i + 1;
+            }
+        }
+
+        parts.Add(inner[start..]);
+        CType Item(string text)
+        {
+            int stars = text.Length - text.TrimEnd('*').Length;
+            return Declared(text.TrimEnd('*'), stars);
+        }
+
+        return CType.FuncPtr(new FuncSig(Item(parts[0]), [.. parts.Skip(1).Where(static p => p.Length > 0).Select(Item)]));
     }
 
     private void BuildStructs(Ast.Program program)
@@ -594,9 +632,36 @@ public sealed class TypeChecker
         throw new CTypeException($"undeclared '{name}'.");
     }
 
+    /// <summary>Zmienna albo funkcja (jako wskaźnik do funkcji); <see langword="false"/>, gdy nazwy nie ma.</summary>
+    private bool TryLookup(string name, out CType type)
+    {
+        foreach (Dictionary<string, CType> scope in _scopes)
+        {
+            if (scope.TryGetValue(name, out CType? found))
+            {
+                type = found;
+                return true;
+            }
+        }
+
+        if (_globals.TryGetValue(name, out TypedSymbol? global))
+        {
+            type = global.Type;
+            return true;
+        }
+
+        type = CType.Void;
+        return false;
+    }
+
+    private CType FunctionDesignator(Ast.Function function) =>
+        CType.FuncPtr(new FuncSig(
+            Declared(function.ReturnType, function.ReturnStars),
+            [.. function.Params.Select(p => Declared(p.Type, p.PointerDepth))]));
+
     private void AssignableOrNull(CType target, Ast.Expr value, string where)
     {
-        if (value is Ast.Number { Text: "0" } && target.Kind == "ptr")
+        if (value is Ast.Number { Text: "0" } && target.Kind is "ptr" or "fptr")
         {
             return;
         }
@@ -759,9 +824,13 @@ public sealed class TypeChecker
             }
 
             case Ast.Var variable:
-                return Lookup(variable.Name).Decay();
+                return !TryLookup(variable.Name, out _) && _functions.TryGetValue(variable.Name, out Ast.Function? designated)
+                    ? FunctionDesignator(designated)
+                    : Lookup(variable.Name).Decay();
             case Ast.Call call:
                 return CallType(call);
+            case Ast.CallExpr callExpr:
+                return IndirectCallType(callExpr);
             case Ast.Unary unary:
                 return UnaryType(unary);
             case Ast.Binary binary:
@@ -782,6 +851,8 @@ public sealed class TypeChecker
 
             case Ast.Deref deref:
                 return DerefType(deref);
+            case Ast.AddressOf addressOf when !TryLookup(addressOf.Name, out _) && _functions.TryGetValue(addressOf.Name, out Ast.Function? addressed):
+                return FunctionDesignator(addressed);
             case Ast.AddressOf addressOf:
             {
                 CType raw = Lookup(addressOf.Name);
@@ -796,8 +867,38 @@ public sealed class TypeChecker
         }
     }
 
+    private CType IndirectCallType(Ast.CallExpr call)
+    {
+        CType callee = TypeOf(call.Callee);
+        return callee.Kind == "fptr"
+            ? CheckIndirect(callee.Sig!, call.Args, "function pointer")
+            : throw new CTypeException("called object is not a function pointer.");
+    }
+
+    private CType CheckIndirect(FuncSig sig, IReadOnlyList<Ast.Expr> args, string name)
+    {
+        if (args.Count > MaxArgs || args.Count != sig.Params.Count)
+        {
+            throw new CTypeException($"{name} takes {sig.Params.Count} arguments, got {args.Count}.");
+        }
+
+        for (int i = 0; i < args.Count; i++)
+        {
+            AssignableOrNull(sig.Params[i], args[i], $"argument {i + 1} of {name}");
+        }
+
+        return sig.Return;
+    }
+
     private CType CallType(Ast.Call call)
     {
+        if (TryLookup(call.Name, out CType variable))
+        {
+            return variable.Kind == "fptr"
+                ? CheckIndirect(variable.Sig!, call.Args, $"'{call.Name}'")
+                : throw new CTypeException($"'{call.Name}' is not a function.");
+        }
+
         if (!_functions.TryGetValue(call.Name, out Ast.Function? function))
         {
             throw new CTypeException($"undefined function '{call.Name}'.");
@@ -834,7 +935,7 @@ public sealed class TypeChecker
 
         return unary.Op switch
         {
-            "-" or "~" => operand.Kind is "void" or "ptr" or "array"
+            "-" or "~" => operand.Kind is "void" or "ptr" or "array" or "fptr"
                 ? throw new CTypeException($"operator '{unary.Op}' needs arithmetic operands.")
                 : operand,
             "!" => operand.Kind == "void"
@@ -856,6 +957,16 @@ public sealed class TypeChecker
         if (binary.Op is "==" or "!=" or "<" or "<=" or ">" or ">=")
         {
             return CType.UChar;
+        }
+
+        if (left.Kind == "fptr" || right.Kind == "fptr")
+        {
+            if (binary.Op is "&&" or "||")
+            {
+                return CType.UChar;
+            }
+
+            throw new CTypeException($"operator '{binary.Op}' is not supported for function pointers.");
         }
 
         if (binary.Op is "&&" or "||")
@@ -973,6 +1084,11 @@ public sealed class TypeChecker
     private CType DerefType(Ast.Deref deref)
     {
         CType pointer = TypeOf(deref.Pointer);
+        if (pointer.Kind == "fptr")
+        {
+            return pointer;
+        }
+
         return pointer.Kind == "ptr" && pointer.Base is not null
             ? pointer.Base
             : throw new CTypeException("dereference needs a pointer.");

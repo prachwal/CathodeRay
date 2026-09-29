@@ -5,43 +5,83 @@ namespace CathodeRay.C;
 /// <summary>Generator kodu: wywołania funkcji i kontrola stosu.</summary>
 public sealed partial class Codegen
 {
+    private static List<TypedSymbol> SigParams(FuncSig sig) =>
+        [.. sig.Params.Select(static (type, index) => new TypedSymbol($"p{index}", type))];
+
     private void EmitCall(Ast.Call call, int depth)
     {
+        if (_cells.TryGetValue(call.Name, out Cell? variable) && variable.Type.Kind == "fptr")
+        {
+            var callee = new Ast.Var(call.Name);
+            _types[callee] = variable.Type;
+            EmitCallCore(null, callee, call.Args, SigParams(variable.Type.Sig!), depth);
+            return;
+        }
+
         if (!_functions.TryGetValue(call.Name, out CheckedFunction? target))
         {
             throw new CCodegenException($"undefined function '{call.Name}'.");
         }
 
-        if (call.Args.Count > TypeChecker.MaxArgs)
+        EmitCallCore(call.Name, null, call.Args, target.Params, depth);
+    }
+
+    private void EmitAnyCall(Ast.Expr call, int depth)
+    {
+        if (call is Ast.CallExpr callExpr)
         {
-            throw new CCodegenException($"'{call.Name}' takes at most {TypeChecker.MaxArgs} arguments.");
+            EmitCallExpr(callExpr, depth);
+        }
+        else
+        {
+            EmitCall((Ast.Call)call, depth);
+        }
+    }
+
+    private void EmitCallExpr(Ast.CallExpr call, int depth) =>
+        EmitCallCore(null, call.Callee, call.Args, SigParams(_types[call.Callee].Sig!), depth);
+
+    /// <summary>Wołanie funkcji po nazwie (<paramref name="direct"/>) albo przez wskaźnik (<paramref name="callee"/>:
+    /// adres wpisywany w operand <c>CALL</c> tuż przed skokiem).</summary>
+    private void EmitCallCore(string? direct, Ast.Expr? callee, IReadOnlyList<Ast.Expr> args, IReadOnlyList<TypedSymbol> parameters, int depth)
+    {
+        if (args.Count > TypeChecker.MaxArgs)
+        {
+            throw new CCodegenException($"call takes at most {TypeChecker.MaxArgs} arguments.");
         }
 
         // Argumenty od ostatniego, każdy w swojej parze temp (głębiej niż poprzedni),
         // żeby zagnieżdżone wywołania nie nadpisały wyników; kopiowanie do komórek
         // wejściowych dopiero tuż przed CALL.
-        int count = call.Args.Count;
+        int count = args.Count;
         var places = new (string Lo, string Hi)[count];
         for (int i = count - 1; i >= 0; i--)
         {
             int at = depth + 1 + (count - 1 - i);
-            if (IsWide(target.Params[i].Type))
+            if (IsWide(parameters[i].Type))
             {
-                EvalInt(call.Args[i], at, out string lo, out string hi);
+                EvalInt(args[i], at, out string lo, out string hi);
                 places[i] = (lo, hi);
             }
             else
             {
-                Eval(call.Args[i], at);
+                Eval(args[i], at);
                 string spill = Temp(at, hi: false);
                 _code.AppendLine($"STA {spill}");
                 places[i] = (spill, spill);
             }
         }
 
+        string? targetLo = null;
+        string? targetHi = null;
+        if (callee is not null)
+        {
+            EvalInt(callee, depth + 1 + count, out targetLo, out targetHi);
+        }
+
         for (int i = 1; i < count; i++)
         {
-            (string cellLo, string? cellHi) = ArgCells(target.Params, i);
+            (string cellLo, string? cellHi) = ArgCells(parameters, i);
             if (cellLo == "cc_arg1_h")
             {
                 continue;
@@ -56,12 +96,21 @@ public sealed partial class Codegen
             }
         }
 
-        if (count >= 1 && IsWide(target.Params[0].Type))
+        string site = Label("icall");
+        if (callee is not null)
+        {
+            _code.AppendLine($"LDA {targetLo}");
+            _code.AppendLine($"STA {site}+1");
+            _code.AppendLine($"LDA {targetHi}");
+            _code.AppendLine($"STA {site}+2");
+        }
+
+        if (count >= 1 && IsWide(parameters[0].Type))
         {
             _code.AppendLine($"LDA {places[0].Hi}");
             _code.AppendLine("TAX");
         }
-        else if (count >= 2 && ArgCells(target.Params, 1).Lo == "cc_arg1_h")
+        else if (count >= 2 && ArgCells(parameters, 1).Lo == "cc_arg1_h")
         {
             _code.AppendLine($"LDA {places[1].Lo}");
             _code.AppendLine("TAX");
@@ -72,13 +121,19 @@ public sealed partial class Codegen
             _code.AppendLine($"LDA {places[0].Lo}");
         }
 
-        _code.AppendLine($"CALL {call.Name}");
+        if (direct is null)
+        {
+            _code.AppendLine($"{site}: CALL 0");
+            return;
+        }
+
+        _code.AppendLine($"CALL {direct}");
         if (!_calls.TryGetValue(_prefix, out HashSet<string>? callees))
         {
             _calls[_prefix] = callees = new HashSet<string>(StringComparer.Ordinal);
         }
 
-        callees.Add(call.Name);
+        callees.Add(direct);
     }
 
     /// <summary>Stos sprzętowy to jedna strona (256 B): błąd, gdy najgłębsza nierekurencyjna
