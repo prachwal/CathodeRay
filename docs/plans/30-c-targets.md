@@ -1,34 +1,39 @@
-# Mini-C: mniejszy kod, rzutowania/void*/long/wielowymiarowe, wielocelowość (6502, 8080, Z80, 6800) (status: otwarty)
+# Mini-C: kod pośredni (IR) i wielocelowość (6502, Z80, 8080, 6800), rzutowania/void*/long (status: otwarty)
 
-Rozmiar: S = <1 h, M = kilka h, L = dzień+. Kolejność: A → B → C → D. A zmniejsza kod dla wszystkich celów; C.1 (interfejs celu) przed każdym nowym CPU; interpretery testowe (C.4) przed 8080/Z80/6800.
+Projekt wg analizy Opusa: szew między front-endem a celami to mały typowany IR (Cell/Imm/AddrOf; Mov, Bin, Un, Load, Store, CopyBlock, BrCmp, Jmp, Label, Call, Ret, Src, Raw), a nie interfejs prymitywów instrukcji stuba. Front-end nie zna flag, ABI, rozmieszczenia komórek, kodowania operandów ani kolejności bajtów; wszystko to należy do klasy celu (ICTarget) wybieranej fabryką po `cc --cpu`. Kod samomodyfikujący zostaje wyłącznie w StubTarget. Bez metod HasXxx w interfejsie: wybór (np. wstawka czy helper dla mnożenia) należy do selektora celu.
 
-## A. Poprawki implementacji (najpierw, bo zmniejszają kod dla wszystkich celów)
+Rozmiar: S = <1 h, M = kilka h, L = dzień+. Kolejność: A -> B -> C -> D. Kroki A.2 i A.4 mają bramki (asembler stuba bajt w bajt, potem zestaw testów zachowania). Nie robić: prymitywnego IMachine, optymalizacji na tekście stuba, `long` przed IR, pełnych emulatorów CPU.
 
-- [ ] **1.** [M] Ramki tylko tam, gdzie trzeba: prolog/epilog zapisuje komórki wyłącznie funkcji rekurencyjnych (cykl w grafie wołań) i funkcji, których adres jest brany (cel wołania pośredniego); pozostałe funkcje bez PUSH/POP; wołanie pośrednie dodane do grafu wołań i kontroli stosu
-- [ ] **2.** [M] Operandy bezpośrednie i mniej temp: x + stała, porównanie z stałą 16-bit, indeks stałą, zmienna/stała jako prawy operand bez kopii do temp; ponowne użycie temp w gałęziach; CALL+RET -> JMP (ogon)
-- [ ] **3.** [S] Redukcja siły: mnożenie/dzielenie/modulo przez potęgę dwójki (shifty, maska; dla int ze znakiem poprawka), mnożenie przez małą stałą (dodawania); wyrażenia stałe z jednej strony
-- [ ] **4.** [M] Peephole drugiej generacji: ładowanie po zapisie do innej komórki tej samej wartości, podwójne LDX 0, martwe STA do temp (analiza użycia w oknie bloku podstawowego), CPA po LDA już ustawiającym Z
+## A. Migracja do IR (najpierw; każdy krok zostawia wszystkie testy zielone)
 
-## B. Nowe cechy języka
+- [ ] **1.** [S] Rejestr celów i --cpu: ICTarget (Name, AssemblerCpu, Endianness, StackLimit, DefaultLayout, Crt0, RuntimeModules, Emit) i CTargets.All/Find (ten sam kształt co AssemblerTargets); StubTarget przejmuje crt0, io.s, DefaultConfig z CcCommand i nazwę ISA; inne nazwy dają czytelny błąd 'target not implemented'
+- [ ] **2.** [M] IR pod spodem: Codegen zamiast AppendLine buduje IrModule (Ins: Raw z tekstem stuba), StubTarget drukuje go bez zmian; bramka: asembler wyjściowy wszystkich samples i testów bajt w bajt taki sam jak przed zmianą (test różnicowy), Peephole staje się prywatnym elementem StubTarget
+- [ ] **3.** [M] Dane i komórki do IR: IrData z typowanymi wartościami (nie bajtami), Cell z szerokością W (1/2/4) zamiast par lo/hi, znika Hi(); nazewnictwo x_h / x+1 i kolejność bajtów należą do celu
+- [ ] **4.** [L] Zamiana lowering na prawdziwe instrukcje IR po jednym pliku na commit: Pointers -> Load/Store/CopyBlock, Conditions -> BrCmp (porównanie i skok razem), Calls -> Call/Ret (ABI w celu), Expressions/Wide -> Bin/Un/Mov; metryka: liczba Raw spada do 0; przeniesione ciała emisji trafiają do StubTarget (łatanie operandów zostaje tylko tam)
+- [ ] **5.** [M] Interpreter IR (~300 linii): wyrocznia front-endu niezależna od CPU, uruchamia cały istniejący zestaw testów C; przebiegi na IR: ramki tylko dla funkcji rekurencyjnych i o wziętym adresie (NeedsFrame), wołanie pośrednie w grafie wołań, redukcja siły, stałe i operandy bezpośrednie, martwe zapisy tymczasowych
+- [ ] **6.** [S] Helpery mnożenia i dzielenia (Codegen.Helpers.cs) do stdlib/stub/rt.s, linkowane na żądanie przez istniejącą pętlę nierozwiązanych symboli; znikają flagi _needMul*
 
-- [ ] **5.** [M] Rzutowania (T)x: uchar/int/uint/wskaźniki/wskaźniki do funkcji (parser z rozróżnieniem nawiasu typu, checker, codegen konwersji: zawężenie, rozszerzenie zerem/znakiem); po wprowadzeniu usunąć relaks int<->wskaźnik z biblioteki (printf %s przez (uchar *))
-- [ ] **6.** [M] void * i size_t: wskaźnik do void (niejawna konwersja do/z T*, bez dereferencji i arytmetyki), <stddef.h> (size_t = uint, NULL, offsetof), sygnatury memcpy/memset/memcmp na void *
-- [ ] **7.** [M] Struktury przez wartość: argument (kopia do ukrytego bufora wołającego, przekazany jako wskaźnik) i wynik (ukryty pierwszy parametr sret); przypisanie wyniku wołania do struktury
-- [ ] **8.** [M] Tablice wielowymiarowe int m[3][4]: typ tablicy tablic, indeksowanie m[i][j], sizeof, inicjalizatory {{...}}, przekazywanie jako int (*)[4]
-- [ ] **9.** [L] long/ulong 32-bit: arytmetyka (+ - * / % << >> & | ^ ~), porównania, konwersje z/do int, literały z L, printf %ld/%lu/%lx, komórki 4-bajtowe, pomocnicze cc_mul32/cc_div32
-- [ ] **10.** [S] union, operator przecinka, konkatenacja napisów "a" "b", sekwencja \xHH, # i ## w makrach, enum z sizeof(struct)
+## B. Linker i infrastruktura testowa
 
-## C. Wielocelowość (kompilator nie jest związany ze stubem)
+- [ ] **7.** [M] Linker: kolejność bajtów Abs16 z CPU obiektu (6800 big-endian), nowe RelocKind.Lo8/Hi8 dla #<sym i #>sym (zamiast ukrytych komórek .word), testy jednostkowe z obiektami 6800
+- [ ] **8.** [M] Runner niezależny od CPU: crt0 zapisuje wynik main w cc_ret/cc_ret_h przed zatrzymaniem, CcRun.Run(źródło, cpu) z IRunner (load/step/halted) per CPU, macierz testów: cały zestaw na stub i IR, wybrany podzbiór różnicowy na pozostałych celach (wynik i konsola równe stubowi), testy zgodności operacji IR (op x szerokość x wartości brzegowe 0, 1, 0x7FFF, 0x8000, 0xFFFF, granice przeniesienia, porównania ze znakiem)
+- [ ] **9.** [M] Interpreter 6502 w tests/ (tylko używane opkody, wyjątek na resztę, tablice dekodowania i cykle z JSON ISA) + testy pojedynczych instrukcji z ręcznie policzonymi flagami; spike: ręczny int main(){return 40+2;} przechodzi przez runner
 
-- [ ] **11.** [M] Interfejs maszyny w dwóch warstwach: IMachine z ~30 prymitywami (Lda/Sta/Add/Adc/Sub/Cmp/Branch/Call/Ret/PatchOperand…) oraz operacjami złożonymi z domyślną implementacją na prymitywach (Load16/Store16/Add16/Sub16/Compare16/Copy, LoadIndirect/StoreIndirect(wskaźnik, offset), Push/Pop komórek, wywołanie z argumentami); Codegen zamiast AppendLine("LDA …") woła IMachine (mechaniczna zamiana ~790 miejsc, testy jako siatka); TargetRegistry/factory po nazwie (cc --cpu), StubMachine jako pierwsza implementacja; Crt0, io.s, DefaultConfig i ISA przeniesione do celu
-- [ ] **12.** [M] Wspólne testy jednostkowe maszyn: każda implementacja IMachine przechodzi ten sam zestaw sekwencji operacji (semantyka flag, przeniesienie przy SUB/CMP, Z po załadowaniu, 16-bitowe Add/Compare, pośredni odczyt/zapis) uruchamianych na interpreterze celu
-- [ ] **13.** [M] Cel 6502/65C02: Mos6502Machine (komórki i tymczasowe na stronie zerowej, LoadIndirect/StoreIndirect przez (zp),Y zamiast łatania operandów, CLC/SEC+ADC/SBC, PHA/PLA, JSR/RTS, ASL/LSR, INC A tylko na 65C02), crt0, io.s, layout
-- [ ] **14.** [M] Interpretery testowe (w tests/, bez zależności): minimalny 6502 (tylko używane instrukcje) i harness uruchamiający wszystkie testy mini-C na wybranym celu; ta sama macierz testów dla stub i 6502
-- [ ] **15.** [L] Cele Z80 i 8080: przeciążenia operacji złożonych zamiast gołych prymitywów (Load16/Add16 przez HL/DE/BC i ADD HL,rr, LoadIndirect przez LD A,(HL), tymczasowe w BC/DE, indeksowanie przez IX na Z80), odwrócone C przy SUB/CP, Z po ładowaniu (ORA A), interpretery testowe, tabela rozmiar/cykle; 8080 bez IX (HL+DE)
-- [ ] **16.** [M] Cel 6800: big-endian w adresach i .word (łatanie operandów w odwrotnej kolejności, RelocKind), interpreter testowy
+## C. Cele
 
-## D. Zamknięcie
+- [ ] **10.** [M] Mos6502Target i 65C02: komórki i wskaźniki na stronie zerowej (budżet + wspólny ZP scratch), Load/Store przez LDY #off; LDA (zp),Y, wołanie pośrednie przez JSR cc_icall (JMP (cc_fp)), CLC/SEC + ADC/SBC, PHA/PLA, INC A tylko na 65C02, crt0, io.s, rt.s, DefaultLayout; dołącza do macierzy
+- [ ] **11.** [L] Z80Target: konwencja HL=arg1, DE=arg2, wynik HL (reszta w cc_argN), Load przez LD HL,(p); LD A,(HL), Add16 przez ADD HL,DE / SBC HL,DE, pamięć podręczna zawartości HL/A w bloku podstawowym, ramki przez PUSH HL, wołanie przez CALL cc_callhl (JP (HL)), porównania ze znakiem przez odchylenie EOR 128, interpreter Z80 (podzbiór) w tests/
+- [ ] **12.** [M] Intel8080Target: ten sam selektor ograniczony do podzbioru 8080 z wydrukiem mnemonikami Intel (PCHL, LHLD, DAD), bez IX/IY; interpreter dzieli podzbiór z Z80
+- [ ] **13.** [M] M6800Target: LDX p; LDAA off,X, wołanie JSR 0,X, konwencja A:B, big-endian w danych i .word, interpreter 6800
 
-- [ ] **17.** [S] Testy e2e per pozycja, samples/minic/17_casts.c, 18_voidptr.c, 19_matrix.c, 20_long.c, benchmark rozmiar/cykle (przed/po pozycjami z A oraz per cel), docs/minic.md i docs/targets.md, hygiene
+## D. Cechy języka i zamknięcie (po IR; front-end, dlatego niezależne od celów)
 
-Postęp: 0/17 gotowych.
+- [ ] **14.** [M] Rzutowania (T)x: uchar/int/uint/wskaźniki/wskaźniki do funkcji (rozróżnienie nawiasu typu w parserze, checker, konwersje w IR: zawężenie, rozszerzenie zerem/znakiem); po wprowadzeniu usunąć relaks int<->wskaźnik z biblioteki (printf %s)
+- [ ] **15.** [M] void * i size_t: <stddef.h> (size_t = uint, NULL, offsetof), niejawna konwersja void * <-> T *, brak dereferencji i arytmetyki, sygnatury memcpy/memset/memcmp na void *
+- [ ] **16.** [M] Struktury przez wartość: argument (kopia wołającego, przekazana jako wskaźnik) i wynik (ukryty parametr sret)
+- [ ] **17.** [M] Tablice wielowymiarowe int m[3][4]: typ tablicy tablic, m[i][j], sizeof, inicjalizatory {{...}}, int (*)[4] jako parametr
+- [ ] **18.** [L] long/ulong 32-bit jako Cell z W=B4: legalizacja w TargetBase (rozbicie na operacje bajtowe/16-bitowe), rt.s (mul32/div32) per cel, literały L, printf %ld/%lu/%lx
+- [ ] **19.** [S] union, operator przecinka, konkatenacja napisów, \xHH, # i ## w makrach, enum z sizeof(struct)
+- [ ] **20.** [S] Testy e2e per pozycja, samples/minic/17_casts.c, 18_voidptr.c, 19_matrix.c, 20_long.c, tabela rozmiar/cykle per cel (golden tylko dla rozmiaru, nie dla poprawności), docs/targets.md (jak dodać CPU), docs/minic.md, hygiene
+
+Postęp: 0/20 gotowych.
