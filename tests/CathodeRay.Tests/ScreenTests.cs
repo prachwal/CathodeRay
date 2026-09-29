@@ -68,7 +68,7 @@ public sealed class ScreenTests : IDisposable
         rows.Skip(1).Should().OnlyContain(static s => s.Length == 0);
         string md = new ScreenDecoder().ToMarkdown(rows, buf);
         md.Should().Contain($"# Screen dump (40x25 @ ${buf:X4})");
-        md.Should().Contain("```text\nHi\n");
+        md.Should().Contain("|Hi" + new string(' ', 38) + "|");
     }
 
     [Fact]
@@ -181,7 +181,8 @@ public sealed class ScreenTests : IDisposable
         exit.Should().Be(0, err);
         output.Should().Contain("screen (40x25 @ $");
         string mdText = File.ReadAllText(md);
-        mdText.Should().Contain("```text\nHi\n");
+        mdText.Should().Contain("|Hi" + new string(' ', 38) + "|");
+        mdText.Should().Contain("+----------------------------------------+");
         mdText.Should().Contain($"# Screen dump (40x25 @ $");
     }
 
@@ -217,7 +218,8 @@ public sealed class ScreenTests : IDisposable
         output.Should().Contain("screen (8x2 @ $");
         string mdText = File.ReadAllText(md);
         mdText.Should().Contain("# Screen dump (8x2 @ $");
-        mdText.Should().Contain("```text\nHi\n\n```");
+        mdText.Should().Contain("+--------+");
+        mdText.Should().Contain("|Hi      |");
 
         var (badExit, _, badErr) = Cli("stub", "run", bin, "--load", "0x1000", "--screen-at", "0x" + bufHex, "--screen-size", "ax25");
         badExit.Should().Be(1);

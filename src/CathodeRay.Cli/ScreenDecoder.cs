@@ -68,10 +68,26 @@ internal sealed class ScreenDecoder
         return rows;
     }
 
-    /// <summary>Zapisuje wiersze jako dokument Markdown (blok text).</summary>
+    /// <summary>Zapisuje wiersze jako dokument Markdown: ramka jak ekran
+    /// (kazdy wiersz dopelniony do <see cref="Width"/>, wiec puste tez widac).</summary>
     /// <param name="rows">Wiersze z <see cref="Render"/>.</param>
     /// <param name="address">Adres bufora (do nagłówka).</param>
     /// <returns>Tekst Markdown.</returns>
-    public string ToMarkdown(IReadOnlyList<string> rows, int address) =>
-        $"# Screen dump ({Width}x{Height} @ ${address:X4})\n\n```text\n{string.Join("\n", rows)}\n```\n";
+    public string ToMarkdown(IReadOnlyList<string> rows, int address)
+    {
+        var output = new System.Text.StringBuilder();
+        output.AppendLine($"# Screen dump ({Width}x{Height} @ ${address:X4})");
+        output.AppendLine();
+        output.AppendLine("```text");
+        string border = "+" + new string('-', Width) + "+";
+        output.AppendLine(border);
+        foreach (string row in rows)
+        {
+            output.AppendLine("|" + row.PadRight(Width) + "|");
+        }
+
+        output.AppendLine(border);
+        output.Append("```\n");
+        return output.ToString();
+    }
 }
