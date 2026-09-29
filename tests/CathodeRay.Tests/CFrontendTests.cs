@@ -82,14 +82,14 @@ public sealed class CFrontendTests
     }
 
     [Fact]
-    public void Parser_Respects_Precedence_And_Desugars_Compound_Assign()
+    public void Parser_Respects_Precedence_Folds_Constants_And_Desugars_Compound_Assign()
     {
-        Ast.Program program = Parser.Parse("int f() { x = 1 + 2 * 3; y += 4; }");
+        Ast.Program program = Parser.Parse("int f() { x = a + 2 * 3; y += 4; }");
 
         Ast.Stmt first = new Ast.ExprStmt(
             new Ast.Assign(
                 "x",
-                new Ast.Binary("+", new Ast.Number("1"), new Ast.Binary("*", new Ast.Number("2"), new Ast.Number("3")))));
+                new Ast.Binary("+", new Ast.Var("a"), new Ast.Number("6"))));
         Ast.Stmt second = new Ast.ExprStmt(
             new Ast.Assign("y", new Ast.Binary("+", new Ast.Var("y"), new Ast.Number("4"))));
         program.Functions[0].Body.Items.Should().Equal(first, second);

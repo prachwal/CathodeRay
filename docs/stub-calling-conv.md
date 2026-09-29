@@ -94,7 +94,8 @@ brak `ADD`/`SUB` z pamięci absolutnej (tryb `,X` z `X = 0`).
   (deduplikowane w module; inicjalizator globala napisem nieobsługiwany).
 - `++`/`--` (przed/po): `x++` to `(x = x + 1) - 1`, w pozycji instrukcji samo przypisanie.
 - `break`/`continue` (najbliższa pętla; w `for` continue skacze do kroku).
-- `int`: `& | ^ << >> * / %` (16-bit bez znaku, dzielenie przez 0 daje 0/0);
+- `int`: `& | ^ << >> * / %` (16-bit **ze znakiem**: porównania, `/` `%` do zera, `>>` arytmetyczne; dzielenie przez 0 daje 0/0);
   `cc_mul16`/`cc_div16` emitowane lokalnie w module (bez `.global`), komórki `cc_w_*`.
-- Stała mała (<= 255) jest `uchar`, więc `1 << 15` liczy się w 8 bitach — wymuś `int`.
+- Działania na dwóch stałych składa parser (16-bit z zawijaniem): `1 << 15`, `200 + 100`, `-1` to `int`.
+- Błędy typów/codegenu mają `plik:linia` (`cc`).
 - `for (int i = ...; ...)` działa (wcześniej deklaracja w init łamała parser).

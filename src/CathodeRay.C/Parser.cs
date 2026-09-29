@@ -20,6 +20,47 @@ public sealed class Parser
     public static Ast.Program Parse(string source, Func<string, string?>? reader = null) =>
         new Parser(Lexer.Tokenize(CPreprocessor.Expand(CPreprocessor.MapDirectives(source), reader))).Program();
 
+    private static bool TryValue(Ast.Expr expr, out int value)
+    {
+        value = 0;
+        if (expr is not Ast.Number number)
+        {
+            return false;
+        }
+
+        string text = number.Text;
+        bool hex = text.StartsWith("0x", StringComparison.OrdinalIgnoreCase);
+        return int.TryParse(hex ? text[2..] : text, hex ? System.Globalization.NumberStyles.HexNumber : System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out value);
+    }
+
+    /// <summary>Składa działania na dwóch stałych (16-bit z zawijaniem): <c>1 &lt;&lt; 15</c>
+    /// i <c>200 + 100</c> są <c>int</c>, a nie 8-bitowym uchar.</summary>
+    private static Ast.Expr Fold(Ast.Binary binary)
+    {
+        if (!TryValue(binary.Left, out int a) || !TryValue(binary.Right, out int b))
+        {
+            return binary;
+        }
+
+        int? result = binary.Op switch
+        {
+            "+" => a + b,
+            "-" => a - b,
+            "*" => a * b,
+            "/" when b != 0 => a / b,
+            "%" when b != 0 => a % b,
+            "<<" when b < 16 => a << b,
+            ">>" when b < 16 => a >> b,
+            "&" => a & b,
+            "|" => a | b,
+            "^" => a ^ b,
+            _ => null,
+        };
+        return result is int folded
+            ? new Ast.Number((folded & 0xFFFF).ToString(System.Globalization.CultureInfo.InvariantCulture))
+            : binary;
+    }
+
     private static bool IsType(Token token) =>
         token is { Kind: TokenKind.Keyword } && token.Text is "uchar" or "int" or "void";
 
@@ -368,7 +409,7 @@ public sealed class Parser
         while (Peek() is { Kind: TokenKind.Punct } token && Array.IndexOf(ops, token.Text) >= 0)
         {
             Next();
-            left = new Ast.Binary(token.Text, left, next());
+            left = Fold(new Ast.Binary(token.Text, left, next()));
         }
 
         return left;
@@ -402,7 +443,14 @@ public sealed class Parser
         if (token is { Kind: TokenKind.Punct } && token.Text is "-" or "~" or "!")
         {
             Next();
-            return new Ast.Unary(token.Text, Unary());
+            Ast.Expr operand = Unary();
+            if (token.Text is "-" or "~" && TryValue(operand, out int value))
+            {
+                int folded = token.Text == "-" ? -value : ~value;
+                return new Ast.Number((folded & 0xFFFF).ToString(System.Globalization.CultureInfo.InvariantCulture));
+            }
+
+            return new Ast.Unary(token.Text, operand);
         }
 
         if (token is { Kind: TokenKind.Punct, Text: "&" })

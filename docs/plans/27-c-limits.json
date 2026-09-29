@@ -1,0 +1,90 @@
+{
+  "title": "Mini-C: ograniczenia i skala",
+  "status": "open",
+  "items": [
+    {
+      "id": "1",
+      "title": "[M] int ze znakiem: porównania <,<=,>,>= przez xor 0x80 na hi; / % i >> arytmetyczne (wrapper na cc_div16); decyzja: int signed, dodać uint? (sam int signed, bez uint)",
+      "status": "done",
+      "note": ""
+    },
+    {
+      "id": "2",
+      "title": "[S] Typowanie literałów: stała <=255 dopasowuje się do drugiego operandu; dwie stałe = int (naprawia 1<<15, 200+100); folding stałych w parserze/checkerze",
+      "status": "done",
+      "note": ""
+    },
+    {
+      "id": "3",
+      "title": "[S] Diagnostyki: CTypeException/CCodegenException z linią (dziś tylko parser ma pozycję); komunikat file:line jak w cc",
+      "status": "done",
+      "note": ""
+    },
+    {
+      "id": "4",
+      "title": "[M] do…while i switch/case/default (switch na uchar/int: łańcuch porównań, break wspólny z pętlami)",
+      "status": "todo",
+      "note": ""
+    },
+    {
+      "id": "5",
+      "title": "[S] sizeof(typ|zmienna), enum (stałe), char jako alias uchar",
+      "status": "todo",
+      "note": ""
+    },
+    {
+      "id": "6",
+      "title": "[S] Złożone przypisania na wskaźnikach: *p += x, p[i] += x, p += n (desugar jak ++; jedno wyliczenie adresu w temp)",
+      "status": "todo",
+      "note": ""
+    },
+    {
+      "id": "7",
+      "title": "[M] Inicjalizatory tablic {1,2,3} i uchar s[] = \"abc\" (lokalne i globalne; długość z inicjalizatora)",
+      "status": "todo",
+      "note": ""
+    },
+    {
+      "id": "8",
+      "title": "[M] Globalny inicjalizator wskaźnika/napisu (label w DATA: .word + etykieta _h przez lo/hi operator lub init w crt0)",
+      "status": "todo",
+      "note": ""
+    },
+    {
+      "id": "9",
+      "title": "[S] BSS > 256 B: crt0 czyści w pętli 16-bit (dziś limit 256 B i błąd codegenu)",
+      "status": "todo",
+      "note": ""
+    },
+    {
+      "id": "10",
+      "title": "[S] cc_mul8/cc_divmod bez .global (spójnie z 16-bit) + test dwóch modułów z uchar * i /",
+      "status": "todo",
+      "note": ""
+    },
+    {
+      "id": "11",
+      "title": "[S] cc_mul8 przez shift-add (dziś pętla b razy, do 255 iteracji); cc_divmod uchar analogicznie",
+      "status": "todo",
+      "note": ""
+    },
+    {
+      "id": "12",
+      "title": "[S] Ramki: ostrzeżenie/limit głębokości stosu (rekurencja ~256 B) w kompilatorze lub w teście runtime",
+      "status": "todo",
+      "note": ""
+    },
+    {
+      "id": "13",
+      "title": "[M] Rozbić Codegen.cs (~1900 linii) na partial: Expressions/Statements/Calls/Wide/Helpers; bez zmian zachowania, testy jako siatka",
+      "status": "todo",
+      "note": ""
+    },
+    {
+      "id": "14",
+      "title": "[S] Testy: matryca int (znak/brak) e2e, sample minic per nowa konstrukcja (samples/minic/), hygiene",
+      "status": "todo",
+      "note": ""
+    }
+  ]
+}

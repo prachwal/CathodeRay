@@ -83,12 +83,12 @@ internal static partial class CcCommand
             }
             catch (CTypeException e)
             {
-                error.WriteLine($"type: {e.Message}");
+                error.WriteLine($"{Where(e.File, e.Line)}type: {e.Message}");
                 return 1;
             }
             catch (CCodegenException e)
             {
-                error.WriteLine($"codegen: {e.Message}");
+                error.WriteLine($"{Where(e.File, e.Line)}codegen: {e.Message}");
                 return 1;
             }
 
@@ -187,6 +187,9 @@ internal static partial class CcCommand
         return output.ToString();
     }
 
+    private static string Where(string? file, int line) =>
+        file is null ? string.Empty : line > 0 ? $"{file}:{line}: " : $"{file}: ";
+
     private static ObjectModule AssembleModule(AssemblerTarget target, FileInfo input, string[] includePaths)
     {
         string? dir = Path.GetDirectoryName(input.FullName);
@@ -206,8 +209,23 @@ internal static partial class CcCommand
 
         if (input.Extension.Equals(".c", StringComparison.OrdinalIgnoreCase))
         {
-            CheckedProgram program = TypeChecker.Check(Parser.Parse(File.ReadAllText(input.FullName), reader));
-            string asm = Codegen.Emit(program, input.Name, objectMode: true);
+            string asm;
+            try
+            {
+                CheckedProgram program = TypeChecker.Check(Parser.Parse(File.ReadAllText(input.FullName), reader));
+                asm = Codegen.Emit(program, input.Name, objectMode: true);
+            }
+            catch (CTypeException e)
+            {
+                e.File = input.Name;
+                throw;
+            }
+            catch (CCodegenException e)
+            {
+                e.File = input.Name;
+                throw;
+            }
+
             return AssembleObject(target, asm, input.Name, _ => null, includePaths);
         }
 

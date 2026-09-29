@@ -28,6 +28,17 @@ public sealed class CCliTests : IDisposable
     }
 
     [Fact]
+    public void Cc_Reports_File_And_Line_Of_Type_Errors()
+    {
+        string a = File("bad.c", "int main() {\n    int x = 1;\n    return nope;\n}\n");
+
+        var (exit, _, err) = Cli("cc", a, "-o", Path.Combine(_dir.FullName, "bad.bin"));
+
+        exit.Should().NotBe(0);
+        err.Should().Contain("bad.c:3: type: undeclared 'nope'");
+    }
+
+    [Fact]
     public void Cc_Links_Two_Modules_And_Runs_With_Map()
     {
         string a = File("a.c", "int base = 100;\nint add(int a, int b) { return base + a + b; }\n");

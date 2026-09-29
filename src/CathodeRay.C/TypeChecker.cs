@@ -16,6 +16,7 @@ public sealed class TypeChecker
     private readonly Dictionary<Ast.Expr, CType> _types = new(ReferenceEqualityComparer.Instance);
     private string _returnType = "void";
     private int _loops;
+    private IReadOnlyDictionary<Ast.Node, int> _lineMap = new Dictionary<Ast.Node, int>();
 
     private TypeChecker()
     {
@@ -115,6 +116,7 @@ public sealed class TypeChecker
             _functions[function.Name] = function;
         }
 
+        _lineMap = program.Lines ?? _lineMap;
         var checkedFunctions = new List<CheckedFunction>();
         foreach (Ast.Function function in program.Functions)
         {
@@ -183,6 +185,19 @@ public sealed class TypeChecker
     }
 
     private void CheckStmt(Ast.Stmt stmt)
+    {
+        try
+        {
+            CheckStmtCore(stmt);
+        }
+        catch (CTypeException e) when (e.Line == 0 && _lineMap.TryGetValue(stmt, out int line))
+        {
+            e.Line = line;
+            throw;
+        }
+    }
+
+    private void CheckStmtCore(Ast.Stmt stmt)
     {
         switch (stmt)
         {

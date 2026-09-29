@@ -15,7 +15,7 @@ namespace CathodeRay.C;
 /// współdzielone. Rekurencja działa (limit: strona stosu 01xxh).
 /// Argumenty: 1. w A(+X dla int), 2. bajtowy przy 1. bajtowym w X, reszta w
 /// <c>cc_arg2</c>..<c>cc_arg6</c> (max <see cref="TypeChecker.MaxArgs"/>).
-/// int = 16 bit bez znaku (porównania, <c>/</c>, <c>%</c>, <c>&gt;&gt;</c>); <c>*</c>,<c>/</c>,<c>%</c>
+/// int = 16 bit ze znakiem (porównania, <c>/</c>, <c>%</c>, <c>&gt;&gt;</c>); <c>*</c>,<c>/</c>,<c>%</c>
 /// przez <c>cc_mul16</c>/<c>cc_div16</c>. Literały: znak = uchar, napis = <c>uchar*</c> (DATA).</summary>
 public sealed class Codegen
 {
@@ -36,6 +36,7 @@ public sealed class Codegen
     private bool _needDiv;
     private bool _needMul16;
     private bool _needDiv16;
+    private bool _wideCells;
     private string _prefix = string.Empty;
     private IReadOnlyDictionary<Ast.Expr, CType> _types =
         new Dictionary<Ast.Expr, CType>(ReferenceEqualityComparer.Instance);
@@ -70,6 +71,7 @@ public sealed class Codegen
     {
         if (expr is Ast.Number number && int.TryParse(number.Text, out value))
         {
+            value = (short)value;
             return true;
         }
 
@@ -174,6 +176,7 @@ public sealed class Codegen
         if (_needDiv16)
         {
             EmitDiv16();
+            EmitSDiv16();
         }
 
         var data = new StringBuilder();
@@ -396,6 +399,19 @@ public sealed class Codegen
     private bool IsWideKind(Ast.Expr expr) => KindOf(expr) is "int" or "ptr";
 
     private void EmitStmt(Ast.Stmt stmt)
+    {
+        try
+        {
+            EmitStmtCore(stmt);
+        }
+        catch (CCodegenException e) when (e.Line == 0 && _lines.TryGetValue(stmt, out int line))
+        {
+            e.Line = line;
+            throw;
+        }
+    }
+
+    private void EmitStmtCore(Ast.Stmt stmt)
     {
         if (stmt is not Ast.Block and not Ast.Nop)
         {
@@ -642,7 +658,7 @@ public sealed class Codegen
         _code.AppendLine($"BNE {trueLabel}");
     }
 
-    private void EmitIntCompare(string op, string aLo, string aHi, string bLo, string bHi, string falseLabel)
+    private void EmitIntCompare(string op, string aLo, string aHi, string bLo, string bHi, string falseLabel, bool signed = false)
     {
         string patchHi = Label("cmp");
         string patchLo = Label("cmp");
@@ -652,8 +668,18 @@ public sealed class Codegen
         string loEq = Label("leq");
         string done = Label("cdone");
         _code.AppendLine($"LDA {bHi}");
+        if (signed)
+        {
+            _code.AppendLine("EOR 128");
+        }
+
         _code.AppendLine($"STA {patchHi}+1");
         _code.AppendLine($"LDA {aHi}");
+        if (signed)
+        {
+            _code.AppendLine("EOR 128");
+        }
+
         _code.AppendLine($"{patchHi}: SUB 0");
         _code.AppendLine($"BCC {hiLess}");
         _code.AppendLine($"BEQ {hiEq}");
@@ -756,7 +782,7 @@ public sealed class Codegen
         {
             EvalInt(cmp.Left, depth, out string leftLo, out string leftHi);
             EvalInt(cmp.Right, depth + 1, out string rightLo, out string rightHi);
-            EmitIntCompare(op, leftLo, leftHi, rightLo, rightHi, falseLabel);
+            EmitIntCompare(op, leftLo, leftHi, rightLo, rightHi, falseLabel, KindOf(cmp.Left) != "ptr" && KindOf(cmp.Right) != "ptr");
             return;
         }
 
@@ -1093,7 +1119,7 @@ public sealed class Codegen
         _code.AppendLine($"STA {hi}");
     }
 
-    /// <summary>Przesunięcie 16-bit (logiczne: int porównuje się jak bez znaku).</summary>
+    /// <summary>Przesunięcie 16-bit (<c>&gt;&gt;</c> arytmetyczne: int jest ze znakiem).</summary>
     private void EmitIntShift(Ast.Binary binary, int depth, string lo, string hi)
     {
         EvalInt(binary.Left, depth + 1, out string valueLo, out string valueHi);
@@ -1124,6 +1150,10 @@ public sealed class Codegen
         {
             string carry = Label("wshc");
             string next = Label("wshn");
+            string sign = Temp(depth + 2, hi: false);
+            _code.AppendLine($"LDA {hi}");
+            _code.AppendLine("AND 128");
+            _code.AppendLine($"STA {sign}");
             _code.AppendLine($"LDA {hi}");
             _code.AppendLine("SHR");
             _code.AppendLine($"STA {hi}");
@@ -1138,6 +1168,10 @@ public sealed class Codegen
             _code.AppendLine("ADD 128");
             _code.AppendLine($"STA {lo}");
             _code.AppendLine($"{next}:");
+            _code.AppendLine("LDX 0");
+            _code.AppendLine($"LDA {hi}");
+            _code.AppendLine($"ADD {sign},X");
+            _code.AppendLine($"STA {hi}");
         }
 
         _code.AppendLine($"LDA {count}");
@@ -1167,7 +1201,7 @@ public sealed class Codegen
         else
         {
             _needDiv16 = true;
-            _code.AppendLine("CALL cc_div16");
+            _code.AppendLine("CALL cc_sdiv16");
         }
 
         if (binary.Op == "%")
@@ -1813,7 +1847,13 @@ public sealed class Codegen
 
     private void WideCells()
     {
-        foreach (string cell in new[] { "cc_w_a", "cc_w_a_h", "cc_w_b", "cc_w_b_h", "cc_w_r", "cc_w_r_h", "cc_w_n" })
+        if (_wideCells)
+        {
+            return;
+        }
+
+        _wideCells = true;
+        foreach (string cell in new[] { "cc_w_a", "cc_w_a_h", "cc_w_b", "cc_w_b_h", "cc_w_r", "cc_w_r_h", "cc_w_n", "cc_w_sa", "cc_w_sb", "cc_w_q", "cc_w_q_h" })
         {
             DataCell(cell, CType.UChar);
         }
@@ -1906,6 +1946,60 @@ public sealed class Codegen
         _code.AppendLine("TAX");
         _code.AppendLine("RET");
         _code.AppendLine(".endproc");
+    }
+
+    /// <summary>a/b ze znakiem (C: iloraz do zera, reszta ma znak dzielnej) na bazie cc_div16.</summary>
+    private void EmitSDiv16()
+    {
+        _code.AppendLine(".proc cc_sdiv16");
+        _code.AppendLine("LDX 0");
+        _code.AppendLine("LDA cc_w_a_h");
+        _code.AppendLine("AND 128");
+        _code.AppendLine("STA cc_w_sa");
+        _code.AppendLine("LDA cc_w_b_h");
+        _code.AppendLine("AND 128");
+        _code.AppendLine("STA cc_w_sb");
+        _code.AppendLine("LDA cc_w_sa");
+        _code.AppendLine("BEQ cc_sd_ap");
+        EmitNeg16("cc_w_a", "cc_w_a_h");
+        _code.AppendLine("cc_sd_ap: LDA cc_w_sb");
+        _code.AppendLine("BEQ cc_sd_bp");
+        EmitNeg16("cc_w_b", "cc_w_b_h");
+        _code.AppendLine("cc_sd_bp: CALL cc_div16");
+        _code.AppendLine("STA cc_w_q");
+        _code.AppendLine("TXA");
+        _code.AppendLine("STA cc_w_q_h");
+        _code.AppendLine("LDX 0");
+        _code.AppendLine("LDA cc_w_sa");
+        _code.AppendLine("EOR cc_w_sb,X");
+        _code.AppendLine("BEQ cc_sd_qp");
+        EmitNeg16("cc_w_q", "cc_w_q_h");
+        _code.AppendLine("cc_sd_qp: LDA cc_w_sa");
+        _code.AppendLine("BEQ cc_sd_rp");
+        EmitNeg16("cc_w_r", "cc_w_r_h");
+        _code.AppendLine("cc_sd_rp: LDA cc_w_q_h");
+        _code.AppendLine("TAX");
+        _code.AppendLine("LDA cc_w_q");
+        _code.AppendLine("RET");
+        _code.AppendLine(".endproc");
+    }
+
+    /// <summary>Negacja dopełnieniowa pary w miejscu (~x + 1).</summary>
+    private void EmitNeg16(string lo, string hi)
+    {
+        string done = Label("neg");
+        _code.AppendLine($"LDA {hi}");
+        _code.AppendLine("NOT");
+        _code.AppendLine($"STA {hi}");
+        _code.AppendLine($"LDA {lo}");
+        _code.AppendLine("NOT");
+        _code.AppendLine("INC");
+        _code.AppendLine($"STA {lo}");
+        _code.AppendLine($"BNE {done}");
+        _code.AppendLine($"LDA {hi}");
+        _code.AppendLine("INC");
+        _code.AppendLine($"STA {hi}");
+        _code.AppendLine($"{done}:");
     }
 
     /// <summary>a -= b (16-bit, w miejscu; pożyczka z młodszego bajtu bez mutowania b).</summary>

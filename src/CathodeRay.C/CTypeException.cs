@@ -12,4 +12,10 @@ public sealed class CTypeException : Exception
         : base(message)
     {
     }
+
+    /// <summary>Linia źródła C (0 = nieznana); uzupełniana przy przejściu przez instrukcję.</summary>
+    public int Line { get; set; }
+
+    /// <summary>Plik C (uzupełnia sterownik <c>cc</c>).</summary>
+    public string? File { get; set; }
 }

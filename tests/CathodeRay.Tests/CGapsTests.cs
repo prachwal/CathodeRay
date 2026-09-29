@@ -239,4 +239,39 @@ public sealed class CGapsTests
         Action act = () => Run("int f(int a, int b, int c, int d, int e, int g, int h) { return a; } int main() { return 0; }");
         act.Should().Throw<CathodeRay.C.CTypeException>().WithMessage("*at most 6*");
     }
+
+    [Theory]
+    [InlineData("-5 < 0", 1)]
+    [InlineData("n < 0 - 1", 0)]
+    [InlineData("0 - 1 < n", 1)]
+    [InlineData("-1 > -2", 1)]
+    [InlineData("n >= -300", 1)]
+    [InlineData("200 + 100 == 300", 1)]
+    public void Int_Comparisons_Are_Signed_And_Constants_Fold(string expr, int expected)
+    {
+        Run($"int main() {{ int n = 256; return {expr}; }}").A.Should().Be(expected);
+    }
+
+    [Theory]
+    [InlineData("a / b", -42)]
+    [InlineData("a % b", -6)]
+    [InlineData("0 - a / b", 42)]
+    [InlineData("a / (0 - b)", 42)]
+    [InlineData("(0 - a) / (0 - b)", -42)]
+    [InlineData("(0 - a) % b", 6)]
+    [InlineData("a >> 2", -75)]
+    [InlineData("a << 1", -600)]
+    [InlineData("a * b", -2100)]
+    public void Signed_Int_Arithmetic(string expr, int expected)
+    {
+        var (lo, hi) = Run($"int main() {{ int a = 0 - 300; int b = 7; return {expr}; }}");
+        ((short)((hi * 256) + lo)).Should().Be((short)expected);
+    }
+
+    [Fact]
+    public void Constants_Fold_To_Int()
+    {
+        var (lo, hi) = Run("int main() { return 1 << 15; }");
+        ((hi * 256) + lo).Should().Be(32768);
+    }
 }
