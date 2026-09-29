@@ -43,6 +43,48 @@ internal sealed partial class Lowering
         return seen;
     }
 
+    private static void CollectLive(Ir.Ins ins, HashSet<string> liveSymbols, HashSet<string> alreadyWritten)
+    {
+        // Zbierz zmienne czytane.
+        foreach (Ir.Op op in OperandsOf(ins))
+        {
+            if (op is Ir.Cell cell && !alreadyWritten.Contains(cell.Sym))
+            {
+                liveSymbols.Add(cell.Sym);
+            }
+            else if (op is Ir.AddrOf addr && !alreadyWritten.Contains(addr.Sym))
+            {
+                liveSymbols.Add(addr.Sym);
+            }
+        }
+
+        // Zaznacz zmienne zapisane.
+        if (ins is Ir.Mov mov)
+        {
+            alreadyWritten.Add(mov.Dst.Sym);
+        }
+        else if (ins is Ir.Bin bin)
+        {
+            alreadyWritten.Add(bin.Dst.Sym);
+        }
+        else if (ins is Ir.Un un)
+        {
+            alreadyWritten.Add(un.Dst.Sym);
+        }
+        else if (ins is Ir.Load load)
+        {
+            alreadyWritten.Add(load.Dst.Sym);
+        }
+        else if (ins is Ir.LoadIdx loadIdx)
+        {
+            alreadyWritten.Add(loadIdx.Dst.Sym);
+        }
+        else if (ins is Ir.Call call && call.Result != null)
+        {
+            alreadyWritten.Add(call.Result.Sym);
+        }
+    }
+
     private void FinalizeFrames()
     {
         var defined = new HashSet<string>(_pending.Select(static p => p.Function.Name), StringComparer.Ordinal);
@@ -109,15 +151,87 @@ internal sealed partial class Lowering
             var saved = new List<Ir.Owned>();
             if (framed)
             {
-                saved.AddRange(pending.Scalars);
-                foreach (Ir.Owned aggregate in pending.Aggregates)
+                // Zbierz komórki żywe po wołaniach: skanuj od każdego Call do końca,
+                // zbieraj zmienne czytane bez wcześniejszego zapisu.
+                var liveSymbols = new HashSet<string>(StringComparer.Ordinal);
+
+                // Zawsze zbierz parametry — muszą być na stosie w funkcji rekurencyjnej.
+                foreach (Ir.Cell param in pending.Function.Params)
                 {
-                    if (aggregate.Size > MaxSavedAggregate)
+                    liveSymbols.Add(param.Sym);
+                }
+
+                // Mapuj etykiety do indeksów i identyfikuj te z skokami wstecz.
+                var labelToIndex = new Dictionary<string, int>(StringComparer.Ordinal);
+                var hasBackwardJump = new HashSet<string>(StringComparer.Ordinal);
+                for (int i = 0; i < pending.Function.Body.Count; i++)
+                {
+                    var ins = pending.Function.Body[i];
+                    if (ins is Ir.Label label)
                     {
-                        throw new CCodegenException($"recursive function '{name}' has local '{aggregate.Sym.Split("__").Last()}' of {aggregate.Size} B (max {MaxSavedAggregate}).");
+                        labelToIndex[label.Name] = i;
+                    }
+                    else if (ins is Ir.Jmp jmp)
+                    {
+                        if (labelToIndex.TryGetValue(jmp.Target, out int targetIdx) && targetIdx < i)
+                        {
+                            hasBackwardJump.Add(jmp.Target);
+                        }
+                    }
+                    else if (ins is Ir.BrCmp br)
+                    {
+                        if (labelToIndex.TryGetValue(br.Target, out int targetIdx) && targetIdx < i)
+                        {
+                            hasBackwardJump.Add(br.Target);
+                        }
+                    }
+                }
+
+                // Znajdź wszystkie Call i skanuj od każdego do końca funkcji.
+                for (int i = 0; i < pending.Function.Body.Count; i++)
+                {
+                    if (pending.Function.Body[i] is not Ir.Call)
+                    {
+                        continue;
                     }
 
-                    saved.Add(aggregate);
+                    var alreadyWritten = new HashSet<string>(StringComparer.Ordinal);
+
+                    for (int j = i + 1; j < pending.Function.Body.Count; j++)
+                    {
+                        var ins = pending.Function.Body[j];
+
+                        // Jeśli etykieta ma skok wstecz, skanuj całą funkcję od niej bez ograniczeń alreadyWritten.
+                        if (ins is Ir.Label label && hasBackwardJump.Contains(label.Name))
+                        {
+                            var noWrites = new HashSet<string>(StringComparer.Ordinal);
+                            for (int k = j; k < pending.Function.Body.Count; k++)
+                            {
+                                CollectLive(pending.Function.Body[k], liveSymbols, noWrites);
+                            }
+
+                            break;
+                        }
+                        else
+                        {
+                            CollectLive(ins, liveSymbols, alreadyWritten);
+                        }
+                    }
+                }
+
+                // Dodaj do saved tylko zmienne żywe.
+                saved.AddRange(pending.Scalars.Where(s => liveSymbols.Contains(s.Sym)));
+                foreach (Ir.Owned aggregate in pending.Aggregates)
+                {
+                    if (liveSymbols.Contains(aggregate.Sym))
+                    {
+                        if (aggregate.Size > MaxSavedAggregate)
+                        {
+                            throw new CCodegenException($"recursive function '{name}' has local '{aggregate.Sym.Split("__").Last()}' of {aggregate.Size} B (max {MaxSavedAggregate}).");
+                        }
+
+                        saved.Add(aggregate);
+                    }
                 }
             }
 

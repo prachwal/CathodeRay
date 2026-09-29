@@ -34,7 +34,7 @@
     {
       "id": "5",
       "title": "[S] Zapisuj na stosie tylko komórki żywe przez wołanie: dla funkcji na cyklu wołań (`FinalizeFrames`) oblicz zbiór komórek czytanych po jakimkolwiek `Ir.Call` w ciele bez wcześniejszego zapisu (liniowe skanowanie od wołania do końca funkcji, etykiety i skoki traktuj zachowawczo: wszystko po wołaniu w kolejności instrukcji + wszystko po etykietach wstecznych, czyli przy pętli cała funkcja). Komórki spoza zbioru wyjmij z `Saved` (nie z `Data`). Kryterium: `fib` na 6502 ma ramkę < 10 B/cykl (komunikat ostrzeżenia z `cathode cc samples/bench/fib.c … `), testy rekurencji (`CRecursionTests`, `CStackTests` — znajdź `grep -l recurs tests/CathodeRay.Tests/*.cs`) zielone. Zmierz.",
-      "status": "todo",
+      "status": "done",
       "note": "",
       "section": "C. Ramka rekurencji (`Lowering.Frames.cs`)"
     },

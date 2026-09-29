@@ -27,7 +27,7 @@ Nie robić: ogólnego alokatora rejestrów (to osobny, duży plan po pomiarze ef
 
 ## C. Ramka rekurencji (`Lowering.Frames.cs`)
 
-- [ ] **5.** [S] Zapisuj na stosie tylko komórki żywe przez wołanie: dla funkcji na cyklu wołań (`FinalizeFrames`) oblicz zbiór komórek czytanych po jakimkolwiek `Ir.Call` w ciele bez wcześniejszego zapisu (liniowe skanowanie od wołania do końca funkcji, etykiety i skoki traktuj zachowawczo: wszystko po wołaniu w kolejności instrukcji + wszystko po etykietach wstecznych, czyli przy pętli cała funkcja). Komórki spoza zbioru wyjmij z `Saved` (nie z `Data`). Kryterium: `fib` na 6502 ma ramkę < 10 B/cykl (komunikat ostrzeżenia z `cathode cc samples/bench/fib.c … `), testy rekurencji (`CRecursionTests`, `CStackTests` — znajdź `grep -l recurs tests/CathodeRay.Tests/*.cs`) zielone. Zmierz.
+- [x] **5.** [S] Zapisuj na stosie tylko komórki żywe przez wołanie: dla funkcji na cyklu wołań (`FinalizeFrames`) oblicz zbiór komórek czytanych po jakimkolwiek `Ir.Call` w ciele bez wcześniejszego zapisu (liniowe skanowanie od wołania do końca funkcji, etykiety i skoki traktuj zachowawczo: wszystko po wołaniu w kolejności instrukcji + wszystko po etykietach wstecznych, czyli przy pętli cała funkcja). Komórki spoza zbioru wyjmij z `Saved` (nie z `Data`). Kryterium: `fib` na 6502 ma ramkę < 10 B/cykl (komunikat ostrzeżenia z `cathode cc samples/bench/fib.c … `), testy rekurencji (`CRecursionTests`, `CStackTests` — znajdź `grep -l recurs tests/CathodeRay.Tests/*.cs`) zielone. Zmierz.
 - [ ] **6.** [S] Test regresji dla kroku C: nowy test `RecursionFrameTests` z trzema programami (fib, silnia rekurencyjna na `int`, wzajemna rekurencja is_even/is_odd) uruchamianymi na `stub`, `6502`, `z80`, `6800` przez `CcRun.RunOn`; oczekiwane wartości policz ręcznie i wpisz jako stałe.
 
 ## D. Peephole 6502 (`Peephole.cs`, tekst asemblera po `ByteSelector`)
@@ -43,4 +43,4 @@ Nie robić: ogólnego alokatora rejestrów (to osobny, duży plan po pomiarze ef
 - [ ] **12.** [S] Porównanie 16-bitowe z stałą 0 i `==`/`!=`: użyj `lda lo ; ora hi` (jest już dla zera na jednym bajcie — rozszerz na 2 bajty, jeśli nie ma). Test na 6502/z80: `if (x == 0)` dla `uint` przy x=0, 0x100, 0x01, 0xFFFF.
 - [ ] **13.** [S] Zmierz i opisz: uruchom `python3 tools/hotspots.py --write` i `python3 tools/compare.py --write`, wklej do `docs/stub-calling-conv.md` sekcję „Plan 32: efekt” z liczbami przed/po (baza ze wstępu) i wnioskami; commit. Jeśli spadek sta;lda < 30% bazy, dodaj do planu następne zadania na podstawie nowych top-10 par.
 
-Postęp: 4/13 gotowych.
+Postęp: 5/13 gotowych.
