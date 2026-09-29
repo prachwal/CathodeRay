@@ -40,11 +40,11 @@ public sealed class CLibTests
         return (cpu, bus, result);
     }
 
-    private static (StubCpu Cpu, StubBus Bus, AssemblyResult Result) RunCWithLib(string source)
+    private static (StubCpu Cpu, StubBus Bus, AssemblyResult Result) RunCWithLib(string source, string extraC = "", string extraS = "")
     {
         string io = File.ReadAllText(Path.Combine(LibDir(), "io.s"));
-        CheckedProgram checkedProgram = TypeChecker.Check(Parser.Parse(source));
-        string asm = Crt0.Source + io + Codegen.Emit(checkedProgram);
+        CheckedProgram checkedProgram = TypeChecker.Check(Parser.Parse(source + extraC));
+        string asm = Crt0.Source + io + extraS + Codegen.Emit(checkedProgram);
         AssemblerTarget target = AssemblerTargets.Find("stub")!;
         var origins = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase)
         {
@@ -232,5 +232,66 @@ public sealed class CLibTests
         bus.Read((ushort)(buf + 1)).Should().Be(65);
         bus.Read((ushort)(buf + 2)).Should().Be(66);
         bus.Read((ushort)result.Symbols["__io_cur"]).Should().Be(3);
+    }
+
+    [Fact]
+    public void C_Calls_Putdec_With_Sign_And_Zero()
+    {
+        const string Source = """
+            void putchar(uchar c);
+            void putdec(int v);
+            int main() {
+                putdec(-1234);
+                putchar(32);
+                putdec(0);
+                putchar(32);
+                putdec(9876);
+                putchar(32);
+                putdec(-32768);
+                return 0;
+            }
+            """;
+        var (_, bus, result) = RunCWithLib(Source);
+        int buf = result.Symbols["__io_buf"];
+        string text = string.Concat(Enumerable.Range(0, 19).Select(i => (char)bus.Read((ushort)(buf + i))));
+
+        text.Should().Be("-1234 0 9876 -32768");
+    }
+
+    [Fact]
+    public void C_Calls_Puts_On_Buffer_And_Screen()
+    {
+        const string Source = """
+            void putchar(uchar c);
+            void puts(uchar *s);
+            void scr_goto(uchar x, uchar y);
+            void scr_putc(uchar c);
+            void scr_clear();
+            int main() {
+                uchar msg[4];
+                msg[0] = 72;
+                msg[1] = 105;
+                msg[2] = 33;
+                msg[3] = 0;
+                puts(msg);
+                scr_clear();
+                scr_goto(10, 5);
+                scr_putc(72);
+                scr_putc(105);
+                scr_putc(33);
+                return 0;
+            }
+            """;
+        string puts = File.ReadAllText(Path.Combine(Repo.Path("samples", "minic", "lib"), "puts.c"));
+        string screen = File.ReadAllText(Path.Combine(LibDir(), "screen.s"));
+        var (_, bus, result) = RunCWithLib(Source, puts, screen);
+        int buf = result.Symbols["__io_buf"];
+        int scr = result.Symbols["__scr_buf"];
+
+        bus.Read((ushort)buf).Should().Be(72);
+        bus.Read((ushort)(buf + 1)).Should().Be(105);
+        bus.Read((ushort)(buf + 2)).Should().Be(33);
+        bus.Read((ushort)(scr + (5 * 40) + 10)).Should().Be(72);
+        bus.Read((ushort)(scr + (5 * 40) + 12)).Should().Be(33);
     }
 }

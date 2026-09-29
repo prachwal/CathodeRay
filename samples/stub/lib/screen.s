@@ -258,4 +258,4 @@ cc_sc_dst_h: .byte 0
 cc_sc_r: .byte 0
 __scr_cur: .byte 0
 __scr_cur_h: .byte 0
-__scr_buf: .res 1000
+__scr_buf: .res 1024   ; 1024 (nie 1000): pełne pętle X po 256, używane 1000

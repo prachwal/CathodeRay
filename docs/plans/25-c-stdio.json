@@ -1,23 +1,23 @@
 {
   "title": "Mini-C: kolejne funkcje stdio",
-  "status": "queued",
+  "status": "closed",
   "items": [
     {
       "id": "1",
       "title": "putdec(int): liczba dziesiętnie przez divmod (bez wskaźników)",
-      "status": "todo",
+      "status": "done",
       "note": ""
     },
     {
       "id": "2",
       "title": "puts/puts_at: wymagają char* (blokada: plan 24)",
-      "status": "todo",
+      "status": "done",
       "note": ""
     },
     {
       "id": "3",
       "title": "Testy C e2e (bufor + ekran) + build/test/hygiene",
-      "status": "todo",
+      "status": "done",
       "note": ""
     }
   ]

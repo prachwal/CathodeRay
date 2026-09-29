@@ -48,7 +48,11 @@ a odczytem, więc zagnieżdżenie jest bezpieczne.
 Decyzja (item 1): stub nie ma urządzeń, więc konsola to umowa testowa —
 stały bufor `__io_buf` (256 B) + kursor `__io_cur` z `samples/stub/lib/io.s`.
 `putchar` (A = znak) dopisuje i inkrementuje kursor; `puthex` (A = bajt)
-dopisuje 2 znaki hex. Kolejność linkowania: crt0, lib, program (entry =
+dopisuje 2 znaki hex; `putdec` (A/X = int ze znakiem) dopisuje cyfry
+dziesiętne (znak, dzielenie 16-bit przez odejmowanie jak `divmod`).
+`samples/minic/lib/puts.c`: `puts(uchar *s)` na bufor (pętla ze wskaźnikiem;
+`puts_at` celowo brak — wołanie ma max 2 argumenty, składa się
+`scr_goto` + `puts`). Kolejność linkowania: crt0, lib, program (entry =
 pierwsza linia CODE; zła kolejność wykonuje bibliotekę jako program).
 
 ## Ekran 40x25 (screen.s → Markdown)
