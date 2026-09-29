@@ -110,3 +110,11 @@ brak `ADD`/`SUB` z pamięci absolutnej (tryb `,X` z `X = 0`).
   (lokalne przy każdym wejściu). Długość `[N]` może być stałym wyrażeniem (`enum`, `sizeof`).
 - Globalne wskaźniki z napisem, `&g` albo nazwą tablicy: komórka `.word` (starszy bajt to `nazwa+1`).
 - Globalne wskaźniki i funkcje: `int *g;` działa (wcześniej gwiazdka po nazwie); funkcje zwracające wskaźnik nie.
+
+## Runtime (plan 27 C)
+
+- Układ pamięci `cc`: CODE `$1000`, BSS `$2000` (4 KB), DATA `$3000`. crt0 zeruje BSS od `__bss_start`
+  do `__bss_end` (linker dodaje `__<segment>_end`, w jednym pliku daje go codegen), więc BSS nie ma już limitu 256 B.
+- `cc_mul8`/`cc_divmod` (uchar) to shift-add / dzielenie pisemne w 8 krokach, lokalne w module (bez `.global`).
+- Stos to strona `$01xx` (256 B): łańcuch wołań głębszy niż 256 B (ramka = PUSHe + 2 B adresu) to błąd
+  kompilacji; rekurencja daje ostrzeżenie z szacunkiem głębokości (`cc` drukuje ostrzeżenia na stderr).

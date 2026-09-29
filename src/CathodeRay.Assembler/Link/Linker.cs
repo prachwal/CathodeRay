@@ -99,6 +99,12 @@ public static class Linker
             locals.Add(own);
         }
 
+        // Symbole syntetyczne __<segment>_end (koniec ostatniego chunku), np. __bss_end dla crt0.
+        foreach (IGrouping<string, SegmentSpan> group in spans.GroupBy(static s => s.Name, StringComparer.OrdinalIgnoreCase))
+        {
+            globals.TryAdd($"__{group.Key.ToLowerInvariant()}_end", group.Max(static s => s.End));
+        }
+
         var image = new Dictionary<int, byte>();
         for (int m = 0; m < modules.Count; m++)
         {

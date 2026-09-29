@@ -53,25 +53,25 @@
     {
       "id": "9",
       "title": "[S] BSS > 256 B: crt0 czyści w pętli 16-bit (dziś limit 256 B i błąd codegenu)",
-      "status": "todo",
+      "status": "done",
       "note": ""
     },
     {
       "id": "10",
       "title": "[S] cc_mul8/cc_divmod bez .global (spójnie z 16-bit) + test dwóch modułów z uchar * i /",
-      "status": "todo",
+      "status": "done",
       "note": ""
     },
     {
       "id": "11",
       "title": "[S] cc_mul8 przez shift-add (dziś pętla b razy, do 255 iteracji); cc_divmod uchar analogicznie",
-      "status": "todo",
+      "status": "done",
       "note": ""
     },
     {
       "id": "12",
       "title": "[S] Ramki: ostrzeżenie/limit głębokości stosu (rekurencja ~256 B) w kompilatorze lub w teście runtime",
-      "status": "todo",
+      "status": "done",
       "note": ""
     },
     {

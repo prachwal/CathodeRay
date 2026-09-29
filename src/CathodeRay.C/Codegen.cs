@@ -28,6 +28,8 @@ public sealed class Codegen
     private readonly HashSet<string> _wordGlobals = new(StringComparer.Ordinal);
     private readonly Dictionary<string, CType> _globalsByName = new(StringComparer.Ordinal);
     private readonly List<string> _switchCells = [];
+    private readonly Dictionary<string, int> _frames = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, HashSet<string>> _calls = new(StringComparer.Ordinal);
     private int _switches;
     private IReadOnlyDictionary<Ast.Node, int> _lines = new Dictionary<Ast.Node, int>();
     private string? _file;
@@ -297,7 +299,6 @@ public sealed class Codegen
 
         var bss = new StringBuilder();
         bss.AppendLine(".segment \"BSS\"");
-        int bssBytes = 0;
         foreach ((string name, CType type, byte[]? init) in _data)
         {
             if (init is not null)
@@ -306,7 +307,6 @@ public sealed class Codegen
             }
 
             int size = type.Size;
-            bssBytes += size;
             if (name.StartsWith("cc_g_", StringComparison.Ordinal))
             {
                 bss.AppendLine($".global {name}");
@@ -330,11 +330,12 @@ public sealed class Codegen
             }
         }
 
-        if (bssBytes > 256)
+        if (!objectMode)
         {
-            throw new CCodegenException($"BSS is {bssBytes} bytes (crt0 clears 256).");
+            bss.AppendLine("__bss_end:");
         }
 
+        CheckStack(program.Warnings);
         return _code.ToString() + data.ToString() + bss.ToString();
     }
 
@@ -427,6 +428,7 @@ public sealed class Codegen
             owned.Add($"{_prefix}__t{temp}_h");
         }
 
+        _frames[function.Def.Name] = owned.Count + 2;
         foreach (string cell in owned)
         {
             _code.AppendLine($"LDA {cell}");
@@ -1842,6 +1844,55 @@ public sealed class Codegen
         }
 
         _code.AppendLine($"CALL {call.Name}");
+        if (!_calls.TryGetValue(_prefix, out HashSet<string>? callees))
+        {
+            _calls[_prefix] = callees = new HashSet<string>(StringComparer.Ordinal);
+        }
+
+        callees.Add(call.Name);
+    }
+
+    /// <summary>Stos sprzętowy to jedna strona (256 B): błąd, gdy najgłębsza nierekurencyjna
+    /// ścieżka wołań (ramka = PUSHe + adres powrotu) się nie mieści; rekurencja dostaje ostrzeżenie
+    /// z szacunkiem głębokości.</summary>
+    private void CheckStack(List<string> warnings)
+    {
+        const int Page = 256;
+        var reported = new HashSet<string>(StringComparer.Ordinal);
+        int Depth(string name, List<string> path)
+        {
+            int frame = _frames.TryGetValue(name, out int f) ? f : 2;
+            int deepest = 0;
+            path.Add(name);
+            foreach (string callee in _calls.GetValueOrDefault(name) ?? [])
+            {
+                int at = path.IndexOf(callee);
+                if (at >= 0)
+                {
+                    int cycle = path.Skip(at).Sum(n => _frames.GetValueOrDefault(n, 2));
+                    if (reported.Add(string.Join(">", path.Skip(at).Order(StringComparer.Ordinal))))
+                    {
+                        warnings.Add($"'{callee}' is recursive: {cycle} B per cycle, at most ~{Page / cycle} nested calls fit the stack page.");
+                    }
+
+                    continue;
+                }
+
+                deepest = Math.Max(deepest, Depth(callee, path));
+            }
+
+            path.RemoveAt(path.Count - 1);
+            return frame + deepest;
+        }
+
+        foreach (string root in _frames.Keys)
+        {
+            int total = Depth(root, []);
+            if (total > Page)
+            {
+                throw new CCodegenException($"call chain from '{root}' needs {total} B of stack (page is {Page} B).");
+            }
+        }
     }
 
     private void EmitUnary(Ast.Unary unary, int depth)
@@ -2025,32 +2076,6 @@ public sealed class Codegen
         _code.AppendLine($"{els}:");
         Eval(ternary.Else, depth);
         _code.AppendLine($"{done}:");
-    }
-
-    private void EmitMul()
-    {
-        _code.AppendLine(".proc cc_mul8");
-        _code.AppendLine(".global cc_mul8");
-        _code.AppendLine("STA cc_m_a");
-        _code.AppendLine("TXA");
-        _code.AppendLine("STA cc_m_b");
-        _code.AppendLine("LDX 0");
-        _code.AppendLine("LDI 0");
-        _code.AppendLine("STA cc_m_acc");
-        _code.AppendLine("cc_m_loop: LDA cc_m_b");
-        _code.AppendLine("BEQ cc_m_done");
-        _code.AppendLine("SUB 1");
-        _code.AppendLine("STA cc_m_b");
-        _code.AppendLine("LDA cc_m_acc");
-        _code.AppendLine("ADD cc_m_a,X");
-        _code.AppendLine("STA cc_m_acc");
-        _code.AppendLine("JMP cc_m_loop");
-        _code.AppendLine("cc_m_done: LDA cc_m_acc");
-        _code.AppendLine("RET");
-        _code.AppendLine(".endproc");
-        DataCell("cc_m_acc", CType.UChar);
-        DataCell("cc_m_a", CType.UChar);
-        DataCell("cc_m_b", CType.UChar);
     }
 
     private void WideCells()
@@ -2240,36 +2265,85 @@ public sealed class Codegen
         _code.AppendLine($"{end}:");
     }
 
+    /// <summary>a*b mod 256 (A, X): shift-add po bitach mnożnika (do 8 obrotów zamiast b powtórzeń).
+    /// Bez <c>.global</c>: każdy moduł ma własną kopię.</summary>
+    private void EmitMul()
+    {
+        _code.AppendLine(".proc cc_mul8");
+        _code.AppendLine("STA cc_m_a");
+        _code.AppendLine("TXA");
+        _code.AppendLine("STA cc_m_b");
+        _code.AppendLine("LDX 0");
+        _code.AppendLine("LDI 0");
+        _code.AppendLine("STA cc_m_acc");
+        _code.AppendLine("cc_m_loop: LDA cc_m_b");
+        _code.AppendLine("BEQ cc_m_done");
+        _code.AppendLine("SHR");
+        _code.AppendLine("STA cc_m_b");
+        _code.AppendLine("BCC cc_m_skip");
+        _code.AppendLine("LDA cc_m_acc");
+        _code.AppendLine("ADD cc_m_a,X");
+        _code.AppendLine("STA cc_m_acc");
+        _code.AppendLine("cc_m_skip: LDA cc_m_a");
+        _code.AppendLine("ADD cc_m_a,X");
+        _code.AppendLine("STA cc_m_a");
+        _code.AppendLine("JMP cc_m_loop");
+        _code.AppendLine("cc_m_done: LDA cc_m_acc");
+        _code.AppendLine("RET");
+        _code.AppendLine(".endproc");
+        DataCell("cc_m_acc", CType.UChar);
+        DataCell("cc_m_a", CType.UChar);
+        DataCell("cc_m_b", CType.UChar);
+    }
+
+    /// <summary>A / X bez znaku: iloraz w A, reszta w X (X=0 daje 0/0). Dzielenie pisemne w 8 krokach;
+    /// iloraz zbiera się w dzielnej, dzielnik łata operandy dwóch SUB.</summary>
     private void EmitDiv()
     {
         _code.AppendLine(".proc cc_divmod");
-        _code.AppendLine(".global cc_divmod");
         _code.AppendLine("CPX 0");
         _code.AppendLine("BEQ cc_d_zero");
         _code.AppendLine("STA cc_d_n");
         _code.AppendLine("TXA");
-        _code.AppendLine("STA cc_d_patch+1");
+        _code.AppendLine("STA cc_d_p1+1");
+        _code.AppendLine("STA cc_d_p2+1");
         _code.AppendLine("LDX 0");
         _code.AppendLine("LDI 0");
-        _code.AppendLine("STA cc_d_q");
+        _code.AppendLine("STA cc_d_r");
+        _code.AppendLine("LDI 8");
+        _code.AppendLine("STA cc_d_c");
         _code.AppendLine("cc_d_loop: LDA cc_d_n");
-        _code.AppendLine("cc_d_patch: SUB 0");
-        _code.AppendLine("BCC cc_d_done");
+        _code.AppendLine("SHL");
         _code.AppendLine("STA cc_d_n");
-        _code.AppendLine("LDA cc_d_q");
+        _code.AppendLine("LDA cc_d_r");
+        _code.AppendLine("ADC cc_d_r,X");
+        _code.AppendLine("STA cc_d_r");
+        _code.AppendLine("BCS cc_d_force");
+        _code.AppendLine("cc_d_p1: SUB 0");
+        _code.AppendLine("BCC cc_d_next");
+        _code.AppendLine("STA cc_d_r");
+        _code.AppendLine("JMP cc_d_inc");
+        _code.AppendLine("cc_d_force: LDA cc_d_r");
+        _code.AppendLine("cc_d_p2: SUB 0");
+        _code.AppendLine("STA cc_d_r");
+        _code.AppendLine("cc_d_inc: LDA cc_d_n");
         _code.AppendLine("INC");
-        _code.AppendLine("STA cc_d_q");
-        _code.AppendLine("JMP cc_d_loop");
-        _code.AppendLine("cc_d_done: LDA cc_d_n");
+        _code.AppendLine("STA cc_d_n");
+        _code.AppendLine("cc_d_next: LDA cc_d_c");
+        _code.AppendLine("SUB 1");
+        _code.AppendLine("STA cc_d_c");
+        _code.AppendLine("BNE cc_d_loop");
+        _code.AppendLine("LDA cc_d_r");
         _code.AppendLine("TAX");
-        _code.AppendLine("LDA cc_d_q");
+        _code.AppendLine("LDA cc_d_n");
         _code.AppendLine("RET");
         _code.AppendLine("cc_d_zero: LDI 0");
         _code.AppendLine("TAX");
         _code.AppendLine("RET");
         _code.AppendLine(".endproc");
         DataCell("cc_d_n", CType.UChar);
-        DataCell("cc_d_q", CType.UChar);
+        DataCell("cc_d_r", CType.UChar);
+        DataCell("cc_d_c", CType.UChar);
     }
 
     private sealed record Cell(string Lo, CType Type);

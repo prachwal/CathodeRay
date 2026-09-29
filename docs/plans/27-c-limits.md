@@ -19,14 +19,14 @@ Rozmiar: S = <1 h, M = kilka h. Kolejność: A → B → C → D.
 
 ## C. Runtime i skala
 
-- [ ] **9.** [S] BSS > 256 B: crt0 czyści w pętli 16-bit (dziś limit 256 B i błąd codegenu)
-- [ ] **10.** [S] cc_mul8/cc_divmod bez .global (spójnie z 16-bit) + test dwóch modułów z uchar * i /
-- [ ] **11.** [S] cc_mul8 przez shift-add (dziś pętla b razy, do 255 iteracji); cc_divmod uchar analogicznie
-- [ ] **12.** [S] Ramki: ostrzeżenie/limit głębokości stosu (rekurencja ~256 B) w kompilatorze lub w teście runtime
+- [x] **9.** [S] BSS > 256 B: crt0 czyści w pętli 16-bit (dziś limit 256 B i błąd codegenu)
+- [x] **10.** [S] cc_mul8/cc_divmod bez .global (spójnie z 16-bit) + test dwóch modułów z uchar * i /
+- [x] **11.** [S] cc_mul8 przez shift-add (dziś pętla b razy, do 255 iteracji); cc_divmod uchar analogicznie
+- [x] **12.** [S] Ramki: ostrzeżenie/limit głębokości stosu (rekurencja ~256 B) w kompilatorze lub w teście runtime
 
 ## D. Porządek
 
 - [ ] **13.** [M] Rozbić Codegen.cs (~1900 linii) na partial: Expressions/Statements/Calls/Wide/Helpers; bez zmian zachowania, testy jako siatka
 - [ ] **14.** [S] Testy: matryca int (znak/brak) e2e, sample minic per nowa konstrukcja (samples/minic/), hygiene
 
-Postęp: 8/14 gotowych.
+Postęp: 12/14 gotowych.

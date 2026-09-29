@@ -59,7 +59,7 @@ internal static partial class CcCommand
                 modules.Add(("crt0.s", AssembleObject(target, Crt0.Source, "crt0.s", _ => null, includePaths)));
                 foreach (FileInfo input in files)
                 {
-                    modules.Add((input.Name, AssembleModule(target, input, includePaths)));
+                    modules.Add((input.Name, AssembleModule(target, input, includePaths, error)));
                 }
             }
             catch (AssemblerException e)
@@ -160,8 +160,8 @@ internal static partial class CcCommand
     internal static LinkerConfig DefaultConfig() => new(
         [
             new MemoryArea("C_CODE", 0x1000, 0x1000),
-            new MemoryArea("C_BSS", 0x2000, 0x100),
-            new MemoryArea("C_DATA", 0x2100, 0xDF00),
+            new MemoryArea("C_BSS", 0x2000, 0x1000),
+            new MemoryArea("C_DATA", 0x3000, 0xD000),
         ],
         [
             new SegmentMapping("CODE", "C_CODE"),
@@ -190,7 +190,7 @@ internal static partial class CcCommand
     private static string Where(string? file, int line) =>
         file is null ? string.Empty : line > 0 ? $"{file}:{line}: " : $"{file}: ";
 
-    private static ObjectModule AssembleModule(AssemblerTarget target, FileInfo input, string[] includePaths)
+    private static ObjectModule AssembleModule(AssemblerTarget target, FileInfo input, string[] includePaths, TextWriter warnings)
     {
         string? dir = Path.GetDirectoryName(input.FullName);
         Func<string, string?> reader = path =>
@@ -214,6 +214,10 @@ internal static partial class CcCommand
             {
                 CheckedProgram program = TypeChecker.Check(Parser.Parse(File.ReadAllText(input.FullName), reader));
                 asm = Codegen.Emit(program, input.Name, objectMode: true);
+                foreach (string warning in program.Warnings)
+                {
+                    warnings.WriteLine($"{input.Name}: warning: {warning}");
+                }
             }
             catch (CTypeException e)
             {

@@ -8,5 +8,5 @@ namespace CathodeRay.C;
 public sealed record CheckedProgram(
     IReadOnlyList<CheckedFunction> Functions,
     IReadOnlyList<TypedSymbol> Globals,
-    IReadOnlyList<string> Warnings,
+    List<string> Warnings,
     IReadOnlyDictionary<Ast.Node, int> Lines);

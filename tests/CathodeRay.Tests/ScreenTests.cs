@@ -111,7 +111,7 @@ public sealed class ScreenTests : IDisposable
         {
             ["CODE"] = 0x1000,
             ["BSS"] = 0x2000,
-            ["DATA"] = 0x2100,
+            ["DATA"] = 0x3000,
         };
         AssemblyResult result = new TwoPassAssembler(Repo.LoadTarget(target), target.DefaultSyntax)
             .Assemble(asm, "prog.c", _ => null, [], null, origins);
@@ -248,7 +248,7 @@ public sealed class ScreenTests : IDisposable
         {
             ["CODE"] = 0x1000,
             ["BSS"] = 0x2000,
-            ["DATA"] = 0x2100,
+            ["DATA"] = 0x3000,
         };
         AssemblyResult result = new TwoPassAssembler(Repo.LoadTarget(target), target.DefaultSyntax)
             .Assemble(asm, path, _ => null, [], null, origins);
