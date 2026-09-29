@@ -8,12 +8,12 @@ public static class Lexer
 {
     private static readonly HashSet<string> Keywords = new(StringComparer.Ordinal)
     {
-        "uchar", "int", "void", "if", "else", "while", "for", "return",
+        "uchar", "int", "void", "if", "else", "while", "for", "return", "break", "continue",
     };
 
     private static readonly string[] Operators =
     [
-        "<<=", ">>=", "==", "!=", "<=", ">=", "&&", "||", "<<", ">>",
+        "<<=", ">>=", "==", "!=", "<=", ">=", "&&", "||", "<<", ">>", "++", "--",
         "+=", "-=", "*=", "/=", "%=", "&=", "|=", "^=",
         "+", "-", "*", "/", "%", "<", ">", "=", "!", "~", "&", "|", "^",
         "(", ")", "{", "}", "[", "]", ";", ",", "?", ":",
@@ -109,7 +109,53 @@ public static class Lexer
             }
             else if (c == '\'' || c == '"')
             {
-                throw new CParseException(line, col, "strings and chars are not supported (integers only).");
+                int startCol = col;
+                pos++;
+                col++;
+                var text = new StringBuilder();
+                while (true)
+                {
+                    if (pos >= source.Length || source[pos] == '\n')
+                    {
+                        throw new CParseException(line, startCol, "unterminated literal.");
+                    }
+
+                    char ch = source[pos++];
+                    col++;
+                    if (ch == c)
+                    {
+                        break;
+                    }
+
+                    if (ch == '\\' && pos < source.Length)
+                    {
+                        char esc = source[pos++];
+                        col++;
+                        ch = esc switch
+                        {
+                            'n' => '\n',
+                            't' => '\t',
+                            'r' => '\r',
+                            '0' => '\0',
+                            _ => esc,
+                        };
+                    }
+
+                    text.Append(ch);
+                }
+
+                if (c == '"')
+                {
+                    tokens.Add(new Token(TokenKind.String, text.ToString(), line, startCol));
+                }
+                else if (text.Length == 1)
+                {
+                    tokens.Add(new Token(TokenKind.Number, ((int)text[0]).ToString(System.Globalization.CultureInfo.InvariantCulture), line, startCol));
+                }
+                else
+                {
+                    throw new CParseException(line, startCol, "char literal needs exactly one character.");
+                }
             }
             else
             {

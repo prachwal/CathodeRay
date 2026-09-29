@@ -5,6 +5,9 @@ namespace CathodeRay.C;
 /// wskaźników (skala przez rozmiar elementu w codegen).</summary>
 public sealed class TypeChecker
 {
+    /// <summary>Maks. liczba argumentów (A, X, potem komórki <c>cc_arg2</c>..<c>cc_arg6</c>).</summary>
+    public const int MaxArgs = 6;
+
     private readonly Dictionary<string, Ast.Function> _functions = new(StringComparer.Ordinal);
     private readonly Dictionary<string, TypedSymbol> _globals = new(StringComparer.Ordinal);
     private readonly List<string> _warnings = [];
@@ -12,6 +15,7 @@ public sealed class TypeChecker
     private readonly List<TypedSymbol> _locals = [];
     private readonly Dictionary<Ast.Expr, CType> _types = new(ReferenceEqualityComparer.Instance);
     private string _returnType = "void";
+    private int _loops;
 
     private TypeChecker()
     {
@@ -146,6 +150,12 @@ public sealed class TypeChecker
         _scopes.Clear();
         _scopes.Push(new Dictionary<string, CType>(StringComparer.Ordinal));
         _returnType = function.ReturnType;
+        _loops = 0;
+        if (function.Params.Count > MaxArgs)
+        {
+            throw new CTypeException($"'{function.Name}' takes at most {MaxArgs} parameters.");
+        }
+
         var parameters = new List<TypedSymbol>();
         foreach (Ast.Param param in function.Params)
         {
@@ -209,7 +219,17 @@ public sealed class TypeChecker
                 break;
             case Ast.While whileStmt:
                 Condition(whileStmt.Cond);
+                _loops++;
                 CheckStmt(whileStmt.Body);
+                _loops--;
+                break;
+            case Ast.Break:
+            case Ast.Continue:
+                if (_loops == 0)
+                {
+                    throw new CTypeException($"'{(stmt is Ast.Break ? "break" : "continue")}' outside a loop.");
+                }
+
                 break;
             case Ast.For forStmt:
                 _scopes.Push(new Dictionary<string, CType>(StringComparer.Ordinal));
@@ -228,7 +248,9 @@ public sealed class TypeChecker
                     TypeOf(forStmt.Step);
                 }
 
+                _loops++;
                 CheckStmt(forStmt.Body);
+                _loops--;
                 _scopes.Pop();
                 break;
             case Ast.Return ret:
@@ -330,6 +352,8 @@ public sealed class TypeChecker
         {
             case Ast.Number number:
                 return NumberType(number.Text);
+            case Ast.Str:
+                return CType.Pointer(CType.UChar);
             case Ast.Var variable:
                 return Lookup(variable.Name).Decay();
             case Ast.Call call:
@@ -365,6 +389,11 @@ public sealed class TypeChecker
         if (!_functions.TryGetValue(call.Name, out Ast.Function? function))
         {
             throw new CTypeException($"undefined function '{call.Name}'.");
+        }
+
+        if (call.Args.Count > MaxArgs)
+        {
+            throw new CTypeException($"'{call.Name}' takes at most {MaxArgs} arguments.");
         }
 
         if (call.Args.Count != function.Params.Count)

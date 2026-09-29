@@ -7,7 +7,7 @@ namespace CathodeRay.Tests;
 
 public sealed class CCodegenTests
 {
-    private static (StubCpu Cpu, StubBus Bus, AssemblyResult Result) RunC(
+    internal static (StubCpu Cpu, StubBus Bus, AssemblyResult Result) RunC(
         string source,
         Func<string, string?>? reader = null,
         Action<StubBus, AssemblyResult>? poke = null)

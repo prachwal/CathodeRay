@@ -15,7 +15,8 @@ bez zgadywania. Stub ma tylko `A`, `X` i stos na `A` — reszta to umowa.
 
 ## Funkcje
 
-- 1\. argument w `A`, 2\. w `X`; więcej — przez umówione komórki (`arg1`, `arg2`).
+- 1\. argument w `A` (int: `A`=lo, `X`=hi), 2\. bajtowy przy bajtowym 1\. w `X`; pozostałe
+  (int lub 3\.–6\.) w komórkach `cc_arg2`..`cc_arg6` (+`_h` dla int), max 6.
 - Wynik w `A` (reszta dzielenia w `X`, jak `divmod`).
 - Dwa `int` nie mieszczą się w (`A`, `X`): codegen woła z `A`=lo(arg1),
   `X`=hi(arg1), a arg2 odkłada do umówionych komórek `cc_arg2`/`cc_arg2_h`
@@ -86,3 +87,14 @@ Ograniczenia stałe: `CPA`/`CPX`/`ADD`/`SUB` biorą tylko stałe `d8`
 (porównanie zmienna-ze-zmienną: tylko przez łatanie operandu w kodzie,
 wzorzec `divmod` z mathlib.s), skoki warunkowe tylko od `Z`/`C`,
 brak `ADD`/`SUB` z pamięci absolutnej (tryb `,X` z `X = 0`).
+
+## Rozszerzenia mini-C (plan 26)
+
+- Literały: `'a'`, `'\n'`, `'\0'` (uchar); `"tekst"` to `uchar*` na bajty w DATA + `0`
+  (deduplikowane w module; inicjalizator globala napisem nieobsługiwany).
+- `++`/`--` (przed/po): `x++` to `(x = x + 1) - 1`, w pozycji instrukcji samo przypisanie.
+- `break`/`continue` (najbliższa pętla; w `for` continue skacze do kroku).
+- `int`: `& | ^ << >> * / %` (16-bit bez znaku, dzielenie przez 0 daje 0/0);
+  `cc_mul16`/`cc_div16` emitowane lokalnie w module (bez `.global`), komórki `cc_w_*`.
+- Stała mała (<= 255) jest `uchar`, więc `1 << 15` liczy się w 8 bitach — wymuś `int`.
+- `for (int i = ...; ...)` działa (wcześniej deklaracja w init łamała parser).

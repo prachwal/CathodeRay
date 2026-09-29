@@ -13,14 +13,18 @@ namespace CathodeRay.C;
 /// PUSHuje własne komórki (parametry, lokale, tempy), potem storuje parametry;
 /// epilog chowa wynik do cc_ret(_h), POPuje, odtwarza A/X, RET. Globale
 /// współdzielone. Rekurencja działa (limit: strona stosu 01xxh).
-/// Podzbiór v1: pełny uchar; int: pamięć, load/store, +,-, porównania, konwersje.
-/// Bez: int *,/,%,&lt;&lt;,&gt;&gt;,&amp;,|,^, wskaźników, tablic (jawny błąd).</summary>
+/// Argumenty: 1. w A(+X dla int), 2. bajtowy przy 1. bajtowym w X, reszta w
+/// <c>cc_arg2</c>..<c>cc_arg6</c> (max <see cref="TypeChecker.MaxArgs"/>).
+/// int = 16 bit bez znaku (porównania, <c>/</c>, <c>%</c>, <c>&gt;&gt;</c>); <c>*</c>,<c>/</c>,<c>%</c>
+/// przez <c>cc_mul16</c>/<c>cc_div16</c>. Literały: znak = uchar, napis = <c>uchar*</c> (DATA).</summary>
 public sealed class Codegen
 {
     private readonly List<(string Name, CType Type, byte[]? Init)> _data = [];
     private readonly Dictionary<string, Cell> _cells = new(StringComparer.Ordinal);
     private readonly Dictionary<string, CheckedFunction> _functions = new(StringComparer.Ordinal);
     private readonly List<(string Label, string Symbol)> _words = [];
+    private readonly Dictionary<string, string> _strings = new(StringComparer.Ordinal);
+    private readonly Stack<(string Break, string Continue)> _loopLabels = new();
     private IReadOnlyDictionary<Ast.Node, int> _lines = new Dictionary<Ast.Node, int>();
     private string? _file;
     private int _addrs;
@@ -30,6 +34,8 @@ public sealed class Codegen
     private int _maxTemp = -1;
     private bool _needMul;
     private bool _needDiv;
+    private bool _needMul16;
+    private bool _needDiv16;
     private string _prefix = string.Empty;
     private IReadOnlyDictionary<Ast.Expr, CType> _types =
         new Dictionary<Ast.Expr, CType>(ReferenceEqualityComparer.Instance);
@@ -75,6 +81,20 @@ public sealed class Codegen
 
     private static int ElemSize(CType type) => type.Kind == "uchar" ? 1 : 2;
 
+    /// <summary>Komórki wejściowe parametru <paramref name="i"/>: 1. w <c>cc_arg1</c>(+<c>_h</c>),
+    /// 2. bajtowy przy 1. bajtowym w <c>cc_arg1_h</c> (rejestr X), reszta w <c>cc_arg{i+1}</c>.</summary>
+    private static (string Lo, string? Hi) ArgCells(IReadOnlyList<TypedSymbol> ps, int i)
+    {
+        bool wide = IsWide(ps[i].Type);
+        if (i == 1 && !IsWide(ps[0].Type) && !wide)
+        {
+            return ("cc_arg1_h", null);
+        }
+
+        string lo = $"cc_arg{i + 1}";
+        return (lo, wide ? $"{lo}_h" : null);
+    }
+
     private static byte[]? InitBytes(TypedSymbol symbol)
     {
         if (symbol.Init is null)
@@ -118,8 +138,12 @@ public sealed class Codegen
 
             _code.AppendLine(".extern cc_arg1");
             _code.AppendLine(".extern cc_arg1_h");
-            _code.AppendLine(".extern cc_arg2");
-            _code.AppendLine(".extern cc_arg2_h");
+            for (int arg = 2; arg <= TypeChecker.MaxArgs; arg++)
+            {
+                _code.AppendLine($".extern cc_arg{arg}");
+                _code.AppendLine($".extern cc_arg{arg}_h");
+            }
+
             _code.AppendLine(".extern cc_ret");
             _code.AppendLine(".extern cc_ret_h");
         }
@@ -140,6 +164,16 @@ public sealed class Codegen
         if (_needDiv)
         {
             EmitDiv();
+        }
+
+        if (_needMul16)
+        {
+            EmitMul16();
+        }
+
+        if (_needDiv16)
+        {
+            EmitDiv16();
         }
 
         var data = new StringBuilder();
@@ -167,6 +201,12 @@ public sealed class Codegen
                 data.Append(name).Append(": .byte ");
                 data.AppendLine(string.Join(", ", init.Select(static b => b.ToString())));
             }
+        }
+
+        foreach ((string text, string strLabel) in _strings)
+        {
+            byte[] bytes = [.. text.Select(static ch => ch <= byte.MaxValue ? (byte)ch : throw new CCodegenException("string char above 255.")), 0];
+            data.AppendLine($"{strLabel}: .byte {string.Join(", ", bytes)}");
         }
 
         foreach ((string label, string symbol) in _words)
@@ -334,32 +374,13 @@ public sealed class Codegen
         for (int i = 0; i < function.Params.Count; i++)
         {
             Cell cell = _cells[function.Params[i].Name];
-            if (IsWide(function.Params[i].Type))
+            (string lo, string? hi) = ArgCells(function.Params, i);
+            _code.AppendLine($"LDA {lo}");
+            _code.AppendLine($"STA {cell.Lo}");
+            if (hi is not null)
             {
-                if (i == 0)
-                {
-                    _code.AppendLine("LDA cc_arg1");
-                    _code.AppendLine($"STA {cell.Lo}");
-                    _code.AppendLine("LDA cc_arg1_h");
-                    _code.AppendLine($"STA {cell.Lo}_h");
-                }
-                else
-                {
-                    _code.AppendLine("LDA cc_arg2");
-                    _code.AppendLine($"STA {cell.Lo}");
-                    _code.AppendLine("LDA cc_arg2_h");
-                    _code.AppendLine($"STA {cell.Lo}_h");
-                }
-            }
-            else if (i == 0)
-            {
-                _code.AppendLine("LDA cc_arg1");
-                _code.AppendLine($"STA {cell.Lo}");
-            }
-            else
-            {
-                _code.AppendLine("LDA cc_arg1_h");
-                _code.AppendLine($"STA {cell.Lo}");
+                _code.AppendLine($"LDA {hi}");
+                _code.AppendLine($"STA {cell.Lo}_h");
             }
         }
     }
@@ -411,6 +432,12 @@ public sealed class Codegen
             case Ast.Return ret:
                 EmitReturn(ret);
                 break;
+            case Ast.Break:
+                _code.AppendLine($"JMP {_loopLabels.Peek().Break}");
+                break;
+            case Ast.Continue:
+                _code.AppendLine($"JMP {_loopLabels.Peek().Continue}");
+                break;
             case Ast.ExprStmt exprStmt:
                 Eval(exprStmt.Value, 0);
                 break;
@@ -459,7 +486,9 @@ public sealed class Codegen
         string done = Label("wend");
         _code.AppendLine($"{loop}:");
         JumpIfFalse(whileStmt.Cond, done, 0);
+        _loopLabels.Push((done, loop));
         EmitStmt(whileStmt.Body);
+        _loopLabels.Pop();
         _code.AppendLine($"JMP {loop}");
         _code.AppendLine($"{done}:");
     }
@@ -479,7 +508,11 @@ public sealed class Codegen
             JumpIfFalse(forStmt.Cond, done, 0);
         }
 
+        string step = Label("fstep");
+        _loopLabels.Push((done, step));
         EmitStmt(forStmt.Body);
+        _loopLabels.Pop();
+        _code.AppendLine($"{step}:");
         if (forStmt.Step is not null)
         {
             Eval(forStmt.Step, 0);
@@ -943,8 +976,28 @@ public sealed class Codegen
             case Ast.Unary { Op: "!" }:
                 EmitCompareValueTo(expr, depth, lo, hi);
                 break;
+            case Ast.Str str:
+                EmitAddressOf(StringLabel(str.Value), lo, hi);
+                break;
+            case Ast.Binary binary when !IsWideKind(binary):
+                // dwa uchary: wynik 8-bit, rozszerzony zerem
+                Eval(binary, depth + 1);
+                _code.AppendLine($"STA {lo}");
+                _code.AppendLine("LDX 0");
+                _code.AppendLine("TXA");
+                _code.AppendLine($"STA {hi}");
+                break;
+            case Ast.Binary { Op: "&" or "|" or "^" } binary:
+                EmitIntBitwise(binary, depth, lo, hi);
+                break;
+            case Ast.Binary { Op: "<<" or ">>" } binary:
+                EmitIntShift(binary, depth, lo, hi);
+                break;
+            case Ast.Binary { Op: "*" or "/" or "%" } binary:
+                EmitIntMulDiv(binary, depth, lo, hi);
+                break;
             case Ast.Binary binary:
-                throw new CCodegenException($"int operator '{binary.Op}' needs 16-bit helpers (plan 20).");
+                throw new CCodegenException($"int operator '{binary.Op}' is not supported.");
             case Ast.Unary unary:
                 EmitIntNegate(unary, depth, lo, hi);
                 break;
@@ -1013,6 +1066,122 @@ public sealed class Codegen
         _code.AppendLine($"{patchHi}: SUB 0");
         _code.AppendLine($"STA {hi}");
         MaskUchar(binary, hi);
+    }
+
+    private string StringLabel(string value)
+    {
+        if (!_strings.TryGetValue(value, out string? label))
+        {
+            label = $"{_prefix}__str{_strings.Count}";
+            _strings[value] = label;
+        }
+
+        return label;
+    }
+
+    private void EmitIntBitwise(Ast.Binary binary, int depth, string lo, string hi)
+    {
+        EvalInt(binary.Left, depth + 1, out string leftLo, out string leftHi);
+        EvalInt(binary.Right, depth + 2, out string rightLo, out string rightHi);
+        string op = binary.Op switch { "&" => "AND", "|" => "ORA", _ => "EOR" };
+        _code.AppendLine("LDX 0");
+        _code.AppendLine($"LDA {leftLo}");
+        _code.AppendLine($"{op} {rightLo},X");
+        _code.AppendLine($"STA {lo}");
+        _code.AppendLine($"LDA {leftHi}");
+        _code.AppendLine($"{op} {rightHi},X");
+        _code.AppendLine($"STA {hi}");
+    }
+
+    /// <summary>Przesunięcie 16-bit (logiczne: int porównuje się jak bez znaku).</summary>
+    private void EmitIntShift(Ast.Binary binary, int depth, string lo, string hi)
+    {
+        EvalInt(binary.Left, depth + 1, out string valueLo, out string valueHi);
+        _code.AppendLine($"LDA {valueLo}");
+        _code.AppendLine($"STA {lo}");
+        _code.AppendLine($"LDA {valueHi}");
+        _code.AppendLine($"STA {hi}");
+        string count = Temp(depth + 1, hi: false);
+        Eval(binary.Right, depth + 2);
+        _code.AppendLine($"STA {count}");
+        string loop = Label("wsh");
+        string done = Label("wshd");
+        _code.AppendLine($"{loop}:");
+        _code.AppendLine($"LDA {count}");
+        _code.AppendLine("CPA 0");
+        _code.AppendLine($"BEQ {done}");
+        if (binary.Op == "<<")
+        {
+            _code.AppendLine("LDX 0");
+            _code.AppendLine($"LDA {lo}");
+            _code.AppendLine($"ADD {lo},X");
+            _code.AppendLine($"STA {lo}");
+            _code.AppendLine($"LDA {hi}");
+            _code.AppendLine($"ADC {hi},X");
+            _code.AppendLine($"STA {hi}");
+        }
+        else
+        {
+            string carry = Label("wshc");
+            string next = Label("wshn");
+            _code.AppendLine($"LDA {hi}");
+            _code.AppendLine("SHR");
+            _code.AppendLine($"STA {hi}");
+            _code.AppendLine($"BCS {carry}");
+            _code.AppendLine($"LDA {lo}");
+            _code.AppendLine("SHR");
+            _code.AppendLine($"STA {lo}");
+            _code.AppendLine($"JMP {next}");
+            _code.AppendLine($"{carry}:");
+            _code.AppendLine($"LDA {lo}");
+            _code.AppendLine("SHR");
+            _code.AppendLine("ADD 128");
+            _code.AppendLine($"STA {lo}");
+            _code.AppendLine($"{next}:");
+        }
+
+        _code.AppendLine($"LDA {count}");
+        _code.AppendLine("SUB 1");
+        _code.AppendLine($"STA {count}");
+        _code.AppendLine($"JMP {loop}");
+        _code.AppendLine($"{done}:");
+    }
+
+    private void EmitIntMulDiv(Ast.Binary binary, int depth, string lo, string hi)
+    {
+        EvalInt(binary.Left, depth + 1, out string leftLo, out string leftHi);
+        EvalInt(binary.Right, depth + 2, out string rightLo, out string rightHi);
+        _code.AppendLine($"LDA {leftLo}");
+        _code.AppendLine("STA cc_w_a");
+        _code.AppendLine($"LDA {leftHi}");
+        _code.AppendLine("STA cc_w_a_h");
+        _code.AppendLine($"LDA {rightLo}");
+        _code.AppendLine("STA cc_w_b");
+        _code.AppendLine($"LDA {rightHi}");
+        _code.AppendLine("STA cc_w_b_h");
+        if (binary.Op == "*")
+        {
+            _needMul16 = true;
+            _code.AppendLine("CALL cc_mul16");
+        }
+        else
+        {
+            _needDiv16 = true;
+            _code.AppendLine("CALL cc_div16");
+        }
+
+        if (binary.Op == "%")
+        {
+            _code.AppendLine("LDA cc_w_r");
+            _code.AppendLine($"STA {lo}");
+            _code.AppendLine("LDA cc_w_r_h");
+            _code.AppendLine($"STA {hi}");
+            return;
+        }
+
+        _code.AppendLine($"STA {lo}");
+        _code.AppendLine("TXA");
+        _code.AppendLine($"STA {hi}");
     }
 
     /// <summary>Maska uchar: operacja na dwóch ucharach daje uchar (jak w checkerze),
@@ -1370,54 +1539,64 @@ public sealed class Codegen
             throw new CCodegenException($"undefined function '{call.Name}'.");
         }
 
-        if (call.Args.Count > 2)
+        if (call.Args.Count > TypeChecker.MaxArgs)
         {
-            throw new CCodegenException($"'{call.Name}' takes at most 2 arguments (A, X).");
+            throw new CCodegenException($"'{call.Name}' takes at most {TypeChecker.MaxArgs} arguments.");
         }
 
-        bool secondInt = call.Args.Count == 2 && target.Params.Count > 1 && IsWide(target.Params[1].Type);
-        bool firstInt = call.Args.Count >= 1 && target.Params.Count > 0 && IsWide(target.Params[0].Type);
-        if (call.Args.Count == 2 && secondInt)
+        // Argumenty od ostatniego, każdy w swojej parze temp (głębiej niż poprzedni),
+        // żeby zagnieżdżone wywołania nie nadpisały wyników; kopiowanie do komórek
+        // wejściowych dopiero tuż przed CALL.
+        int count = call.Args.Count;
+        var places = new (string Lo, string Hi)[count];
+        for (int i = count - 1; i >= 0; i--)
         {
-            EvalInt(call.Args[1], depth + 1, out _, out _);
-        }
-        else if (call.Args.Count == 2)
-        {
-            Eval(call.Args[1], depth + 1);
-            _code.AppendLine($"STA {Temp(depth + 1, hi: false)}");
-        }
-
-        string firstSpill = Temp(depth + 3, hi: false);
-        if (call.Args.Count >= 1)
-        {
-            if (firstInt)
+            int at = depth + 1 + (count - 1 - i);
+            if (IsWide(target.Params[i].Type))
             {
-                EvalInt(call.Args[0], depth + 2, out string lo, out _);
-                firstSpill = lo;
+                EvalInt(call.Args[i], at, out string lo, out string hi);
+                places[i] = (lo, hi);
             }
             else
             {
-                Eval(call.Args[0], depth + 2);
-                _code.AppendLine($"STA {firstSpill}");
+                Eval(call.Args[i], at);
+                string spill = Temp(at, hi: false);
+                _code.AppendLine($"STA {spill}");
+                places[i] = (spill, spill);
             }
         }
 
-        if (secondInt)
+        for (int i = 1; i < count; i++)
         {
-            _code.AppendLine($"LDA {Temp(depth + 1, hi: false)}");
-            _code.AppendLine("STA cc_arg2");
-            _code.AppendLine($"LDA {Temp(depth + 1, hi: true)}");
-            _code.AppendLine("STA cc_arg2_h");
+            (string cellLo, string? cellHi) = ArgCells(target.Params, i);
+            if (cellLo == "cc_arg1_h")
+            {
+                continue;
+            }
+
+            _code.AppendLine($"LDA {places[i].Lo}");
+            _code.AppendLine($"STA {cellLo}");
+            if (cellHi is not null)
+            {
+                _code.AppendLine($"LDA {places[i].Hi}");
+                _code.AppendLine($"STA {cellHi}");
+            }
         }
-        else if (call.Args.Count == 2)
+
+        if (count >= 1 && IsWide(target.Params[0].Type))
         {
-            _code.AppendLine($"LDA {Temp(depth + 1, hi: false)}");
+            _code.AppendLine($"LDA {places[0].Hi}");
+            _code.AppendLine("TAX");
+        }
+        else if (count >= 2 && ArgCells(target.Params, 1).Lo == "cc_arg1_h")
+        {
+            _code.AppendLine($"LDA {places[1].Lo}");
             _code.AppendLine("TAX");
         }
 
-        if (call.Args.Count >= 1)
+        if (count >= 1)
         {
-            _code.AppendLine($"LDA {firstSpill}");
+            _code.AppendLine($"LDA {places[0].Lo}");
         }
 
         _code.AppendLine($"CALL {call.Name}");
@@ -1630,6 +1809,133 @@ public sealed class Codegen
         DataCell("cc_m_acc", CType.UChar);
         DataCell("cc_m_a", CType.UChar);
         DataCell("cc_m_b", CType.UChar);
+    }
+
+    private void WideCells()
+    {
+        foreach (string cell in new[] { "cc_w_a", "cc_w_a_h", "cc_w_b", "cc_w_b_h", "cc_w_r", "cc_w_r_h", "cc_w_n" })
+        {
+            DataCell(cell, CType.UChar);
+        }
+    }
+
+    /// <summary>a*b mod 2^16 (wejście: cc_w_a/b, wynik A=lo, X=hi): 16 kroków, res=2res, gdy bit 15 b: res+=a.</summary>
+    private void EmitMul16()
+    {
+        WideCells();
+        _code.AppendLine(".proc cc_mul16");
+        _code.AppendLine("LDX 0");
+        _code.AppendLine("LDI 0");
+        _code.AppendLine("STA cc_w_r");
+        _code.AppendLine("STA cc_w_r_h");
+        _code.AppendLine("LDI 16");
+        _code.AppendLine("STA cc_w_n");
+        _code.AppendLine("cc_m16_loop: LDA cc_w_r");
+        _code.AppendLine("ADD cc_w_r,X");
+        _code.AppendLine("STA cc_w_r");
+        _code.AppendLine("LDA cc_w_r_h");
+        _code.AppendLine("ADC cc_w_r_h,X");
+        _code.AppendLine("STA cc_w_r_h");
+        _code.AppendLine("LDA cc_w_b");
+        _code.AppendLine("ADD cc_w_b,X");
+        _code.AppendLine("STA cc_w_b");
+        _code.AppendLine("LDA cc_w_b_h");
+        _code.AppendLine("ADC cc_w_b_h,X");
+        _code.AppendLine("STA cc_w_b_h");
+        _code.AppendLine("BCC cc_m16_skip");
+        _code.AppendLine("LDA cc_w_r");
+        _code.AppendLine("ADD cc_w_a,X");
+        _code.AppendLine("STA cc_w_r");
+        _code.AppendLine("LDA cc_w_r_h");
+        _code.AppendLine("ADC cc_w_a_h,X");
+        _code.AppendLine("STA cc_w_r_h");
+        _code.AppendLine("cc_m16_skip: LDA cc_w_n");
+        _code.AppendLine("SUB 1");
+        _code.AppendLine("STA cc_w_n");
+        _code.AppendLine("BNE cc_m16_loop");
+        _code.AppendLine("LDA cc_w_r_h");
+        _code.AppendLine("TAX");
+        _code.AppendLine("LDA cc_w_r");
+        _code.AppendLine("RET");
+        _code.AppendLine(".endproc");
+    }
+
+    /// <summary>a/b bez znaku (wejście: cc_w_a/b, iloraz A=lo, X=hi, reszta cc_w_r); b=0 daje 0/0.
+    /// Dzielenie pisemne: a jest zarazem ilorazem (bit 0 zwalnia się po przesunięciu).</summary>
+    private void EmitDiv16()
+    {
+        WideCells();
+        _code.AppendLine(".proc cc_div16");
+        _code.AppendLine("LDX 0");
+        _code.AppendLine("LDI 0");
+        _code.AppendLine("STA cc_w_r");
+        _code.AppendLine("STA cc_w_r_h");
+        _code.AppendLine("LDA cc_w_b");
+        _code.AppendLine("ORA cc_w_b_h,X");
+        _code.AppendLine("BEQ cc_d16_zero");
+        _code.AppendLine("LDI 16");
+        _code.AppendLine("STA cc_w_n");
+        _code.AppendLine("cc_d16_loop: LDA cc_w_a");
+        _code.AppendLine("ADD cc_w_a,X");
+        _code.AppendLine("STA cc_w_a");
+        _code.AppendLine("LDA cc_w_a_h");
+        _code.AppendLine("ADC cc_w_a_h,X");
+        _code.AppendLine("STA cc_w_a_h");
+        _code.AppendLine("LDA cc_w_r");
+        _code.AppendLine("ADC cc_w_r,X");
+        _code.AppendLine("STA cc_w_r");
+        _code.AppendLine("LDA cc_w_r_h");
+        _code.AppendLine("ADC cc_w_r_h,X");
+        _code.AppendLine("STA cc_w_r_h");
+        _code.AppendLine("BCS cc_d16_sub");
+        EmitIntCompare(">=", "cc_w_r", "cc_w_r_h", "cc_w_b", "cc_w_b_h", "cc_d16_next");
+        _code.AppendLine("cc_d16_sub: NOP");
+        EmitSub16("cc_w_r", "cc_w_r_h", "cc_w_b", "cc_w_b_h");
+        _code.AppendLine("LDA cc_w_a");
+        _code.AppendLine("INC");
+        _code.AppendLine("STA cc_w_a");
+        _code.AppendLine("cc_d16_next: LDA cc_w_n");
+        _code.AppendLine("SUB 1");
+        _code.AppendLine("STA cc_w_n");
+        _code.AppendLine("BNE cc_d16_loop");
+        _code.AppendLine("LDA cc_w_a_h");
+        _code.AppendLine("TAX");
+        _code.AppendLine("LDA cc_w_a");
+        _code.AppendLine("RET");
+        _code.AppendLine("cc_d16_zero: LDI 0");
+        _code.AppendLine("TAX");
+        _code.AppendLine("RET");
+        _code.AppendLine(".endproc");
+    }
+
+    /// <summary>a -= b (16-bit, w miejscu; pożyczka z młodszego bajtu bez mutowania b).</summary>
+    private void EmitSub16(string aLo, string aHi, string bLo, string bHi)
+    {
+        string p1 = Label("s16");
+        string p2 = Label("s16");
+        string p3 = Label("s16");
+        string noBorrow = Label("s16nb");
+        string end = Label("s16e");
+        _code.AppendLine($"LDA {bLo}");
+        _code.AppendLine($"STA {p1}+1");
+        _code.AppendLine($"LDA {aLo}");
+        _code.AppendLine($"{p1}: SUB 0");
+        _code.AppendLine($"STA {aLo}");
+        _code.AppendLine($"BCS {noBorrow}");
+        _code.AppendLine($"LDA {bHi}");
+        _code.AppendLine($"STA {p2}+1");
+        _code.AppendLine($"LDA {aHi}");
+        _code.AppendLine($"{p2}: SUB 0");
+        _code.AppendLine("SUB 1");
+        _code.AppendLine($"STA {aHi}");
+        _code.AppendLine($"JMP {end}");
+        _code.AppendLine($"{noBorrow}:");
+        _code.AppendLine($"LDA {bHi}");
+        _code.AppendLine($"STA {p3}+1");
+        _code.AppendLine($"LDA {aHi}");
+        _code.AppendLine($"{p3}: SUB 0");
+        _code.AppendLine($"STA {aHi}");
+        _code.AppendLine($"{end}:");
     }
 
     private void EmitDiv()

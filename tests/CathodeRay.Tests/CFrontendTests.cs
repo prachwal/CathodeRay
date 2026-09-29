@@ -35,7 +35,8 @@ public sealed class CFrontendTests
     [Theory]
     [InlineData("@", 1, 1)]
     [InlineData("/* nope", 1, 1)]
-    [InlineData("'a'", 1, 1)]
+    [InlineData("'ab'", 1, 1)]
+    [InlineData("\"open", 1, 1)]
     public void Lexer_Rejects_With_Position(string source, int line, int col)
     {
         FluentActions.Invoking(() => Lexer.Tokenize(source))

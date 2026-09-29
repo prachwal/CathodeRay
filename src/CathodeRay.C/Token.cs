@@ -12,7 +12,10 @@ public enum TokenKind
     /// <summary>Literał liczbowy (dziesiętny, <c>0x</c> hex).</summary>
     Number,
 
-    /// <summary>Słowo kluczowe (<c>uchar/int/void/if/else/while/for/return</c>).</summary>
+    /// <summary>Literał napisowy (tekst już po rozwinięciu sekwencji <c>\</c>).</summary>
+    String,
+
+    /// <summary>Słowo kluczowe (<c>uchar/int/void/if/else/while/for/return/break/continue</c>).</summary>
     Keyword,
 
     /// <summary>Operator lub znak przestankowy.</summary>

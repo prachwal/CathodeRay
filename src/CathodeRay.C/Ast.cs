@@ -70,11 +70,21 @@ public static class Ast
     /// <param name="Value">Wyrażenie.</param>
     public sealed record ExprStmt(Expr Value) : Stmt;
 
+    /// <summary>Instrukcja <c>break</c> (wyjście z najbliższej pętli).</summary>
+    public sealed record Break : Stmt;
+
+    /// <summary>Instrukcja <c>continue</c> (następna iteracja najbliższej pętli).</summary>
+    public sealed record Continue : Stmt;
+
     /// <summary>Pusta instrukcja <c>;</c> (bez kodu).</summary>
     public sealed record Nop : Stmt;
 
     /// <summary>Wspólny korzeń wyrażeń.</summary>
     public abstract record Expr : Node;
+
+    /// <summary>Literał napisowy: <c>uchar*</c> na bajty zakończone zerem.</summary>
+    /// <param name="Value">Znaki (po rozwinięciu sekwencji <c>\</c>).</param>
+    public sealed record Str(string Value) : Expr;
 
     /// <summary>Literał liczbowy (tekst źródłowy, wartość liczy codegen).</summary>
     /// <param name="Text">Tekst literału.</param>

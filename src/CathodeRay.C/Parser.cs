@@ -6,6 +6,7 @@ public sealed class Parser
 {
     private readonly IReadOnlyList<Token> _tokens;
     private readonly Dictionary<Ast.Node, int> _lines = new(ReferenceEqualityComparer.Instance);
+    private readonly Dictionary<Ast.Expr, Ast.Expr> _postfix = new(ReferenceEqualityComparer.Instance);
     private int _pos;
 
     private Parser(IReadOnlyList<Token> tokens) => _tokens = tokens;
@@ -193,6 +194,13 @@ public sealed class Parser
             return For();
         }
 
+        if (token is { Kind: TokenKind.Keyword, Text: "break" or "continue" })
+        {
+            Next();
+            Expect(";");
+            return token.Text == "break" ? At(token.Line, new Ast.Break()) : At(token.Line, new Ast.Continue());
+        }
+
         if (token is { Kind: TokenKind.Keyword, Text: "return" })
         {
             Next();
@@ -217,7 +225,7 @@ public sealed class Parser
             return Decl();
         }
 
-        Ast.Expr value = Expression();
+        Ast.Expr value = Discard(Expression());
         Expect(";");
         return At(token.Line, new Ast.ExprStmt(value));
     }
@@ -244,10 +252,14 @@ public sealed class Parser
         Token keyword = Next();
         Expect("(");
         Ast.Stmt? init = Peek() is { Kind: TokenKind.Punct, Text: ";" } ? null : ForInit();
-        Expect(";");
+        if (init is not Ast.Decl)
+        {
+            Expect(";");
+        }
+
         Ast.Expr? cond = Peek() is { Kind: TokenKind.Punct, Text: ";" } ? null : Expression();
         Expect(";");
-        Ast.Expr? step = Peek() is { Kind: TokenKind.Punct, Text: ")" } ? null : Expression();
+        Ast.Expr? step = Peek() is { Kind: TokenKind.Punct, Text: ")" } ? null : Discard(Expression());
         Expect(")");
         return At(keyword.Line, new Ast.For(init, cond, step, Statement()));
     }
@@ -255,7 +267,7 @@ public sealed class Parser
     private Ast.Stmt ForInit()
     {
         Token first = Peek();
-        return IsType(first) ? Decl() : At(first.Line, new Ast.ExprStmt(Expression()));
+        return IsType(first) ? Decl() : At(first.Line, new Ast.ExprStmt(Discard(Expression())));
     }
 
     private Ast.Decl Decl()
@@ -381,6 +393,12 @@ public sealed class Parser
     private Ast.Expr Unary()
     {
         Token token = Peek();
+        if (token is { Kind: TokenKind.Punct } && token.Text is "++" or "--")
+        {
+            Next();
+            return Step(Unary(), token, token.Text[0].ToString());
+        }
+
         if (token is { Kind: TokenKind.Punct } && token.Text is "-" or "~" or "!")
         {
             Next();
@@ -413,7 +431,33 @@ public sealed class Parser
             baseValue = new Ast.Index(baseValue, index);
         }
 
+        while (Peek() is { Kind: TokenKind.Punct, Text: "++" or "--" } op)
+        {
+            Next();
+            Ast.Expr updated = Step(baseValue, op, op.Text[0].ToString());
+            string undo = op.Text[0] == '+' ? "-" : "+";
+            Ast.Expr old = new Ast.Binary(undo, updated, new Ast.Number("1"));
+            _postfix[old] = updated;
+            baseValue = old;
+        }
+
         return baseValue;
+    }
+
+    /// <summary>Wartość <c>x++</c> to <c>(x = x + 1) - 1</c> (poprawna też dla uchar/wskaźników);
+    /// w pozycji instrukcji (wartość odrzucona) zostaje samo przypisanie.</summary>
+    private Ast.Expr Discard(Ast.Expr expr) =>
+        _postfix.TryGetValue(expr, out Ast.Expr? update) ? update : expr;
+
+    private Ast.Expr Step(Ast.Expr target, Token op, string sign)
+    {
+        var one = new Ast.Number("1");
+        return target switch
+        {
+            Ast.Var variable => new Ast.Assign(variable.Name, new Ast.Binary(sign, target, one)),
+            Ast.Deref or Ast.Index => new Ast.AssignTo(target, new Ast.Binary(sign, target, one)),
+            _ => throw new CParseException(op.Line, op.Column, $"'{op.Text}' needs a variable."),
+        };
     }
 
     private Ast.Expr Primary()
@@ -423,6 +467,12 @@ public sealed class Parser
         {
             Next();
             return new Ast.Number(token.Text);
+        }
+
+        if (token.Kind == TokenKind.String)
+        {
+            Next();
+            return new Ast.Str(token.Text);
         }
 
         if (token.Kind == TokenKind.Ident)
