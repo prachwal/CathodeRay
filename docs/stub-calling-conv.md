@@ -249,3 +249,13 @@ liczbę parametrów (`printf(fmt, a1..a5)`), więc `...` można tylko deklarowa�
 - Procedury mnożenia i dzielenia stuba to moduły biblioteki (`stdlib/stub/rt_mul8.s`, `rt_div8.s`, `rt16.s`), linkowane
   przez `cc` na żądanie (nierozwiązane `cc_mul8`, `cc_divmod`, `cc_mul16`, `cc_div16`, `cc_sdiv16`; komórki argumentów
   `cc_w_*` eksportuje `rt16.s`). Gdy moduł jest całym programem (bez linkera), selektor dołącza użyte moduły do wyjścia.
+
+## Linker, runner i interpreter 6502 (plan 30, kroki 7–9)
+
+- Linker: kolejność bajtów `Abs16` wynika z CPU obiektu (6800 big-endian); relokacje `Lo8`/`Hi8` obsługują `#<sym` i `#>sym`.
+- Testy: `TargetHarness` składa `Crt0 + Emit`, asembluje z początkami segmentów z `Layout`, ładuje przez `ICpuRunner`
+  (`Runners`: stub, 6502) i czyta wynik `main` z `cc_ret`/`cc_ret_h`. `IrConformanceTests` liczy każdą operację IR
+  (szerokość × wartości brzegowe, operandy Imm i Cell, wszystkie warunki `BrCmp`) na interpreterze IR i na każdym celu
+  z `Runners` — wyniki muszą być bajt w bajt równe.
+- `Mos6502` (tests/) to minimalny interpreter NMOS 6502 z tablicami z `mcp_6502_instructions.json`; opcody
+  nieudokumentowane, BRK i tryb dziesiętny rzucają wyjątek; stop na KIL lub skoku do samego siebie.

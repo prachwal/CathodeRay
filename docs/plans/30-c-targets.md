@@ -15,9 +15,9 @@ Rozmiar: S = <1 h, M = kilka h, L = dzień+. Kolejność: A -> B -> C -> D. Krok
 
 ## B. Linker i infrastruktura testowa
 
-- [ ] **7.** [M] Linker: kolejność bajtów Abs16 z CPU obiektu (6800 big-endian), nowe RelocKind.Lo8/Hi8 dla #<sym i #>sym (zamiast ukrytych komórek .word), testy jednostkowe z obiektami 6800
-- [ ] **8.** [M] Runner niezależny od CPU: crt0 zapisuje wynik main w cc_ret/cc_ret_h przed zatrzymaniem, CcRun.Run(źródło, cpu) z IRunner (load/step/halted) per CPU, macierz testów: cały zestaw na stub i IR, wybrany podzbiór różnicowy na pozostałych celach (wynik i konsola równe stubowi), testy zgodności operacji IR (op x szerokość x wartości brzegowe 0, 1, 0x7FFF, 0x8000, 0xFFFF, granice przeniesienia, porównania ze znakiem)
-- [ ] **9.** [M] Interpreter 6502 w tests/ (tylko używane opkody, wyjątek na resztę, tablice dekodowania i cykle z JSON ISA) + testy pojedynczych instrukcji z ręcznie policzonymi flagami; spike: ręczny int main(){return 40+2;} przechodzi przez runner
+- [x] **7.** [M] Linker: kolejność bajtów Abs16 z CPU obiektu (6800 big-endian), nowe RelocKind.Lo8/Hi8 dla #<sym i #>sym (zamiast ukrytych komórek .word), testy jednostkowe z obiektami 6800
+- [x] **8.** [M] Runner niezależny od CPU: crt0 zapisuje wynik main w cc_ret/cc_ret_h przed zatrzymaniem, CcRun.Run(źródło, cpu) z IRunner (load/step/halted) per CPU, macierz testów: cały zestaw na stub i IR, wybrany podzbiór różnicowy na pozostałych celach (wynik i konsola równe stubowi), testy zgodności operacji IR (op x szerokość x wartości brzegowe 0, 1, 0x7FFF, 0x8000, 0xFFFF, granice przeniesienia, porównania ze znakiem)
+- [x] **9.** [M] Interpreter 6502 w tests/ (tylko używane opkody, wyjątek na resztę, tablice dekodowania i cykle z JSON ISA) + testy pojedynczych instrukcji z ręcznie policzonymi flagami; spike: ręczny int main(){return 40+2;} przechodzi przez runner
 
 ## C. Cele
 
@@ -36,4 +36,4 @@ Rozmiar: S = <1 h, M = kilka h, L = dzień+. Kolejność: A -> B -> C -> D. Krok
 - [ ] **19.** [S] union, operator przecinka, konkatenacja napisów, \xHH, # i ## w makrach, enum z sizeof(struct)
 - [ ] **20.** [S] Testy e2e per pozycja, samples/minic/17_casts.c, 18_voidptr.c, 19_matrix.c, 20_long.c, tabela rozmiar/cykle per cel (golden tylko dla rozmiaru, nie dla poprawności), docs/targets.md (jak dodać CPU), docs/minic.md, hygiene
 
-Postęp: 6/20 gotowych.
+Postęp: 9/20 gotowych.

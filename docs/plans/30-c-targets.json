@@ -41,19 +41,19 @@
     {
       "id": "7",
       "title": "[M] Linker: kolejność bajtów Abs16 z CPU obiektu (6800 big-endian), nowe RelocKind.Lo8/Hi8 dla #<sym i #>sym (zamiast ukrytych komórek .word), testy jednostkowe z obiektami 6800",
-      "status": "todo",
+      "status": "done",
       "note": ""
     },
     {
       "id": "8",
       "title": "[M] Runner niezależny od CPU: crt0 zapisuje wynik main w cc_ret/cc_ret_h przed zatrzymaniem, CcRun.Run(źródło, cpu) z IRunner (load/step/halted) per CPU, macierz testów: cały zestaw na stub i IR, wybrany podzbiór różnicowy na pozostałych celach (wynik i konsola równe stubowi), testy zgodności operacji IR (op x szerokość x wartości brzegowe 0, 1, 0x7FFF, 0x8000, 0xFFFF, granice przeniesienia, porównania ze znakiem)",
-      "status": "todo",
+      "status": "done",
       "note": ""
     },
     {
       "id": "9",
       "title": "[M] Interpreter 6502 w tests/ (tylko używane opkody, wyjątek na resztę, tablice dekodowania i cykle z JSON ISA) + testy pojedynczych instrukcji z ręcznie policzonymi flagami; spike: ręczny int main(){return 40+2;} przechodzi przez runner",
-      "status": "todo",
+      "status": "done",
       "note": ""
     },
     {
