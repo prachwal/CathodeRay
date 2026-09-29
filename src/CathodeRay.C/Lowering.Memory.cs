@@ -25,7 +25,7 @@ internal sealed partial class Lowering
                     return (basePointer, (short)position * size);
                 }
 
-                Ir.Op offset = Value(index.Offset, depth + 1);
+                Ir.Op offset = To16(Value(index.Offset, depth + 1), depth + 2);
                 Ir.Op scaled = Scale(offset, size, depth + 1);
                 Ir.Cell sum = Temp(depth, 2);
                 Emit(new Ir.Bin(Ir.BinOp.Add, sum, basePointer, scaled));

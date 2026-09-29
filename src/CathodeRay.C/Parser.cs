@@ -7,7 +7,7 @@ public sealed class Parser
     private readonly IReadOnlyList<Token> _tokens;
     private readonly Dictionary<Ast.Node, int> _lines = new(ReferenceEqualityComparer.Instance);
     private readonly Dictionary<Ast.Expr, Ast.Expr> _postfix = new(ReferenceEqualityComparer.Instance);
-    private readonly Dictionary<string, int> _enums = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, Ast.Expr> _enums = new(StringComparer.Ordinal);
     private readonly Dictionary<string, (string Type, int Stars)> _typedefs = new(StringComparer.Ordinal);
     private readonly List<Ast.StructDef> _structs = [];
     private int _anonymous;
@@ -33,9 +33,14 @@ public sealed class Parser
             return false;
         }
 
-        string text = number.Text;
-        bool hex = text.StartsWith("0x", StringComparison.OrdinalIgnoreCase);
-        return int.TryParse(hex ? text[2..] : text, hex ? System.Globalization.NumberStyles.HexNumber : System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out value);
+        // stałe 32-bitowe nie są składane w 16-bitowej arytmetyce parsera
+        if (!Literal.TryParse(number.Text, out Literal literal) || literal.IsLong)
+        {
+            return false;
+        }
+
+        value = (int)literal.Value;
+        return true;
     }
 
     /// <summary>Składa działania na dwóch stałych (16-bit z zawijaniem): <c>1 &lt;&lt; 15</c>
@@ -66,8 +71,19 @@ public sealed class Parser
             : binary;
     }
 
+    /// <summary>Wyrażenie zbudowane wyłącznie ze stałych, <c>sizeof</c> i operatorów (wartość liczy checker).</summary>
+    private static bool IsConstantShape(Ast.Expr expr) => expr switch
+    {
+        Ast.Number or Ast.SizeOf or Ast.SizeOfType or Ast.SizeOfExpr or Ast.OffsetOf => true,
+        Ast.Unary unary => IsConstantShape(unary.Operand),
+        Ast.Binary binary => IsConstantShape(binary.Left) && IsConstantShape(binary.Right),
+        Ast.Ternary ternary => IsConstantShape(ternary.Cond) && IsConstantShape(ternary.Then) && IsConstantShape(ternary.Else),
+        Ast.Cast cast => IsConstantShape(cast.Value),
+        _ => false,
+    };
+
     private static bool IsBuiltinType(Token token) =>
-        token is { Kind: TokenKind.Keyword } && token.Text is "uchar" or "int" or "uint" or "void" or "struct";
+        token is { Kind: TokenKind.Keyword } && token.Text is "uchar" or "int" or "uint" or "long" or "ulong" or "void" or "struct" or "union";
 
     private bool IsType(Token token) =>
         IsBuiltinType(token) || (token is { Kind: TokenKind.Keyword, Text: "const" }) || (token.Kind == TokenKind.Ident && _typedefs.ContainsKey(token.Text));
@@ -94,12 +110,12 @@ public sealed class Parser
         bool isConst = ConsumeConst();
         Token token = Next();
         (string Type, int Stars) spec;
-        if (token is { Kind: TokenKind.Keyword, Text: "struct" })
+        if (token is { Kind: TokenKind.Keyword, Text: "struct" or "union" })
         {
             string name = Peek().Kind == TokenKind.Ident ? Next().Text : $"__anon{_anonymous++}";
             if (Peek() is { Kind: TokenKind.Punct, Text: "{" })
             {
-                StructBody(name, token.Line);
+                StructBody(name, token.Line, token.Text == "union");
             }
 
             spec = ($"struct {name}", 0);
@@ -127,7 +143,7 @@ public sealed class Parser
         return found;
     }
 
-    private void StructBody(string name, int line)
+    private void StructBody(string name, int line, bool isUnion = false)
     {
         Expect("{");
         var fields = new List<Ast.FieldDecl>();
@@ -171,7 +187,7 @@ public sealed class Parser
             fields.Add(At(at.Line, new Ast.FieldDecl(type, stars, field, length)));
         }
 
-        _structs.Add(At(line, new Ast.StructDef(name, fields)));
+        _structs.Add(At(line, new Ast.StructDef(name, fields, isUnion)));
     }
 
     private void TypedefDecl()
@@ -400,21 +416,24 @@ public sealed class Parser
         }
 
         Expect("{");
-        int next = 0;
+        Ast.Expr next = new Ast.Number("0");
         while (!Take("}"))
         {
             string name = ExpectKind(TokenKind.Ident, "enum constant").Text;
             if (Take("="))
             {
                 Token at = Peek();
-                if (!TryValue(Conditional(), out next))
+                next = Conditional();
+                if (!IsConstantShape(next))
                 {
                     throw new CParseException(at.Line, at.Column, "enum value must be a constant.");
                 }
             }
 
-            _enums[name] = next & 0xFFFF;
-            next++;
+            _enums[name] = next;
+            next = TryValue(next, out int value)
+                ? new Ast.Number(((value + 1) & 0xFFFF).ToString(System.Globalization.CultureInfo.InvariantCulture))
+                : new Ast.Binary("+", next, new Ast.Number("1"));
             if (!Take(","))
             {
                 Expect("}");
@@ -743,7 +762,7 @@ public sealed class Parser
     /// <summary>Wygląda na <c>struct X { … };</c> albo <c>struct X;</c> bez deklarowanej zmiennej.</summary>
     private bool IsStructOnly()
     {
-        if (Peek() is not { Kind: TokenKind.Keyword, Text: "struct" })
+        if (Peek() is not { Kind: TokenKind.Keyword, Text: "struct" or "union" })
         {
             return false;
         }
@@ -811,7 +830,7 @@ public sealed class Parser
         Ast.Expr? init = null;
         if (Take("="))
         {
-            init = length > 0 || unsized || Peek() is { Kind: TokenKind.Punct, Text: "{" } ? ArrayInit() : Expression();
+            init = length > 0 || unsized || Peek() is { Kind: TokenKind.Punct, Text: "{" } ? ArrayInit() : Assignment();
         }
 
         if (unsized)
@@ -831,7 +850,7 @@ public sealed class Parser
     {
         if (!Take("{"))
         {
-            return Expression();
+            return Assignment();
         }
 
         var items = new List<Ast.Expr>();
@@ -923,7 +942,25 @@ public sealed class Parser
         return 1;
     }
 
-    private Ast.Expr Expression() => Assignment();
+    /// <summary>Wyrażenie z operatorem przecinka (najniższy priorytet); argumenty i inicjalizatory używają <see cref="Assignment"/>.</summary>
+    private Ast.Expr Expression()
+    {
+        Ast.Expr left = Assignment();
+        while (Peek() is { Kind: TokenKind.Punct, Text: "," })
+        {
+            Next();
+            Ast.Expr right = Assignment();
+            var comma = new Ast.Comma(Discard(left), right);
+            if (_postfix.TryGetValue(right, out Ast.Expr? update))
+            {
+                _postfix[comma] = new Ast.Comma(comma.Left, update);
+            }
+
+            left = comma;
+        }
+
+        return left;
+    }
 
     private Ast.Expr Assignment()
     {
@@ -1097,7 +1134,7 @@ public sealed class Parser
                 {
                     do
                     {
-                        arguments.Add(Expression());
+                        arguments.Add(Assignment());
                     }
                     while (Take(","));
 
@@ -1168,7 +1205,7 @@ public sealed class Parser
                 string bareType = sizeType.StartsWith("const ", StringComparison.Ordinal) ? sizeType[6..] : sizeType;
                 size = bareType.StartsWith("struct ", StringComparison.Ordinal) && stars == 0
                     ? new Ast.SizeOfType(bareType, stars)
-                    : new Ast.Number(stars > 0 || bareType is "int" or "uint" ? "2" : "1");
+                    : new Ast.Number(stars > 0 || bareType is "int" or "uint" ? "2" : bareType is "long" or "ulong" ? "4" : "1");
             }
             else
             {
@@ -1195,16 +1232,22 @@ public sealed class Parser
             return At(token.Line, new Ast.OffsetOf(structType, structBase, field));
         }
 
-        if (token.Kind == TokenKind.Ident && _enums.TryGetValue(token.Text, out int enumValue) && Peek(1) is not { Kind: TokenKind.Punct, Text: "(" })
+        if (token.Kind == TokenKind.Ident && _enums.TryGetValue(token.Text, out Ast.Expr? enumValue) && Peek(1) is not { Kind: TokenKind.Punct, Text: "(" })
         {
             Next();
-            return new Ast.Number(enumValue.ToString(System.Globalization.CultureInfo.InvariantCulture));
+            return enumValue is Ast.Number enumNumber ? new Ast.Number(enumNumber.Text) : enumValue;
         }
 
         if (token.Kind == TokenKind.String)
         {
             Next();
-            return new Ast.Str(token.Text);
+            string joined = token.Text;
+            while (Peek().Kind == TokenKind.String)
+            {
+                joined += Next().Text;
+            }
+
+            return new Ast.Str(joined);
         }
 
         if (token.Kind == TokenKind.Ident)
@@ -1217,7 +1260,7 @@ public sealed class Parser
                 {
                     do
                     {
-                        args.Add(Expression());
+                        args.Add(Assignment());
                     }
                     while (Take(","));
 

@@ -21,7 +21,7 @@ internal sealed partial class Lowering
     private Ir.Cond ConditionFor(string op, Ast.Expr left, Ast.Expr right)
     {
         bool unsignedCompare = (WidthOf(left) == 1 && WidthOf(right) == 1)
-            || KindOf(left) is "uint" or "ptr" or "fptr" || KindOf(right) is "uint" or "ptr" or "fptr";
+            || KindOf(left) is "uint" or "ulong" or "ptr" or "fptr" || KindOf(right) is "uint" or "ulong" or "ptr" or "fptr";
         return op switch
         {
             "==" => Ir.Cond.Eq,
@@ -93,6 +93,12 @@ internal sealed partial class Lowering
                 }
 
                 Ir.Op right = Value(compare.Right, depth + 1);
+                if (Math.Max(WidthOf(compare.Left), WidthOf(compare.Right)) == 4)
+                {
+                    left = Extend(left, TypeOf(compare.Left), true, depth + 2);
+                    right = Extend(right, TypeOf(compare.Right), true, depth + 3);
+                }
+
                 Ir.Cond cond = ConditionFor(compare.Op, compare.Left, compare.Right);
                 Emit(new Ir.BrCmp(whenTrue ? cond : Invert(cond), left, right, target));
                 return;

@@ -27,7 +27,8 @@ public static class Ast
     /// <summary>Definicja <c>struct Nazwa { pola };</c>.</summary>
     /// <param name="Name">Nazwa struktury (anonimowe dostają nazwę syntetyczną).</param>
     /// <param name="Fields">Pola w kolejności deklaracji.</param>
-    public sealed record StructDef(string Name, IReadOnlyList<FieldDecl> Fields) : Node;
+    /// <param name="IsUnion"><c>union</c>: wszystkie pola pod przesunięciem 0, rozmiar to największe pole.</param>
+    public sealed record StructDef(string Name, IReadOnlyList<FieldDecl> Fields, bool IsUnion = false) : Node;
 
     /// <summary>Definicja funkcji.</summary>
     /// <param name="ReturnType">Typ wyniku.</param>
@@ -216,6 +217,11 @@ public static class Ast
     /// <param name="Stars">Liczba <c>*</c>.</param>
     /// <param name="Value">Rzutowane wyrażenie.</param>
     public sealed record Cast(string Type, int Stars, Expr Value) : Expr;
+
+    /// <summary>Operator przecinka <c>a, b</c>: wartość <c>a</c> jest odrzucana, wynikiem jest <c>b</c>.</summary>
+    /// <param name="Left">Wyrażenie liczone dla skutków ubocznych.</param>
+    /// <param name="Right">Wynik.</param>
+    public sealed record Comma(Expr Left, Expr Right) : Expr;
 
     /// <summary>Przesunięcie pola w strukturze (<c>offsetof(struct S, f)</c>), stała.</summary>
     /// <param name="Type">Nazwa typu strukturalnego.</param>

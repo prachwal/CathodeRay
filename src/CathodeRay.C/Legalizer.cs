@@ -12,6 +12,8 @@ internal sealed class Legalizer
 
     private readonly Ir.Module _module;
 
+    private readonly bool _wide;
+
     private readonly List<Ir.Data> _temps = [];
 
     private readonly HashSet<string> _tempNames = new(StringComparer.Ordinal);
@@ -20,15 +22,21 @@ internal sealed class Legalizer
 
     private int _labels;
 
-    private Legalizer(Ir.Module module) => _module = module;
+    private Legalizer(Ir.Module module, bool wide)
+    {
+        _module = module;
+        _wide = wide;
+    }
 
     /// <summary>Zamienia operacje nieobsługiwane przez CPU na dozwolone.</summary>
     /// <param name="module">Moduł po przebiegach IR.</param>
+    /// <param name="wide"><see langword="true"/>: tylko operacje 32-bitowe (przed <see cref="WideLegalizer"/>); <see langword="false"/>:
+    /// operacje 8- i 16-bitowe oraz bloki (po nim).</param>
     /// <returns>Moduł, w którym selektor bajtowy nie zobaczy operacji poza Mov/Add/Sub/And/Or/Xor/Neg/Cpl/Shl/Shr o stałą/Load/Store/BrCmp/Call/Ret.</returns>
-    public static Ir.Module Run(Ir.Module module)
+    public static Ir.Module Run(Ir.Module module, bool wide = false)
     {
         ArgumentNullException.ThrowIfNull(module);
-        return new Legalizer(module).Apply();
+        return new Legalizer(module, wide).Apply();
     }
 
     private static Ir.Module CompileRuntime()
@@ -142,7 +150,7 @@ internal sealed class Legalizer
         while (pending.Count > 0)
         {
             string name = pending.Dequeue();
-            if (!seen.Add(name) || !library.TryGetValue(name, out Ir.Function? function))
+            if (!seen.Add(name) || !library.TryGetValue(name, out Ir.Function? function) || functions.Any(f => f.Name == name))
             {
                 continue;
             }
@@ -176,31 +184,39 @@ internal sealed class Legalizer
     {
         switch (ins)
         {
-            case Ir.Bin { Kind: Ir.BinOp.Mul } bin:
-                CallBinary("__cc_mul", bin, bin.A, bin.B, output);
+            case Ir.Bin { Kind: Ir.BinOp.Mul } bin when Handles(bin.Dst):
+                CallBinary(_wide ? "__cc_mul32" : "__cc_mul", bin, bin.A, bin.B, output);
                 break;
-            case Ir.Bin { Kind: Ir.BinOp.Div } bin:
-                CallBinary("__cc_divu", bin, bin.A, bin.B, output);
+            case Ir.Bin { Kind: Ir.BinOp.Div } bin when Handles(bin.Dst):
+                CallBinary(_wide ? "__cc_divu32" : "__cc_divu", bin, bin.A, bin.B, output);
                 break;
-            case Ir.Bin { Kind: Ir.BinOp.Mod } bin:
-                CallBinary("__cc_modu", bin, bin.A, bin.B, output);
+            case Ir.Bin { Kind: Ir.BinOp.Mod } bin when Handles(bin.Dst):
+                CallBinary(_wide ? "__cc_modu32" : "__cc_modu", bin, bin.A, bin.B, output);
                 break;
-            case Ir.Bin { Kind: Ir.BinOp.DivS } bin:
-                CallBinary("__cc_divs", bin, SignExtend(bin.A, 0, output), SignExtend(bin.B, 1, output), output);
+            case Ir.Bin { Kind: Ir.BinOp.DivS } bin when Handles(bin.Dst):
+                CallBinary(_wide ? "__cc_divs32" : "__cc_divs", bin, SignExtend(bin.A, 0, output), SignExtend(bin.B, 1, output), output);
                 break;
-            case Ir.Bin { Kind: Ir.BinOp.ModS } bin:
-                CallBinary("__cc_mods", bin, SignExtend(bin.A, 0, output), SignExtend(bin.B, 1, output), output);
+            case Ir.Bin { Kind: Ir.BinOp.ModS } bin when Handles(bin.Dst):
+                CallBinary(_wide ? "__cc_mods32" : "__cc_mods", bin, SignExtend(bin.A, 0, output), SignExtend(bin.B, 1, output), output);
                 break;
-            case Ir.Bin { Kind: Ir.BinOp.Sar } bin:
-                CallShift("__cc_sar", bin, SignExtend(bin.A, 0, output), output);
+            case Ir.Bin { Kind: Ir.BinOp.Sar } bin when Handles(bin.Dst):
+                if (_wide && bin.B is Ir.Imm)
+                {
+                    output.Add(bin with { A = SignExtend(bin.A, 0, output) });
+                }
+                else
+                {
+                    CallShift(_wide ? "__cc_sar32" : "__cc_sar", bin, SignExtend(bin.A, 0, output), output);
+                }
+
                 break;
-            case Ir.Bin { Kind: Ir.BinOp.Shl or Ir.BinOp.Shr } bin when bin.B is not Ir.Imm:
-                CallShift(bin.Kind == Ir.BinOp.Shl ? "__cc_shl" : "__cc_shr", bin, bin.A, output);
+            case Ir.Bin { Kind: Ir.BinOp.Shl or Ir.BinOp.Shr } bin when Handles(bin.Dst) && bin.B is not Ir.Imm:
+                CallShift(bin.Kind == Ir.BinOp.Shl ? (_wide ? "__cc_shl32" : "__cc_shl") : (_wide ? "__cc_shr32" : "__cc_shr"), bin, bin.A, output);
                 break;
-            case Ir.CopyBlock copy:
+            case Ir.CopyBlock copy when !_wide:
                 RewriteCopy(copy, output);
                 break;
-            case Ir.Fill fill:
+            case Ir.Fill fill when !_wide:
                 RewriteFill(fill, output);
                 break;
             default:
@@ -209,11 +225,15 @@ internal sealed class Legalizer
         }
     }
 
+    /// <summary>Czy ta faza zajmuje się operacją o takim wyniku (32-bitowe w fazie szerokiej, pozostałe w wąskiej).</summary>
+    private bool Handles(Ir.Cell dst) => _wide == (dst.W == 4);
+
     private void CallBinary(string name, Ir.Bin bin, Ir.Op a, Ir.Op b, List<Ir.Ins> output)
     {
         _used.Add(name);
-        Ir.Cell result = bin.Dst.W == 2 ? bin.Dst : Temp(2, 2);
-        output.Add(new Ir.Call(name, null, [a, b], [2, 2], result));
+        int width = _wide ? 4 : 2;
+        Ir.Cell result = bin.Dst.W == width ? bin.Dst : Temp(width, 2);
+        output.Add(new Ir.Call(name, null, [a, b], [width, width], result));
         if (result != bin.Dst)
         {
             output.Add(new Ir.Mov(bin.Dst, result));
@@ -223,33 +243,36 @@ internal sealed class Legalizer
     private void CallShift(string name, Ir.Bin bin, Ir.Op value, List<Ir.Ins> output)
     {
         _used.Add(name);
-        Ir.Cell result = bin.Dst.W == 2 ? bin.Dst : Temp(2, 2);
-        output.Add(new Ir.Call(name, null, [value, bin.B], [2, 1], result));
+        int width = _wide ? 4 : 2;
+        Ir.Cell result = bin.Dst.W == width ? bin.Dst : Temp(width, 2);
+        output.Add(new Ir.Call(name, null, [value, bin.B], [width, 1], result));
         if (result != bin.Dst)
         {
             output.Add(new Ir.Mov(bin.Dst, result));
         }
     }
 
-    /// <summary>Operand jako 16-bitowa liczba ze znakiem wg szerokości źródła (bajt: rozszerzenie znakiem).</summary>
+    /// <summary>Operand jako liczba ze znakiem w szerokości fazy (16 albo 32 bity) wg szerokości źródła (bajt, słowo).</summary>
     private Ir.Op SignExtend(Ir.Op op, int slot, List<Ir.Ins> output)
     {
-        if (WidthOf(op) == 2)
+        int target = _wide ? 4 : 2;
+        int source = WidthOf(op);
+        if (source == target)
         {
             return op;
         }
 
         if (op is Ir.Imm imm)
         {
-            int value = imm.Value & 0xFF;
-            return new Ir.Imm(value >= 0x80 ? value | 0xFF00 : value, 2);
+            int value = source == 1 ? (sbyte)imm.Value : (short)imm.Value;
+            return new Ir.Imm(target == 2 ? value & 0xFFFF : value, target);
         }
 
-        Ir.Cell wide = Temp(2, slot);
+        Ir.Cell wide = Temp(target, slot);
         string done = NewLabel();
         output.Add(new Ir.Mov(wide, op));
-        output.Add(new Ir.BrCmp(Ir.Cond.Ltu, op, new Ir.Imm(0x80, 1), done));
-        output.Add(new Ir.Bin(Ir.BinOp.Or, wide, wide, new Ir.Imm(0xFF00, 2)));
+        output.Add(new Ir.BrCmp(Ir.Cond.Ltu, op, new Ir.Imm(source == 1 ? 0x80 : 0x8000, source), done));
+        output.Add(new Ir.Bin(Ir.BinOp.Or, wide, wide, new Ir.Imm(unchecked((int)(source == 1 ? (target == 2 ? 0xFF00u : 0xFFFFFF00u) : 0xFFFF0000u)), target)));
         output.Add(new Ir.Label(done));
         return wide;
     }

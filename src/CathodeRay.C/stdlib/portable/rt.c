@@ -116,3 +116,104 @@ void __cc_fill(uchar *d, uchar v, uint n) {
         n = n - 1;
     }
 }
+
+/* ---- 32 bity: używają tylko dodawania, odejmowania, bitowych i przesunięć o stałą; WideLegalizer rozbija je na połówki 16-bitowe ---- */
+
+ulong __cc_rem32;
+
+ulong __cc_mul32(ulong a, ulong b) {
+    ulong r = 0;
+    while (b) {
+        if (b & 1) {
+            r = r + a;
+        }
+        a = a << 1;
+        b = b >> 1;
+    }
+    return r;
+}
+
+ulong __cc_divu32(ulong a, ulong b) {
+    ulong q = 0;
+    ulong r = 0;
+    uchar i = 32;
+    if (b == 0) {
+        __cc_rem32 = 0;
+        return 0;
+    }
+    while (i) {
+        r = (r << 1) | (a >> 31);
+        a = a << 1;
+        q = q << 1;
+        if (r >= b) {
+            r = r - b;
+            q = q | 1;
+        }
+        i = i - 1;
+    }
+    __cc_rem32 = r;
+    return q;
+}
+
+ulong __cc_modu32(ulong a, ulong b) {
+    __cc_divu32(a, b);
+    return __cc_rem32;
+}
+
+ulong __cc_divs32(ulong a, ulong b) {
+    uchar neg = 0;
+    if (a & 0x80000000) {
+        a = 0 - a;
+        neg = 1;
+    }
+    if (b & 0x80000000) {
+        b = 0 - b;
+        neg = neg ^ 1;
+    }
+    a = __cc_divu32(a, b);
+    if (neg) {
+        a = 0 - a;
+    }
+    return a;
+}
+
+ulong __cc_mods32(ulong a, ulong b) {
+    uchar neg = 0;
+    if (a & 0x80000000) {
+        a = 0 - a;
+        neg = 1;
+    }
+    if (b & 0x80000000) {
+        b = 0 - b;
+    }
+    a = __cc_modu32(a, b);
+    if (neg) {
+        a = 0 - a;
+    }
+    return a;
+}
+
+ulong __cc_shl32(ulong a, uchar n) {
+    while (n) {
+        a = a << 1;
+        n = n - 1;
+    }
+    return a;
+}
+
+ulong __cc_shr32(ulong a, uchar n) {
+    while (n) {
+        a = a >> 1;
+        n = n - 1;
+    }
+    return a;
+}
+
+ulong __cc_sar32(ulong a, uchar n) {
+    ulong s = a & 0x80000000;
+    while (n) {
+        a = (a >> 1) | s;
+        n = n - 1;
+    }
+    return a;
+}

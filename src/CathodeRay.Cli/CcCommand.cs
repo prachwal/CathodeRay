@@ -28,8 +28,9 @@ internal static partial class CcCommand
         var noStdlib = new Option<bool>("--nostdlib") { Description = "Nie linkuj biblioteki standardowej (nagłówki <...> z --incdir nadal działają)." };
         var noOpt = new Option<bool>("--no-opt", "-O0") { Description = "Wyłącza optymalizator okienkowy asemblera." };
         var werror = new Option<bool>("-Werror", "--werror") { Description = "Traktuj ostrzeżenia kompilatora jak błędy." };
+        var stats = new Option<bool>("--stats") { Description = "Wypisz rozmiary segmentów zlinkowanego programu." };
         var cpu = new Option<string>("--cpu") { Description = "Cel kompilatora: nazwa z rejestru celów (domyślnie stub).", DefaultValueFactory = _ => CTargets.Default.Name };
-        var command = new Command("cc", "Kompiluje program mini-C na wybrany cel (domyślnie stub): C→obiekt→link.") { inputs, output, format, listing, map, config, incdir, define, noStdlib, noOpt, werror, cpu };
+        var command = new Command("cc", "Kompiluje program mini-C na wybrany cel (domyślnie stub): C→obiekt→link.") { inputs, output, format, listing, map, config, incdir, define, noStdlib, noOpt, werror, cpu, stats };
         command.SetAction(parse =>
         {
             TextWriter error = parse.InvocationConfiguration.Error;
@@ -177,6 +178,12 @@ internal static partial class CcCommand
             parse.InvocationConfiguration.Output.WriteLine(string.Create(
                 CultureInfo.InvariantCulture,
                 $"{dst.Name} ({result.Image.Length} B, load ${result.Origin:X4}, {modules.Count} modules)"));
+            if (parse.GetValue(stats))
+            {
+                string sizes = string.Join(", ", result.Segments.GroupBy(static x => x.Name, StringComparer.OrdinalIgnoreCase).Select(static g => string.Create(CultureInfo.InvariantCulture, $"{g.Key.ToUpperInvariant()} {g.Sum(static x => x.End - x.Start)}")));
+                parse.InvocationConfiguration.Output.WriteLine($"stats: {sizes}");
+            }
+
             return 0;
         });
         return command;

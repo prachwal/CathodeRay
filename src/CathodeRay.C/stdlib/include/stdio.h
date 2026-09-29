@@ -1,5 +1,5 @@
 /* stdio.h — konsola stub (bufor __io_buf), puts z nową linią, printf/sprintf do 5/4 argumentów.
-   Formaty: %d %u %x %c %s %%. */
+   Formaty: %d %u %x %c %s %% oraz %ld %lu %lx (long zajmuje dwa z pięciu argumentów). */
 #ifndef _STDIO_H
 #define _STDIO_H
 #include <stddef.h>

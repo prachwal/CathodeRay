@@ -65,9 +65,9 @@ internal sealed partial class StubSelector
         }
 
         yield return owned.Sym;
-        if (owned.Size == 2)
+        for (int i = 1; i < owned.Size; i++)
         {
-            yield return CellHi(owned.Sym);
+            yield return At(owned.Sym, i);
         }
     }
 

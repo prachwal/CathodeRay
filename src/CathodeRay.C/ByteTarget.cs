@@ -50,7 +50,8 @@ public abstract class ByteTarget : ICTarget
     public string Emit(Ir.Module module, bool optimize)
     {
         ArgumentNullException.ThrowIfNull(module);
-        return new ByteSelector(Legalizer.Run(module), CreateIsa()).Emit();
+        Ir.Module wide = WideLegalizer.Run(Legalizer.Run(module, wide: true), ByteOrder);
+        return new ByteSelector(Legalizer.Run(wide), CreateIsa()).Emit();
     }
 
     /// <summary>Tworzy nowy zestaw prymitywów CPU (ma stan emisji).</summary>

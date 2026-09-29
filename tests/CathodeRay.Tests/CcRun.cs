@@ -29,6 +29,30 @@ public static class CcRun
         }
     }
 
+    /// <summary>Rozmiary segmentów po linkowaniu (<c>cc --stats</c>).</summary>
+    public static IReadOnlyDictionary<string, int> Sizes(string source, string cpu, params string[] extra)
+    {
+        string dir = Directory.CreateTempSubdirectory("cathode-cc-sizes-").FullName;
+        try
+        {
+            string main = Path.Combine(dir, "main.c");
+            File.WriteAllText(main, source);
+            var output = new StringWriter();
+            var error = new StringWriter();
+            string[] args = ["cc", main, "-o", Path.Combine(dir, "p.bin"), "--cpu", cpu, "--stats", .. extra];
+            int exit = CliApp.CreateRoot().Parse(args).Invoke(new System.CommandLine.InvocationConfiguration { Output = output, Error = error });
+            exit.Should().Be(0, error.ToString());
+            string line = output.ToString().Split('\n').First(static l => l.StartsWith("stats:", StringComparison.Ordinal));
+            return line["stats:".Length..].Split(',', StringSplitOptions.TrimEntries)
+                .Select(static part => part.Split(' '))
+                .ToDictionary(static part => part[0], static part => int.Parse(part[1], System.Globalization.CultureInfo.InvariantCulture), StringComparer.Ordinal);
+        }
+        finally
+        {
+            Directory.Delete(dir, recursive: true);
+        }
+    }
+
     public static Result Run(string source, params string[] extra) => RunOn(source, "stub", extra);
 
     public static Result RunOn(string source, string cpu, params string[] extra)

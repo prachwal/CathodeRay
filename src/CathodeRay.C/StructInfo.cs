@@ -17,6 +17,9 @@ public sealed class StructInfo
     /// <summary>Rozmiar w bajtach (suma pól).</summary>
     public int Size { get; set; }
 
+    /// <summary><c>union</c>: pola nakładają się od przesunięcia 0.</summary>
+    public bool IsUnion { get; set; }
+
     /// <summary>Układ policzony.</summary>
     public bool Complete { get; set; }
 

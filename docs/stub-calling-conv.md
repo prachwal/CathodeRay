@@ -311,3 +311,18 @@ Parser koduje dalsze wymiary w nazwie typu jako sufiks (`int[4]`, `int*[4][5]`; 
 z osobnego pola — do wskaźnika na całość), `Declared` składa z tego tablicę tablic, a `(*p)[4]` i parametr `m[][4]` to wskaźnik do
 tablicy. `Index` i `Deref` typu tablicowego rozpadają się na wskaźnik (`RawType` daje nierozpadnięty typ dla `sizeof`); w `Lowering`
 rozmiar elementu bierze się z typu bazy (`TypeOf(index.Base).Base`), a odczyt wiersza zwraca jego adres.
+
+## `long` / `ulong` (plan 30, krok 18)
+
+Front-end: `Literal` (stałe z przyrostkami L/U i wartości > 65535 mają typ 32-bitowy i nie są składane w 16-bitowej arytmetyce),
+`CType.Promote` (ulong > long > uint > int > uchar), `Lowering.Extend` (jedyne rozszerzenie znakiem: `int` → `long`).
+IR ma komórki i stałe W=4; `IrInterpreter` liczy na `long`. Wspólny przebieg `WideLegalizer` (IR → IR, przed selektorem, dla stuba
+i celów bajtowych) rozbija W=4 na dwie połówki 16-bitowe `sym` i `sym+2` (w BE odwrotnie): dodawanie i odejmowanie z przeniesieniem
+liczonym z porównania połówek, przesunięcia o stałą przez `Shl`/`Shr`/`Sar` połówek, porównania przez starszą połowę
+(ze znakiem) i młodszą (bez znaku), `Load`/`Store` dwoma dostępami 16-bitowymi. Mnożenie, dzielenie, reszty i przesunięcia o
+zmienną liczbę zamienia wcześniej `Legalizer(wide: true)` na wołania `__cc_mul32`, `__cc_divu32`, `__cc_divs32` itd. z `rt.c`
+(mini-C na `ulong`, dołączane do modułu jak wersje 16-bitowe). Argument 32-bitowy to dwa argumenty (młodszy, starszy), wynik wraca
+młodszą połową w `cc_ret` i starszą w `cc_rethi` (crt0, DATA). Kolejność faz w celach bajtowych: `Legalizer(wide)` → `WideLegalizer` →
+`Legalizer(narrow)` → `ByteSelector`; stub pomija drugi `Legalizer`, bo ma własne procedury 16-bitowe.
+Wcześniej złapany błąd: `Load` z komórką wskaźnika w tej samej komórce co wynik (`t = *t`) po rozbiciu niszczył adres drugiej połowy —
+`WideLegalizer` kopiuje wtedy wskaźnik do pomocniczej.

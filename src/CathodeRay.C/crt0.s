@@ -99,10 +99,12 @@ __init_done: CALL main
 HLT
 
 .global cc_retbuf
+.global cc_rethi
 .segment "BSS"
 __bss_start: .res 1
 .segment "DATA"
 cc_retbuf: .res 64
+cc_rethi: .byte 0, 0
 cc_arg1: .byte 0
 cc_arg1_h: .byte 0
 cc_arg2: .byte 0

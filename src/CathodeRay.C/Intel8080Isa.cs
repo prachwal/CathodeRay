@@ -125,6 +125,7 @@ internal sealed class Intel8080Isa : ByteIsa
 
         text.AppendLine("GLOBAL __bss_start");
         text.AppendLine("GLOBAL cc_retbuf");
+        text.AppendLine("GLOBAL cc_rethi");
         text.AppendLine("GLOBAL __callhl");
         text.AppendLine("EXTERN main");
         text.AppendLine("EXTERN __bss_end");
@@ -174,6 +175,7 @@ internal sealed class Intel8080Isa : ByteIsa
 
         text.AppendLine("SEGMENT \"DATA\"");
         text.AppendLine("cc_retbuf: DS 64");
+        text.AppendLine("cc_rethi: DS 2");
 
         return text.ToString();
     }

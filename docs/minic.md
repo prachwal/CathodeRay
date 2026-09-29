@@ -1,7 +1,8 @@
 # Mini-C — opis języka
 
-Mini-C to podzbiór C dla procesora stub (8-bitowy akumulator `A`, indeks `X`, stos na `A`). Kompilator:
-`cathode cc plik.c [plik2.c] -o program.bin` (parser → checker → codegen → asembler → linker; biblioteka
+Mini-C to podzbiór C kompilowany na kilka procesorów: stub (8-bitowy akumulator `A`, indeks `X`, stos na `A`), 6502, 65C02, Z80, 8080 i 6800
+(`--cpu`, opis celów i dodawania nowych: [targets.md](targets.md)). Kompilator:
+`cathode cc plik.c [plik2.c] -o program.bin [--cpu cel]` (parser → checker → kod pośredni → cel → asembler → linker; biblioteka
 standardowa linkowana automatycznie). Konwencje wołań, układ pamięci i szczegóły runtime: `stub-calling-conv.md`.
 
 Przykłady poniżej z blokiem <code>```c expect=N</code> są **kompilowane i uruchamiane w testach** (`MiniCDocsTests`);
@@ -15,6 +16,8 @@ zakończyć się błędem kompilacji zawierającym tekst.
 | `uchar` (`char`) | 1 B | bez znaku, 0..255 |
 | `int` | 2 B | ze znakiem; porównania, `/`, `%`, `>>` ze znakiem |
 | `uint` | 2 B | bez znaku |
+| `long` | 4 B | ze znakiem; stałe `100000`, `7L` |
+| `ulong` | 4 B | bez znaku; stałe `4000000000`, `7UL`, `0x10000000UL` |
 | `T *`, `T (*f)(…)` | 2 B | wskaźnik do danych / funkcji |
 | `T a[N]`, `T a[N][M]` | N·(M·)rozmiar | tablica (także wielowymiarowa: tablica tablic), rozpada się na wskaźnik do elementu |
 | `struct S` | suma pól | bez wyrównania |
@@ -165,6 +168,67 @@ int main() {
 }
 ```
 
+## `long` i `ulong`
+
+32-bitowe liczby całkowite. Stała z przyrostkiem `L` albo większa niż 65535 jest `long` (`ulong` z przyrostkiem `U` albo powyżej
+0x7FFFFFFF); przyrostek `U` bez `L` daje `uint`. Stała od 256 do 65535 bez przyrostka pozostaje 16-bitowym `int` (jak w reszcie
+języka), więc `long x = 40000;` da ujemną wartość — piszemy `40000L`. Zamiana `int` → `long` rozszerza znakiem, `uint`/`uchar` → `long` zerami;
+zawężenie (`long` → `int`) ostrzega, chyba że jest rzutowaniem. Wynik działania na `long` i `uint` to `long`, na `ulong` i czymkolwiek
+— `ulong`. Stałe 32-bitowe nie są składane przy kompilacji (liczy je program), a inicjalizator globala z wyrażeniem staje się
+kodem startowym. `long` w wywołaniu zajmuje dwa z sześciu miejsc na argumenty (młodsza i starsza połowa), wynik wraca młodszą połową
+w `cc_ret` i starszą w `cc_rethi`. `printf` zna `%ld`, `%lu` i `%lx` (każdy zjada dwa z pięciu miejsc).
+
+```c expect=6400
+#include <stdio.h>
+long fib(int n) {
+    long a = 0;
+    long b = 1;
+    int i = 0;
+    while (i < n) {
+        long t = a + b;
+        a = b;
+        b = t;
+        i++;
+    }
+    return a;
+}
+int main() {
+    long f = fib(40);                       // 102334155
+    ulong big = 4000000000;
+    long mix = f / 1000 - big % 1000L;      // 102334 - 0
+    return (int)(mix >> 4) + (int)(big / 1000000000) + (f > 100000000L) + (int)sizeof(long) - 4;   // 6395 + 4 + 1 + 0
+}
+```
+
+## `union`, przecinek, napisy, makra, `enum`
+
+- `union U { int whole; uchar bytes[2]; };` — pola nakładają się od przesunięcia 0, rozmiar to największe pole, inicjalizator ustawia tylko
+  pierwsze pole (`union U u = {5};`). Nazwy `struct` i `union` dzielą jedną przestrzeń nazw (jak w C).
+- Operator przecinka `a, b` liczy `a` dla skutków ubocznych, a wartością jest `b`; przydaje się w `for (i = 0, j = 9; i < j; i++, j--)`.
+  W wywołaniach i inicjalizatorach przecinek nadal rozdziela argumenty.
+- Sąsiednie literały napisowe skleja się w jeden (`"ab" "cd"`), a `\xHH` (do dwóch cyfr szesnastkowych) wpisuje znak o danym kodzie.
+- Makra funkcyjne: `#x` daje napis z tekstem argumentu (białe znaki zwinięte), `a ## b` skleja tokeny; argumenty obok `#` i `##` nie są
+  wcześniej rozwijane.
+- Wartość `enum` może być wyrażeniem stałym z `sizeof(struct S)` i `offsetof`; kolejne stałe zwiększają poprzednią o 1.
+
+```c expect=830
+#define STR(x) #x
+#define GLUE(a, b) a##b
+union Cell { int whole; uchar half[2]; };
+enum { CELL_SIZE = sizeof(union Cell), AFTER };
+int main() {
+    int i;
+    int j;
+    int steps = 0;
+    for (i = 0, j = 9; i < j; i++, j--) {
+        steps++;
+    }
+    int GLUE(val, ue) = (steps = steps + 1, steps * 100);
+    uchar *text = STR(a   b) "\x21";
+    return value + CELL_SIZE * 100 + AFTER * 10 + (text[0] - 97) + (text[3] - 33);   // 600 + 200 + 30
+}
+```
+
 ## Instrukcje
 
 `if/else`, `while`, `do … while`, `for` (z deklaracją w inicjalizacji), `switch` (stałe `case`, przechodzenie dalej, `default`),
@@ -287,10 +351,8 @@ porównanie `int` z `uint`) drukuje `cc` na stderr; `-Werror` traktuje je jak b�
 
 | brak | zamiast |
 | --- | --- |
-| `float`, `long`, `short`, `unsigned` | `int`, `uint` |
-| `union`, pola bitowe | `struct` |
-| operator przecinka, wartości `enum` z `sizeof(struct …)` | osobne instrukcje, `#define` |
-| `#`, `##` w makrach, `\x` w napisach | — |
+| pola bitowe | maski i przesunięcia |
+| `float`, `short`, `unsigned` | `int`, `uint`, `long`, `ulong` |
 | funkcja zwracająca wskaźnik do funkcji | `typedef` + parametr |
 
 ```c error="takes at most 6"

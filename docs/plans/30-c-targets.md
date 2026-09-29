@@ -1,4 +1,4 @@
-# Mini-C: kod pośredni (IR) i wielocelowość (6502, Z80, 8080, 6800), rzutowania/void*/long (status: otwarty)
+# Mini-C: kod pośredni (IR) i wielocelowość (6502, Z80, 8080, 6800), rzutowania/void*/long (status: zamknięty)
 
 Projekt wg analizy Opusa: szew między front-endem a celami to mały typowany IR (Cell/Imm/AddrOf; Mov, Bin, Un, Load, Store, CopyBlock, BrCmp, Jmp, Label, Call, Ret, Src, Raw), a nie interfejs prymitywów instrukcji stuba. Front-end nie zna flag, ABI, rozmieszczenia komórek, kodowania operandów ani kolejności bajtów; wszystko to należy do klasy celu (ICTarget) wybieranej fabryką po `cc --cpu`. Kod samomodyfikujący zostaje wyłącznie w StubTarget. Bez metod HasXxx w interfejsie: wybór (np. wstawka czy helper dla mnożenia) należy do selektora celu.
 
@@ -32,8 +32,8 @@ Rozmiar: S = <1 h, M = kilka h, L = dzień+. Kolejność: A -> B -> C -> D. Krok
 - [x] **15.** [M] void * i size_t: <stddef.h> (size_t = uint, NULL, offsetof), niejawna konwersja void * <-> T *, brak dereferencji i arytmetyki, sygnatury memcpy/memset/memcmp na void *
 - [x] **16.** [M] Struktury przez wartość: argument (kopia wołającego, przekazana jako wskaźnik) i wynik (ukryty parametr sret)
 - [x] **17.** [M] Tablice wielowymiarowe int m[3][4]: typ tablicy tablic, m[i][j], sizeof, inicjalizatory {{...}}, int (*)[4] jako parametr
-- [ ] **18.** [L] long/ulong 32-bit jako Cell z W=B4: legalizacja w TargetBase (rozbicie na operacje bajtowe/16-bitowe), rt.s (mul32/div32) per cel, literały L, printf %ld/%lu/%lx
-- [ ] **19.** [S] union, operator przecinka, konkatenacja napisów, \xHH, # i ## w makrach, enum z sizeof(struct)
-- [ ] **20.** [S] Testy e2e per pozycja, samples/minic/17_casts.c, 18_voidptr.c, 19_matrix.c, 20_long.c, tabela rozmiar/cykle per cel (golden tylko dla rozmiaru, nie dla poprawności), docs/targets.md (jak dodać CPU), docs/minic.md, hygiene
+- [x] **18.** [L] long/ulong 32-bit jako Cell z W=B4: legalizacja w TargetBase (rozbicie na operacje bajtowe/16-bitowe), rt.s (mul32/div32) per cel, literały L, printf %ld/%lu/%lx
+- [x] **19.** [S] union, operator przecinka, konkatenacja napisów, \xHH, # i ## w makrach, enum z sizeof(struct)
+- [x] **20.** [S] Testy e2e per pozycja, samples/minic/17_casts.c, 18_voidptr.c, 19_matrix.c, 20_long.c, tabela rozmiar/cykle per cel (golden tylko dla rozmiaru, nie dla poprawności), docs/targets.md (jak dodać CPU), docs/minic.md, hygiene
 
-Postęp: 17/20 gotowych.
+Postęp: 20/20 gotowych.

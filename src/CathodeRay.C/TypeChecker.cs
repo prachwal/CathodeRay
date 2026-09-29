@@ -47,6 +47,8 @@ public sealed partial class TypeChecker
         && (a.Sig is null ? b.Sig is null : b.Sig is not null && SameShape(a.Sig.Return, b.Sig.Return)
             && a.Sig.Params.Count == b.Sig.Params.Count && a.Sig.Params.Zip(b.Sig.Params).All(static pair => SameShape(pair.First, pair.Second)));
 
+    private static int ArgSlots(CType type) => type.Size == 4 && type.IsInteger ? 2 : 1;
+
     private static void RequireWritable(CType target, string what)
     {
         if (target.IsConst)
@@ -55,31 +57,12 @@ public sealed partial class TypeChecker
         }
     }
 
-    private static int NumberValue(string text) =>
-        text.StartsWith("0x", StringComparison.OrdinalIgnoreCase) ? Convert.ToInt32(text[2..], 16) : int.Parse(text, System.Globalization.CultureInfo.InvariantCulture);
+    private static int NumberValue(string text) => (int)ParseLiteral(text).Value;
 
-    private static CType NumberType(string text)
-    {
-        string digits = text.StartsWith("0x", StringComparison.OrdinalIgnoreCase) ? text[2..] : text;
-        int radix = text.StartsWith("0x", StringComparison.OrdinalIgnoreCase) ? 16 : 10;
-        long value = 0;
-        foreach (char c in digits)
-        {
-            bool ok = radix == 16 ? char.IsAsciiHexDigit(c) : char.IsAsciiDigit(c);
-            if (!ok)
-            {
-                throw new CTypeException($"invalid number '{text}'.");
-            }
+    private static CType NumberType(string text) => ParseLiteral(text).Type;
 
-            value = (value * radix) + Convert.ToInt32(c.ToString(), radix);
-            if (value > ushort.MaxValue)
-            {
-                throw new CTypeException($"number '{text}' out of range 0..65535.");
-            }
-        }
-
-        return value <= byte.MaxValue ? CType.UChar : CType.Int;
-    }
+    private static Literal ParseLiteral(string text) =>
+        Literal.TryParse(text, out Literal literal) ? literal : throw new CTypeException($"invalid number '{text}' (0..4294967295).");
 
     private void CheckInit(Ast.Decl decl)
     {
@@ -117,6 +100,11 @@ public sealed partial class TypeChecker
             }
 
             IReadOnlyList<StructField> fields = type.Info!.Fields;
+            if (type.Info.IsUnion && structList.Items.Count > 1)
+            {
+                throw new CTypeException($"a union initializer sets only its first member ('{type.Info.Name}').");
+            }
+
             if (structList.Items.Count > fields.Count)
             {
                 throw new CTypeException($"too many initializers for struct '{type.Info.Name}'.");
@@ -288,6 +276,8 @@ public sealed partial class TypeChecker
         }
 
         int offset = 0;
+        bool union = defs[name].IsUnion;
+        info.IsUnion = union;
         foreach (Ast.FieldDecl field in defs[name].Fields)
         {
             string bareField = field.Type.StartsWith("const ", StringComparison.Ordinal) ? field.Type[6..] : field.Type;
@@ -307,8 +297,8 @@ public sealed partial class TypeChecker
                 throw new CTypeException($"duplicate field '{field.Name}' in struct '{name}'.");
             }
 
-            info.Fields.Add(new StructField(field.Name, type, offset));
-            offset += type.Size;
+            info.Fields.Add(new StructField(field.Name, type, union ? 0 : offset));
+            offset = union ? Math.Max(offset, type.Size) : offset + type.Size;
         }
 
         info.Size = offset;
@@ -424,9 +414,9 @@ public sealed partial class TypeChecker
         _gotos.Clear();
         _usedNames.Clear();
         _declared.Clear();
-        if (function.Params.Count > MaxArgs)
+        if (function.Params.Count > MaxArgs || function.Params.Sum(p => ArgSlots(Declared(p.Type, p.PointerDepth))) > MaxArgs)
         {
-            throw new CTypeException($"'{function.Name}' takes at most {MaxArgs} parameters.");
+            throw new CTypeException($"'{function.Name}' takes at most {MaxArgs} parameters (a long takes two).");
         }
 
         if (_returnType.Kind == "struct" && _returnType.Size > Lowering.MaxReturnedStruct)
@@ -736,7 +726,7 @@ public sealed partial class TypeChecker
             return;
         }
 
-        if (SameShape(target, value) || (target.Kind is "int" or "uint" && value.Kind is "uchar" or "int" or "uint"))
+        if (SameShape(target, value) || (target.IsInteger && target.Kind != "uchar" && value.IsInteger && value.Size <= target.Size))
         {
             if (target.Kind == "ptr" && value.Base is { IsConst: true } && target.Base is { IsConst: false })
             {
@@ -746,9 +736,9 @@ public sealed partial class TypeChecker
             return;
         }
 
-        if (target.Kind == "uchar" && value.Kind is "int" or "uint")
+        if (target.IsInteger && value.IsInteger && value.Size > target.Size)
         {
-            _warnings.Add($"{where}: narrowing int to uchar.");
+            _warnings.Add($"{where}: narrowing {value.Kind} to {target.Kind}.");
             return;
         }
 
@@ -785,8 +775,9 @@ public sealed partial class TypeChecker
         switch (expr)
         {
             case Ast.Number number:
-                value = NumberValue(number.Text) & 0xFFFF;
-                return true;
+                Literal literal = ParseLiteral(number.Text);
+                value = (int)literal.Value & 0xFFFF;
+                return !literal.IsLong;
             case Ast.SizeOf sizeOf:
                 value = Lookup(sizeOf.Name).Size;
                 return true;
@@ -799,7 +790,7 @@ public sealed partial class TypeChecker
             case Ast.OffsetOf offset:
                 value = OffsetOfField(offset);
                 return true;
-            case Ast.Cast cast when TryConst(cast.Value, out int cast0):
+            case Ast.Cast cast when Declared(cast.Type, cast.Stars).Size != 4 && TypeOf(cast.Value).Size != 4 && TryConst(cast.Value, out int cast0):
                 value = Declared(cast.Type, cast.Stars).Size == 1 ? cast0 & 0xFF : cast0 & 0xFFFF;
                 return true;
             case Ast.Unary unary when TryConst(unary.Operand, out int operand):
@@ -854,7 +845,7 @@ public sealed partial class TypeChecker
     private int ConstantOf(Ast.Expr expr, string what)
     {
         _ = TypeOf(expr);
-        return expr is Ast.Number number
+        return expr is Ast.Number number && !ParseLiteral(number.Text).IsLong
             ? NumberValue(number.Text) & 0xFFFF
             : _constants.TryGetValue(expr, out int value) ? value : throw new CTypeException($"{what} needs a constant.");
     }
@@ -943,6 +934,9 @@ public sealed partial class TypeChecker
                 return IndexType(index).Decay();
             case Ast.Cast cast:
                 return CastType(cast);
+            case Ast.Comma comma:
+                _ = TypeOf(comma.Left);
+                return TypeOf(comma.Right);
             case Ast.OffsetOf:
                 return CType.UChar;
             default:
@@ -985,7 +979,7 @@ public sealed partial class TypeChecker
 
     private CType CheckIndirect(FuncSig sig, IReadOnlyList<Ast.Expr> args, string name)
     {
-        if (args.Count > MaxArgs || args.Count != sig.Params.Count)
+        if (args.Count > MaxArgs || args.Count != sig.Params.Count || sig.Params.Sum(ArgSlots) > MaxArgs)
         {
             throw new CTypeException($"{name} takes {sig.Params.Count} arguments, got {args.Count}.");
         }
@@ -1013,9 +1007,9 @@ public sealed partial class TypeChecker
             throw new CTypeException($"undefined function '{call.Name}'.");
         }
 
-        if (call.Args.Count > MaxArgs)
+        if (call.Args.Count > MaxArgs || call.Args.Sum(arg => ArgSlots(TypeOf(arg).Decay())) > MaxArgs)
         {
-            throw new CTypeException($"'{call.Name}' takes at most {MaxArgs} arguments.");
+            throw new CTypeException($"'{call.Name}' takes at most {MaxArgs} arguments (a long takes two).");
         }
 
         if (function.IsVariadic ? call.Args.Count < function.Params.Count : call.Args.Count != function.Params.Count)
@@ -1131,7 +1125,7 @@ public sealed partial class TypeChecker
             throw new CTypeException($"operator '{binary.Op}' is not supported for pointers.");
         }
 
-        return left.Kind == "uint" || right.Kind == "uint" ? CType.UInt : left.Kind == "int" || right.Kind == "int" ? CType.Int : CType.UChar;
+        return CType.Promote(left, right);
     }
 
     private CType AssignToType(Ast.AssignTo assignTo)
@@ -1191,7 +1185,7 @@ public sealed partial class TypeChecker
             throw new CTypeException("ternary branches need arithmetic values.");
         }
 
-        return then.Kind == "uint" || els.Kind == "uint" ? CType.UInt : then.Kind == "int" || els.Kind == "int" ? CType.Int : CType.UChar;
+        return CType.Promote(then, els);
     }
 
     /// <summary>Typ pola bez rozpadu tablicy (struct przez <c>.</c> albo wskaźnik przez <c>-&gt;</c>).</summary>

@@ -16,6 +16,8 @@ public sealed class CStdSamplesTests
     [InlineData("18_voidptr.c", 1103)]
     [InlineData("19_struct_value.c", 936)]
     [InlineData("20_matrix.c", 591)]
+    [InlineData("21_long.c", 6360)]
+    [InlineData("22_misc.c", 1261)]
     public void Sample_Returns_Expected_Value(string file, int expected)
     {
         CcRun.Run(Sample(file)).Value.Should().Be(expected);
@@ -28,5 +30,14 @@ public sealed class CStdSamplesTests
 
         result.Console.Should().Be("sum=15 hex=ff x name\ndone\n");
         result.Value.Should().Be(20);
+    }
+
+    [Fact]
+    public void Long_Sample_Prints_Thirty_Two_Bit_Numbers()
+    {
+        CcRun.Result result = CcRun.Run(Sample("21_long.c"));
+
+        result.Console.Should().Be("fib=102334155 fact=1c8cfc00\nsum=2000100004 big=4000000000\n");
+        result.Value.Should().Be(6360);
     }
 }

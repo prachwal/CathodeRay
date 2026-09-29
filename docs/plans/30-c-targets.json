@@ -1,6 +1,6 @@
 {
   "title": "Mini-C: kod pośredni (IR) i wielocelowość (6502, Z80, 8080, 6800), rzutowania/void*/long",
-  "status": "open",
+  "status": "closed",
   "items": [
     {
       "id": "1",
@@ -107,19 +107,19 @@
     {
       "id": "18",
       "title": "[L] long/ulong 32-bit jako Cell z W=B4: legalizacja w TargetBase (rozbicie na operacje bajtowe/16-bitowe), rt.s (mul32/div32) per cel, literały L, printf %ld/%lu/%lx",
-      "status": "todo",
+      "status": "done",
       "note": ""
     },
     {
       "id": "19",
       "title": "[S] union, operator przecinka, konkatenacja napisów, \\xHH, # i ## w makrach, enum z sizeof(struct)",
-      "status": "todo",
+      "status": "done",
       "note": ""
     },
     {
       "id": "20",
       "title": "[S] Testy e2e per pozycja, samples/minic/17_casts.c, 18_voidptr.c, 19_matrix.c, 20_long.c, tabela rozmiar/cykle per cel (golden tylko dla rozmiaru, nie dla poprawności), docs/targets.md (jak dodać CPU), docs/minic.md, hygiene",
-      "status": "todo",
+      "status": "done",
       "note": ""
     }
   ]

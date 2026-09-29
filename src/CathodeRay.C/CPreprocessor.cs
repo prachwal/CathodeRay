@@ -339,7 +339,7 @@ public static class CPreprocessor
                 }
 
                 string[] expandedArgs = [.. args.Select(arg => Expand(arg, state, hidden, depth + 1, line))];
-                string body = Substitute(macro.Body, macro.Parameters, expandedArgs);
+                string body = Substitute(macro.Body, macro.Parameters, expandedArgs, [.. args]);
                 result.Append(Expand(body, state, inner, depth + 1, line));
                 i = after;
                 continue;
@@ -393,7 +393,9 @@ public static class CPreprocessor
         throw new CPreprocessException(line, $"macro '{macro}': unterminated argument list.");
     }
 
-    private static string Substitute(string body, string[] parameters, string[] args)
+    /// <summary>Podstawia argumenty za parametry. Argument obok <c>#</c> albo <c>##</c> jest surowy (bez rozwijania makr):
+    /// <c>#p</c> daje napis z tekstem argumentu, <c>a ## b</c> skleja sąsiednie tokeny.</summary>
+    private static string Substitute(string body, string[] parameters, string[] args, string[] rawArgs)
     {
         var result = new StringBuilder();
         int i = 0;
@@ -408,6 +410,60 @@ public static class CPreprocessor
                 continue;
             }
 
+            if (c == '#' && i + 1 < body.Length && body[i + 1] == '#')
+            {
+                // sklejanie: bez białych znaków po obu stronach, następny parametr surowy
+                while (result.Length > 0 && char.IsWhiteSpace(result[^1]))
+                {
+                    result.Length--;
+                }
+
+                i += 2;
+                while (i < body.Length && char.IsWhiteSpace(body[i]))
+                {
+                    i++;
+                }
+
+                if (i < body.Length && (char.IsAsciiLetter(body[i]) || body[i] == '_'))
+                {
+                    int stop = i;
+                    while (stop < body.Length && (char.IsAsciiLetterOrDigit(body[stop]) || body[stop] == '_'))
+                    {
+                        stop++;
+                    }
+
+                    string pasted = body[i..stop];
+                    int pastedIndex = Array.IndexOf(parameters, pasted);
+                    result.Append(pastedIndex >= 0 ? rawArgs[pastedIndex] : pasted);
+                    i = stop;
+                }
+
+                continue;
+            }
+
+            if (c == '#')
+            {
+                int at = i + 1;
+                while (at < body.Length && char.IsWhiteSpace(body[at]))
+                {
+                    at++;
+                }
+
+                int stop = at;
+                while (stop < body.Length && (char.IsAsciiLetterOrDigit(body[stop]) || body[stop] == '_'))
+                {
+                    stop++;
+                }
+
+                int paramIndex = stop > at ? Array.IndexOf(parameters, body[at..stop]) : -1;
+                if (paramIndex >= 0)
+                {
+                    result.Append(Stringize(rawArgs[paramIndex]));
+                    i = stop;
+                    continue;
+                }
+            }
+
             if (char.IsAsciiLetter(c) || c == '_')
             {
                 int stop = i;
@@ -418,7 +474,14 @@ public static class CPreprocessor
 
                 string ident = body[i..stop];
                 int index = Array.IndexOf(parameters, ident);
-                result.Append(index >= 0 ? args[index] : ident);
+                int after = stop;
+                while (after < body.Length && char.IsWhiteSpace(body[after]))
+                {
+                    after++;
+                }
+
+                bool beforePaste = after + 1 < body.Length && body[after] == '#' && body[after + 1] == '#';
+                result.Append(index >= 0 ? (beforePaste ? rawArgs[index] : args[index]) : ident);
                 i = stop;
                 continue;
             }
@@ -428,6 +491,52 @@ public static class CPreprocessor
         }
 
         return result.ToString();
+    }
+
+    /// <summary>Tekst argumentu jako literał napisowy (spacje zwinięte, <c>"</c> i <c>\</c> w literałach poprzedzone <c>\</c>).</summary>
+    private static string Stringize(string argument)
+    {
+        var text = new StringBuilder("\"");
+        int i = 0;
+        bool space = false;
+        while (i < argument.Length)
+        {
+            char c = argument[i];
+            if (char.IsWhiteSpace(c))
+            {
+                space = text.Length > 1;
+                i++;
+                continue;
+            }
+
+            if (space)
+            {
+                text.Append(' ');
+                space = false;
+            }
+
+            if (c is '"' or '\'')
+            {
+                int stop = SkipLiteral(argument, i);
+                foreach (char ch in argument[i..stop])
+                {
+                    if (ch is '"' or '\\')
+                    {
+                        text.Append('\\');
+                    }
+
+                    text.Append(ch);
+                }
+
+                i = stop;
+                continue;
+            }
+
+            text.Append(c);
+            i++;
+        }
+
+        return text.Append('"').ToString();
     }
 
     private static int SkipLiteral(string text, int start)

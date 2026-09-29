@@ -151,6 +151,7 @@ internal sealed class Mos6502Isa : ByteIsa
         text.AppendLine(".global __p");
         text.AppendLine(".global __bss_start");
         text.AppendLine(".global cc_retbuf");
+        text.AppendLine(".global cc_rethi");
         text.AppendLine(".global __icall");
         text.AppendLine(".extern main");
         text.AppendLine(".extern __bss_end");
@@ -218,6 +219,7 @@ internal sealed class Mos6502Isa : ByteIsa
 
         text.AppendLine(".segment \"DATA\"");
         text.AppendLine("cc_retbuf: .res 64");
+        text.AppendLine("cc_rethi: .res 2");
 
         text.AppendLine("cc_fp: .res 2");
         text.AppendLine(".global cc_fp");

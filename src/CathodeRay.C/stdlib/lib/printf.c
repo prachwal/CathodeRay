@@ -42,6 +42,26 @@ static void outnum(uint u, uchar base, uchar negative) {
     }
 }
 
+static void outnum32(ulong u, uchar base, uchar negative) {
+    uchar tmp[33];
+    uchar n = 0;
+    if (negative) out('-');
+    if (u == 0) {
+        tmp[n] = '0';
+        n++;
+    }
+    while (u > 0) {
+        uchar d = u % base;
+        tmp[n] = d < 10 ? '0' + d : 'a' + d - 10;
+        n++;
+        u = u / base;
+    }
+    while (n > 0) {
+        n--;
+        out(tmp[n]);
+    }
+}
+
 static int format(const uchar *fmt, int a1, int a2, int a3, int a4, int a5) {
     int args[5];
     args[0] = a1;
@@ -64,17 +84,32 @@ static int format(const uchar *fmt, int a1, int a2, int a3, int a4, int a5) {
             out('%');
             continue;
         }
+        uchar wide = 0;
+        if (c == 'l') {
+            wide = 1;
+            c = *fmt;
+            if (c == 0) break;
+            fmt++;
+        }
         int v = next < 5 ? args[next] : 0;
         next++;
+        ulong big = (ulong)(uint)v;
+        if (wide) {
+            uint high = next < 5 ? args[next] : 0;
+            big = big | ((ulong)high << 16);
+            next++;
+        }
         switch (c) {
             case 'd':
-                if (v < 0) outnum(0 - v, 10, 1); else outnum(v, 10, 0);
+                if (wide) {
+                    if (big & 0x80000000) outnum32(0 - big, 10, 1); else outnum32(big, 10, 0);
+                } else if (v < 0) outnum(0 - v, 10, 1); else outnum(v, 10, 0);
                 break;
             case 'u':
-                outnum(v, 10, 0);
+                if (wide) outnum32(big, 10, 0); else outnum(v, 10, 0);
                 break;
             case 'x':
-                outnum(v, 16, 0);
+                if (wide) outnum32(big, 16, 0); else outnum(v, 16, 0);
                 break;
             case 'c':
                 out(v);
@@ -86,6 +121,7 @@ static int format(const uchar *fmt, int a1, int a2, int a3, int a4, int a5) {
                 out('%');
                 out(c);
                 next--;
+                if (wide) next--;
         }
     }
     return written;

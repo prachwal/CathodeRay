@@ -173,4 +173,116 @@ public sealed class IrConformanceTests
             new Ir.Label(end));
         program.Record(result, description);
     }
+
+    private static readonly int[] LongValues = [0, 1, 0x7FFF, 0x8000, 0xFFFF, 0x10000, 0x12345678, 0x7FFFFFFF, unchecked((int)0x80000000), -1];
+
+    [Theory]
+    [InlineData(Ir.BinOp.Add)]
+    [InlineData(Ir.BinOp.Sub)]
+    [InlineData(Ir.BinOp.And)]
+    [InlineData(Ir.BinOp.Or)]
+    [InlineData(Ir.BinOp.Xor)]
+    [InlineData(Ir.BinOp.Mul)]
+    [InlineData(Ir.BinOp.Div)]
+    [InlineData(Ir.BinOp.Mod)]
+    [InlineData(Ir.BinOp.DivS)]
+    [InlineData(Ir.BinOp.ModS)]
+    public void Long_Binary_Operations_Match_The_Oracle(Ir.BinOp op)
+    {
+        var program = new IrProgram();
+        Ir.Cell result = program.R(4);
+        foreach (int a in LongValues)
+        {
+            foreach (int b in new[] { 0, 1, 3, 0xFFFF, 0x10000, 0x7FFFFFFF, unchecked((int)0x80000000), -1 })
+            {
+                program.Emit(new Ir.Mov(program.A(4), new Ir.Imm(a, 4)), new Ir.Mov(program.B(4), new Ir.Imm(b, 4)))
+                    .Emit(new Ir.Bin(op, result, program.A(4), program.B(4)))
+                    .Record(result, $"{op} L {a:X}, {b:X}");
+            }
+        }
+
+        program.AssertConforms($"{op} long");
+    }
+
+    [Theory]
+    [InlineData(Ir.BinOp.Shl)]
+    [InlineData(Ir.BinOp.Shr)]
+    [InlineData(Ir.BinOp.Sar)]
+    public void Long_Shifts_Match_The_Oracle(Ir.BinOp op)
+    {
+        var program = new IrProgram();
+        Ir.Cell result = program.R(4);
+        foreach (int a in new[] { 1, 0x12345678, unchecked((int)0x80000001), -1 })
+        {
+            foreach (int n in new[] { 0, 1, 9, 16, 17, 31, 40 })
+            {
+                program.Emit(new Ir.Bin(op, result, new Ir.Imm(a, 4), new Ir.Imm(n, 1))).Record(result, $"{op} L const #{a:X} by {n}");
+                program.Emit(new Ir.Mov(program.A(4), new Ir.Imm(a, 4)), new Ir.Mov(program.B(1), new Ir.Imm(n, 1)))
+                    .Emit(new Ir.Bin(op, result, program.A(4), program.B(1)))
+                    .Record(result, $"{op} L cells {a:X} by {n}");
+            }
+        }
+
+        program.AssertConforms($"{op} long shifts");
+    }
+
+    [Theory]
+    [InlineData(Ir.UnOp.Neg)]
+    [InlineData(Ir.UnOp.Cpl)]
+    public void Long_Unary_Operations_Match_The_Oracle(Ir.UnOp op)
+    {
+        var program = new IrProgram();
+        Ir.Cell result = program.R(4);
+        foreach (int a in LongValues)
+        {
+            program.Emit(new Ir.Mov(program.A(4), new Ir.Imm(a, 4)), new Ir.Un(op, result, program.A(4))).Record(result, $"{op} L {a:X}");
+            program.Emit(new Ir.Un(op, program.A(4), program.A(4))).Record(program.A(4), $"{op} L in place {a:X}");
+        }
+
+        program.AssertConforms($"{op} long");
+    }
+
+    [Theory]
+    [InlineData(Ir.Cond.Eq)]
+    [InlineData(Ir.Cond.Ne)]
+    [InlineData(Ir.Cond.Ltu)]
+    [InlineData(Ir.Cond.Geu)]
+    [InlineData(Ir.Cond.Lt)]
+    [InlineData(Ir.Cond.Ge)]
+    [InlineData(Ir.Cond.Le)]
+    [InlineData(Ir.Cond.Gtu)]
+    public void Long_Branches_Match_The_Oracle(Ir.Cond cond)
+    {
+        var program = new IrProgram();
+        Ir.Cell result = program.R(1);
+        foreach (int a in LongValues)
+        {
+            foreach (int b in new[] { 0, 1, 0xFFFF, 0x10000, 0x7FFFFFFF, unchecked((int)0x80000000), -1 })
+            {
+                program.Emit(new Ir.Mov(program.A(4), new Ir.Imm(a, 4)), new Ir.Mov(program.B(4), new Ir.Imm(b, 4)));
+                EmitBranchCase(program, result, cond, program.A(4), program.B(4), $"{cond} L {a:X} {b:X}");
+            }
+
+            EmitBranchCase(program, result, cond, new Ir.Imm(a, 4), new Ir.Imm(0x8000, 2), $"{cond} L imm {a:X} vs word");
+        }
+
+        program.AssertConforms($"{cond} long");
+    }
+
+    [Fact]
+    public void Long_Moves_Loads_And_Stores_Match_The_Oracle()
+    {
+        var program = new IrProgram().AddData(new Ir.Data("c_src", "BSS", 8, null, false));
+        Ir.Cell result = program.R(4);
+        Ir.Cell narrow = program.R(2);
+        foreach (int a in LongValues)
+        {
+            program.Emit(new Ir.Mov(result, new Ir.Imm(a, 4))).Record(result, $"Mov L #{a:X}");
+            program.Emit(new Ir.Store(new Ir.AddrOf("c_src", 0), 2, new Ir.Imm(a, 4), 4), new Ir.Load(result, new Ir.AddrOf("c_src", 0), 2, 4)).Record(result, $"Store/Load L {a:X}");
+            program.Emit(new Ir.Mov(narrow, new Ir.Imm(a, 4))).Record(narrow, $"Truncate L {a:X}");
+            program.Emit(new Ir.Mov(program.A(2), new Ir.Imm(a, 2)), new Ir.Mov(result, program.A(2))).Record(result, $"Widen word {a:X}");
+        }
+
+        program.AssertConforms("long moves");
+    }
 }

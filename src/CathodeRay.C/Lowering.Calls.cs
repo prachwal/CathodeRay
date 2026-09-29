@@ -40,7 +40,7 @@ internal sealed partial class Lowering
                 widths = [.. paramTypes.Select(static t => Width(t))];
                 while (target.Def.IsVariadic && widths.Count < args.Count)
                 {
-                    widths.Add(2);
+                    widths.Add(Math.Max(Width(TypeOf(args[widths.Count]).Decay()), 2));
                 }
 
                 break;
@@ -72,6 +72,10 @@ internal sealed partial class Lowering
             else
             {
                 values[i] = Value(args[i], at);
+                if (i < paramTypes.Count)
+                {
+                    values[i] = Extend(values[i], TypeOf(args[i]), paramTypes[i].Size == 4, at + count + 2);
+                }
             }
         }
 

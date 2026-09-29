@@ -48,6 +48,8 @@ public sealed class IrInterpreter
         var interpreter = new IrInterpreter { StepLimit = stepLimit };
         interpreter._exported["cc_retbuf"] = interpreter._next;
         interpreter._next += Lowering.MaxReturnedStruct;
+        interpreter._exported[WideLegalizer.ReturnHigh] = interpreter._next;
+        interpreter._next += 2;
         foreach (Ir.Module module in modules)
         {
             interpreter.Allocate(module);
@@ -87,12 +89,12 @@ public sealed class IrInterpreter
         }
 
         (Ir.Function function, Dictionary<string, int> mainLocal) = _byAddress[_exported["main"]];
-        return (Call((function, mainLocal), []), function.RetW);
+        return ((int)Call((function, mainLocal), []), function.RetW);
     }
 
-    private static int Mask(int width) => width == 1 ? 0xFF : 0xFFFF;
+    private static long Mask(int width) => width == 1 ? 0xFF : width == 2 ? 0xFFFF : 0xFFFFFFFFL;
 
-    private static int Signed(int value, int width) => width == 1 ? (sbyte)value : (short)value;
+    private static long Signed(long value, int width) => width == 1 ? (sbyte)value : width == 2 ? (short)value : (int)value;
 
     private static int WidthOf(Ir.Op op) => op switch
     {
@@ -161,34 +163,37 @@ public sealed class IrInterpreter
             ? address
             : throw new InvalidOperationException($"unresolved symbol '{symbol}'.");
 
-    private int Read(int address, int width)
+    private long Read(int address, int width)
     {
-        address &= 0xFFFF;
-        return width == 1 ? _memory[address] : _memory[address] | (_memory[(address + 1) & 0xFFFF] << 8);
+        long value = 0;
+        for (int i = 0; i < width; i++)
+        {
+            value |= (long)_memory[(address + i) & 0xFFFF] << (8 * i);
+        }
+
+        return value;
     }
 
-    private void Write(int address, int value, int width)
+    private void Write(int address, long value, int width)
     {
-        address &= 0xFFFF;
-        _memory[address] = (byte)value;
-        if (width == 2)
+        for (int i = 0; i < width; i++)
         {
-            _memory[(address + 1) & 0xFFFF] = (byte)(value >> 8);
+            _memory[(address + i) & 0xFFFF] = (byte)(value >> (8 * i));
         }
     }
 
-    private int Get(Ir.Op op, Dictionary<string, int> local) => op switch
+    private long Get(Ir.Op op, Dictionary<string, int> local) => op switch
     {
         Ir.Cell cell => Read(Resolve(local, cell.Sym), cell.W),
-        Ir.Imm imm => imm.Value & Mask(imm.W),
+        Ir.Imm imm => (uint)imm.Value & Mask(imm.W),
         Ir.AddrOf address => (Resolve(local, address.Sym) + address.Off) & 0xFFFF,
         _ => throw new InvalidOperationException($"unsupported operand {op.GetType().Name}."),
     };
 
-    private void Put(Ir.Cell cell, int value, Dictionary<string, int> local) =>
+    private void Put(Ir.Cell cell, long value, Dictionary<string, int> local) =>
         Write(Resolve(local, cell.Sym), value & Mask(cell.W), cell.W);
 
-    private int Call((Ir.Function Function, Dictionary<string, int> Local) target, int[] arguments)
+    private long Call((Ir.Function Function, Dictionary<string, int> Local) target, long[] arguments)
     {
         (Ir.Function function, Dictionary<string, int> local) = target;
         var snapshot = new List<(int Address, byte Value)>();
@@ -206,7 +211,7 @@ public sealed class IrInterpreter
             Put(function.Params[i], arguments[i], local);
         }
 
-        int result = Run(function, local);
+        long result = Run(function, local);
         for (int i = snapshot.Count - 1; i >= 0; i--)
         {
             _memory[snapshot[i].Address & 0xFFFF] = snapshot[i].Value;
@@ -215,7 +220,7 @@ public sealed class IrInterpreter
         return result;
     }
 
-    private int Run(Ir.Function function, Dictionary<string, int> local)
+    private long Run(Ir.Function function, Dictionary<string, int> local)
     {
         var labels = new Dictionary<string, int>(StringComparer.Ordinal);
         for (int i = 0; i < function.Body.Count; i++)
@@ -243,29 +248,29 @@ public sealed class IrInterpreter
                     break;
                 case Ir.Un un:
                 {
-                    int a = Get(un.A, local);
+                    long a = Get(un.A, local);
                     Put(un.Dst, un.Kind == Ir.UnOp.Neg ? -a : ~a, local);
                     break;
                 }
 
                 case Ir.Load load:
                 {
-                    int address = (Get(load.Ptr, local) + load.Off) & 0xFFFF;
+                    int address = (int)((Get(load.Ptr, local) + load.Off) & 0xFFFF);
                     Put(load.Dst, Read(address, load.Bytes), local);
                     break;
                 }
 
                 case Ir.Store store:
                 {
-                    int address = (Get(store.Ptr, local) + store.Off) & 0xFFFF;
+                    int address = (int)((Get(store.Ptr, local) + store.Off) & 0xFFFF);
                     Write(address, Get(store.Value, local), store.Bytes);
                     break;
                 }
 
                 case Ir.CopyBlock copy:
                 {
-                    int to = Get(copy.Dst, local);
-                    int from = Get(copy.Src, local);
+                    int to = (int)Get(copy.Dst, local);
+                    int from = (int)Get(copy.Src, local);
                     for (int i = 0; i < copy.Size; i++)
                     {
                         _memory[(to + i) & 0xFFFF] = _memory[(from + i) & 0xFFFF];
@@ -276,7 +281,7 @@ public sealed class IrInterpreter
 
                 case Ir.Fill fill:
                 {
-                    int at = Get(fill.Dst, local);
+                    int at = (int)Get(fill.Dst, local);
                     for (int i = 0; i < fill.Size; i++)
                     {
                         _memory[(at + i) & 0xFFFF] = (byte)fill.Value;
@@ -304,15 +309,15 @@ public sealed class IrInterpreter
 
     private void Invoke(Ir.Call call, Dictionary<string, int> local)
     {
-        int[] arguments = [.. call.Args.Select(a => Get(a, local))];
-        int result;
+        long[] arguments = [.. call.Args.Select(a => Get(a, local))];
+        long result;
         if (call.Direct is not null && !_exported.ContainsKey(call.Direct) && !local.ContainsKey(call.Direct))
         {
             result = Builtin(call.Direct, arguments);
         }
         else
         {
-            int address = call.Direct is not null ? Resolve(local, call.Direct) : Get(call.Indirect!, local);
+            int address = call.Direct is not null ? Resolve(local, call.Direct) : (int)Get(call.Indirect!, local);
             result = Call(_byAddress.TryGetValue(address, out var target) ? target : throw new InvalidOperationException($"call through bad address {address:X4}."), arguments);
         }
 
@@ -322,7 +327,7 @@ public sealed class IrInterpreter
         }
     }
 
-    private int Builtin(string name, int[] arguments)
+    private long Builtin(string name, long[] arguments)
     {
         switch (name)
         {
@@ -340,11 +345,11 @@ public sealed class IrInterpreter
         }
     }
 
-    private int Binary(Ir.Bin bin, Dictionary<string, int> local)
+    private long Binary(Ir.Bin bin, Dictionary<string, int> local)
     {
         int width = bin.Dst.W;
-        int a = Get(bin.A, local);
-        int b = Get(bin.B, local);
+        long a = Get(bin.A, local);
+        long b = Get(bin.B, local);
         int bits = width * 8;
         switch (bin.Kind)
         {
@@ -361,13 +366,13 @@ public sealed class IrInterpreter
             case Ir.BinOp.Mul:
                 return a * b;
             case Ir.BinOp.Shl:
-                return (b & 0xFF) >= bits ? 0 : a << (b & 0xFF);
+                return (b & 0xFF) >= bits ? 0 : a << (int)(b & 0xFF);
             case Ir.BinOp.Shr:
-                return (b & 0xFF) >= bits ? 0 : a >> (b & 0xFF);
+                return (b & 0xFF) >= bits ? 0 : a >> (int)(b & 0xFF);
             case Ir.BinOp.Sar:
             {
-                int signed = Signed(a, WidthOf(bin.A));
-                return signed >> Math.Min(b & 0xFF, 15);
+                long signed = Signed(a, WidthOf(bin.A));
+                return signed >> (int)Math.Min(b & 0xFF, 31);
             }
 
             case Ir.BinOp.Div:
@@ -376,15 +381,15 @@ public sealed class IrInterpreter
                 return b == 0 ? 0 : a % b;
             case Ir.BinOp.DivS:
             {
-                int sa = Signed(a, WidthOf(bin.A));
-                int sb = Signed(b, WidthOf(bin.B));
+                long sa = Signed(a, WidthOf(bin.A));
+                long sb = Signed(b, WidthOf(bin.B));
                 return sb == 0 ? 0 : sa / sb;
             }
 
             default:
             {
-                int sa = Signed(a, WidthOf(bin.A));
-                int sb = Signed(b, WidthOf(bin.B));
+                long sa = Signed(a, WidthOf(bin.A));
+                long sb = Signed(b, WidthOf(bin.B));
                 return sb == 0 ? 0 : sa % sb;
             }
         }
@@ -393,8 +398,8 @@ public sealed class IrInterpreter
     private bool Compare(Ir.BrCmp branch, Dictionary<string, int> local)
     {
         int width = Math.Max(WidthOf(branch.A), WidthOf(branch.B));
-        int a = Get(branch.A, local);
-        int b = Get(branch.B, local);
+        long a = Get(branch.A, local);
+        long b = Get(branch.B, local);
         bool signed = branch.C is Ir.Cond.Lt or Ir.Cond.Le or Ir.Cond.Gt or Ir.Cond.Ge;
         if (signed)
         {

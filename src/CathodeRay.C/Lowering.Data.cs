@@ -49,7 +49,7 @@ internal sealed partial class Lowering
         int size = StorageSize(symbol.Type);
         bool aggregate = symbol.Type.Kind is "array" or "struct";
         bool tableInit = aggregate && symbol.Init is Ast.InitList or Ast.Str;
-        if (symbol.Init is not null && !tableInit && !TryConstValue(symbol.Init, out _))
+        if (symbol.Init is not null && !tableInit && !TryDataConstant(symbol.Init, symbol.Type, out _))
         {
             if (symbol.Type.Kind is "ptr" or "fptr" && SymbolInit(symbol.Init) is var (address, offset))
             {
@@ -80,18 +80,45 @@ internal sealed partial class Lowering
 
     private byte[] ScalarBytes(TypedSymbol symbol)
     {
-        if (TryConstValue(symbol.Init, out int value))
+        if (TryDataConstant(symbol.Init, symbol.Type, out long value))
         {
-            return symbol.Type.Size == 1 ? [(byte)(value & 0xFF)] : WordBytes(value);
+            return NumberBytes(value, symbol.Type.Size);
         }
 
         throw new CCodegenException($"initializer of '{symbol.Name}' must be a constant.");
     }
 
-    /// <summary>Słowo 16-bitowe w kolejności bajtów celu.</summary>
-    private byte[] WordBytes(int value) => _byteOrder == TargetByteOrder.Big
-        ? [(byte)((value >> 8) & 0xFF), (byte)(value & 0xFF)]
-        : [(byte)(value & 0xFF), (byte)((value >> 8) & 0xFF)];
+    /// <summary>Stała do danych początkowych: literał 32-bitowy albo stała 16-bitowa (dla celu 32-bitowego rozszerzana znakiem, gdy
+    /// ma ustawiony bit 15, bo stała powyżej 255 bez przyrostka jest <c>int</c>).</summary>
+    private bool TryDataConstant(Ast.Expr? expr, CType target, out long value)
+    {
+        value = 0;
+        if (expr is Ast.Number number && Literal.TryParse(number.Text, out Literal literal) && literal.IsLong)
+        {
+            value = literal.Value;
+            return true;
+        }
+
+        if (expr is null || !TryConstValue(expr, out int constant))
+        {
+            return false;
+        }
+
+        value = target.Size == 4 && constant >= 0x8000 ? constant | 0xFFFF0000L : constant;
+        return true;
+    }
+
+    /// <summary>Liczba w kolejności bajtów celu.</summary>
+    private byte[] NumberBytes(long value, int size)
+    {
+        byte[] bytes = size == 1 ? [(byte)value] : size == 2 ? [(byte)value, (byte)(value >> 8)] : [(byte)value, (byte)(value >> 8), (byte)(value >> 16), (byte)(value >> 24)];
+        if (_byteOrder == TargetByteOrder.Big)
+        {
+            Array.Reverse(bytes);
+        }
+
+        return bytes;
+    }
 
     /// <summary>Dane tablicy/struktury: bajty z wpisanymi stałymi i słowami z adresami symboli.</summary>
     private List<Ir.Piece> AggregatePieces(TypedSymbol symbol)
@@ -102,7 +129,7 @@ internal sealed partial class Lowering
         CollectInit(symbol.Type, symbol.Init!, 0, entries);
         foreach ((int offset, CType type, Ast.Expr expr) in entries)
         {
-            if (!TryConstValue(expr, out int value))
+            if (!TryDataConstant(expr, type, out long value))
             {
                 if (type.Kind is "ptr" or "fptr" && SymbolInit(expr) is var (address, addressOffset))
                 {
@@ -113,14 +140,7 @@ internal sealed partial class Lowering
                 throw new CCodegenException($"initializer of '{symbol.Name}' must be constant.");
             }
 
-            if (type.Size == 2)
-            {
-                WordBytes(value).CopyTo(bytes, offset);
-            }
-            else
-            {
-                bytes[offset] = (byte)(value & 0xFF);
-            }
+            NumberBytes(value, type.Size).CopyTo(bytes, offset);
         }
 
         var pieces = new List<Ir.Piece>();

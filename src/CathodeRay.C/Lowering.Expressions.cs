@@ -4,13 +4,14 @@ namespace CathodeRay.C;
 /// <c>Temp(depth)</c>, stałą albo adres; wewnętrzne tymczasowe leżą głębiej niż <c>depth</c>.</summary>
 internal sealed partial class Lowering
 {
-    private static int Mask(int width) => width == 1 ? 0xFF : 0xFFFF;
+    private static int Mask(int width) => width == 1 ? 0xFF : width == 2 ? 0xFFFF : -1;
 
     private static bool HasSideEffects(Ast.Expr expr) => expr switch
     {
         Ast.Call or Ast.CallExpr or Ast.Assign or Ast.AssignTo or Ast.AssignOpTo => true,
         Ast.Unary unary => HasSideEffects(unary.Operand),
         Ast.Cast cast => HasSideEffects(cast.Value),
+        Ast.Comma => true,
         Ast.Binary binary => HasSideEffects(binary.Left) || HasSideEffects(binary.Right),
         Ast.Ternary ternary => HasSideEffects(ternary.Cond) || HasSideEffects(ternary.Then) || HasSideEffects(ternary.Else),
         Ast.Deref deref => HasSideEffects(deref.Pointer),
@@ -77,6 +78,45 @@ internal sealed partial class Lowering
         }
     }
 
+    /// <summary>Konwersja <c>int</c> → <c>long</c>/<c>ulong</c> z rozszerzeniem znakiem (pozostałe rozszerzenia to dopełnienie zerami,
+    /// które robi sam IR).</summary>
+    private Ir.Op Extend(Ir.Op value, CType from, bool toWide, int depth)
+    {
+        if (!toWide || from.Kind != "int" || (value is Ir.Cell { W: 4 } or Ir.Imm { W: 4 }))
+        {
+            return value;
+        }
+
+        if (value is Ir.Imm imm)
+        {
+            return new Ir.Imm(imm.W == 2 ? (short)imm.Value : imm.Value, 4);
+        }
+
+        Ir.Cell wide = Temp(depth, 4);
+        string done = Label("sext");
+        Emit(new Ir.Mov(wide, value));
+        Emit(new Ir.BrCmp(Ir.Cond.Ltu, value, new Ir.Imm(0x8000, 2), done));
+        Emit(new Ir.Bin(Ir.BinOp.Or, wide, wide, new Ir.Imm(unchecked((int)0xFFFF0000), 4)));
+        Emit(new Ir.Label(done));
+        return wide;
+    }
+
+    /// <summary>Indeks albo przesunięcie wskaźnika liczone na 16 bitach: 32-bitowa wartość jest obcinana.</summary>
+    private Ir.Op To16(Ir.Op value, int depth)
+    {
+        switch (value)
+        {
+            case Ir.Imm { W: 4 } imm:
+                return new Ir.Imm(imm.Value & 0xFFFF, 2);
+            case Ir.Cell { W: 4 }:
+                Ir.Cell narrow = Temp(depth, 2);
+                Emit(new Ir.Mov(narrow, value));
+                return narrow;
+            default:
+                return value;
+        }
+    }
+
     private Ir.Cell Dst(Ir.Cell? into, int width, int depth) =>
         into is not null && into.W == width ? into : Temp(depth, width);
 
@@ -94,6 +134,11 @@ internal sealed partial class Lowering
         {
             case Ast.Number number:
             {
+                if (Literal.TryParse(number.Text, out Literal literal) && literal.IsLong)
+                {
+                    return new Ir.Imm((int)literal.Value, 4);
+                }
+
                 TryNumber(number.Text, out int value);
                 value &= 0xFFFF;
                 return new Ir.Imm(value, value <= 0xFF ? 1 : 2);
@@ -117,6 +162,9 @@ internal sealed partial class Lowering
                 return UnaryValue(unary, depth, into);
             case Ast.Cast cast:
                 return CastValue(cast, depth);
+            case Ast.Comma comma:
+                _ = Value(comma.Left, depth);
+                return Value(comma.Right, depth, into);
             case Ast.Binary binary:
                 return BinaryValue(binary, depth, into);
             case Ast.Assign assign:
@@ -143,6 +191,7 @@ internal sealed partial class Lowering
     {
         Ir.Op value = Value(cast.Value, depth);
         int width = WidthOf(cast);
+        value = Extend(value, TypeOf(cast.Value), width == 4, depth + 1);
         if (value switch { Ir.Cell c => c.W, Ir.Imm i => i.W, _ => 2 } == width)
         {
             return value;
@@ -197,7 +246,7 @@ internal sealed partial class Lowering
         }
 
         var dst = new Ir.Cell(cell.Sym, Width(cell.Type));
-        Ir.Op source = Value(value, depth, dst);
+        Ir.Op source = Extend(Value(value, depth, dst), TypeOf(value), dst.W == 4, depth + 1);
         if (source is not Ir.Cell same || same.Sym != dst.Sym)
         {
             Emit(new Ir.Mov(dst, source));
@@ -261,7 +310,7 @@ internal sealed partial class Lowering
         if (op is "+" or "-" && (leftPointer || rightPointer))
         {
             Ir.Op pointer = leftPointer ? left : right;
-            Ir.Op index = leftPointer ? right : left;
+            Ir.Op index = To16(leftPointer ? right : left, depth + 2);
             int size = (leftPointer ? leftType : rightType).Base?.Size ?? 1;
             Ir.Cell dst = Dst(into, 2, depth);
             Ir.Op scaled = Scale(index, size, depth + 1);
@@ -270,7 +319,16 @@ internal sealed partial class Lowering
         }
 
         int width = Width(result);
-        bool unsignedOperands = leftType.Kind == "uint" || rightType.Kind == "uint" || width == 1;
+        if (width == 4)
+        {
+            left = Extend(left, leftType, true, depth + 2);
+            if (op is not ("<<" or ">>"))
+            {
+                right = Extend(right, rightType, true, depth + 3);
+            }
+        }
+
+        bool unsignedOperands = leftType.Kind is "uint" or "ulong" || rightType.Kind is "uint" or "ulong" || width == 1;
         Ir.BinOp kind = op switch
         {
             "+" => Ir.BinOp.Add,
@@ -282,7 +340,7 @@ internal sealed partial class Lowering
             "|" => Ir.BinOp.Or,
             "^" => Ir.BinOp.Xor,
             "<<" => Ir.BinOp.Shl,
-            ">>" => width == 2 && leftType.Kind == "int" ? Ir.BinOp.Sar : Ir.BinOp.Shr,
+            ">>" => width >= 2 && leftType.Kind is "int" or "long" ? Ir.BinOp.Sar : Ir.BinOp.Shr,
             _ => throw new CCodegenException($"unknown operator '{op}'."),
         };
         if (ReduceStrength(kind, width, left, right, depth) is { } reduced)
@@ -323,10 +381,10 @@ internal sealed partial class Lowering
         string els = Label("telse");
         string done = Label("tdone");
         Branch(ternary.Cond, els, whenTrue: false, depth + 1);
-        Emit(new Ir.Mov(result, Value(ternary.Then, depth + 1)));
+        Emit(new Ir.Mov(result, Extend(Value(ternary.Then, depth + 1), TypeOf(ternary.Then), width == 4, depth + 2)));
         Emit(new Ir.Jmp(done));
         Emit(new Ir.Label(els));
-        Emit(new Ir.Mov(result, Value(ternary.Else, depth + 1)));
+        Emit(new Ir.Mov(result, Extend(Value(ternary.Else, depth + 1), TypeOf(ternary.Else), width == 4, depth + 2)));
         Emit(new Ir.Label(done));
         return result;
     }
@@ -358,7 +416,7 @@ internal sealed partial class Lowering
             return new Ir.Imm(0, 1);
         }
 
-        Ir.Op value = Value(assignTo.Value, depth);
+        Ir.Op value = Extend(Value(assignTo.Value, depth), TypeOf(assignTo.Value), element.Size == 4, depth + 2);
         (Ir.Op pointer, int offset) = LValueAddr(assignTo.Target, depth + 1);
         Emit(new Ir.Store(pointer, offset, value, Width(element)));
         return value;

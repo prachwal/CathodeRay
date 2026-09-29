@@ -43,7 +43,7 @@ public sealed class IrProgram
     /// <summary>Zapisuje wartość komórki w kolejnym slocie wyników.</summary>
     public IrProgram Record(Ir.Cell result, string description)
     {
-        _body.Add(new Ir.Store(new Ir.AddrOf("c_res", 0), _names.Count * 2, result, result.W));
+        _body.Add(new Ir.Store(new Ir.AddrOf("c_res", 0), _names.Count * 4, result, result.W));
         _names.Add(description);
         _widths.Add(result.W);
         return this;
@@ -54,10 +54,10 @@ public sealed class IrProgram
         var body = new List<Ir.Ins>(_body) { new Ir.Ret(null, 0) };
         List<Ir.Data> data =
         [
-            new("c_a", "BSS", 2, null, false),
-            new("c_b", "BSS", 2, null, false),
-            new("c_r", "BSS", 2, null, false),
-            new("c_res", "BSS", Math.Max(_names.Count * 2, 2), null, true),
+            new("c_a", "BSS", 4, null, false),
+            new("c_b", "BSS", 4, null, false),
+            new("c_r", "BSS", 4, null, false),
+            new("c_res", "BSS", Math.Max(_names.Count * 4, 4), null, true),
             .. _extraData,
         ];
         return new Ir.Module([new Ir.Function("main", false, [], 0, [], body), .. _extraFunctions], data, [], [], ObjectMode: false);
@@ -69,32 +69,32 @@ public sealed class IrProgram
         Ir.Module module = Build();
         var interpreter = IrInterpreter.Load([module]);
         interpreter.RunMain();
-        int size = Math.Max(_names.Count * 2, 2);
+        int size = Math.Max(_names.Count * 4, 4);
         byte[] expected = interpreter.Peek("c_res", size);
         foreach (ICTarget target in TargetHarness.Targets)
         {
             foreach (bool optimize in new[] { true, false })
             {
                 byte[] actual = TargetHarness.Run(target, module, optimize).Read("c_res", size);
-                if (target.ByteOrder == TargetByteOrder.Big)
-                {
-                    for (int slot = 0; slot < _names.Count; slot++)
-                    {
-                        if (_widths[slot] == 2)
-                        {
-                            (actual[slot * 2], actual[(slot * 2) + 1]) = (actual[(slot * 2) + 1], actual[slot * 2]);
-                        }
-                    }
-                }
-
                 for (int slot = 0; slot < _names.Count; slot++)
                 {
-                    if (actual[slot * 2] != expected[slot * 2] || actual[(slot * 2) + 1] != expected[(slot * 2) + 1])
+                    int width = _widths[slot];
+                    if (target.ByteOrder == TargetByteOrder.Big)
                     {
-                        Assert.Fail($"{what} [{target.Name}, optimize={optimize}]: {_names[slot]}: interpreter {expected[(slot * 2) + 1]:X2}{expected[slot * 2]:X2}, target {actual[(slot * 2) + 1]:X2}{actual[slot * 2]:X2}");
+                        Array.Reverse(actual, slot * 4, width);
+                    }
+
+                    for (int i = 0; i < width; i++)
+                    {
+                        if (actual[(slot * 4) + i] != expected[(slot * 4) + i])
+                        {
+                            Assert.Fail($"{what} [{target.Name}, optimize={optimize}]: {_names[slot]}: interpreter {Hex(expected, slot * 4, width)}, target {Hex(actual, slot * 4, width)}");
+                        }
                     }
                 }
             }
         }
     }
+
+    private static string Hex(byte[] bytes, int at, int width) => string.Concat(Enumerable.Range(0, width).Reverse().Select(i => bytes[at + i].ToString("X2", System.Globalization.CultureInfo.InvariantCulture)));
 }

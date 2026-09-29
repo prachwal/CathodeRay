@@ -18,6 +18,12 @@ public sealed record CType(string Kind, CType? Base = null, int Length = 0, Stru
     /// <summary>16-bit bez znaku.</summary>
     public static CType UInt { get; } = new("uint");
 
+    /// <summary>32-bit ze znakiem.</summary>
+    public static CType Long { get; } = new("long");
+
+    /// <summary>32-bit bez znaku.</summary>
+    public static CType ULong { get; } = new("ulong");
+
     /// <summary>Bez typu (wynik procedur).</summary>
     public static CType Void { get; } = new("void");
 
@@ -25,10 +31,14 @@ public sealed record CType(string Kind, CType? Base = null, int Length = 0, Stru
     public int Size => Kind switch
     {
         "uchar" => 1,
+        "long" or "ulong" => 4,
         "array" => Length * (Base?.Size ?? 0),
         "struct" => Info?.Size ?? 0,
         _ => 2,
     };
+
+    /// <summary>Typ całkowity (uchar, int, uint, long, ulong).</summary>
+    public bool IsInteger => Kind is "uchar" or "int" or "uint" or "long" or "ulong";
 
     /// <summary>Wskaźnik.</summary>
     /// <param name="base">Typ bazowy.</param>
@@ -50,6 +60,18 @@ public sealed record CType(string Kind, CType? Base = null, int Length = 0, Stru
     /// <param name="length">Liczba elementów.</param>
     /// <returns>Typ tablicowy.</returns>
     public static CType Array(CType @base, int length) => new("array", @base, length);
+
+    /// <summary>Wynik działania arytmetycznego na dwóch typach całkowitych: <c>ulong</c> &gt; <c>long</c> &gt; <c>uint</c> &gt; <c>int</c> &gt; <c>uchar</c>
+    /// (<c>long</c> mieści każdą wartość <c>uint</c>).</summary>
+    /// <param name="a">Pierwszy typ.</param>
+    /// <param name="b">Drugi typ.</param>
+    /// <returns>Typ wyniku.</returns>
+    public static CType Promote(CType a, CType b) =>
+        a.Kind == "ulong" || b.Kind == "ulong" ? ULong
+        : a.Kind == "long" || b.Kind == "long" ? Long
+        : a.Kind == "uint" || b.Kind == "uint" ? UInt
+        : a.Kind == "int" || b.Kind == "int" ? Int
+        : UChar;
 
     /// <summary>Rozpad tablicy na wskaźnik (jak w C).</summary>
     /// <returns>Wskaźnik do elementu dla tablic, ten sam typ wpp.</returns>
@@ -73,6 +95,8 @@ public sealed record CType(string Kind, CType? Base = null, int Length = 0, Stru
         "uchar" => UChar,
         "int" => Int,
         "uint" => UInt,
+        "long" => Long,
+        "ulong" => ULong,
         "void" => Void,
         _ => throw new ArgumentException($"Unknown type '{name}'.", nameof(name)),
     };

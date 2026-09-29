@@ -8,7 +8,7 @@ public static class Lexer
 {
     private static readonly HashSet<string> Keywords = new(StringComparer.Ordinal)
     {
-        "uchar", "int", "void", "if", "else", "while", "for", "return", "break", "continue", "do", "switch", "case", "default", "sizeof", "enum", "typedef", "goto", "struct", "static", "extern", "const", "uint",
+        "uchar", "int", "void", "if", "else", "while", "for", "return", "break", "continue", "do", "switch", "case", "default", "sizeof", "enum", "typedef", "goto", "struct", "static", "extern", "const", "uint", "long", "ulong", "union",
     };
 
     private static readonly string[] Operators =
@@ -149,6 +149,21 @@ public static class Lexer
                             '0' => '\0',
                             _ => esc,
                         };
+                        if (esc == 'x')
+                        {
+                            // \xHH: do dwóch cyfr szesnastkowych (bez cyfr zostaje literalne 'x')
+                            int code = 0;
+                            int digits = 0;
+                            while (digits < 2 && pos < source.Length && char.IsAsciiHexDigit(source[pos]))
+                            {
+                                code = (code * 16) + Convert.ToInt32(source[pos].ToString(), 16);
+                                pos++;
+                                col++;
+                                digits++;
+                            }
+
+                            ch = digits == 0 ? 'x' : (char)code;
+                        }
                     }
 
                     text.Append(ch);

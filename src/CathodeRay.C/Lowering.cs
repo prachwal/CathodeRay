@@ -29,6 +29,8 @@ internal sealed partial class Lowering
 
     private readonly List<TypedSymbol> _runtimeInits = [];
 
+    private readonly HashSet<int> _wideTemps = [];
+
     private readonly TargetByteOrder _byteOrder;
 
     private readonly HashSet<string> _localSymbols = new(StringComparer.Ordinal);
@@ -149,14 +151,29 @@ internal sealed partial class Lowering
 
     private static string GlobalLabel(string name) => $"cc_g_{name}";
 
-    private static int Width(CType type) => type.Kind == "uchar" ? 1 : 2;
+    private static int Width(CType type) => type.Kind == "uchar" ? 1 : type.Kind is "long" or "ulong" ? 4 : 2;
 
-    private static bool IsWide(CType type) => type.Kind is "int" or "uint" or "ptr" or "fptr";
+    private static bool IsWide(CType type) => type.Kind is "int" or "uint" or "long" or "ulong" or "ptr" or "fptr";
 
-    private static bool TryNumber(string text, out int value) =>
-        text.StartsWith("0x", StringComparison.OrdinalIgnoreCase)
-            ? int.TryParse(text[2..], NumberStyles.HexNumber, CultureInfo.InvariantCulture, out value)
-            : int.TryParse(text, out value);
+    /// <summary>Wartość stałej 16-bitowej (nie 32-bitowej: te lądują w komórkach W=4 osobną ścieżką).</summary>
+    private static bool TryNumber(string text, out int value)
+    {
+        value = 0;
+        if (!Literal.TryParse(text, out Literal literal) || literal.IsLong)
+        {
+            return false;
+        }
+
+        value = (int)literal.Value;
+        return true;
+    }
+
+    private static int ReturnWidth(Ast.Function def) =>
+        def.ReturnStars > 0 ? 2
+        : def.ReturnType == "void" || def.ReturnType.StartsWith("struct ", StringComparison.Ordinal) || def.ReturnType.StartsWith("const struct ", StringComparison.Ordinal) ? 0
+        : def.ReturnType is "uchar" or "const uchar" ? 1
+        : def.ReturnType is "long" or "ulong" or "const long" or "const ulong" ? 4
+        : 2;
 
     /// <summary>Usuwa <c>Jmp L</c> tuż przed <c>L:</c> (pomijając znaczniki linii).</summary>
     private static List<Ir.Ins> DropJumpsToNext(List<Ir.Ins> body)
@@ -233,6 +250,11 @@ internal sealed partial class Lowering
     private Ir.Cell Temp(int depth, int width)
     {
         _maxTemp = Math.Max(_maxTemp, depth);
+        if (width == 4)
+        {
+            _wideTemps.Add(depth);
+        }
+
         return new Ir.Cell(TempSym(depth), width);
     }
 
@@ -317,6 +339,7 @@ internal sealed partial class Lowering
         }
 
         _maxTemp = -1;
+        _wideTemps.Clear();
         _extraOwned.Clear();
         _body = [];
         Comment(function.Def);
@@ -333,12 +356,13 @@ internal sealed partial class Lowering
         for (int temp = 0; temp <= _maxTemp; temp++)
         {
             string sym = TempSym(temp);
-            AddBss(sym, 2);
-            saved.Add(new Ir.Owned(sym, 2, false));
+            int tempSize = _wideTemps.Contains(temp) ? 4 : 2;
+            AddBss(sym, tempSize);
+            saved.Add(new Ir.Owned(sym, tempSize, false));
         }
 
         saved.AddRange(_extraOwned);
-        int retW = structReturn || (function.Def.ReturnType == "void" && function.Def.ReturnStars == 0) ? 0 : function.Def.ReturnType == "uchar" && function.Def.ReturnStars == 0 ? 1 : 2;
+        int retW = ReturnWidth(function.Def);
         _pending.Add(new Pending(new Ir.Function(function.Def.Name, function.Def.IsStatic, parameters, retW, [], IrPasses.Optimize(DropJumpsToNext(_body))), saved, aggregates));
         _current = null;
     }
@@ -356,6 +380,7 @@ internal sealed partial class Lowering
         }
 
         _maxTemp = -1;
+        _wideTemps.Clear();
         _extraOwned.Clear();
         _body = [];
         foreach (TypedSymbol global in _runtimeInits)
@@ -365,7 +390,7 @@ internal sealed partial class Lowering
 
         for (int temp = 0; temp <= _maxTemp; temp++)
         {
-            AddBss(TempSym(temp), 2);
+            AddBss(TempSym(temp), _wideTemps.Contains(temp) ? 4 : 2);
         }
 
         _initFunction = new Ir.Function("__cc_init", true, [], 0, [], IrPasses.Optimize(DropJumpsToNext(_body)));
