@@ -31,10 +31,10 @@ Rozmiar: S = <1 h, M = kilka h, L = dzień+. Kolejność: A -> B -> C -> D -> E;
 - [x] **14.** [M] volatile: każdy odczyt i zapis zachowany (wyłącza propagację, martwe zapisy i pamięć podręczną A dla tej komórki i adresów); inline jako podpowiedź (współpracuje z 10), register przyjmowany i ignorowany
 - [x] **15.** [L] Pola bitowe struct { uint a:3; uint b:5; }: układ od najmłodszego bitu w bajcie/słowie, odczyt przez przesunięcie i maskę, zapis jako odczyt-modyfikacja-zapis, sizeof, zakaz adresu pola, inicjalizatory
 - [ ] **16.** [L] long long / unsigned long long (64 bity): WideLegalizer rekurencyjnie (W8 -> dwie połówki 32), rt mul64/div64 w mini-C, literały LL, konwersje, printf %lld/%llu/%llx, sample
-- [ ] **17.** [L] float i double (IEEE-754 pojedynczej precyzji, double = float): typ i konwersje z całkowitymi, rt w mini-C na ulong (add, sub, mul, div, porównania, int<->float), literały 1.5f, printf %f z ustaloną liczbą cyfr, brak funkcji matematycznych
+- [x] **17.** [L] float i double (IEEE-754 pojedynczej precyzji, double = float): typ i konwersje z całkowitymi, rt w mini-C na ulong (add, sub, mul, div, porównania, int<->float), literały 1.5f, printf %f z ustaloną liczbą cyfr, brak funkcji matematycznych
 
 ## E. Zamknięcie
 
 - [ ] **18.** [S] Testy e2e per pozycja, samples/minic/23_*.c ...; docs/minic.md (usunąć spełnione pozycje z „Nie działa”), docs/targets.md, docs/compare.md, docs/target-sizes.md, hygiene
 
-Postęp: 15/18 gotowych.
+Postęp: 16/18 gotowych.

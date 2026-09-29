@@ -47,7 +47,7 @@ public sealed partial class TypeChecker
         && (a.Sig is null ? b.Sig is null : b.Sig is not null && SameShape(a.Sig.Return, b.Sig.Return)
             && a.Sig.Params.Count == b.Sig.Params.Count && a.Sig.Params.Zip(b.Sig.Params).All(static pair => SameShape(pair.First, pair.Second)));
 
-    private static int ArgSlots(CType type) => type.Size == 4 && type.IsInteger ? 2 : 1;
+    private static int ArgSlots(CType type) => type.Size == 4 && (type.IsInteger || type.IsFloat) ? 2 : 1;
 
     private static void RequireWritable(CType target, string what)
     {
@@ -786,6 +786,17 @@ public sealed partial class TypeChecker
             return;
         }
 
+        if (target.IsFloat && value.IsInteger)
+        {
+            return;
+        }
+
+        if (target.IsInteger && value.IsFloat)
+        {
+            _warnings.Add($"{where}: converting float to {target.Kind}.");
+            return;
+        }
+
         throw new CTypeException($"{where}: cannot convert {value} to {target}.");
     }
 
@@ -1010,7 +1021,7 @@ public sealed partial class TypeChecker
             return target;
         }
 
-        if (target.Kind is "struct" or "array" || source.Kind is "struct" or "void")
+        if (target.Kind is "struct" or "array" || source.Kind is "struct" or "void" || (target.IsFloat && source.Kind is "ptr" or "fptr") || (source.IsFloat && target.Kind is "ptr" or "fptr"))
         {
             throw new CTypeException($"cannot cast {source} to {target}.");
         }
@@ -1096,7 +1107,7 @@ public sealed partial class TypeChecker
 
         return unary.Op switch
         {
-            "-" or "~" => operand.Kind is "void" or "ptr" or "array" or "fptr"
+            "-" or "~" => operand.Kind is "void" or "ptr" or "array" or "fptr" || (operand.IsFloat && unary.Op == "~")
                 ? throw new CTypeException($"operator '{unary.Op}' needs arithmetic operands.")
                 : operand,
             "!" => operand.Kind == "void"
@@ -1156,6 +1167,11 @@ public sealed partial class TypeChecker
             return SameShape(left.Base!, right.Base!) ? CType.Int : throw new CTypeException("pointer difference needs pointers to the same type.");
         }
 
+        if (binary.Op is "+" or "-" && ((left.Kind == "ptr" && right.IsFloat) || (right.Kind == "ptr" && left.IsFloat)))
+        {
+            throw new CTypeException($"operator '{binary.Op}' needs an integer offset.");
+        }
+
         if (binary.Op is "+" or "-")
         {
             if (left.Kind == "ptr" && right.Kind != "ptr" && right.Kind != "void")
@@ -1172,6 +1188,11 @@ public sealed partial class TypeChecker
         if (left.Kind == "ptr" || right.Kind == "ptr")
         {
             throw new CTypeException($"operator '{binary.Op}' is not supported for pointers.");
+        }
+
+        if ((left.IsFloat || right.IsFloat) && binary.Op is not ("+" or "-" or "*" or "/"))
+        {
+            throw new CTypeException($"operator '{binary.Op}' is not supported for float.");
         }
 
         return CType.Promote(left, right);
@@ -1294,7 +1315,7 @@ public sealed partial class TypeChecker
             throw new CTypeException("cannot index a void pointer.");
         }
 
-        if (offset.Kind == "void" || offset.Kind == "ptr")
+        if (offset.Kind is "void" or "ptr" or "float")
         {
             throw new CTypeException("index needs an arithmetic offset.");
         }

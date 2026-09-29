@@ -129,9 +129,16 @@ internal sealed partial class Lowering
     private bool TryDataConstant(Ast.Expr? expr, CType target, out long value)
     {
         value = 0;
+        if (target.IsFloat)
+        {
+            bool ok = TryFloatConstant(expr, out uint bits);
+            value = bits;
+            return ok;
+        }
+
         if (expr is Ast.Number number && Literal.TryParse(number.Text, out Literal literal) && literal.IsLong)
         {
-            value = literal.Value;
+            value = literal.Type.IsFloat ? (long)BitConverter.Int32BitsToSingle((int)literal.Value) : literal.Value;
             return true;
         }
 

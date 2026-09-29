@@ -199,6 +199,11 @@ internal sealed partial class Lowering
     {
         Ir.Op value = Value(cast.Value, depth);
         int width = WidthOf(cast);
+        if (TypeOf(cast).IsFloat || TypeOf(cast.Value).IsFloat)
+        {
+            return Convert(value, TypeOf(cast.Value), TypeOf(cast), depth);
+        }
+
         value = Widen(value, TypeOf(cast.Value), width, depth + 1);
         if (value switch { Ir.Cell c => c.W, Ir.Imm i => i.W, _ => 2 } == width)
         {
@@ -254,7 +259,7 @@ internal sealed partial class Lowering
         }
 
         var dst = new Ir.Cell(cell.Sym, Width(cell.Type));
-        Ir.Op source = Widen(Value(value, depth, dst), TypeOf(value), dst.W, depth + 1);
+        Ir.Op source = Convert(Value(value, depth, dst), TypeOf(value), cell.Type, depth + 1);
         if (source is not Ir.Cell same || same.Sym != dst.Sym)
         {
             Emit(new Ir.Mov(dst, source));
@@ -271,6 +276,12 @@ internal sealed partial class Lowering
         Ir.Op operand = Value(unary.Operand, depth);
         int width = WidthOf(unary);
         Ir.Cell dst = Dst(into, width, depth);
+        if (TypeOf(unary).IsFloat)
+        {
+            Emit(new Ir.Bin(Ir.BinOp.Xor, dst, operand, new Ir.Imm(unchecked((int)0x80000000), 4)));
+            return dst;
+        }
+
         Emit(new Ir.Un(unary.Op == "-" ? Ir.UnOp.Neg : Ir.UnOp.Cpl, dst, operand));
         return dst;
     }
@@ -324,6 +335,11 @@ internal sealed partial class Lowering
             Ir.Op scaled = Scale(index, size, depth + 1);
             Emit(new Ir.Bin(op == "+" ? Ir.BinOp.Add : Ir.BinOp.Sub, dst, pointer, scaled));
             return dst;
+        }
+
+        if (result.IsFloat)
+        {
+            return FloatArith(op, leftType, rightType, left, right, depth);
         }
 
         int width = Width(result);
@@ -403,10 +419,10 @@ internal sealed partial class Lowering
         string els = Label("telse");
         string done = Label("tdone");
         Branch(ternary.Cond, els, whenTrue: false, depth + 1);
-        Emit(new Ir.Mov(result, Widen(Value(ternary.Then, depth + 1), TypeOf(ternary.Then), width, depth + 2)));
+        Emit(new Ir.Mov(result, Convert(Value(ternary.Then, depth + 1), TypeOf(ternary.Then), TypeOf(ternary), depth + 2)));
         Emit(new Ir.Jmp(done));
         Emit(new Ir.Label(els));
-        Emit(new Ir.Mov(result, Widen(Value(ternary.Else, depth + 1), TypeOf(ternary.Else), width, depth + 2)));
+        Emit(new Ir.Mov(result, Convert(Value(ternary.Else, depth + 1), TypeOf(ternary.Else), TypeOf(ternary), depth + 2)));
         Emit(new Ir.Label(done));
         return result;
     }
@@ -438,7 +454,7 @@ internal sealed partial class Lowering
             return new Ir.Imm(0, 1);
         }
 
-        Ir.Op value = Widen(Value(assignTo.Value, depth), TypeOf(assignTo.Value), Width(element), depth + 2);
+        Ir.Op value = Convert(Value(assignTo.Value, depth), TypeOf(assignTo.Value), element, depth + 2);
         (Ir.Op pointer, int offset) = LValueAddr(assignTo.Target, depth + 1);
         if (assignTo.Target is Ast.Member { } bitMember && FieldOf(bitMember) is { BitWidth: > 0 } bitField)
         {
@@ -472,6 +488,11 @@ internal sealed partial class Lowering
         int extra = bitField is null ? 0 : 3;
         Ir.Op operand = Value(assign.Value, depth + 2 + extra);
         Ir.Op result = Arith(assign.Op, TypeOf(assign.Combined), element, TypeOf(assign.Value), current, operand, depth + 1 + extra, null);
+        if (element.IsFloat || TypeOf(assign.Combined).IsFloat)
+        {
+            result = Convert(result, TypeOf(assign.Combined), element, depth + 4);
+        }
+
         if (bitField is not null)
         {
             WriteBits(pointer, offset, result, bitField, depth + 5);

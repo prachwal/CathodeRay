@@ -211,6 +211,10 @@ internal sealed class Legalizer
     {
         switch (ins)
         {
+            case Ir.Call { Direct: { } routine } when routine.StartsWith("__cc_", StringComparison.Ordinal):
+                _used.Add(routine);
+                output.Add(ins);
+                break;
             case Ir.Bin { Kind: Ir.BinOp.Mul } bin when Handles(bin.Dst) && ConstantFactor(bin) is { } factor:
                 MultiplyByConstant(bin, factor.Operand, factor.Value, output);
                 break;

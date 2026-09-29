@@ -153,7 +153,7 @@ internal sealed partial class Lowering
 
     private static string GlobalLabel(string name) => $"cc_g_{name}";
 
-    private static int Width(CType type) => type.Kind is "uchar" or "schar" ? 1 : type.Kind is "long" or "ulong" ? 4 : 2;
+    private static int Width(CType type) => type.Kind is "uchar" or "schar" ? 1 : type.Kind is "long" or "ulong" or "float" ? 4 : 2;
 
     private static bool IsWide(CType type) => type.Kind is "int" or "uint" or "long" or "ulong" or "ptr" or "fptr";
 
@@ -176,7 +176,7 @@ internal sealed partial class Lowering
         return def.ReturnStars > 0 ? 2
             : bare == "void" || bare.StartsWith("struct ", StringComparison.Ordinal) ? 0
             : bare is "uchar" or "schar" ? 1
-            : bare is "long" or "ulong" ? 4
+            : bare is "long" or "ulong" or "float" ? 4
             : 2;
     }
 

@@ -370,3 +370,15 @@ w jednostce o rozmiarze typu (bez przekraczania jednostki; zmiana rozmiaru typu 
 Odczyt: załaduj jednostkę, przesuń i zamaskuj (typy ze znakiem: `shl` + `sar` na 16 bitach). Zapis (`=`, `op=`, `++`):
 odczyt–modyfikacja–zapis jednostki. Inicjalizator `{...}` wymaga stałych (sklejanych w jeden zapis jednostki).
 Niedozwolone: `&pole`, pola anonimowe (`: 3;`), szerokość większa niż typ.
+
+## float (plan 31, krok 17)
+
+`float` i `double` to ten sam typ: 32 bity IEEE-754 pojedynczej precyzji, w IR zwykła komórka szerokości 4 (jak `long`),
+więc selektory i `WideLegalizer` niczego o nim nie wiedzą. Działania to wołania procedur z `stdlib/portable/rt_float.c`
+(linkowanych raz, na żądanie): `__cc_fadd/fsub/fmul/fdiv`, porównania `__cc_flt/fle/feq/fnz` (`>` i `>=` zamieniają argumenty),
+konwersje `__cc_itof/utof/ltof/ultof` i `__cc_ftol/ftoul`. Negacja to XOR bitu znaku. Literały: `1.5`, `2e3`, `0.5f`
+(bity liczone w kompilatorze), stałe całkowite konwertowane w czasie kompilacji. Konwersje niejawne przy przypisaniu,
+argumentach, `return`, `?:`; całkowite z `float` daje ostrzeżenie. Działania `% & | ^ << >> ~` na `float` są błędem.
+Uproszczenia: wynik obcinany (bez zaokrąglania), liczby zdenormalizowane to zero, brak obsługi NaN/Inf w działaniach.
+Tekst: `ftoa(float, uchar *buf)` z `<stdlib.h>` (6 cyfr ułamka); `printf` celowo nie ma `%f` — wciągnęłoby do każdego programu
+ok. 3 KB arytmetyki 32-bitowej.

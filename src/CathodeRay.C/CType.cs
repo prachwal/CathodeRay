@@ -28,6 +28,9 @@ public sealed record CType(string Kind, CType? Base = null, int Length = 0, Stru
     /// <summary>32-bit bez znaku.</summary>
     public static CType ULong { get; } = new("ulong");
 
+    /// <summary>32-bitowa liczba zmiennoprzecinkowa IEEE-754 (<c>float</c>; <c>double</c> to ten sam typ).</summary>
+    public static CType Float { get; } = new("float");
+
     /// <summary>Bez typu (wynik procedur).</summary>
     public static CType Void { get; } = new("void");
 
@@ -35,7 +38,7 @@ public sealed record CType(string Kind, CType? Base = null, int Length = 0, Stru
     public int Size => Kind switch
     {
         "uchar" or "schar" => 1,
-        "long" or "ulong" => 4,
+        "long" or "ulong" or "float" => 4,
         "array" => Length * (Base?.Size ?? 0),
         "struct" => Info?.Size ?? 0,
         _ => 2,
@@ -43,6 +46,9 @@ public sealed record CType(string Kind, CType? Base = null, int Length = 0, Stru
 
     /// <summary>Typ całkowity (uchar, int, uint, long, ulong).</summary>
     public bool IsInteger => Kind is "uchar" or "schar" or "int" or "uint" or "long" or "ulong";
+
+    /// <summary>Typ zmiennoprzecinkowy.</summary>
+    public bool IsFloat => Kind == "float";
 
     /// <summary>Wskaźnik.</summary>
     /// <param name="base">Typ bazowy.</param>
@@ -71,7 +77,8 @@ public sealed record CType(string Kind, CType? Base = null, int Length = 0, Stru
     /// <param name="b">Drugi typ.</param>
     /// <returns>Typ wyniku.</returns>
     public static CType Promote(CType a, CType b) =>
-        (a.Kind == "schar" && b.Kind is "schar" or "uchar") || (b.Kind == "schar" && a.Kind == "uchar") ? SChar
+        a.Kind == "float" || b.Kind == "float" ? Float
+        : (a.Kind == "schar" && b.Kind is "schar" or "uchar") || (b.Kind == "schar" && a.Kind == "uchar") ? SChar
         : a.Kind == "ulong" || b.Kind == "ulong" ? ULong
         : a.Kind == "long" || b.Kind == "long" ? Long
         : a.Kind == "uint" || b.Kind == "uint" ? UInt
@@ -103,6 +110,7 @@ public sealed record CType(string Kind, CType? Base = null, int Length = 0, Stru
         "uint" => UInt,
         "long" => Long,
         "ulong" => ULong,
+        "float" => Float,
         "void" => Void,
         _ => throw new ArgumentException($"Unknown type '{name}'.", nameof(name)),
     };

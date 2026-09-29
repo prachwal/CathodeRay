@@ -198,7 +198,7 @@ internal sealed partial class Lowering
             throw new CCodegenException("return with a value needs a function.");
         }
 
-        Emit(new Ir.Ret(Widen(Value(ret.Value, 0), TypeOf(ret.Value), retW, 1), retW));
+        Emit(new Ir.Ret(Convert(Value(ret.Value, 0), TypeOf(ret.Value), ReturnCType(def), 1), retW));
     }
 
     /// <summary>switch: wartość do własnej komórki (chronionej ramką), łańcuch porównań ze stałymi,
@@ -257,7 +257,7 @@ internal sealed partial class Lowering
 
         foreach ((int offset, CType entryType, Ast.Expr value) in entries)
         {
-            Emit(new Ir.Store(target, offset, Widen(Value(value, 0), TypeOf(value), Width(entryType), 1), Width(entryType)));
+            Emit(new Ir.Store(target, offset, Convert(Value(value, 0), TypeOf(value), entryType, 1), Width(entryType)));
         }
     }
 }

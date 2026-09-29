@@ -8,7 +8,7 @@ namespace CathodeRay.C;
 /// <param name="Type">Typ stałej.</param>
 internal readonly record struct Literal(long Value, CType Type)
 {
-    /// <summary>Stała 32-bitowa (nie składa się jej w 16-bitowej arytmetyce kompilatora).</summary>
+    /// <summary>Stała 32-bitowa (nie składa się jej w 16-bitowej arytmetyce kompilatora); dla <c>float</c> wartość to bity IEEE-754.</summary>
     public bool IsLong => Type.Size == 4;
 
     /// <summary>Parsuje liczbę z opcjonalnym przyrostkiem.</summary>
@@ -18,6 +18,19 @@ internal readonly record struct Literal(long Value, CType Type)
     public static bool TryParse(string text, out Literal literal)
     {
         literal = default;
+        bool isHex = text.StartsWith("0x", StringComparison.OrdinalIgnoreCase);
+        if (!isHex && (text.Contains('.', StringComparison.Ordinal) || text.Contains('e', StringComparison.OrdinalIgnoreCase)))
+        {
+            string number = text.TrimEnd('f', 'F', 'l', 'L');
+            if (!double.TryParse(number, NumberStyles.Float, CultureInfo.InvariantCulture, out double real) || double.IsInfinity((float)real))
+            {
+                return false;
+            }
+
+            literal = new Literal((uint)BitConverter.SingleToInt32Bits((float)real), CType.Float);
+            return true;
+        }
+
         int end = text.Length;
         bool hasL = false;
         bool hasU = false;

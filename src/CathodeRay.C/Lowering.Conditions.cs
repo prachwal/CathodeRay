@@ -94,6 +94,12 @@ internal sealed partial class Lowering
                 }
 
                 Ir.Op right = Value(compare.Right, depth + 1);
+                if (KindOf(compare.Left) == "float" || KindOf(compare.Right) == "float")
+                {
+                    FloatBranch(compare, left, right, target, whenTrue, depth);
+                    return;
+                }
+
                 int compareWidth = Math.Max(WidthOf(compare.Left), WidthOf(compare.Right));
                 if (KindOf(compare.Left) == "schar" || KindOf(compare.Right) == "schar")
                 {
@@ -114,6 +120,12 @@ internal sealed partial class Lowering
             default:
             {
                 Ir.Op value = Value(condition, depth);
+                if (KindOf(condition) == "float")
+                {
+                    FloatTruth(value, target, whenTrue, depth);
+                    return;
+                }
+
                 int width = value switch
                 {
                     Ir.Cell cell => cell.W,

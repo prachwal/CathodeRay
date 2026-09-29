@@ -117,7 +117,7 @@
     {
       "id": "17",
       "title": "[L] float i double (IEEE-754 pojedynczej precyzji, double = float): typ i konwersje z całkowitymi, rt w mini-C na ulong (add, sub, mul, div, porównania, int<->float), literały 1.5f, printf %f z ustaloną liczbą cyfr, brak funkcji matematycznych",
-      "status": "todo",
+      "status": "done",
       "note": "",
       "section": "D. Typy i kwalifikatory"
     },
