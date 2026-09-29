@@ -133,6 +133,11 @@ public sealed class Parser
             Expect(")");
         }
 
+        if (Take(";"))
+        {
+            return new Ast.Function(type, name, parameters, new Ast.Block([]), IsExtern: true);
+        }
+
         return new Ast.Function(type, name, parameters, Block());
     }
 

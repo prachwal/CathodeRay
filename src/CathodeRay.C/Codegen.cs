@@ -103,7 +103,10 @@ public sealed class Codegen
         _code.AppendLine(".segment \"CODE\"");
         foreach (CheckedFunction function in program.Functions)
         {
-            EmitFunction(function);
+            if (!function.Def.IsExtern)
+            {
+                EmitFunction(function);
+            }
         }
 
         if (_needMul)

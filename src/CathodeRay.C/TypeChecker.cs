@@ -79,9 +79,24 @@ public sealed class TypeChecker
 
         foreach (Ast.Function function in program.Functions)
         {
-            if (_functions.ContainsKey(function.Name) || _globals.ContainsKey(function.Name))
+            if (_globals.ContainsKey(function.Name))
             {
                 throw new CTypeException($"redefinition of '{function.Name}'.");
+            }
+
+            if (_functions.TryGetValue(function.Name, out Ast.Function? existing))
+            {
+                if (!function.IsExtern && !existing.IsExtern)
+                {
+                    throw new CTypeException($"redefinition of '{function.Name}'.");
+                }
+
+                if (!function.IsExtern)
+                {
+                    _functions[function.Name] = function;
+                }
+
+                continue;
             }
 
             _functions[function.Name] = function;
@@ -90,10 +105,25 @@ public sealed class TypeChecker
         var checkedFunctions = new List<CheckedFunction>();
         foreach (Ast.Function function in program.Functions)
         {
-            checkedFunctions.Add(CheckFunction(function));
+            checkedFunctions.Add(function.IsExtern ? ProtoFunction(function) : CheckFunction(function));
         }
 
         return new CheckedProgram(checkedFunctions, [.. _globals.Values], _warnings);
+    }
+
+    private CheckedFunction ProtoFunction(Ast.Function function)
+    {
+        var parameters = new List<TypedSymbol>();
+        foreach (Ast.Param param in function.Params)
+        {
+            parameters.Add(new TypedSymbol(param.Name, Declared(param.Type, param.PointerDepth)));
+        }
+
+        return new CheckedFunction(
+            function,
+            parameters,
+            [],
+            new Dictionary<Ast.Expr, CType>(ReferenceEqualityComparer.Instance));
     }
 
     private CheckedFunction CheckFunction(Ast.Function function)

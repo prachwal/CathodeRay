@@ -41,6 +41,14 @@ Epilog: wynik do `cc_ret`/`cc_ret_h`, `POP`y, odtworzenie `A`/`X`, `RET`.
 `cc_arg2` (2. int-arg) i `cc_ret` żyją tylko bez `CALL` pomiędzy zapisem
 a odczytem, więc zagnieżdżenie jest bezpieczne.
 
+## I/O (plan 22): konsola jako stały adres
+
+Decyzja (item 1): stub nie ma urządzeń, więc konsola to umowa testowa —
+stały bufor `__io_buf` (256 B) + kursor `__io_cur` z `samples/stub/lib/io.s`.
+`putchar` (A = znak) dopisuje i inkrementuje kursor; `puthex` (A = bajt)
+dopisuje 2 znaki hex. Kolejność linkowania: crt0, lib, program (entry =
+pierwsza linia CODE; zła kolejność wykonuje bibliotekę jako program).
+
 ## Wzorce codegen
 
 ```

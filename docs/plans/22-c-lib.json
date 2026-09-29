@@ -1,29 +1,29 @@
 {
   "title": "Mini-C: biblioteka (mem/string/I-O)",
-  "status": "queued",
+  "status": "closed",
   "items": [
     {
       "id": "1",
       "title": "Decyzja I/O: konsola jako stały adres pamięci (stub nie ma urządzeń)",
-      "status": "todo",
+      "status": "done",
       "note": "Gotowe gdy: decyzja: konsola = zapis pod stały adres (np. , bufor w teście); stub nie ma urządzeń więc to umowa testowa"
     },
     {
       "id": "2",
       "title": "memcpy/memset + string (strlen/strcpy) na stubie",
-      "status": "todo",
+      "status": "done",
       "note": "Gotowe gdy: memcpy/memset/strlen/strcpy jako .s z konwencją (A/X + tmp), testy runtime"
     },
     {
       "id": "3",
       "title": "putchar/puthex minimalne przez I/O",
-      "status": "todo",
+      "status": "done",
       "note": "Gotowe gdy: putchar (zapis + inkrementacja kursora) i puthex (bajt→2 znaki) + test bufora"
     },
     {
       "id": "4",
       "title": "Testy lib + build/test/hygiene",
-      "status": "todo",
+      "status": "done",
       "note": "Gotowe gdy: testy lib + build -warnaserror + test + hygiene OK"
     }
   ]

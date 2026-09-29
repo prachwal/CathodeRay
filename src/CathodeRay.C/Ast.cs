@@ -15,8 +15,9 @@ public static class Ast
     /// <param name="ReturnType">Typ wyniku.</param>
     /// <param name="Name">Nazwa.</param>
     /// <param name="Params">Parametry.</param>
-    /// <param name="Body">Ciało.</param>
-    public sealed record Function(string ReturnType, string Name, IReadOnlyList<Param> Params, Block Body) : Node;
+    /// <param name="Body">Ciało (puste dla prototypu).</param>
+    /// <param name="IsExtern">Prototyp bez ciała (definicja w .s).</param>
+    public sealed record Function(string ReturnType, string Name, IReadOnlyList<Param> Params, Block Body, bool IsExtern = false) : Node;
 
     /// <summary>Parametr formalny.</summary>
     /// <param name="Type">Typ.</param>

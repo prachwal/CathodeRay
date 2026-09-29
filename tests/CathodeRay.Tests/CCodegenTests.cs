@@ -18,8 +18,8 @@ public sealed class CCodegenTests
         var origins = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase)
         {
             ["CODE"] = 0x1000,
-            ["DATA"] = 0x2000,
-            ["BSS"] = 0x2100,
+            ["BSS"] = 0x2000,
+            ["DATA"] = 0x2100,
         };
         AssemblyResult result = new TwoPassAssembler(Repo.LoadTarget(target), target.DefaultSyntax)
             .Assemble(asm, "prog.c", _ => null, [], null, origins);
