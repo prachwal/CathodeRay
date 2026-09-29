@@ -131,4 +131,15 @@ public sealed class MiniCProgramsTests
 
         cpu.State.A.Should().Be(100);
     }
+
+    [Theory]
+    [InlineData("07_control.c", 62)]
+    [InlineData("08_int_signed.c", 10)]
+    [InlineData("09_init.c", 136)]
+    public void Plan27_Samples_Return_Expected_Value(string file, int expected)
+    {
+        var (cpu, _, _) = Run(file);
+
+        cpu.State.A.Should().Be((byte)expected);
+    }
 }

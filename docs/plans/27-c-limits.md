@@ -1,4 +1,4 @@
-# Mini-C: ograniczenia i skala (status: otwarty)
+# Mini-C: ograniczenia i skala (status: zamknięty)
 
 Rozmiar: S = <1 h, M = kilka h. Kolejność: A → B → C → D.
 
@@ -26,7 +26,7 @@ Rozmiar: S = <1 h, M = kilka h. Kolejność: A → B → C → D.
 
 ## D. Porządek
 
-- [ ] **13.** [M] Rozbić Codegen.cs (~1900 linii) na partial: Expressions/Statements/Calls/Wide/Helpers; bez zmian zachowania, testy jako siatka
-- [ ] **14.** [S] Testy: matryca int (znak/brak) e2e, sample minic per nowa konstrukcja (samples/minic/), hygiene
+- [x] **13.** [M] Rozbić Codegen.cs (~1900 linii) na partial: Expressions/Statements/Calls/Wide/Helpers; bez zmian zachowania, testy jako siatka
+- [x] **14.** [S] Testy: matryca int (znak/brak) e2e, sample minic per nowa konstrukcja (samples/minic/), hygiene
 
-Postęp: 12/14 gotowych.
+Postęp: 14/14 gotowych.

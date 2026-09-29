@@ -1,6 +1,6 @@
 {
   "title": "Mini-C: ograniczenia i skala",
-  "status": "open",
+  "status": "closed",
   "items": [
     {
       "id": "1",
@@ -77,13 +77,13 @@
     {
       "id": "13",
       "title": "[M] Rozbić Codegen.cs (~1900 linii) na partial: Expressions/Statements/Calls/Wide/Helpers; bez zmian zachowania, testy jako siatka",
-      "status": "todo",
+      "status": "done",
       "note": ""
     },
     {
       "id": "14",
       "title": "[S] Testy: matryca int (znak/brak) e2e, sample minic per nowa konstrukcja (samples/minic/), hygiene",
-      "status": "todo",
+      "status": "done",
       "note": ""
     }
   ]
