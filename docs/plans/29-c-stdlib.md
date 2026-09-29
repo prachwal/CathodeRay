@@ -12,8 +12,8 @@ Rozmiar: S = <1 h, M = kilka h, L = dzień. Kolejność: A → B → C → D →
 
 ## B. Preprocesor
 
-- [ ] **6.** [M] Makra funkcyjne #define MAX(a, b) ((a) > (b) ? (a) : (b)) (podstawianie tekstowe z nawiasami, bez rekurencji), #undef
-- [ ] **7.** [M] Kompilacja warunkowa: #ifdef, #ifndef, #if (stałe), #else, #endif, #error; osłony include (#ifndef X / #define X); opcja cc -D NAZWA[=wartość]
+- [x] **6.** [M] Makra funkcyjne #define MAX(a, b) ((a) > (b) ? (a) : (b)) (podstawianie tekstowe z nawiasami, bez rekurencji), #undef
+- [x] **7.** [M] Kompilacja warunkowa: #ifdef, #ifndef, #if (stałe), #else, #endif, #error; osłony include (#ifndef X / #define X); opcja cc -D NAZWA[=wartość]
 
 ## C. Konstrukcje
 
@@ -38,4 +38,4 @@ Rozmiar: S = <1 h, M = kilka h, L = dzień. Kolejność: A → B → C → D →
 
 - [ ] **18.** [S] Testy e2e per pozycja, samples/minic/13_strings.c, 14_macros.c, 15_funcptr.c, 16_printf.c, hygiene, aktualizacja planów
 
-Postęp: 5/18 gotowych.
+Postęp: 7/18 gotowych.

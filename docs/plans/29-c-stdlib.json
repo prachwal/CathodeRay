@@ -35,13 +35,13 @@
     {
       "id": "6",
       "title": "[M] Makra funkcyjne #define MAX(a, b) ((a) > (b) ? (a) : (b)) (podstawianie tekstowe z nawiasami, bez rekurencji), #undef",
-      "status": "todo",
+      "status": "done",
       "note": ""
     },
     {
       "id": "7",
       "title": "[M] Kompilacja warunkowa: #ifdef, #ifndef, #if (stałe), #else, #endif, #error; osłony include (#ifndef X / #define X); opcja cc -D NAZWA[=wartość]",
-      "status": "todo",
+      "status": "done",
       "note": ""
     },
     {

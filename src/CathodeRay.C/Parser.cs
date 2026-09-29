@@ -16,13 +16,14 @@ public sealed class Parser
     private Parser(IReadOnlyList<Token> tokens) => _tokens = tokens;
 
     /// <summary>Parsuje program.</summary>
-    /// <param name="source">Tekst programu (dyrektywy <c>#</c> mapowane jak kropkowe).</param>
-    /// <param name="reader">Czyta pliki <c>.include</c> (null = brak).</param>
+    /// <param name="source">Tekst programu (dyrektywy <c>#</c> obsługuje preprocesor).</param>
+    /// <param name="reader">Czyta pliki <c>#include</c> (<c>&lt;f&gt;</c> z nawiasami; null = brak).</param>
+    /// <param name="defines">Makra z linii poleceń (nazwa → wartość).</param>
     /// <returns>Drzewo programu.</returns>
     /// <exception cref="CParseException">Błąd składni z pozycją.</exception>
     /// <exception cref="CPreprocessException">Błąd dyrektywy.</exception>
-    public static Ast.Program Parse(string source, Func<string, string?>? reader = null) =>
-        new Parser(Lexer.Tokenize(CPreprocessor.Expand(CPreprocessor.MapDirectives(source), reader))).Program();
+    public static Ast.Program Parse(string source, Func<string, string?>? reader = null, IReadOnlyDictionary<string, string>? defines = null) =>
+        new Parser(Lexer.Tokenize(CPreprocessor.Process(source, reader, defines))).Program();
 
     private static bool TryValue(Ast.Expr expr, out int value)
     {

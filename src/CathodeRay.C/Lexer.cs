@@ -19,6 +19,11 @@ public static class Lexer
         "(", ")", "{", "}", "[", "]", ";", ",", "?", ":", ".",
     ];
 
+    /// <summary>Czy nazwa jest słowem kluczowym mini-C (nie może być makrem).</summary>
+    /// <param name="name">Identyfikator.</param>
+    /// <returns><see langword="true"/> dla słów kluczowych.</returns>
+    public static bool IsKeyword(string name) => Keywords.Contains(name) || name == "char";
+
     /// <summary>Tokenizuje źródło.</summary>
     /// <param name="source">Tekst programu.</param>
     /// <returns>Tokeny z końcowym <c>End</c>.</returns>

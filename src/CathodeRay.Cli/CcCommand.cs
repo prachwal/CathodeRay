@@ -24,7 +24,8 @@ internal static partial class CcCommand
         var config = new Option<FileInfo?>("--config") { Description = "Mapa pamięci linkera (.cfg; domyślnie layout C)." };
         var incdir = new Option<DirectoryInfo[]>("--incdir") { Description = "Dodatkowe katalogi poszukiwań .include (można powtarzać)." };
 
-        var command = new Command("cc", "Kompiluje program mini-C na stub (C→obiekt→link).") { inputs, output, format, listing, map, config, incdir };
+        var define = new Option<string[]>("-D", "--define") { Description = "Makro preprocesora: NAZWA lub NAZWA=wartość (można powtarzać).", DefaultValueFactory = _ => [] };
+        var command = new Command("cc", "Kompiluje program mini-C na stub (C→obiekt→link).") { inputs, output, format, listing, map, config, incdir, define };
         command.SetAction(parse =>
         {
             TextWriter error = parse.InvocationConfiguration.Error;
@@ -59,7 +60,7 @@ internal static partial class CcCommand
                 modules.Add(("crt0.s", AssembleObject(target, Crt0.Source, "crt0.s", _ => null, includePaths)));
                 foreach (FileInfo input in files)
                 {
-                    modules.Add((input.Name, AssembleModule(target, input, includePaths, error)));
+                    modules.Add((input.Name, AssembleModule(target, input, includePaths, error, ParseDefines(parse.GetValue(define)!))));
                 }
             }
             catch (AssemblerException e)
@@ -189,17 +190,31 @@ internal static partial class CcCommand
         return output.ToString();
     }
 
+    private static Dictionary<string, string> ParseDefines(string[] items)
+    {
+        var defines = new Dictionary<string, string>(StringComparer.Ordinal);
+        foreach (string item in items)
+        {
+            int equals = item.IndexOf('=', StringComparison.Ordinal);
+            defines[equals < 0 ? item : item[..equals]] = equals < 0 ? "1" : item[(equals + 1)..];
+        }
+
+        return defines;
+    }
+
     private static string Where(string? file, int line) =>
         file is null ? string.Empty : line > 0 ? $"{file}:{line}: " : $"{file}: ";
 
-    private static ObjectModule AssembleModule(AssemblerTarget target, FileInfo input, string[] includePaths, TextWriter warnings)
+    private static ObjectModule AssembleModule(AssemblerTarget target, FileInfo input, string[] includePaths, TextWriter warnings, Dictionary<string, string> defines)
     {
         string? dir = Path.GetDirectoryName(input.FullName);
         Func<string, string?> reader = path =>
         {
-            foreach (string baseDir in new[] { dir ?? ".", "." }.Concat(includePaths))
+            bool system = path.StartsWith('<');
+            string relative = system ? path[1..^1] : path;
+            foreach (string baseDir in system ? includePaths : new[] { dir ?? ".", "." }.Concat(includePaths))
             {
-                string full = Path.Combine(baseDir, path);
+                string full = Path.Combine(baseDir, relative);
                 if (File.Exists(full))
                 {
                     return File.ReadAllText(full);
@@ -214,7 +229,7 @@ internal static partial class CcCommand
             string asm;
             try
             {
-                CheckedProgram program = TypeChecker.Check(Parser.Parse(File.ReadAllText(input.FullName), reader));
+                CheckedProgram program = TypeChecker.Check(Parser.Parse(File.ReadAllText(input.FullName), reader, defines));
                 asm = Codegen.Emit(program, input.Name, objectMode: true);
                 foreach (string warning in program.Warnings)
                 {

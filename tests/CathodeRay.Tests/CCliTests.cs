@@ -39,6 +39,19 @@ public sealed class CCliTests : IDisposable
     }
 
     [Fact]
+    public void Cc_Define_Option_Selects_Conditional_Code()
+    {
+        string a = File("cond.c", "int main() {\n#ifdef FAST\n    return LEVEL;\n#else\n    return 1;\n#endif\n}\n");
+        string bin = Path.Combine(_dir.FullName, "cond.bin");
+
+        var (exit, _, err) = Cli("cc", a, "-o", bin, "-D", "FAST", "-D", "LEVEL=42");
+
+        exit.Should().Be(0, err);
+        var run = Cli("stub", "run", bin, "--load", "0x1000");
+        run.Out.Should().Contain("A=2A");
+    }
+
+    [Fact]
     public void Cc_Links_Two_Modules_And_Runs_With_Map()
     {
         string a = File("a.c", "int base = 100;\nint add(int a, int b) { return base + a + b; }\n");

@@ -153,3 +153,13 @@ brak `ADD`/`SUB` z pamięci absolutnej (tryb `,X` z `X = 0`).
 - Lokalne tablice i struktury funkcji rekurencyjnych (także wzajemnie) są zapisywane na stosie bajt po bajcie
   (limit 64 B na obiekt); w pozostałych funkcjach nie kosztują nic.
 - Kopiowanie struktur i lokalne inicjalizatory nie mają już limitu 255/256 B.
+
+## Preprocesor (plan 29 B)
+
+- `#include "f"` (katalog pliku, `.`, `--incdir`), `#include <f>` (tylko `--incdir` i biblioteka standardowa),
+  `#pragma once`, osłony `#ifndef X` / `#define X`.
+- `#define NAZWA wartość`, `#define F(a, b) ciało` (rozwijanie tokenowe: napisy, znaki i komentarze zostają,
+  makro nie rozwija się we własnym ciele), `#undef`, kontynuacja linii `\`, `cc -D NAZWA[=wartość]`.
+- `#if`/`#elif` (stałe całkowite, `defined`, makra, `? :`, `&& ||`, nieznane nazwy = 0), `#ifdef`, `#ifndef`, `#else`, `#endif`,
+  `#error`. Dyrektywy zostawiają puste linie (numeracja linii bez zmian; `#include` wkleja plik).
+- Bez `#` (napis) i `##` (sklejanie).
