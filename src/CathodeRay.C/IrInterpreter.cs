@@ -59,6 +59,16 @@ public sealed class IrInterpreter
         return interpreter;
     }
 
+    /// <summary>Czyta bajty pamięci pod adresem wyeksportowanego symbolu (do porównań z wynikiem na celu).</summary>
+    /// <param name="symbol">Symbol wyeksportowany.</param>
+    /// <param name="size">Liczba bajtów.</param>
+    /// <returns>Bajty.</returns>
+    public byte[] Peek(string symbol, int size)
+    {
+        int address = _exported.TryGetValue(symbol, out int found) ? found : throw new InvalidOperationException($"unknown symbol '{symbol}'.");
+        return _memory[address..(address + size)];
+    }
+
     /// <summary>Uruchamia inicjalizatory globali, potem <c>main</c>.</summary>
     /// <returns>Wynik <c>main</c> (młodsze 16 bitów) oraz szerokość wyniku (0 = void).</returns>
     public (int Value, int Width) RunMain()
