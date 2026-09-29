@@ -22,7 +22,7 @@ Nie robić: ogólnego alokatora rejestrów (to osobny, duży plan po pomiarze ef
 ## B. Kopie przez tymczasowe (IR, `IrPasses.cs`)
 
 - [x] **2.** [S] `IrPasses.ForwardTemporaries`: przypadek `Mov(t, X)` po którym tuż następuje `Mov(v, t)` i `t` jest martwa (użyj istniejącego `IsDeadAfter`) → jedna instrukcja `Mov(v, X)`. Dodaj test w `tests/CathodeRay.Tests/IrPassesTests.cs` (nowy plik, jeśli brak) na małym IR zbudowanym ręcznie: dwie kopie w łańcuchu dają jedną. Zmierz: liczba `sta M ; lda M` w `hotspots.md` maleje.
-- [ ] **3.** [S] `IrPasses.ForwardTemporaries`: przypadek `Bin(op, t, A, B)` po którym `Mov(v, t)` i `t` martwa → `Bin(op, v, A, B)`, ale tylko gdy `v` nie występuje jako A ani B (chyba że op to Add/And/Or/Xor/Sub z v==A, wtedy też wolno; dla pozostałych nie). Test jak wyżej. Uwaga na `Load` i `Call` z wynikiem: tam już jest podobny wariant — użyj `WithDestination`.
+- [x] **3.** [S] `IrPasses.ForwardTemporaries`: przypadek `Bin(op, t, A, B)` po którym `Mov(v, t)` i `t` martwa → `Bin(op, v, A, B)`, ale tylko gdy `v` nie występuje jako A ani B (chyba że op to Add/And/Or/Xor/Sub z v==A, wtedy też wolno; dla pozostałych nie). Test jak wyżej. Uwaga na `Load` i `Call` z wynikiem: tam już jest podobny wariant — użyj `WithDestination`. — Pokryte przez krok 2 (wariant Bin->Mov istniał w ForwardTemporaries; agent dodał wariant Mov->Mov). Bez efektu na rozmiar: hotspots bez zmian.
 - [ ] **4.** [S] `IrPasses.RemoveDead`: usuwaj też zapisy do komórek lokalnych, których jedyny odczyt jest w martwej gałęzi po bezwarunkowym `Jmp`/`Ret` (kod nieosiągalny między `Jmp`/`Ret` a następną `Label`): najpierw dodaj przebieg `DropUnreachable(body)` usuwający instrukcje (poza `Src`) od `Jmp`/`Ret` do najbliższej `Label`. Wywołaj go w `Optimize` przed `Propagate`. Test: `return 1; x = 2;` nie zostawia zapisu `x`.
 
 ## C. Ramka rekurencji (`Lowering.Frames.cs`)
@@ -43,4 +43,4 @@ Nie robić: ogólnego alokatora rejestrów (to osobny, duży plan po pomiarze ef
 - [ ] **12.** [S] Porównanie 16-bitowe z stałą 0 i `==`/`!=`: użyj `lda lo ; ora hi` (jest już dla zera na jednym bajcie — rozszerz na 2 bajty, jeśli nie ma). Test na 6502/z80: `if (x == 0)` dla `uint` przy x=0, 0x100, 0x01, 0xFFFF.
 - [ ] **13.** [S] Zmierz i opisz: uruchom `python3 tools/hotspots.py --write` i `python3 tools/compare.py --write`, wklej do `docs/stub-calling-conv.md` sekcję „Plan 32: efekt” z liczbami przed/po (baza ze wstępu) i wnioskami; commit. Jeśli spadek sta;lda < 30% bazy, dodaj do planu następne zadania na podstawie nowych top-10 par.
 
-Postęp: 2/13 gotowych.
+Postęp: 3/13 gotowych.

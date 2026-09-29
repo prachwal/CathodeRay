@@ -20,8 +20,8 @@
     {
       "id": "3",
       "title": "[S] `IrPasses.ForwardTemporaries`: przypadek `Bin(op, t, A, B)` po którym `Mov(v, t)` i `t` martwa → `Bin(op, v, A, B)`, ale tylko gdy `v` nie występuje jako A ani B (chyba że op to Add/And/Or/Xor/Sub z v==A, wtedy też wolno; dla pozostałych nie). Test jak wyżej. Uwaga na `Load` i `Call` z wynikiem: tam już jest podobny wariant — użyj `WithDestination`.",
-      "status": "todo",
-      "note": "",
+      "status": "done",
+      "note": "Pokryte przez krok 2 (wariant Bin->Mov istniał w ForwardTemporaries; agent dodał wariant Mov->Mov). Bez efektu na rozmiar: hotspots bez zmian.",
       "section": "B. Kopie przez tymczasowe (IR, `IrPasses.cs`)"
     },
     {
