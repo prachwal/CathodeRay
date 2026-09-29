@@ -24,9 +24,9 @@ Rozmiar: S = <1 h, M = kilka h, L = dzień. Kolejność: A → B → C → D →
 
 ## D. Biblioteka standardowa (samples/minic/lib + include/)
 
-- [ ] **12.** [M] Nagłówki include/string.h, ctype.h, stdlib.h, stdio.h i katalog domyślny #include <...> (cc dodaje include/ i linkuje tylko użyte moduły lib/*.c); strlen, strcpy, strncpy, strcmp, strchr, memcpy, memset, memcmp w C na wskaźnikach
-- [ ] **13.** [M] stdlib: abs, min, max, atoi, itoa (podstawa 2-16), rand/srand (LFSR 16-bit); ctype: isdigit, isalpha, isspace, toupper, tolower
-- [ ] **14.** [M] stdio: putchar, puts, putdec, puthex (istniejące) + printf z %d %u %x %c %s %% i do 5 argumentów wariadycznych (konwencja: liczba argumentów w cc_argN, callee czyta przez va_arg-intrinsic) oraz sprintf do bufora
+- [x] **12.** [M] Nagłówki include/string.h, ctype.h, stdlib.h, stdio.h i katalog domyślny #include <...> (cc dodaje include/ i linkuje tylko użyte moduły lib/*.c); strlen, strcpy, strncpy, strcmp, strchr, memcpy, memset, memcmp w C na wskaźnikach
+- [x] **13.** [M] stdlib: abs, min, max, atoi, itoa (podstawa 2-16), rand/srand (LFSR 16-bit); ctype: isdigit, isalpha, isspace, toupper, tolower
+- [x] **14.** [M] stdio: putchar, puts, putdec, puthex (istniejące) + printf z %d %u %x %c %s %% i do 5 argumentów wariadycznych (konwencja: liczba argumentów w cc_argN, callee czyta przez va_arg-intrinsic) oraz sprintf do bufora
 
 ## E. Jakość kodu i narzędzia
 
@@ -38,4 +38,4 @@ Rozmiar: S = <1 h, M = kilka h, L = dzień. Kolejność: A → B → C → D →
 
 - [ ] **18.** [S] Testy e2e per pozycja, samples/minic/13_strings.c, 14_macros.c, 15_funcptr.c, 16_printf.c, hygiene, aktualizacja planów
 
-Postęp: 11/18 gotowych.
+Postęp: 14/18 gotowych.

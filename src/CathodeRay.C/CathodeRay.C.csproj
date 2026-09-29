@@ -12,6 +12,9 @@
 
   <ItemGroup>
     <EmbeddedResource Include="crt0.s" />
+    <EmbeddedResource Include="stdlib\include\*.h" LogicalName="stdlib/include/%(Filename)%(Extension)" />
+    <EmbeddedResource Include="stdlib\lib\*.c" LogicalName="stdlib/lib/%(Filename)%(Extension)" />
+    <EmbeddedResource Include="..\..\samples\stub\lib\io.s" LogicalName="stdlib/lib/io.s" />
   </ItemGroup>
 
   <ItemGroup>

@@ -420,11 +420,18 @@ public sealed class Parser
     {
         Expect("(");
         var parameters = new List<Ast.Param>();
+        bool variadic = false;
         if (!Take(")"))
         {
             do
             {
                 Token paramType = Peek();
+                if (Take("..."))
+                {
+                    variadic = parameters.Count > 0 ? true : throw new CParseException(paramType.Line, paramType.Column, "'...' needs a named parameter before it.");
+                    break;
+                }
+
                 if (!IsType(paramType) || paramType.Text == "void")
                 {
                     throw new CParseException(paramType.Line, paramType.Column, "expected parameter type.");
@@ -447,7 +454,13 @@ public sealed class Parser
 
         if (Take(";"))
         {
-            return At(line, new Ast.Function(type, name, parameters, new Ast.Block([]), IsExtern: true, ReturnStars: returnStars, IsStatic: isStatic));
+            return At(line, new Ast.Function(type, name, parameters, new Ast.Block([]), IsExtern: true, ReturnStars: returnStars, IsStatic: isStatic, IsVariadic: variadic));
+        }
+
+        if (variadic)
+        {
+            Token at = Peek();
+            throw new CParseException(at.Line, at.Column, "a variadic function can only be declared (prototype), not defined.");
         }
 
         return At(line, new Ast.Function(type, name, parameters, Block(), ReturnStars: returnStars, IsStatic: isStatic));

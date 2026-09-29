@@ -23,7 +23,13 @@ public sealed partial class Codegen
             throw new CCodegenException($"undefined function '{call.Name}'.");
         }
 
-        EmitCallCore(call.Name, null, call.Args, target.Params, depth);
+        IReadOnlyList<TypedSymbol> parameters = target.Params;
+        if (target.Def.IsVariadic && call.Args.Count > parameters.Count)
+        {
+            parameters = [.. parameters, .. Enumerable.Range(parameters.Count, call.Args.Count - parameters.Count).Select(static i => new TypedSymbol($"va{i}", CType.Int))];
+        }
+
+        EmitCallCore(call.Name, null, call.Args, parameters, depth);
     }
 
     private void EmitAnyCall(Ast.Expr call, int depth)

@@ -440,7 +440,7 @@ public sealed partial class Codegen
         {
             foreach (CheckedFunction function in program.Functions)
             {
-                if (function.Def.IsExtern)
+                if (function.Def.IsExtern && !program.Functions.Any(f => !f.Def.IsExtern && f.Def.Name == function.Def.Name))
                 {
                     _code.AppendLine($".extern {function.Def.Name}");
                 }

@@ -37,7 +37,8 @@ public static class Ast
     /// <param name="IsExtern">Prototyp bez ciała (definicja w .s).</param>
     /// <param name="ReturnStars">Liczba <c>*</c> typu wyniku (wskaźnik).</param>
     /// <param name="IsStatic">Funkcja <c>static</c> (symbol lokalny modułu).</param>
-    public sealed record Function(string ReturnType, string Name, IReadOnlyList<Param> Params, Block Body, bool IsExtern = false, int ReturnStars = 0, bool IsStatic = false) : Node;
+    /// <param name="IsVariadic">Prototyp z <c>...</c>: dodatkowe argumenty idą jako 16-bit w kolejnych komórkach.</param>
+    public sealed record Function(string ReturnType, string Name, IReadOnlyList<Param> Params, Block Body, bool IsExtern = false, int ReturnStars = 0, bool IsStatic = false, bool IsVariadic = false) : Node;
 
     /// <summary>Parametr formalny.</summary>
     /// <param name="Type">Typ.</param>

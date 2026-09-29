@@ -49,9 +49,9 @@ public sealed class CLibTests
         var origins = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase)
         {
             ["CODE"] = 0x1000,
-            ["INIT"] = 0x3F00,
-            ["BSS"] = 0x4000,
-            ["DATA"] = 0x5000,
+            ["INIT"] = 0x6F00,
+            ["BSS"] = 0x7000,
+            ["DATA"] = 0x8000,
         };
         AssemblyResult result = new TwoPassAssembler(Repo.LoadTarget(target), target.DefaultSyntax)
             .Assemble(asm, "prog.c", _ => null, [], null, origins);

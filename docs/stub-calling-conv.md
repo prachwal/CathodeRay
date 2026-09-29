@@ -113,7 +113,7 @@ brak `ADD`/`SUB` z pamięci absolutnej (tryb `,X` z `X = 0`).
 
 ## Runtime (plan 27 C)
 
-- Układ pamięci `cc`: CODE `$1000` (12 KB), BSS `$4000` (4 KB), DATA `$5000`. crt0 zeruje BSS od `__bss_start`
+- Układ pamięci `cc`: CODE `$1000` (24 KB), BSS `$7000` (4 KB), DATA `$8000`. crt0 zeruje BSS od `__bss_start`
   do `__bss_end` (linker dodaje `__<segment>_end`, w jednym pliku daje go codegen), więc BSS nie ma już limitu 256 B.
 - `cc_mul8`/`cc_divmod` (uchar) to shift-add / dzielenie pisemne w 8 krokach, lokalne w module (bez `.global`).
 - Stos to strona `$01xx` (256 B): łańcuch wołań głębszy niż 256 B (ramka = PUSHe + 2 B adresu) to błąd
@@ -129,7 +129,7 @@ brak `ADD`/`SUB` z pamięci absolutnej (tryb `,X` z `X = 0`).
   (`&g`, napis, tablica, `tab + 2`) do komórki `.word`; reszta (np. `int a = f();`) jest liczona
   w `__cc_init` modułu, wpisanym do tablicy segmentu INIT (`.word`). Crt0 po zerowaniu BSS woła
   każdy wpis tablicy (`__init_start`..`__init_end`, symbole linkera `__<segment>_start/_end`).
-- Układ `cc`: CODE `$1000` (do `$3EFF`), INIT `$3F00` (256 B = 128 modułów), BSS `$4000`, DATA `$5000`.
+- Układ `cc`: CODE `$1000` (do `$6EFF`), INIT `$6F00` (256 B = 128 modułów), BSS `$7000`, DATA `$8000`.
 
 ## struct (plan 28 D)
 
@@ -189,3 +189,20 @@ brak `ADD`/`SUB` z pamięci absolutnej (tryb `,X` z `X = 0`).
 
 - `uint` to 16-bit bez znaku: porównania, `/`, `%`, `>>` i mnożenie bez znaku; `int` op `uint` daje `uint`.
   Konwersje `int`/`uchar`/`uint` są niejawne (bez zmiany bitów). Porównanie `int` z `uint` (oba nie stałe) ostrzega.
+
+## Biblioteka standardowa (plan 29 D)
+
+Osadzona w `CathodeRay.C` (`stdlib/include/*.h`, `stdlib/lib/*.c`, konsola `io.s` z `samples/stub/lib`).
+`#include <string.h>` itd. szuka najpierw w `--incdir`, potem w bibliotece. `cc` linkuje wyłącznie moduły definiujące
+nierozwiązane symbole (także moduły biblioteki między sobą); funkcja zdefiniowana przez użytkownika wygrywa;
+`--nostdlib` wyłącza auto-linkowanie.
+
+| nagłówek | funkcje |
+| --- | --- |
+| `string.h` | `strlen strcpy strncpy strcat strcmp strncmp strchr memcpy memset memcmp` (`uchar *` zamiast `char`/`void *`, `strchr` bierze `uchar *`) |
+| `ctype.h` | `isdigit isalpha isalnum isspace isupper islower toupper tolower` |
+| `stdlib.h` | `abs min max atoi itoa(v, buf, base) srand rand` (xorshift 16-bit) |
+| `stdio.h` | `putchar puthex putdec putstr puts printf sprintf` (`%d %u %x %c %s %%`, do 5 / 4 argumentów) |
+
+Wariadyczne prototypy (`...`): dodatkowe argumenty są zawsze 16-bit w kolejnych komórkach `cc_argN`; definicja ma stałą
+liczbę parametrów (`printf(fmt, a1..a5)`), więc `...` można tylko deklarować. Konsola to bufor `__io_buf` (256 B).

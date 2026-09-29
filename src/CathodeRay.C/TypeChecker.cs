@@ -21,6 +21,7 @@ public sealed class TypeChecker
     private CType _returnType = CType.Void;
     private int _loops;
     private int _switches;
+    private bool _allowPointerInteger;
     private IReadOnlyDictionary<Ast.Node, int> _lineMap = new Dictionary<Ast.Node, int>();
 
     private TypeChecker()
@@ -31,10 +32,18 @@ public sealed class TypeChecker
     /// <param name="program">Drzewo z parsera.</param>
     /// <returns>Program z typami symboli.</returns>
     /// <exception cref="CTypeException">Błąd typów.</exception>
-    public static CheckedProgram Check(Ast.Program program)
+    public static CheckedProgram Check(Ast.Program program) => Check(program, allowPointerIntegerConversion: false);
+
+    /// <summary>Sprawdza program; biblioteka standardowa może niejawnie zamieniać int na wskaźnik i z powrotem
+    /// (argumenty wariadyczne <c>printf</c>).</summary>
+    /// <param name="program">Drzewo z parsera.</param>
+    /// <param name="allowPointerIntegerConversion">Zezwól na niejawne int↔wskaźnik (z ostrzeżeniem).</param>
+    /// <returns>Program z typami symboli.</returns>
+    /// <exception cref="CTypeException">Błąd typów.</exception>
+    public static CheckedProgram Check(Ast.Program program, bool allowPointerIntegerConversion)
     {
         ArgumentNullException.ThrowIfNull(program);
-        var checker = new TypeChecker();
+        var checker = new TypeChecker { _allowPointerInteger = allowPointerIntegerConversion };
         return checker.CheckProgram(program);
     }
 
@@ -681,6 +690,12 @@ public sealed class TypeChecker
             return;
         }
 
+        if (_allowPointerInteger && ((target.Kind == "ptr" && value.Kind is "int" or "uint") || (target.Kind is "int" or "uint" && value.Kind == "ptr")))
+        {
+            _warnings.Add($"{where}: converting between integer and pointer.");
+            return;
+        }
+
         if (target.Kind == "uchar" && value.Kind is "int" or "uint")
         {
             _warnings.Add($"{where}: narrowing int to uchar.");
@@ -909,12 +924,21 @@ public sealed class TypeChecker
             throw new CTypeException($"'{call.Name}' takes at most {MaxArgs} arguments.");
         }
 
-        if (call.Args.Count != function.Params.Count)
+        if (function.IsVariadic ? call.Args.Count < function.Params.Count : call.Args.Count != function.Params.Count)
         {
-            throw new CTypeException($"'{call.Name}' takes {function.Params.Count} arguments, got {call.Args.Count}.");
+            throw new CTypeException($"'{call.Name}' takes {(function.IsVariadic ? "at least " : string.Empty)}{function.Params.Count} arguments, got {call.Args.Count}.");
         }
 
-        for (int i = 0; i < call.Args.Count; i++)
+        for (int i = function.Params.Count; i < call.Args.Count; i++)
+        {
+            CType extra = TypeOf(call.Args[i]).Decay();
+            if (extra.Kind is "void" or "struct")
+            {
+                throw new CTypeException($"argument {i + 1} of '{call.Name}' must be a value.");
+            }
+        }
+
+        for (int i = 0; i < function.Params.Count; i++)
         {
             AssignableOrNull(
                 Declared(function.Params[i].Type, function.Params[i].PointerDepth),

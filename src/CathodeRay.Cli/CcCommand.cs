@@ -25,7 +25,8 @@ internal static partial class CcCommand
         var incdir = new Option<DirectoryInfo[]>("--incdir") { Description = "Dodatkowe katalogi poszukiwań .include (można powtarzać)." };
 
         var define = new Option<string[]>("-D", "--define") { Description = "Makro preprocesora: NAZWA lub NAZWA=wartość (można powtarzać).", DefaultValueFactory = _ => [] };
-        var command = new Command("cc", "Kompiluje program mini-C na stub (C→obiekt→link).") { inputs, output, format, listing, map, config, incdir, define };
+        var noStdlib = new Option<bool>("--nostdlib") { Description = "Nie linkuj biblioteki standardowej (nagłówki <...> z --incdir nadal działają)." };
+        var command = new Command("cc", "Kompiluje program mini-C na stub (C→obiekt→link).") { inputs, output, format, listing, map, config, incdir, define, noStdlib };
         command.SetAction(parse =>
         {
             TextWriter error = parse.InvocationConfiguration.Error;
@@ -61,6 +62,11 @@ internal static partial class CcCommand
                 foreach (FileInfo input in files)
                 {
                     modules.Add((input.Name, AssembleModule(target, input, includePaths, error, ParseDefines(parse.GetValue(define)!))));
+                }
+
+                if (!parse.GetValue(noStdlib))
+                {
+                    LinkStdlib(target, modules, includePaths);
                 }
             }
             catch (AssemblerException e)
@@ -160,10 +166,10 @@ internal static partial class CcCommand
     /// <returns>Konfiguracja linkera.</returns>
     internal static LinkerConfig DefaultConfig() => new(
         [
-            new MemoryArea("C_CODE", 0x1000, 0x2F00),
-            new MemoryArea("C_INIT", 0x3F00, 0x100),
-            new MemoryArea("C_BSS", 0x4000, 0x1000),
-            new MemoryArea("C_DATA", 0x5000, 0xB000),
+            new MemoryArea("C_CODE", 0x1000, 0x5F00),
+            new MemoryArea("C_INIT", 0x6F00, 0x100),
+            new MemoryArea("C_BSS", 0x7000, 0x1000),
+            new MemoryArea("C_DATA", 0x8000, 0x8000),
         ],
         [
             new SegmentMapping("CODE", "C_CODE"),
@@ -188,6 +194,46 @@ internal static partial class CcCommand
         }
 
         return output.ToString();
+    }
+
+    /// <summary>Dokłada moduły biblioteki standardowej definiujące symbole, do których odwołują się
+    /// dotychczasowe moduły (także moduły biblioteki między sobą); moduł, którego funkcję zdefiniował
+    /// użytkownik, nie jest potrzebny.</summary>
+    private static void LinkStdlib(AssemblerTarget target, List<(string File, ObjectModule Module)> modules, string[] includePaths)
+    {
+        var added = new HashSet<string>(StringComparer.Ordinal);
+        while (true)
+        {
+            var defined = new HashSet<string>(modules.SelectMany(static m => m.Module.Symbols.Where(static s => s.Global).Select(static s => s.Name)), StringComparer.OrdinalIgnoreCase);
+            var unresolved = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach ((_, ObjectModule module) in modules)
+            {
+                var own = new HashSet<string>(module.Symbols.Select(static s => s.Name), StringComparer.OrdinalIgnoreCase);
+                foreach (Relocation reloc in module.Relocations)
+                {
+                    if (!own.Contains(reloc.Symbol) && !defined.Contains(reloc.Symbol))
+                    {
+                        unresolved.Add(reloc.Symbol);
+                    }
+                }
+            }
+
+            StdModule? next = StdLib.Modules.FirstOrDefault(m => !added.Contains(m.Name) && m.Defines.Any(unresolved.Contains));
+            if (next is null)
+            {
+                return;
+            }
+
+            added.Add(next.Name);
+            string source = next.Source;
+            if (!next.IsAssembly)
+            {
+                CheckedProgram program = TypeChecker.Check(Parser.Parse(source, StdLib.HeaderReader), allowPointerIntegerConversion: true);
+                source = Codegen.Emit(program, next.Name, objectMode: true);
+            }
+
+            modules.Add(($"<stdlib>/{next.Name}", AssembleObject(target, source, next.Name, _ => null, includePaths)));
+        }
     }
 
     private static Dictionary<string, string> ParseDefines(string[] items)
@@ -221,7 +267,7 @@ internal static partial class CcCommand
                 }
             }
 
-            return null;
+            return system ? StdLib.Header(relative) : null;
         };
 
         if (input.Extension.Equals(".c", StringComparison.OrdinalIgnoreCase))

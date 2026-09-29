@@ -71,19 +71,19 @@
     {
       "id": "12",
       "title": "[M] Nagłówki include/string.h, ctype.h, stdlib.h, stdio.h i katalog domyślny #include <...> (cc dodaje include/ i linkuje tylko użyte moduły lib/*.c); strlen, strcpy, strncpy, strcmp, strchr, memcpy, memset, memcmp w C na wskaźnikach",
-      "status": "todo",
+      "status": "done",
       "note": ""
     },
     {
       "id": "13",
       "title": "[M] stdlib: abs, min, max, atoi, itoa (podstawa 2-16), rand/srand (LFSR 16-bit); ctype: isdigit, isalpha, isspace, toupper, tolower",
-      "status": "todo",
+      "status": "done",
       "note": ""
     },
     {
       "id": "14",
       "title": "[M] stdio: putchar, puts, putdec, puthex (istniejące) + printf z %d %u %x %c %s %% i do 5 argumentów wariadycznych (konwencja: liczba argumentów w cc_argN, callee czyta przez va_arg-intrinsic) oraz sprintf do bufora",
-      "status": "todo",
+      "status": "done",
       "note": ""
     },
     {
