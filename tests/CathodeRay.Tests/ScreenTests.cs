@@ -233,4 +233,89 @@ public sealed class ScreenTests : IDisposable
         int exit = CliApp.CreateRoot().Parse(args).Invoke(new InvocationConfiguration { Output = output, Error = error });
         return (exit, output.ToString(), error.ToString());
     }
+
+    private static IReadOnlyList<string> RunCScreen(string name, int maxSteps = 500_000)
+    {
+        string screen = File.ReadAllText(Path.Combine(LibDir(), "screen.s"));
+        string path = Repo.Path("samples", "minic", name);
+        CheckedProgram checkedProgram = TypeChecker.Check(Parser.Parse(File.ReadAllText(path)));
+        string asm = Crt0.Source + screen + Codegen.Emit(checkedProgram);
+        AssemblerTarget target = AssemblerTargets.Find("stub")!;
+        var origins = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["CODE"] = 0x1000,
+            ["BSS"] = 0x2000,
+            ["DATA"] = 0x2100,
+        };
+        AssemblyResult result = new TwoPassAssembler(Repo.LoadTarget(target), target.DefaultSyntax)
+            .Assemble(asm, path, _ => null, [], null, origins);
+        var bus = new StubBus();
+        for (int i = 0; i < result.Image.Length; i++)
+        {
+            bus.Write((ushort)(result.Origin + i), result.Image[i]);
+        }
+
+        StubIsa isa = StubIsa.FromJsonFile(Repo.IsaFile("mcp_stub_instructions.json"));
+        var cpu = new StubCpu(isa, bus);
+        cpu.State.ProgramCounter = (ushort)origins["CODE"];
+        for (int steps = 0; !cpu.State.Halted; steps++)
+        {
+            steps.Should().BeLessThan(maxSteps, "program ma się zatrzymać");
+            cpu.Step();
+        }
+
+        return new ScreenDecoder().Render(bus.Read, result.Symbols["__scr_buf"]);
+    }
+
+    [Fact]
+    public void Demo_Empty_Screen_Has_No_Text()
+    {
+        RunCScreen("scr_empty.c").Should().OnlyContain(static s => s.Length == 0);
+    }
+
+    [Fact]
+    public void Demo_Full_Row_Stays_In_Row_Zero()
+    {
+        IReadOnlyList<string> rows = RunCScreen("scr_row.c");
+
+        rows[0].Should().Be(new string('A', 40));
+        rows.Skip(1).Should().OnlyContain(static s => s.Length == 0);
+    }
+
+    [Fact]
+    public void Demo_41st_Char_Wraps_To_Row_One()
+    {
+        IReadOnlyList<string> rows = RunCScreen("scr_wrap.c");
+
+        rows[0].Should().Be(new string('B', 40));
+        rows[1].Should().Be("B");
+        rows.Skip(2).Should().OnlyContain(static s => s.Length == 0);
+    }
+
+    [Fact]
+    public void Demo_Full_Screen_Fills_Last_Cell()
+    {
+        IReadOnlyList<string> rows = RunCScreen("scr_full.c");
+
+        rows.Should().HaveCount(25);
+        rows.Should().OnlyContain(s => s == new string('C', 40));
+    }
+
+    [Fact]
+    public void Demo_Overflow_Drops_Chars_Past_999()
+    {
+        IReadOnlyList<string> rows = RunCScreen("scr_over.c");
+
+        rows.Should().HaveCount(25);
+        rows.Should().OnlyContain(s => s == new string('D', 40));
+    }
+
+    [Fact]
+    public void Demo_Control_Chars_Decode_As_Spaces()
+    {
+        IReadOnlyList<string> rows = RunCScreen("scr_ctrl.c");
+
+        rows[0].Should().Be("A B");
+        rows.Skip(1).Should().OnlyContain(static s => s.Length == 0);
+    }
 }
