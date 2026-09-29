@@ -26,8 +26,8 @@
     {
       "id": "4",
       "title": "[M] Pamięć podręczna akumulatora w bloku podstawowym ByteSelector: pomijanie LoadA, gdy A już zawiera ten bajt (po StoreA/LoadA; unieważnianie na etykiecie, wołaniu, skoku i zapisie przez wskaźnik); wszystkie cele bajtowe",
-      "status": "todo",
-      "note": "",
+      "status": "done",
+      "note": "wraz z INC/DEC pamięci dla x++/x-- (ByteIsa.TryStep) i porównaniem z zerem przez OR bajtów",
       "section": "C. Optymalizacje"
     },
     {

@@ -9,6 +9,8 @@ internal abstract class ByteIsa
 {
     private readonly StringBuilder _out = new();
 
+    private int _localLabels;
+
     /// <summary>Bajty słowa w pamięci od najstarszego (6800).</summary>
     public virtual bool BigEndian => false;
 
@@ -151,6 +153,18 @@ internal abstract class ByteIsa
     /// <param name="index">0 = młodszy, 1 = starszy.</param>
     /// <returns>Tekst stałej albo null.</returns>
     public virtual string? AddressByte(string expression, int index) => null;
+
+    /// <summary>Zwiększa albo zmniejsza o 1 liczbę zapisaną w kolejnych bajtach pamięci (od najmłodszego) jedną, krótką sekwencją
+    /// CPU (np. <c>INC</c> pamięci z pominięciem starszego bajtu, gdy nie ma przeniesienia). Nie musi zachować
+    /// flag; może zmienić A i flagi. Wywoływane tylko, gdy liczba ma 1 lub 2 bajty.</summary>
+    /// <param name="bytes">Adresy bajtów od najmłodszego do najstarszego.</param>
+    /// <param name="increment"><see langword="true"/>: +1, <see langword="false"/>: -1.</param>
+    /// <returns><see langword="true"/>, gdy sekwencja została wyemitowana; inaczej selektor użyje ogólnego łańcucha ADD/SUB.</returns>
+    public virtual bool TryStep(IReadOnlyList<string> bytes, bool increment) => false;
+
+    /// <summary>Kolejna unikalna etykieta lokalna instrukcji (dla krótkich skoków wewnątrz sekwencji).</summary>
+    /// <returns>Nazwa etykiety.</returns>
+    public string LocalLabel() => $"__i{++_localLabels}";
 
     /// <summary>Dopisuje linię surowego tekstu (etykieta, komentarz).</summary>
     /// <param name="line">Linia.</param>

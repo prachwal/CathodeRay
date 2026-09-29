@@ -89,6 +89,35 @@ internal sealed class Mos6502Isa : ByteIsa
         L($"{skip}:");
     }
 
+    public override bool TryStep(IReadOnlyList<string> bytes, bool increment)
+    {
+        if (bytes.Count == 1)
+        {
+            L($"{(increment ? "inc" : "dec")} {bytes[0]}");
+            return true;
+        }
+
+        string skip = LocalLabel();
+        if (increment)
+        {
+            L($"inc {bytes[0]}");
+            L($"bne {skip}");
+            L($"inc {bytes[1]}");
+        }
+        else
+        {
+            L($"lda {bytes[0]}");
+            L($"bne {skip}");
+            L($"dec {bytes[1]}");
+            L($"{skip}:");
+            L($"dec {bytes[0]}");
+            return true;
+        }
+
+        L($"{skip}:");
+        return true;
+    }
+
     public override void PushA() => L("pha");
 
     public override void PopA() => L("pla");

@@ -15,7 +15,7 @@ Rozmiar: S = <1 h, M = kilka h, L = dzień+. Kolejność: A -> B -> C -> D -> E;
 
 ## C. Optymalizacje
 
-- [ ] **4.** [M] Pamięć podręczna akumulatora w bloku podstawowym ByteSelector: pomijanie LoadA, gdy A już zawiera ten bajt (po StoreA/LoadA; unieważnianie na etykiecie, wołaniu, skoku i zapisie przez wskaźnik); wszystkie cele bajtowe
+- [x] **4.** [M] Pamięć podręczna akumulatora w bloku podstawowym ByteSelector: pomijanie LoadA, gdy A już zawiera ten bajt (po StoreA/LoadA; unieważnianie na etykiecie, wołaniu, skoku i zapisie przez wskaźnik); wszystkie cele bajtowe — wraz z INC/DEC pamięci dla x++/x-- (ByteIsa.TryStep) i porównaniem z zerem przez OR bajtów
 - [ ] **5.** [M] Krótkie skoki warunkowe: dziś skok odwrócony + JMP (6502, 6800); relaksacja po policzeniu adresów (albo dwuprzebiegowo w selektorze) emituje Bcc/JR wprost, gdy cel jest w zasięgu, i skok odwrócony tylko poza nim
 - [ ] **6.** [M] Przebieg IR: propagacja stałych i kopii w bloku podstawowym, składanie Bin/BrCmp z Imm, martwe komórki lokalne po analizie żywotności na grafie przepływu, lokalne wspólne podwyrażenia; bramka: wyrocznia IR i ir-gate
 - [ ] **7.** [M] Helpery rt nie jako kopie statyczne w każdym module: wynieść mnożenie/dzielenie/przesunięcia (rt.c) do modułów biblioteki linkowanych raz na żądanie (jak stubowe rt_*.s), w trybie obiektowym zamiast dołączania do modułu (dziś div16 to 1134 B w każdym module)
@@ -37,4 +37,4 @@ Rozmiar: S = <1 h, M = kilka h, L = dzień+. Kolejność: A -> B -> C -> D -> E;
 
 - [ ] **18.** [S] Testy e2e per pozycja, samples/minic/23_*.c ...; docs/minic.md (usunąć spełnione pozycje z „Nie działa”), docs/targets.md, docs/compare.md, docs/target-sizes.md, hygiene
 
-Postęp: 2/18 gotowych.
+Postęp: 3/18 gotowych.

@@ -71,6 +71,33 @@ internal sealed class M6800Isa : ByteIsa
         L($"{skip}:");
     }
 
+    public override bool TryStep(IReadOnlyList<string> bytes, bool increment)
+    {
+        string op = increment ? "inc" : "dec";
+        if (bytes.Count == 1)
+        {
+            L($"{op} {bytes[0]}");
+            return true;
+        }
+
+        string skip = LocalLabel();
+        if (increment)
+        {
+            L($"inc {bytes[0]}");
+            L($"bne {skip}");
+            L($"inc {bytes[1]}");
+            L($"{skip}:");
+            return true;
+        }
+
+        L($"tst {bytes[0]}");
+        L($"bne {skip}");
+        L($"dec {bytes[1]}");
+        L($"{skip}:");
+        L($"dec {bytes[0]}");
+        return true;
+    }
+
     public override void PushA() => L("psha");
 
     public override void PopA() => L("pula");

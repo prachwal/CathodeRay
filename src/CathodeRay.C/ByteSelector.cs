@@ -16,6 +16,10 @@ internal sealed class ByteSelector
 
     private readonly List<(string Label, string Expression)> _addressList = [];
 
+    /// <summary>Co wiadomo o akumulatorze: adresy pamięci i stałe (z prefiksem <c>#</c>), które mają teraz taką samą wartość jak A.
+    /// Każdy zapis do pamięci to zapis A, więc zapisy zachowują tę wiedzę; zmienia ją zmiana A, wołanie i etykieta (wejście z innego miejsca).</summary>
+    private readonly HashSet<string> _acc = new(StringComparer.Ordinal);
+
     private int _labels;
 
     private bool _usesIcall;
@@ -55,7 +59,93 @@ internal sealed class ByteSelector
 
     private static Octet Zero() => new(true, "0");
 
+    private static bool IsZero(Ir.Op op) => op is Ir.Imm { Value: 0 };
+
+    private static string Key(Octet value) => value.IsImmediate ? "#" + value.Text : value.Text;
+
     private string At(string sym, int offset) => _isa.At(sym, offset);
+
+    private void LoadA(Octet value)
+    {
+        string key = Key(value);
+        if (_acc.Contains(key))
+        {
+            return;
+        }
+
+        _isa.LoadA(value);
+        _acc.Clear();
+        _acc.Add(key);
+    }
+
+    private void StoreA(string address)
+    {
+        _isa.StoreA(address);
+        _acc.Add(address);
+    }
+
+    private void Alu(ByteAlu op, Octet value, bool first)
+    {
+        _isa.Alu(op, value, first);
+        _acc.Clear();
+    }
+
+    private void Cmp(Octet value)
+    {
+        _isa.Cmp(value);
+        _acc.Clear();
+    }
+
+    private void ShlA(bool first)
+    {
+        _isa.ShlA(first);
+        _acc.Clear();
+    }
+
+    private void ShrA(bool first)
+    {
+        _isa.ShrA(first);
+        _acc.Clear();
+    }
+
+    private void PopA()
+    {
+        _isa.PopA();
+        _acc.Clear();
+    }
+
+    private void CallDirect(string symbol)
+    {
+        _isa.Call(symbol);
+        _acc.Clear();
+    }
+
+    private void CallIndirect(string cell)
+    {
+        _isa.CallIndirect(cell);
+        _acc.Clear();
+    }
+
+    private void PtrSetup(string cell, int offset)
+    {
+        _isa.PtrSetup(cell, offset);
+        _acc.Clear();
+    }
+
+    private void PtrLoad(int index)
+    {
+        _isa.PtrLoad(index);
+        _acc.Clear();
+    }
+
+    private void Raw(string line)
+    {
+        _isa.Raw(line);
+        if (line.EndsWith(':'))
+        {
+            _acc.Clear();
+        }
+    }
 
     private string Label(string hint) => $"S{++_labels}_{hint}";
 
@@ -108,15 +198,15 @@ internal sealed class ByteSelector
 
         if (!function.IsStatic)
         {
-            _isa.Raw(_isa.Global(_isa.Sym(function.Name)));
+            Raw(_isa.Global(_isa.Sym(function.Name)));
         }
 
-        _isa.Raw($"{_isa.Sym(function.Name)}:");
+        Raw($"{_isa.Sym(function.Name)}:");
         foreach (Ir.Owned owned in function.Saved)
         {
             foreach (string address in SavedBytes(owned))
             {
-                _isa.LoadA(new Octet(false, address));
+                LoadA(new Octet(false, address));
                 _isa.PushA();
             }
         }
@@ -126,8 +216,8 @@ internal sealed class ByteSelector
             Ir.Cell param = function.Params[i];
             for (int part = 0; part < param.W; part++)
             {
-                _isa.LoadA(new Octet(false, ArgSym(i, part)));
-                _isa.StoreA(Dst(param, part));
+                LoadA(new Octet(false, ArgSym(i, part)));
+                StoreA(Dst(param, part));
             }
         }
 
@@ -136,13 +226,13 @@ internal sealed class ByteSelector
             EmitIns(function, function.Body[i], i == function.Body.Count - 1);
         }
 
-        _isa.Raw($"{Mangle(function, "ret")}:");
+        Raw($"{Mangle(function, "ret")}:");
         foreach (Ir.Owned owned in function.Saved.Reverse())
         {
             foreach (string address in SavedBytes(owned).Reverse())
             {
-                _isa.PopA();
-                _isa.StoreA(address);
+                PopA();
+                StoreA(address);
             }
         }
 
@@ -168,7 +258,7 @@ internal sealed class ByteSelector
     }
 
     private void EmitSource(Ir.Src source) =>
-        _isa.Raw(source.File is null ? $";c:{source.Line}" : $";c:{source.File}:{source.Line}");
+        Raw(source.File is null ? $";c:{source.Line}" : $";c:{source.File}:{source.Line}");
 
     private void EmitIns(Ir.Function function, Ir.Ins ins, bool last)
     {
@@ -178,7 +268,7 @@ internal sealed class ByteSelector
                 EmitSource(source);
                 break;
             case Ir.Label label:
-                _isa.Raw($"{Mangle(function, label.Name)}:");
+                Raw($"{Mangle(function, label.Name)}:");
                 break;
             case Ir.Jmp jump:
                 _isa.Jump(Mangle(function, jump.Target));
@@ -221,13 +311,23 @@ internal sealed class ByteSelector
 
         for (int i = 0; i < dst.W; i++)
         {
-            _isa.LoadA(ByteOf(src, i));
-            _isa.StoreA(Dst(dst, i));
+            LoadA(ByteOf(src, i));
+            StoreA(Dst(dst, i));
         }
     }
 
     private void EmitBin(Ir.Bin bin)
     {
+        if (bin.Kind is Ir.BinOp.Add or Ir.BinOp.Sub && bin.Dst.W <= 2 && bin.A is Ir.Cell same && same.Sym == bin.Dst.Sym && same.W == bin.Dst.W && bin.B is Ir.Imm { Value: 1 })
+        {
+            string[] cells = [.. Enumerable.Range(0, bin.Dst.W).Select(i => Dst(bin.Dst, i))];
+            if (_isa.TryStep(cells, bin.Kind == Ir.BinOp.Add))
+            {
+                _acc.Clear();
+                return;
+            }
+        }
+
         switch (bin.Kind)
         {
             case Ir.BinOp.Add:
@@ -258,9 +358,9 @@ internal sealed class ByteSelector
     {
         for (int i = 0; i < bin.Dst.W; i++)
         {
-            _isa.LoadA(ByteOf(bin.A, i));
-            _isa.Alu(alu, ByteOf(bin.B, i), i == 0);
-            _isa.StoreA(Dst(bin.Dst, i));
+            LoadA(ByteOf(bin.A, i));
+            Alu(alu, ByteOf(bin.B, i), i == 0);
+            StoreA(Dst(bin.Dst, i));
         }
     }
 
@@ -278,8 +378,8 @@ internal sealed class ByteSelector
         {
             for (int i = 0; i < width; i++)
             {
-                _isa.LoadA(Zero());
-                _isa.StoreA(Dst(bin.Dst, i));
+                LoadA(Zero());
+                StoreA(Dst(bin.Dst, i));
             }
 
             return;
@@ -293,16 +393,16 @@ internal sealed class ByteSelector
             {
                 for (int i = width - 1; i >= 0; i--)
                 {
-                    _isa.LoadA(i >= bytes ? new Octet(false, Dst(bin.Dst, i - bytes)) : Zero());
-                    _isa.StoreA(Dst(bin.Dst, i));
+                    LoadA(i >= bytes ? new Octet(false, Dst(bin.Dst, i - bytes)) : Zero());
+                    StoreA(Dst(bin.Dst, i));
                 }
             }
             else
             {
                 for (int i = 0; i < width; i++)
                 {
-                    _isa.LoadA(i + bytes < width ? new Octet(false, Dst(bin.Dst, i + bytes)) : Zero());
-                    _isa.StoreA(Dst(bin.Dst, i));
+                    LoadA(i + bytes < width ? new Octet(false, Dst(bin.Dst, i + bytes)) : Zero());
+                    StoreA(Dst(bin.Dst, i));
                 }
             }
         }
@@ -312,17 +412,17 @@ internal sealed class ByteSelector
             for (int k = 0; k < width; k++)
             {
                 int i = left ? k : width - 1 - k;
-                _isa.LoadA(new Octet(false, Dst(bin.Dst, i)));
+                LoadA(new Octet(false, Dst(bin.Dst, i)));
                 if (left)
                 {
-                    _isa.ShlA(k == 0);
+                    ShlA(k == 0);
                 }
                 else
                 {
-                    _isa.ShrA(k == 0);
+                    ShrA(k == 0);
                 }
 
-                _isa.StoreA(Dst(bin.Dst, i));
+                StoreA(Dst(bin.Dst, i));
             }
         }
     }
@@ -333,16 +433,16 @@ internal sealed class ByteSelector
         {
             if (un.Kind == Ir.UnOp.Neg)
             {
-                _isa.LoadA(Zero());
-                _isa.Alu(ByteAlu.Sub, ByteOf(un.A, i), i == 0);
+                LoadA(Zero());
+                Alu(ByteAlu.Sub, ByteOf(un.A, i), i == 0);
             }
             else
             {
-                _isa.LoadA(ByteOf(un.A, i));
-                _isa.Alu(ByteAlu.Xor, new Octet(true, "255"), true);
+                LoadA(ByteOf(un.A, i));
+                Alu(ByteAlu.Xor, new Octet(true, "255"), true);
             }
 
-            _isa.StoreA(Dst(un.Dst, i));
+            StoreA(Dst(un.Dst, i));
         }
     }
 
@@ -352,27 +452,27 @@ internal sealed class ByteSelector
         {
             for (int i = 0; i < load.Dst.W; i++)
             {
-                _isa.LoadA(i < load.Bytes ? new Octet(false, At(address.Sym, address.Off + load.Off + MemIndex(i, load.Bytes))) : Zero());
-                _isa.StoreA(Dst(load.Dst, i));
+                LoadA(i < load.Bytes ? new Octet(false, At(address.Sym, address.Off + load.Off + MemIndex(i, load.Bytes))) : Zero());
+                StoreA(Dst(load.Dst, i));
             }
 
             return;
         }
 
         var pointer = (Ir.Cell)load.Ptr;
-        _isa.PtrSetup(_isa.Sym(pointer.Sym), load.Off);
+        PtrSetup(_isa.Sym(pointer.Sym), load.Off);
         for (int i = 0; i < load.Dst.W; i++)
         {
             if (i < load.Bytes)
             {
-                _isa.PtrLoad(MemIndex(i, load.Bytes));
+                PtrLoad(MemIndex(i, load.Bytes));
             }
             else
             {
-                _isa.LoadA(Zero());
+                LoadA(Zero());
             }
 
-            _isa.StoreA(Dst(load.Dst, i));
+            StoreA(Dst(load.Dst, i));
         }
     }
 
@@ -382,18 +482,18 @@ internal sealed class ByteSelector
         {
             for (int i = 0; i < store.Bytes; i++)
             {
-                _isa.LoadA(ByteOf(store.Value, i));
-                _isa.StoreA(At(address.Sym, address.Off + store.Off + MemIndex(i, store.Bytes)));
+                LoadA(ByteOf(store.Value, i));
+                StoreA(At(address.Sym, address.Off + store.Off + MemIndex(i, store.Bytes)));
             }
 
             return;
         }
 
         var pointer = (Ir.Cell)store.Ptr;
-        _isa.PtrSetup(_isa.Sym(pointer.Sym), store.Off);
+        PtrSetup(_isa.Sym(pointer.Sym), store.Off);
         for (int i = 0; i < store.Bytes; i++)
         {
-            _isa.LoadA(ByteOf(store.Value, i));
+            LoadA(ByteOf(store.Value, i));
             _isa.PtrStore(MemIndex(i, store.Bytes));
         }
     }
@@ -403,20 +503,34 @@ internal sealed class ByteSelector
         string target = Mangle(function, branch.Target);
         int width = Math.Max(WidthOf(branch.A), WidthOf(branch.B));
         Ir.Cond cond = branch.C;
+        if (cond is Ir.Cond.Eq or Ir.Cond.Ne && width > 1 && (IsZero(branch.B) || IsZero(branch.A)))
+        {
+            // porównanie z zerem: A = suma bitowa (OR) wszystkich bajtów, flaga Z z ostatniej operacji
+            Ir.Op value = IsZero(branch.B) ? branch.A : branch.B;
+            LoadA(ByteOf(value, 0));
+            for (int i = 1; i < width; i++)
+            {
+                Alu(ByteAlu.Or, ByteOf(value, i), i == 1);
+            }
+
+            _isa.JumpIf(cond == Ir.Cond.Eq ? ByteFlag.Zero : ByteFlag.NotZero, target);
+            return;
+        }
+
         if (cond is Ir.Cond.Eq or Ir.Cond.Ne)
         {
             string skip = Label("ne");
             for (int i = 0; i < width; i++)
             {
-                _isa.LoadA(ByteOf(branch.A, i));
-                _isa.Cmp(ByteOf(branch.B, i));
+                LoadA(ByteOf(branch.A, i));
+                Cmp(ByteOf(branch.B, i));
                 _isa.JumpIf(ByteFlag.NotZero, cond == Ir.Cond.Eq ? skip : target);
             }
 
             if (cond == Ir.Cond.Eq)
             {
                 _isa.Jump(target);
-                _isa.Raw($"{skip}:");
+                Raw($"{skip}:");
             }
 
             return;
@@ -431,14 +545,14 @@ internal sealed class ByteSelector
         Octet[] ys = Bytes(y, width, signed ? "cc_t1" : null);
         for (int i = 0; i < width; i++)
         {
-            _isa.LoadA(xs[i]);
+            LoadA(xs[i]);
             if (width == 1)
             {
-                _isa.Cmp(ys[i]);
+                Cmp(ys[i]);
             }
             else
             {
-                _isa.Alu(ByteAlu.Sub, ys[i], i == 0);
+                Alu(ByteAlu.Sub, ys[i], i == 0);
             }
         }
 
@@ -462,9 +576,9 @@ internal sealed class ByteSelector
             return bytes;
         }
 
-        _isa.LoadA(top);
-        _isa.Alu(ByteAlu.Xor, new Octet(true, "128"), true);
-        _isa.StoreA(biasCell);
+        LoadA(top);
+        Alu(ByteAlu.Xor, new Octet(true, "128"), true);
+        StoreA(biasCell);
         bytes[width - 1] = new Octet(false, biasCell);
         return bytes;
     }
@@ -475,27 +589,27 @@ internal sealed class ByteSelector
         {
             for (int part = 0; part < call.ParamWidths[i]; part++)
             {
-                _isa.LoadA(ByteOf(call.Args[i], part));
-                _isa.StoreA(ArgSym(i, part));
+                LoadA(ByteOf(call.Args[i], part));
+                StoreA(ArgSym(i, part));
             }
         }
 
         if (call.Indirect is not null)
         {
             _usesIcall = true;
-            _isa.CallIndirect(_isa.Sym(call.Indirect.Sym));
+            CallIndirect(_isa.Sym(call.Indirect.Sym));
         }
         else
         {
-            _isa.Call(_isa.Sym(call.Direct!));
+            CallDirect(_isa.Sym(call.Direct!));
         }
 
         if (call.Result is not null)
         {
             for (int part = 0; part < call.Result.W; part++)
             {
-                _isa.LoadA(new Octet(false, RetSym(part)));
-                _isa.StoreA(Dst(call.Result, part));
+                LoadA(new Octet(false, RetSym(part)));
+                StoreA(Dst(call.Result, part));
             }
         }
     }
@@ -506,8 +620,8 @@ internal sealed class ByteSelector
         {
             for (int part = 0; part < ret.W; part++)
             {
-                _isa.LoadA(ByteOf(ret.Value, part));
-                _isa.StoreA(RetSym(part));
+                LoadA(ByteOf(ret.Value, part));
+                StoreA(RetSym(part));
             }
         }
 
