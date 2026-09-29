@@ -1,6 +1,6 @@
 {
   "title": "Mini-C: jakość kodu i brakujące typy (float, short, volatile, inline, pola bitowe), strona zerowa 6502, kolizje nazw",
-  "status": "open",
+  "status": "closed",
   "items": [
     {
       "id": "1",
