@@ -24,7 +24,6 @@ public sealed partial class TypeChecker
     private int _loops;
     private int _switches;
     private int _stmtLine;
-    private bool _allowPointerInteger;
     private IReadOnlyDictionary<Ast.Node, int> _lineMap = new Dictionary<Ast.Node, int>();
 
     private TypeChecker()
@@ -35,19 +34,10 @@ public sealed partial class TypeChecker
     /// <param name="program">Drzewo z parsera.</param>
     /// <returns>Program z typami symboli.</returns>
     /// <exception cref="CTypeException">Błąd typów.</exception>
-    public static CheckedProgram Check(Ast.Program program) => Check(program, allowPointerIntegerConversion: false);
-
-    /// <summary>Sprawdza program; biblioteka standardowa może niejawnie zamieniać int na wskaźnik i z powrotem
-    /// (argumenty wariadyczne <c>printf</c>).</summary>
-    /// <param name="program">Drzewo z parsera.</param>
-    /// <param name="allowPointerIntegerConversion">Zezwól na niejawne int↔wskaźnik (z ostrzeżeniem).</param>
-    /// <returns>Program z typami symboli.</returns>
-    /// <exception cref="CTypeException">Błąd typów.</exception>
-    public static CheckedProgram Check(Ast.Program program, bool allowPointerIntegerConversion)
+    public static CheckedProgram Check(Ast.Program program)
     {
         ArgumentNullException.ThrowIfNull(program);
-        var checker = new TypeChecker { _allowPointerInteger = allowPointerIntegerConversion };
-        return checker.CheckProgram(program);
+        return new TypeChecker().CheckProgram(program);
     }
 
     private static void RejectStructByValue(CType type, string what)
@@ -727,12 +717,6 @@ public sealed partial class TypeChecker
             return;
         }
 
-        if (_allowPointerInteger && ((target.Kind == "ptr" && value.Kind is "int" or "uint") || (target.Kind is "int" or "uint" && value.Kind == "ptr")))
-        {
-            _warnings.Add($"{where}: converting between integer and pointer.");
-            return;
-        }
-
         if (target.Kind == "uchar" && value.Kind is "int" or "uint")
         {
             _warnings.Add($"{where}: narrowing int to uchar.");
@@ -751,12 +735,15 @@ public sealed partial class TypeChecker
 
         CType type = TypeOfInner(expr);
         _types[expr] = type;
-        if (expr is Ast.Unary or Ast.Binary or Ast.Ternary or Ast.SizeOf or Ast.SizeOfType or Ast.SizeOfExpr && TryConst(expr, out int folded))
+        if (expr is Ast.Unary or Ast.Binary or Ast.Ternary or Ast.SizeOf or Ast.SizeOfType or Ast.SizeOfExpr or Ast.Cast && TryConst(expr, out int folded))
         {
-            // stała: typ jak litery (<= 255 to uchar, wyżej int), kod zna wartość z _constants
+            // stała: typ jak litery (<= 255 to uchar, wyżej int), kod zna wartość z _constants; rzutowanie zachowuje swój typ
             _constants[expr] = folded;
-            type = folded <= byte.MaxValue ? CType.UChar : CType.Int;
-            _types[expr] = type;
+            if (expr is not Ast.Cast)
+            {
+                type = folded <= byte.MaxValue ? CType.UChar : CType.Int;
+                _types[expr] = type;
+            }
         }
 
         return type;
@@ -779,6 +766,9 @@ public sealed partial class TypeChecker
                 return true;
             case Ast.SizeOfExpr sizeOfExpr:
                 value = RawType(sizeOfExpr.Operand).Size;
+                return true;
+            case Ast.Cast cast when TryConst(cast.Value, out int cast0):
+                value = Declared(cast.Type, cast.Stars).Size == 1 ? cast0 & 0xFF : cast0 & 0xFFFF;
                 return true;
             case Ast.Unary unary when TryConst(unary.Operand, out int operand):
                 value = unary.Op switch { "-" => -operand, "~" => ~operand, _ => operand == 0 ? 1 : 0 } & 0xFFFF;
@@ -917,9 +907,28 @@ public sealed partial class TypeChecker
 
             case Ast.Index index:
                 return IndexType(index);
+            case Ast.Cast cast:
+                return CastType(cast);
             default:
                 throw new CTypeException($"unsupported expression {expr.GetType().Name}.");
         }
+    }
+
+    private CType CastType(Ast.Cast cast)
+    {
+        CType target = Declared(cast.Type, cast.Stars);
+        CType source = TypeOf(cast.Value).Decay();
+        if (target.Kind == "void")
+        {
+            return target;
+        }
+
+        if (target.Kind is "struct" or "array" || source.Kind is "struct" or "void")
+        {
+            throw new CTypeException($"cannot cast {source} to {target}.");
+        }
+
+        return target;
     }
 
     private CType IndirectCallType(Ast.CallExpr call)

@@ -211,6 +211,12 @@ public static class Ast
     /// <param name="Stars">Liczba <c>*</c>.</param>
     public sealed record SizeOfType(string Type, int Stars) : Expr;
 
+    /// <summary>Rzutowanie <c>(T)x</c> między typami skalarnymi (uchar, int, uint, wskaźniki, wskaźniki do funkcji).</summary>
+    /// <param name="Type">Nazwa typu bazowego (także <c>fptr&lt;…&gt;</c>).</param>
+    /// <param name="Stars">Liczba <c>*</c>.</param>
+    /// <param name="Value">Rzutowane wyrażenie.</param>
+    public sealed record Cast(string Type, int Stars, Expr Value) : Expr;
+
     /// <summary>Adres zmiennej (<c>&amp;x</c>).</summary>
     /// <param name="Name">Nazwa zmiennej.</param>
     public sealed record AddressOf(string Name) : Expr;

@@ -28,7 +28,7 @@ Rozmiar: S = <1 h, M = kilka h, L = dzień+. Kolejność: A -> B -> C -> D. Krok
 
 ## D. Cechy języka i zamknięcie (po IR; front-end, dlatego niezależne od celów)
 
-- [ ] **14.** [M] Rzutowania (T)x: uchar/int/uint/wskaźniki/wskaźniki do funkcji (rozróżnienie nawiasu typu w parserze, checker, konwersje w IR: zawężenie, rozszerzenie zerem/znakiem); po wprowadzeniu usunąć relaks int<->wskaźnik z biblioteki (printf %s)
+- [x] **14.** [M] Rzutowania (T)x: uchar/int/uint/wskaźniki/wskaźniki do funkcji (rozróżnienie nawiasu typu w parserze, checker, konwersje w IR: zawężenie, rozszerzenie zerem/znakiem); po wprowadzeniu usunąć relaks int<->wskaźnik z biblioteki (printf %s)
 - [ ] **15.** [M] void * i size_t: <stddef.h> (size_t = uint, NULL, offsetof), niejawna konwersja void * <-> T *, brak dereferencji i arytmetyki, sygnatury memcpy/memset/memcmp na void *
 - [ ] **16.** [M] Struktury przez wartość: argument (kopia wołającego, przekazana jako wskaźnik) i wynik (ukryty parametr sret)
 - [ ] **17.** [M] Tablice wielowymiarowe int m[3][4]: typ tablicy tablic, m[i][j], sizeof, inicjalizatory {{...}}, int (*)[4] jako parametr
@@ -36,4 +36,4 @@ Rozmiar: S = <1 h, M = kilka h, L = dzień+. Kolejność: A -> B -> C -> D. Krok
 - [ ] **19.** [S] union, operator przecinka, konkatenacja napisów, \xHH, # i ## w makrach, enum z sizeof(struct)
 - [ ] **20.** [S] Testy e2e per pozycja, samples/minic/17_casts.c, 18_voidptr.c, 19_matrix.c, 20_long.c, tabela rozmiar/cykle per cel (golden tylko dla rozmiaru, nie dla poprawności), docs/targets.md (jak dodać CPU), docs/minic.md, hygiene
 
-Postęp: 13/20 gotowych.
+Postęp: 14/20 gotowych.

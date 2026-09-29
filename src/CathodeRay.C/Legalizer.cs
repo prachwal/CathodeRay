@@ -33,7 +33,7 @@ internal sealed class Legalizer
 
     private static Ir.Module CompileRuntime()
     {
-        CheckedProgram program = TypeChecker.Check(Parser.Parse(StdLib.Portable("rt.c"), StdLib.HeaderReader), allowPointerIntegerConversion: true);
+        CheckedProgram program = TypeChecker.Check(Parser.Parse(StdLib.Portable("rt.c"), StdLib.HeaderReader));
         return Codegen.Lower(program, "rt.c", objectMode: false, stackLimit: null);
     }
 

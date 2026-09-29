@@ -8,7 +8,7 @@ public sealed class IrInterpreterTests
 {
     private static (int Value, string Console) Run(string source)
     {
-        var (value, _, console) = IrOracle.Run(TypeChecker.Check(Parser.Parse(source, StdLib.HeaderReader), allowPointerIntegerConversion: true))!.Value;
+        var (value, _, console) = IrOracle.Run(TypeChecker.Check(Parser.Parse(source, StdLib.HeaderReader)))!.Value;
         return (value, console);
     }
 
@@ -79,7 +79,7 @@ public sealed class IrInterpreterTests
         var modules = new List<Ir.Module> { Codegen.Lower(program, "main.c", objectMode: true) };
         foreach (StdModule module in StdLib.Modules.Where(static m => m.Name is "printf.c"))
         {
-            modules.Add(Codegen.Lower(TypeChecker.Check(Parser.Parse(module.Source, StdLib.HeaderReader), allowPointerIntegerConversion: true), module.Name, objectMode: true));
+            modules.Add(Codegen.Lower(TypeChecker.Check(Parser.Parse(module.Source, StdLib.HeaderReader)), module.Name, objectMode: true));
         }
 
         var interpreter = IrInterpreter.Load(modules);

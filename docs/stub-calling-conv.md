@@ -284,3 +284,9 @@ liczbę parametrów (`printf(fmt, a1..a5)`), więc `...` można tylko deklarowa�
   `LDAA n,X` / `STAA n,X` czytają i piszą bajty; wołanie pośrednie `LDX komórka; JSR 0,X`. Dane początkowe generuje frontend
   w kolejności bajtów celu (`ICTarget.ByteOrder` → `Lowering`), `.word` w danych zamienia asembler. Do ISA 6800 dopisano
   brakujące PSHA/PSHB/PULA/PULB. Interpreter `Mc6800Cpu` czyta tablicę opkodów z JSON.
+
+## Rzutowania (plan 30, krok 14)
+
+`Ast.Cast` (parser rozpoznaje `(` typ `)` w `Unary`, także `(R (*)(A))`), `TypeChecker.CastType` (skalary i wskaźniki; struct/void błąd)
+i `Lowering.CastValue`: zawężenie do bajtu to `Mov` do komórki W=1, rozszerzenie do słowa to `Mov` do komórki W=2 (zero, bo jedyny typ
+8-bitowy jest bez znaku), reszta zmienia tylko typ. Flaga `allowPointerIntegerConversion` usunięta: `printf` rzutuje `(const uchar *)v`.

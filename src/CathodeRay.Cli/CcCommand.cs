@@ -239,7 +239,7 @@ internal static partial class CcCommand
             string source = next.Source;
             if (!next.IsAssembly)
             {
-                CheckedProgram program = TypeChecker.Check(Parser.Parse(source, StdLib.HeaderReader), allowPointerIntegerConversion: true);
+                CheckedProgram program = TypeChecker.Check(Parser.Parse(source, StdLib.HeaderReader));
                 source = Codegen.Emit(program, cTarget, next.Name, objectMode: true, optimize: optimize);
             }
 

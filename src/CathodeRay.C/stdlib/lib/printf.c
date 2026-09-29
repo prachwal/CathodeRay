@@ -80,7 +80,7 @@ static int format(const uchar *fmt, int a1, int a2, int a3, int a4, int a5) {
                 out(v);
                 break;
             case 's':
-                outstr(v);
+                outstr((const uchar *)v);
                 break;
             default:
                 out('%');

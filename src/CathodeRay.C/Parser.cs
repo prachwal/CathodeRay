@@ -205,12 +205,19 @@ public sealed class Parser
 
         Next();
         Next();
-        name = ExpectKind(TokenKind.Ident, "function pointer name").Text;
-        length = ArrayLength(out bool unsized, out lengthExpr);
-        if (unsized)
+        if (Peek() is { Kind: TokenKind.Punct, Text: ")" })
         {
-            Token at = Peek();
-            throw new CParseException(at.Line, at.Column, "function pointer array needs a length.");
+            name = string.Empty;
+        }
+        else
+        {
+            name = ExpectKind(TokenKind.Ident, "function pointer name").Text;
+            length = ArrayLength(out bool unsized, out lengthExpr);
+            if (unsized)
+            {
+                Token at = Peek();
+                throw new CParseException(at.Line, at.Column, "function pointer array needs a length.");
+            }
         }
 
         Expect(")");
@@ -923,6 +930,21 @@ public sealed class Parser
             }
 
             return new Ast.Unary(token.Text, operand);
+        }
+
+        if (token is { Kind: TokenKind.Punct, Text: "(" } && IsType(Peek(1)))
+        {
+            Next();
+            (string castType, int castBase) = TypeSpec();
+            int castStars = castBase + Stars();
+            if (TryFnPtr(castType, castStars, out string fnType, out _, out _, out _))
+            {
+                castType = fnType;
+                castStars = 0;
+            }
+
+            Expect(")");
+            return At(token.Line, new Ast.Cast(castType, castStars, Unary()));
         }
 
         if (token is { Kind: TokenKind.Punct, Text: "&" })

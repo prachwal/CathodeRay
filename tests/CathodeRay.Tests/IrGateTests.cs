@@ -51,7 +51,7 @@ public sealed partial class IrGateTests
         string text;
         try
         {
-            CheckedProgram program = TypeChecker.Check(Parser.Parse(source, reader), allowPointerIntegerConversion: true);
+            CheckedProgram program = TypeChecker.Check(Parser.Parse(source, reader));
             text = Codegen.Emit(program, "gate.c", objectMode, optimize);
         }
         catch (Exception e) when (e is CParseException or CTypeException or CCodegenException or CPreprocessException)

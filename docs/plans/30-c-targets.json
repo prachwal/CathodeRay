@@ -83,7 +83,7 @@
     {
       "id": "14",
       "title": "[M] Rzutowania (T)x: uchar/int/uint/wskaźniki/wskaźniki do funkcji (rozróżnienie nawiasu typu w parserze, checker, konwersje w IR: zawężenie, rozszerzenie zerem/znakiem); po wprowadzeniu usunąć relaks int<->wskaźnik z biblioteki (printf %s)",
-      "status": "todo",
+      "status": "done",
       "note": ""
     },
     {

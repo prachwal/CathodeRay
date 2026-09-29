@@ -8,7 +8,7 @@ namespace CathodeRay.Tests;
 public sealed class IrPassesTests
 {
     private static Ir.Module Lower(string source, bool objectMode = false) =>
-        Codegen.Lower(TypeChecker.Check(Parser.Parse(source, StdLib.HeaderReader), allowPointerIntegerConversion: true), "t.c", objectMode);
+        Codegen.Lower(TypeChecker.Check(Parser.Parse(source, StdLib.HeaderReader)), "t.c", objectMode);
 
     private static Ir.Function Fn(Ir.Module module, string name) => module.Functions.Single(f => f.Name == name);
 

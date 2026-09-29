@@ -10,6 +10,7 @@ internal sealed partial class Lowering
     {
         Ast.Call or Ast.CallExpr or Ast.Assign or Ast.AssignTo or Ast.AssignOpTo => true,
         Ast.Unary unary => HasSideEffects(unary.Operand),
+        Ast.Cast cast => HasSideEffects(cast.Value),
         Ast.Binary binary => HasSideEffects(binary.Left) || HasSideEffects(binary.Right),
         Ast.Ternary ternary => HasSideEffects(ternary.Cond) || HasSideEffects(ternary.Then) || HasSideEffects(ternary.Else),
         Ast.Deref deref => HasSideEffects(deref.Pointer),
@@ -114,6 +115,8 @@ internal sealed partial class Lowering
                 return LowerCall(expr, depth, into);
             case Ast.Unary unary:
                 return UnaryValue(unary, depth, into);
+            case Ast.Cast cast:
+                return CastValue(cast, depth);
             case Ast.Binary binary:
                 return BinaryValue(binary, depth, into);
             case Ast.Assign assign:
@@ -132,6 +135,27 @@ internal sealed partial class Lowering
             default:
                 throw new CCodegenException($"unsupported expression {expr.GetType().Name}.");
         }
+    }
+
+    /// <summary>Rzutowanie: zawężenie do bajtu obcina, rozszerzenie do słowa uzupełnia zerem (jedyny typ 8-bitowy jest bez znaku),
+    /// reszta zmienia tylko typ. Wynik ma szerokość typu docelowego.</summary>
+    private Ir.Op CastValue(Ast.Cast cast, int depth)
+    {
+        Ir.Op value = Value(cast.Value, depth);
+        int width = WidthOf(cast);
+        if (value switch { Ir.Cell c => c.W, Ir.Imm i => i.W, _ => 2 } == width)
+        {
+            return value;
+        }
+
+        if (value is Ir.Imm imm)
+        {
+            return new Ir.Imm(imm.Value & Mask(width), width);
+        }
+
+        Ir.Cell target = Temp(depth, width);
+        Emit(new Ir.Mov(target, value));
+        return target;
     }
 
     private Ir.Op VariableOperand(string name)

@@ -214,7 +214,7 @@ internal sealed class ByteSelector
 
     private void EmitMov(Ir.Cell dst, Ir.Op src)
     {
-        if (src is Ir.Cell same && same.Sym == dst.Sym)
+        if (src is Ir.Cell same && same.Sym == dst.Sym && same.W == dst.W)
         {
             return;
         }

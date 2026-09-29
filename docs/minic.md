@@ -51,7 +51,7 @@ int main() {
 
 Arytmetyka `+ - * / %`, bitowe `& | ^ ~ << >>`, porównania, `&& || !`, `?:`, przypisania złożone (`+=` … `>>=`),
 `++`/`--` (przed i po), `&x`, `*p`, `p[i]`, `s.f`, `p->f`, `sizeof`. Działania na wskaźnikach skalują się rozmiarem elementu;
-`p - q` daje liczbę elementów. Niejawne konwersje `uchar`↔`int`↔`uint` (z ostrzeżeniem przy zawężeniu); bez rzutowań.
+`p - q` daje liczbę elementów. Niejawne konwersje `uchar`↔`int`↔`uint` (z ostrzeżeniem przy zawężeniu); jawne rzutowania `(T)x` opisuje sekcja „Rzutowania”.
 
 ```c expect=75
 int main() {
@@ -70,6 +70,34 @@ int main() {
     int *q = a + 4;
     p += 2;
     return (q - p) + a[p - a] * 10 + sizeof(a) / 2 * 2 - 8;   // 2 + 30 + 10 - 8
+}
+```
+
+## Rzutowania
+
+`(T)x` zamienia wartość skalarną na `uchar`, `int`, `uint`, wskaźnik `T *`, wskaźnik do funkcji `(R (*)(A, B))f` albo alias
+`typedef`. Zawężenie do `uchar` obcina do młodszego bajtu (bez ostrzeżenia), rozszerzenie do słowa uzupełnia zerem (`uchar` jest
+bez znaku), rzutowania `int`↔`uint`↔wskaźnik zmieniają tylko typ. Niejawna zamiana liczby na wskaźnik (i odwrotnie) jest błędem —
+trzeba ją zapisać rzutowaniem. Rzutowanie na `struct` i z `void` jest błędem; `(void)x` odrzuca wartość.
+
+```c expect=817
+int add(int a, int b) { return a + b; }
+int main() {
+    int big = 1000;
+    uchar low = (uchar)big;                          // 232
+    int wide = (int)low + 300;                       // 532
+    uint u = (uint)65535 + 2;                        // 1
+    int (*fp)(int, int) = (int (*)(int, int))add;
+    int r = fp(3, 4);                                // 7
+    uchar *p = (uchar *)&big;
+    return low + wide + u + r + (int)(p != 0) + (int)((uchar)300);
+}
+```
+
+```c error="cannot convert int to uchar*"
+int main() {
+    uchar *p = 1000;                                 // bez rzutowania
+    return 0;
 }
 ```
 
