@@ -324,10 +324,18 @@ def md_inline(text: str) -> str:
 def render_text(plan):
     status = PLAN_LABELS.get(plan.get("status", "open"), plan.get("status", "open"))
     lines = [f"# {md_inline(plan.get('title', 'Plan'))} (status: {status})", ""]
+    if plan.get("intro"):
+        lines += [plan["intro"].rstrip("\n"), ""]
     done = 0
+    section = None
     for item in sorted(plan["items"], key=lambda i: sort_key(i["id"])):
         status = item["status"]
         done += status == "done"
+        if item.get("section") and item["section"] != section:
+            section = item["section"]
+            if lines[-1] != "":
+                lines.append("")
+            lines += [f"## {section}", ""]
         extra = f" — {md_inline(item['note'])}" if item.get("note") else ""
         lines.append(f"- [{MARK[status]}] **{item['id']}.** {md_inline(item['title'])}{extra}")
     lines += ["", f"Postęp: {done}/{len(plan['items'])} gotowych."]

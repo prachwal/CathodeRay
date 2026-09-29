@@ -2,7 +2,6 @@
 
 Rozmiar: S = <1 h, M = kilka h. Kolejność: A → B → C → D.
 
-
 ## A. Semantyka (najpierw, zmienia wyniki)
 
 - [x] **1.** [M] int ze znakiem: porównania <,<=,>,>= przez xor 0x80 na hi; / % i >> arytmetyczne (wrapper na cc_div16); decyzja: int signed, dodać uint? (sam int signed, bez uint)
