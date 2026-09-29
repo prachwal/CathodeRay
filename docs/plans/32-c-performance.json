@@ -41,7 +41,7 @@
     {
       "id": "6",
       "title": "[S] Test regresji dla kroku C: nowy test `RecursionFrameTests` z trzema programami (fib, silnia rekurencyjna na `int`, wzajemna rekurencja is_even/is_odd) uruchamianymi na `stub`, `6502`, `z80`, `6800` przez `CcRun.RunOn`; oczekiwane wartości policz ręcznie i wpisz jako stałe.",
-      "status": "todo",
+      "status": "done",
       "note": "",
       "section": "C. Ramka rekurencji (`Lowering.Frames.cs`)"
     },
