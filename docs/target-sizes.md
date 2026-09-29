@@ -10,7 +10,7 @@ Segment `CODE` w bajtach po linkowaniu z biblioteką standardową (`cathode cc -
 | 04_int_ops.c | 1103 | 657 | 657 | 787 | 787 | 729 |
 | 05_calls.c | 861 | 581 | 581 | 648 | 648 | 622 |
 | 06_defines.c | 301 | 183 | 183 | 136 | 136 | 123 |
-| 07_control.c | 724 | 414 | 414 | 433 | 434 | 405 |
+| 07_control.c | 718 | 414 | 414 | 433 | 434 | 405 |
 | 08_int_signed.c | 1106 | 1000 | 1000 | 1197 | 1617 | 1542 |
 | 09_init.c | 979 | 805 | 805 | 896 | 1318 | 1256 |
 | 10_struct.c | 895 | 413 | 413 | 416 | 415 | 384 |

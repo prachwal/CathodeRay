@@ -64,6 +64,11 @@ public static partial class Peephole
             return true;
         }
 
+        if (TryRemoveDeadAfterJump(result, line))
+        {
+            return true;
+        }
+
         int prev = PreviousInstruction(result);
         if (prev < 0)
         {
@@ -139,6 +144,32 @@ public static partial class Peephole
     }
 
     private static bool IsPureLoadA(string op) => op is "LDA" or "LDI" or "TXA";
+
+    private static bool TryRemoveDeadAfterJump(List<string> result, string line)
+    {
+        (string? label, string op, string operand) = Split(line);
+
+        // Only skip actual instructions that are not labels
+        if (label is not null || op.Length == 0)
+        {
+            return false;
+        }
+
+        int prev = PreviousInstruction(result);
+        if (prev < 0)
+        {
+            return false;
+        }
+
+        string prevOp = Split(result[prev]).Op;
+        if (prevOp is "JMP" or "RTS")
+        {
+            // Dead code after unconditional jump/return
+            return true;
+        }
+
+        return false;
+    }
 
     private static bool TryRemoveRedundantLdy(List<string> result, string line)
     {

@@ -85,7 +85,7 @@ public sealed class PeepholeTests
     public void Redundant_Ldy_Stops_At_Block_Boundary()
     {
         Peephole.Optimize("LDY #3\nL: LDY #3\nRET").Should().Be("LDY #3\nL: LDY #3\nRET");
-        Peephole.Optimize("LDY #3\nJMP L\nLDY #3\nL: RET").Should().Be("LDY #3\nJMP L\nLDY #3\nL: RET");
+        Peephole.Optimize("LDY #3\nJMP L\nLDY #3\nL: RET").Should().Be("LDY #3\nL: RET");
     }
 
     [Fact]
@@ -96,5 +96,18 @@ public sealed class PeepholeTests
         Peephole.Optimize("LDY #3\nTAY\nLDY #3\nRET").Should().Be("LDY #3\nTAY\nLDY #3\nRET");
         Peephole.Optimize("LDY #3\nLDY #4\nLDY #3\nRET").Should().Be("LDY #3\nLDY #4\nLDY #3\nRET");
         Peephole.Optimize("LDY #3\nJSR F\nLDY #3\nRET").Should().Be("LDY #3\nJSR F\nLDY #3\nRET");
+    }
+
+    [Fact]
+    public void Dead_Code_After_Jmp_Is_Removed()
+    {
+        Peephole.Optimize("JMP a\nLDA #1\na: RET").Should().Be("a: RET");
+        Peephole.Optimize("JMP a\nLDA #1\nSTA x\na: RET").Should().Be("a: RET");
+    }
+
+    [Fact]
+    public void Dead_Code_After_Rts_Is_Removed()
+    {
+        Peephole.Optimize("RTS\nLDA #1\nL: RET").Should().Be("RTS\nL: RET");
     }
 }

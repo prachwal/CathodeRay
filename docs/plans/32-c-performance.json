@@ -55,7 +55,7 @@
     {
       "id": "8",
       "title": "[S] Zamień `jmp L` bezpośrednio poprzedzony `jmp`/`rts` (kod martwy do następnej etykiety) — usuń martwe instrukcje do najbliższej etykiety. Test: `jmp a` `lda #1` `a:` → zostaje `jmp a`, a następnie standardowe usunięcie skoku do następnej instrukcji.",
-      "status": "todo",
+      "status": "done",
       "note": "",
       "section": "D. Peephole 6502 (`Peephole.cs`, tekst asemblera po `ByteSelector`)"
     },

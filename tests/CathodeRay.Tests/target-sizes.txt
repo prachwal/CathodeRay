@@ -28,7 +28,7 @@
 06_defines.c z80 136
 06_defines.c 8080 136
 06_defines.c 6800 123
-07_control.c stub 724
+07_control.c stub 718
 07_control.c 6502 414
 07_control.c 65c02 414
 07_control.c z80 433

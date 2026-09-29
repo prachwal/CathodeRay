@@ -33,7 +33,7 @@ Nie robić: ogólnego alokatora rejestrów (to osobny, duży plan po pomiarze ef
 ## D. Peephole 6502 (`Peephole.cs`, tekst asemblera po `ByteSelector`)
 
 - [x] **7.** [S] Usuń `ldy #N` gdy poprzedni `ldy #N` tego samego N był w tym samym bloku bez zmiany Y (Y zmieniają: `ldy`, `iny`, `dey`, `tay`, `jsr`, etykieta, `jmp`, gałąź, `rts`). Wzorzec 22× w bazie (`sta M ; ldy #I`). Test w `PeepholeTests` (istniejący plik — sprawdź `ls tests/CathodeRay.Tests | grep -i peep`): dwa kolejne dostępy `(zp),y` z tym samym indeksem mają jedno `ldy`.
-- [ ] **8.** [S] Zamień `jmp L` bezpośrednio poprzedzony `jmp`/`rts` (kod martwy do następnej etykiety) — usuń martwe instrukcje do najbliższej etykiety. Test: `jmp a` `lda #1` `a:` → zostaje `jmp a`, a następnie standardowe usunięcie skoku do następnej instrukcji.
+- [x] **8.** [S] Zamień `jmp L` bezpośrednio poprzedzony `jmp`/`rts` (kod martwy do następnej etykiety) — usuń martwe instrukcje do najbliższej etykiety. Test: `jmp a` `lda #1` `a:` → zostaje `jmp a`, a następnie standardowe usunięcie skoku do następnej instrukcji.
 - [ ] **9.** [S] `jmp L1` gdzie w `L1:` stoi wyłącznie `jmp L2` → `jmp L2` (łańcuchy skoków, maks. 4 poziomy, wykryj cykl i przerwij). Test na krótkim asemblerze jak w istniejących testach peephole.
 - [ ] **10.** [S] `lda #0` + `sta M` + `lda #0` + `sta N` (zerowanie sąsiednich bajtów) → drugie `lda #0` usuń, bo A nadal 0 (tylko gdy między nimi są wyłącznie `sta`/`stx`/`sty`). Wzorzec z `lda #I ; sta M` 19× w bazie. Test.
 
@@ -43,4 +43,4 @@ Nie robić: ogólnego alokatora rejestrów (to osobny, duży plan po pomiarze ef
 - [ ] **12.** [S] Porównanie 16-bitowe z stałą 0 i `==`/`!=`: użyj `lda lo ; ora hi` (jest już dla zera na jednym bajcie — rozszerz na 2 bajty, jeśli nie ma). Test na 6502/z80: `if (x == 0)` dla `uint` przy x=0, 0x100, 0x01, 0xFFFF.
 - [ ] **13.** [S] Zmierz i opisz: uruchom `python3 tools/hotspots.py --write` i `python3 tools/compare.py --write`, wklej do `docs/stub-calling-conv.md` sekcję „Plan 32: efekt” z liczbami przed/po (baza ze wstępu) i wnioskami; commit. Jeśli spadek sta;lda < 30% bazy, dodaj do planu następne zadania na podstawie nowych top-10 par.
 
-Postęp: 7/13 gotowych.
+Postęp: 8/13 gotowych.
