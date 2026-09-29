@@ -95,7 +95,7 @@
     {
       "id": "16",
       "title": "[M] Struktury przez wartość: argument (kopia wołającego, przekazana jako wskaźnik) i wynik (ukryty parametr sret)",
-      "status": "todo",
+      "status": "done",
       "note": ""
     },
     {

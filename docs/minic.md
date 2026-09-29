@@ -129,6 +129,25 @@ int main() {
 }
 ```
 
+## Struktury przez wartość
+
+Struktura może być argumentem i wynikiem funkcji (także przez wskaźnik do funkcji). Argument to kopia: wołający podaje adres, a
+funkcja kopiuje strukturę do własnej lokalnej, więc zmiana parametru nie rusza oryginału. Wynik wraca we wspólnym buforze `cc_retbuf`
+(64 B, crt0), który wołający od razu kopiuje do własnej tymczasowej — dlatego struktura zwracana przez wartość ma najwyżej 64 B, a
+rekurencja z wynikiem struktury działa (bufor nie leży w ramce). `f().pole`, `x = f(y)`, `f(g())` i porzucenie wyniku są dozwolone.
+
+```c expect=1038
+struct P { int a; int b; };
+struct P swap(struct P p) { struct P r; r.a = p.b; r.b = p.a; return r; }
+int main() {
+    struct P p;
+    p.a = 3;
+    p.b = 20;
+    struct P q = swap(p);
+    return q.a * 50 + q.b + swap(q).a * 0 + p.a * 5 + swap(swap(p)).b;   // 1000 + 3 + 0 + 15 + 20
+}
+```
+
 ## Instrukcje
 
 `if/else`, `while`, `do … while`, `for` (z deklaracją w inicjalizacji), `switch` (stałe `case`, przechodzenie dalej, `default`),
@@ -252,11 +271,8 @@ porównanie `int` z `uint`) drukuje `cc` na stderr; `-Werror` traktuje je jak b�
 | brak | zamiast |
 | --- | --- |
 | `float`, `long`, `short`, `unsigned` | `int`, `uint` |
-| rzutowania `(T)x` | niejawne konwersje |
 | `union`, pola bitowe, tablice wielowymiarowe | `struct`, jednowymiarowe z ręcznym indeksem |
-| `void *` | `uchar *` |
 | operator przecinka, wartości `enum` z `sizeof(struct …)` | osobne instrukcje, `#define` |
-| struktura przez wartość (argument, wynik) | wskaźnik |
 | `#`, `##` w makrach, `\x` w napisach | — |
 | funkcja zwracająca wskaźnik do funkcji | `typedef` + parametr |
 
@@ -265,8 +281,8 @@ int f(int a, int b, int c, int d, int e, int g, int h) { return a; }
 int main() { return 0; }
 ```
 
-```c error="by value"
-struct S { uchar a; };
+```c error="at most 64"
+struct S { uchar a[100]; };
 struct S f() { struct S s; return s; }
 int main() { return 0; }
 ```

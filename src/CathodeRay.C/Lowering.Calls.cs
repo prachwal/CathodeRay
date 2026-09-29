@@ -3,6 +3,11 @@ namespace CathodeRay.C;
 /// <summary>Lowering: wywołania funkcji (po nazwie, przez zmienną i przez wyrażenie) oraz kontrola stosu.</summary>
 internal sealed partial class Lowering
 {
+    /// <summary>Największa struktura zwracana przez wartość (rozmiar wspólnego bufora <c>cc_retbuf</c> w crt0).</summary>
+    public const int MaxReturnedStruct = 64;
+
+    private const string ReturnBuffer = "cc_retbuf";
+
     private static int RetWidth(CType type) => type.Kind == "void" ? 0 : Width(type);
 
     /// <summary>Wołanie: argumenty od ostatniego (każdy w swojej tymczasowej głębiej niż poprzedni, żeby zagnieżdżone
@@ -13,13 +18,15 @@ internal sealed partial class Lowering
         string? direct = null;
         Ast.Expr? calleeExpr = null;
         List<int> widths;
+        IReadOnlyList<CType> paramTypes;
         switch (expr)
         {
             case Ast.Call call when _cells.TryGetValue(call.Name, out VarCell? variable) && variable.Type.Kind == "fptr":
                 args = call.Args;
                 calleeExpr = new Ast.Var(call.Name);
                 _types[calleeExpr] = variable.Type;
-                widths = [.. variable.Type.Sig!.Params.Select(static t => Width(t))];
+                paramTypes = variable.Type.Sig!.Params;
+                widths = [.. paramTypes.Select(static t => Width(t))];
                 break;
             case Ast.Call call:
                 if (!_functions.TryGetValue(call.Name, out CheckedFunction? target))
@@ -29,7 +36,8 @@ internal sealed partial class Lowering
 
                 args = call.Args;
                 direct = call.Name;
-                widths = [.. target.Params.Select(static p => Width(p.Type))];
+                paramTypes = [.. target.Params.Select(static p => p.Type)];
+                widths = [.. paramTypes.Select(static t => Width(t))];
                 while (target.Def.IsVariadic && widths.Count < args.Count)
                 {
                     widths.Add(2);
@@ -39,7 +47,8 @@ internal sealed partial class Lowering
             case Ast.CallExpr callExpr:
                 args = callExpr.Args;
                 calleeExpr = callExpr.Callee;
-                widths = [.. TypeOf(callExpr.Callee).Sig!.Params.Select(static t => Width(t))];
+                paramTypes = TypeOf(callExpr.Callee).Sig!.Params;
+                widths = [.. paramTypes.Select(static t => Width(t))];
                 break;
             default:
                 throw new CCodegenException($"'{expr.GetType().Name}' is not a call.");
@@ -54,7 +63,16 @@ internal sealed partial class Lowering
         var values = new Ir.Op[count];
         for (int i = count - 1; i >= 0; i--)
         {
-            values[i] = Value(args[i], depth + 1 + (count - 1 - i));
+            int at = depth + 1 + (count - 1 - i);
+            if (i < paramTypes.Count && paramTypes[i].Kind == "struct")
+            {
+                (Ir.Op pointer, int offset) = LValueAddr(args[i], at);
+                values[i] = AddressValue(pointer, offset, at);
+            }
+            else
+            {
+                values[i] = Value(args[i], at);
+            }
         }
 
         Ir.Cell? indirect = null;
@@ -76,9 +94,24 @@ internal sealed partial class Lowering
             }
         }
 
-        int retW = expr is Ast.Call or Ast.CallExpr ? RetWidth(TypeOf(expr)) : 0;
+        CType returned = TypeOf(expr);
+        Ir.AddrOf? aggregate = null;
+        if (returned.Kind == "struct")
+        {
+            aggregate = new Ir.AddrOf(NewAggregate(returned.Size), 0);
+            _usesReturnBuffer = true;
+        }
+
+        int retW = expr is Ast.Call or Ast.CallExpr && returned.Kind != "struct" ? RetWidth(returned) : 0;
         Ir.Cell? result = retW == 0 ? null : into is not null && into.W == retW ? into : Temp(depth, retW);
         Emit(new Ir.Call(direct, indirect, values, widths, result));
+        if (aggregate is not null)
+        {
+            // wynik struktury wraca we wspólnym buforze, który wołający kopiuje od razu do własnej tymczasowej
+            // (bufor nie jest w ramce, więc odtworzenie komórek przez wołanego go nie zniszczy)
+            Emit(new Ir.CopyBlock(aggregate, new Ir.AddrOf(ReturnBuffer, 0), returned.Size));
+        }
+
         if (direct is not null)
         {
             if (!_calls.TryGetValue(_prefix, out HashSet<string>? callees))
@@ -89,7 +122,7 @@ internal sealed partial class Lowering
             callees.Add(direct);
         }
 
-        return result is null ? new Ir.Imm(0, 1) : result;
+        return aggregate is not null ? aggregate : result is null ? new Ir.Imm(0, 1) : result;
     }
 
     /// <summary>Stos sprzętowy ma ograniczony rozmiar: błąd, gdy najgłębsza nierekurencyjna ścieżka wołań

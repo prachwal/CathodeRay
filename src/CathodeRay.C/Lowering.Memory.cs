@@ -13,6 +13,8 @@ internal sealed partial class Lowering
                 return (new Ir.AddrOf(_cells[variable.Name].Sym, 0), 0);
             case Ast.Deref deref:
                 return (Value(deref.Pointer, depth), 0);
+            case Ast.Call or Ast.CallExpr when TypeOf(expr).Kind == "struct":
+                return (LowerCall(expr, depth, null), 0);
             case Ast.Index index:
             {
                 CType element = TypeOf(index);

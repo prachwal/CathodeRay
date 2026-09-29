@@ -212,10 +212,8 @@ public sealed class CStructTypeTests
             .Should().Throw<CTypeException>().WithMessage("*'.' needs a struct*");
         FluentActions.Invoking(() => Run(header + "int main() { struct S s; return s->a; }"))
             .Should().Throw<CTypeException>().WithMessage("*'->' needs a pointer*");
-        FluentActions.Invoking(() => Run(header + "int f(struct S s) { return 0; } int main() { return 0; }"))
-            .Should().Throw<CTypeException>().WithMessage("*by value*");
-        FluentActions.Invoking(() => Run(header + "struct S f() { struct S s; return s; } int main() { return 0; }"))
-            .Should().Throw<CTypeException>().WithMessage("*by value*");
+        FluentActions.Invoking(() => Run("struct Big { uchar a[100]; }; struct Big f() { struct Big b; return b; } int main() { return 0; }"))
+            .Should().Throw<CTypeException>().WithMessage("*at most 64*");
         FluentActions.Invoking(() => Run(header + "int main() { struct S s; struct S t; return s + t; }"))
             .Should().Throw<CTypeException>().WithMessage("*needs values*");
         FluentActions.Invoking(() => Run("struct A { struct A inner; }; int main() { return 0; }"))

@@ -40,14 +40,6 @@ public sealed partial class TypeChecker
         return new TypeChecker().CheckProgram(program);
     }
 
-    private static void RejectStructByValue(CType type, string what)
-    {
-        if (type.Kind == "struct")
-        {
-            throw new CTypeException($"{what}: a struct cannot be passed or returned by value (use a pointer).");
-        }
-    }
-
     /// <summary>Ten sam kształt typu, pomijając <c>const</c> (tablice, wskaźniki i struktury rekurencyjnie).</summary>
     private static bool SameShape(CType a, CType b) =>
         a.Kind == b.Kind && a.Length == b.Length && a.Info == b.Info
@@ -379,12 +371,10 @@ public sealed partial class TypeChecker
 
     private CheckedFunction ProtoFunction(Ast.Function function)
     {
-        RejectStructByValue(Declared(function.ReturnType, function.ReturnStars), $"return type of '{function.Name}'");
         var parameters = new List<TypedSymbol>();
         foreach (Ast.Param param in function.Params)
         {
             CType paramType = Declared(param.Type, param.PointerDepth);
-            RejectStructByValue(paramType, $"parameter '{param.Name}'");
             parameters.Add(new TypedSymbol(param.Name, paramType));
         }
 
@@ -402,7 +392,6 @@ public sealed partial class TypeChecker
         _scopes.Clear();
         _scopes.Push(new Dictionary<string, CType>(StringComparer.Ordinal));
         _returnType = Declared(function.ReturnType, function.ReturnStars);
-        RejectStructByValue(_returnType, $"return type of '{function.Name}'");
         _loops = 0;
         _switches = 0;
         _labels.Clear();
@@ -414,10 +403,14 @@ public sealed partial class TypeChecker
             throw new CTypeException($"'{function.Name}' takes at most {MaxArgs} parameters.");
         }
 
+        if (_returnType.Kind == "struct" && _returnType.Size > Lowering.MaxReturnedStruct)
+        {
+            throw new CTypeException($"'{function.Name}' returns a struct of {_returnType.Size} B (at most {Lowering.MaxReturnedStruct} B by value).");
+        }
+
         var parameters = new List<TypedSymbol>();
         foreach (Ast.Param param in function.Params)
         {
-            RejectStructByValue(Declared(param.Type, param.PointerDepth), $"parameter '{param.Name}'");
             if (!_scopes.Peek().TryAdd(param.Name, Declared(param.Type, param.PointerDepth)))
             {
                 throw new CTypeException($"redefinition of '{param.Name}'.");

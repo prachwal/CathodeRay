@@ -118,6 +118,7 @@ internal sealed class M6800Isa : ByteIsa
         }
 
         text.AppendLine(".global __bss_start");
+        text.AppendLine(".global cc_retbuf");
         text.AppendLine(".extern main");
         text.AppendLine(".extern __bss_end");
         text.AppendLine(".extern __init_start");
@@ -152,6 +153,9 @@ internal sealed class M6800Isa : ByteIsa
         {
             text.AppendLine($"{symbol}: .res 1");
         }
+
+        text.AppendLine(".segment \"DATA\"");
+        text.AppendLine("cc_retbuf: .res 64");
 
         return text.ToString();
     }

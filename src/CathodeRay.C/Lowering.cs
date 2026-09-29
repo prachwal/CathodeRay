@@ -63,6 +63,12 @@ internal sealed partial class Lowering
 
     private int _maxTemp = -1;
 
+    private int _aggregateTemps;
+
+    private bool _returnsStruct;
+
+    private bool _usesReturnBuffer;
+
     private int _switches;
 
     private CheckedFunction? _current;
@@ -138,7 +144,7 @@ internal sealed partial class Lowering
                 .Where(name => !program.Functions.Any(f => !f.Def.IsExtern && f.Def.Name == name))
                 .Distinct(StringComparer.Ordinal),
         ];
-        return new Ir.Module(_functionsOut, _dataOut, externFunctions, _externCells, _objectMode);
+        return new Ir.Module(_functionsOut, _dataOut, externFunctions, _usesReturnBuffer ? [.. _externCells, ReturnBuffer] : _externCells, _objectMode);
     }
 
     private static string GlobalLabel(string name) => $"cc_g_{name}";
@@ -176,6 +182,18 @@ internal sealed partial class Lowering
         }
 
         return result;
+    }
+
+    private static bool ReturnsStruct(Ast.Function def) =>
+        def.ReturnStars == 0 && (def.ReturnType.StartsWith("struct ", StringComparison.Ordinal) || def.ReturnType.StartsWith("const struct ", StringComparison.Ordinal));
+
+    /// <summary>Tymczasowa struktura (wynik wywołania zwracającego strukturę): pamięć statyczna, zapisywana w ramce.</summary>
+    private string NewAggregate(int size)
+    {
+        string sym = $"{_prefix}__agg@{_aggregateTemps++}";
+        AddBss(sym, size);
+        _extraOwned.Add(new Ir.Owned(sym, size, true));
+        return sym;
     }
 
     private string TempSym(int depth) => $"{_prefix}__t@{depth}";
@@ -248,8 +266,27 @@ internal sealed partial class Lowering
         var saved = new List<Ir.Owned>();
         var aggregates = new List<Ir.Owned>();
         var parameters = new List<Ir.Cell>();
+        var prologue = new List<Ir.Ins>();
+        bool structReturn = ReturnsStruct(function.Def);
+        _returnsStruct = structReturn;
+        _usesReturnBuffer |= structReturn;
         foreach (TypedSymbol param in function.Params)
         {
+            if (param.Type.Kind == "struct")
+            {
+                // struktura przez wartość: wołający podaje adres, callee kopiuje ją do własnej lokalnej struktury
+                var pointer = new Ir.Cell($"{_prefix}__{param.Name}__p", 2);
+                AddBss(pointer.Sym, 2);
+                saved.Add(new Ir.Owned(pointer.Sym, 2, false));
+                parameters.Add(pointer);
+                var copy = new VarCell($"{_prefix}__{param.Name}", param.Type);
+                _cells[param.Name] = copy;
+                AddBss(copy.Sym, param.Type.Size);
+                aggregates.Add(new Ir.Owned(copy.Sym, param.Type.Size, true));
+                prologue.Add(new Ir.CopyBlock(new Ir.AddrOf(copy.Sym, 0), pointer, param.Type.Size));
+                continue;
+            }
+
             var cell = new VarCell($"{_prefix}__{param.Name}", param.Type);
             _cells[param.Name] = cell;
             AddBss(cell.Sym, Width(param.Type));
@@ -283,6 +320,11 @@ internal sealed partial class Lowering
         _extraOwned.Clear();
         _body = [];
         Comment(function.Def);
+        foreach (Ir.Ins ins in prologue)
+        {
+            Emit(ins);
+        }
+
         foreach (Ast.Stmt item in function.Def.Body.Items)
         {
             LowerStmt(item);
@@ -296,7 +338,7 @@ internal sealed partial class Lowering
         }
 
         saved.AddRange(_extraOwned);
-        int retW = function.Def.ReturnType == "void" && function.Def.ReturnStars == 0 ? 0 : function.Def.ReturnType == "uchar" && function.Def.ReturnStars == 0 ? 1 : 2;
+        int retW = structReturn || (function.Def.ReturnType == "void" && function.Def.ReturnStars == 0) ? 0 : function.Def.ReturnType == "uchar" && function.Def.ReturnStars == 0 ? 1 : 2;
         _pending.Add(new Pending(new Ir.Function(function.Def.Name, function.Def.IsStatic, parameters, retW, [], IrPasses.Optimize(DropJumpsToNext(_body))), saved, aggregates));
         _current = null;
     }

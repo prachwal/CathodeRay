@@ -46,6 +46,8 @@ public sealed class IrInterpreter
     public static IrInterpreter Load(IReadOnlyList<Ir.Module> modules, long stepLimit = 20_000_000)
     {
         var interpreter = new IrInterpreter { StepLimit = stepLimit };
+        interpreter._exported["cc_retbuf"] = interpreter._next;
+        interpreter._next += Lowering.MaxReturnedStruct;
         foreach (Ir.Module module in modules)
         {
             interpreter.Allocate(module);

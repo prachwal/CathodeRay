@@ -296,3 +296,11 @@ i `Lowering.CastValue`: zawężenie do bajtu to `Mov` do komórki W=1, rozszerze
 `Declared("void", n>0)` daje wskaźnik do `void`; `Assignable` przepuszcza `void *` ↔ `T *` (z kontrolą `const`), a dereferencja,
 indeksowanie i `+`/`-` na `void *` są błędami typów. `offsetof` to wyrażenie stałe (`Ast.OffsetOf` → `TypeChecker.TryConst`),
 `<stddef.h>` definiuje `size_t` i `NULL`. `f(void)` oznacza pustą listę parametrów.
+
+## Struktury przez wartość (plan 30, krok 16)
+
+Argument struktury to wskaźnik na oryginał (`f__p`), a callee kopiuje go w prologu do własnej lokalnej struktury (`CopyBlock`). Wynik
+struktury wraca przez wspólny bufor `cc_retbuf` (64 B, definiuje crt0 w segmencie DATA, żeby nie był zerowany razem z BSS):
+`return` kopiuje do bufora, wołający tuż po `Call` kopiuje z bufora do tymczasowej `f__agg@N` (zapisywanej w ramce funkcji rekurencyjnych).
+Pierwsza wersja z ukrytym parametrem `sret` wskazującym tymczasową wołającego była błędna w rekurencji: wołany odtwarzał z ramki tę samą
+statyczną tymczasową, do której właśnie zapisał wynik. Bufor poza ramką nie ma tej wady (między `Ret` a kopią nie ma innych wołań).

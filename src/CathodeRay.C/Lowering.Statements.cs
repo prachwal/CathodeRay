@@ -174,6 +174,18 @@ internal sealed partial class Lowering
     private void LowerReturn(Ast.Return ret)
     {
         Ast.Function def = _current!.Def;
+        if (_returnsStruct)
+        {
+            if (ret.Value is not null)
+            {
+                (Ir.Op pointer, int offset) = LValueAddr(ret.Value, 0);
+                Emit(new Ir.CopyBlock(new Ir.AddrOf(ReturnBuffer, 0), AddressValue(pointer, offset, 0), TypeOf(ret.Value).Size));
+            }
+
+            Emit(new Ir.Ret(null, 0));
+            return;
+        }
+
         int retW = def.ReturnType == "void" && def.ReturnStars == 0 ? 0 : def.ReturnType == "uchar" && def.ReturnStars == 0 ? 1 : 2;
         if (ret.Value is null)
         {

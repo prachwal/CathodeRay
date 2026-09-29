@@ -14,6 +14,7 @@ public sealed class CStdSamplesTests
     [InlineData("15_funcptr.c", 1037)]
     [InlineData("17_casts.c", 817)]
     [InlineData("18_voidptr.c", 1103)]
+    [InlineData("19_struct_value.c", 936)]
     public void Sample_Returns_Expected_Value(string file, int expected)
     {
         CcRun.Run(Sample(file)).Value.Should().Be(expected);
