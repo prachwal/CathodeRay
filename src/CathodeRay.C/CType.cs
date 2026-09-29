@@ -5,7 +5,8 @@ namespace CathodeRay.C;
 /// <param name="Base">Typ bazowy wskaźnika/tablicy.</param>
 /// <param name="Length">Długość tablicy (0 = nie-tablica).</param>
 /// <param name="Info">Układ struktury (tylko <c>struct</c>).</param>
-public sealed record CType(string Kind, CType? Base = null, int Length = 0, StructInfo? Info = null)
+/// <param name="IsConst">Wartość tylko do odczytu (<c>const</c>).</param>
+public sealed record CType(string Kind, CType? Base = null, int Length = 0, StructInfo? Info = null, bool IsConst = false)
 {
     /// <summary>8-bit bez znaku.</summary>
     public static CType UChar { get; } = new("uchar");
@@ -46,7 +47,7 @@ public sealed record CType(string Kind, CType? Base = null, int Length = 0, Stru
     public CType Decay() => Kind == "array" && Base is not null ? Pointer(Base) : this;
 
     /// <inheritdoc/>
-    public override string ToString() => Kind switch
+    public override string ToString() => (IsConst ? "const " : string.Empty) + Kind switch
     {
         "ptr" => Base + "*",
         "array" => Base + "[" + Length + "]",

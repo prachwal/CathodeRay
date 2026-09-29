@@ -36,7 +36,8 @@ public static class Ast
     /// <param name="Body">Ciało (puste dla prototypu).</param>
     /// <param name="IsExtern">Prototyp bez ciała (definicja w .s).</param>
     /// <param name="ReturnStars">Liczba <c>*</c> typu wyniku (wskaźnik).</param>
-    public sealed record Function(string ReturnType, string Name, IReadOnlyList<Param> Params, Block Body, bool IsExtern = false, int ReturnStars = 0) : Node;
+    /// <param name="IsStatic">Funkcja <c>static</c> (symbol lokalny modułu).</param>
+    public sealed record Function(string ReturnType, string Name, IReadOnlyList<Param> Params, Block Body, bool IsExtern = false, int ReturnStars = 0, bool IsStatic = false) : Node;
 
     /// <summary>Parametr formalny.</summary>
     /// <param name="Type">Typ.</param>
@@ -58,7 +59,8 @@ public static class Ast
     /// <param name="PointerDepth">Liczba <c>*</c> (wskaźnik).</param>
     /// <param name="ArrayLength">Długość tablicy (0 = skalar).</param>
     /// <param name="LengthExpr">Długość jako stałe wyrażenie liczone przez checker (np. <c>sizeof(struct S)</c>).</param>
-    public sealed record Decl(string Type, string Name, Expr? Init, int PointerDepth = 0, int ArrayLength = 0, Expr? LengthExpr = null) : Stmt;
+    /// <param name="Flags"><c>static</c>/<c>extern</c>.</param>
+    public sealed record Decl(string Type, string Name, Expr? Init, int PointerDepth = 0, int ArrayLength = 0, Expr? LengthExpr = null, DeclFlags Flags = DeclFlags.None) : Stmt;
 
     /// <summary>Warunek z gałęzią else.</summary>
     /// <param name="Cond">Warunek.</param>

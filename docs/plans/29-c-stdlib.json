@@ -47,13 +47,13 @@
     {
       "id": "8",
       "title": "[M] static: zmienna lokalna static (jedna komórka w DATA/BSS, bez ramki), globalna static i funkcja static (symbol lokalny modułu, bez .global); extern int x; między modułami (.extern cc_g_x)",
-      "status": "todo",
+      "status": "done",
       "note": ""
     },
     {
       "id": "9",
       "title": "[S] const: parsowanie, błąd typów przy zapisie do const zmiennej, const w parametrach wskaźnikowych (const uchar *s); tablice const trafiają do DATA",
-      "status": "todo",
+      "status": "done",
       "note": ""
     },
     {

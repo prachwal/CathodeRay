@@ -4,4 +4,5 @@ namespace CathodeRay.C;
 /// <param name="Name">Nazwa.</param>
 /// <param name="Type">Typ.</param>
 /// <param name="Init">Inicjalizator globala (null = zero).</param>
-public sealed record TypedSymbol(string Name, CType Type, Ast.Expr? Init = null);
+/// <param name="Flags"><c>static</c>/<c>extern</c>.</param>
+public sealed record TypedSymbol(string Name, CType Type, Ast.Expr? Init = null, DeclFlags Flags = DeclFlags.None);

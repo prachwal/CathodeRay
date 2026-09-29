@@ -40,6 +40,8 @@ public sealed partial class Codegen
 
     private readonly List<string> _extraCells = [];
     private readonly List<TypedSymbol> _runtimeInits = [];
+    private readonly HashSet<string> _localSymbols = new(StringComparer.Ordinal);
+    private readonly List<string> _externCells = [];
     private readonly Dictionary<string, Dictionary<int, string>> _dataSymbols = new(StringComparer.Ordinal);
 
     private readonly Dictionary<string, int> _frames = new(StringComparer.Ordinal);
@@ -224,7 +226,7 @@ public sealed partial class Codegen
         return expr is not null && _constants.TryGetValue(expr, out value);
     }
 
-    private byte[]? InitBytes(TypedSymbol symbol)
+    private byte[]? InitBytes(string label, TypedSymbol symbol)
     {
         if (symbol.Init is null)
         {
@@ -233,7 +235,7 @@ public sealed partial class Codegen
 
         if (symbol.Type.Kind is "array" or "struct")
         {
-            return AggregateBytes(symbol);
+            return AggregateBytes(label, symbol);
         }
 
         if (TryConstValue(symbol.Init, out int value))
@@ -244,7 +246,7 @@ public sealed partial class Codegen
         throw new CCodegenException($"initializer of '{symbol.Name}' must be a constant.");
     }
 
-    private byte[] AggregateBytes(TypedSymbol symbol)
+    private byte[] AggregateBytes(string label, TypedSymbol symbol)
     {
         var bytes = new byte[symbol.Type.Size];
         var entries = new List<(int Offset, CType Type, Ast.Expr Value)>();
@@ -272,7 +274,7 @@ public sealed partial class Codegen
 
         if (symbols is not null)
         {
-            _dataSymbols[$"cc_g_{symbol.Name}"] = symbols;
+            _dataSymbols[label] = symbols;
         }
 
         return bytes;
@@ -363,7 +365,36 @@ public sealed partial class Codegen
         _code.AppendLine(".endproc");
     }
 
-    private string Hi(string lo) => _wordGlobals.Contains(lo) ? $"{lo}+1" : $"{lo}_h";
+    /// <summary>Miejsce na zmienną globalną lub <c>static</c>: bajty (DATA/BSS), adres jako <c>.word</c> albo
+    /// (tylko globale) kod startowy dla inicjalizatora niestałego.</summary>
+    private void AddStorage(string label, TypedSymbol symbol, bool global)
+    {
+        bool aggregate = symbol.Type.Kind is "array" or "struct";
+        bool tableInit = aggregate && symbol.Init is Ast.InitList or Ast.Str;
+        if (symbol.Init is not null && !tableInit && !TryConstValue(symbol.Init, out _))
+        {
+            if (symbol.Type.Kind == "ptr" && SymbolInit(symbol.Init) is { } address)
+            {
+                _words.Add((label, address));
+                _wordGlobals.Add(label);
+            }
+            else if (global)
+            {
+                DataCell(label, symbol.Type);
+                _runtimeInits.Add(symbol);
+            }
+            else
+            {
+                throw new CCodegenException($"static '{symbol.Name}' needs a constant initializer.");
+            }
+
+            return;
+        }
+
+        DataCell(label, symbol.Type, InitBytes(label, symbol));
+    }
+
+    private string Hi(string lo) => _wordGlobals.Contains(lo) || lo.StartsWith("cc_g_", StringComparison.Ordinal) ? $"{lo}+1" : $"{lo}_h";
 
     private string Run(CheckedProgram program, string? fileName, bool objectMode)
     {
@@ -385,25 +416,19 @@ public sealed partial class Codegen
 
         foreach (TypedSymbol global in program.Globals)
         {
-            bool aggregate = global.Type.Kind is "array" or "struct";
-            bool tableInit = global.Init is Ast.InitList or Ast.Str && aggregate;
-            if (global.Init is not null && !tableInit && !TryConstValue(global.Init, out _))
+            string label = $"cc_g_{global.Name}";
+            if (global.Flags.HasFlag(DeclFlags.Extern))
             {
-                if (global.Type.Kind == "ptr" && SymbolInit(global.Init) is { } symbol)
-                {
-                    _words.Add(($"cc_g_{global.Name}", symbol));
-                    _wordGlobals.Add($"cc_g_{global.Name}");
-                }
-                else
-                {
-                    DataCell($"cc_g_{global.Name}", global.Type);
-                    _runtimeInits.Add(global);
-                }
-
+                _externCells.Add(label);
                 continue;
             }
 
-            DataCell($"cc_g_{global.Name}", global.Type, InitBytes(global));
+            if (global.Flags.HasFlag(DeclFlags.Static))
+            {
+                _localSymbols.Add(label);
+            }
+
+            AddStorage(label, global, global: true);
         }
 
         _code.AppendLine(".segment \"CODE\"");
@@ -415,6 +440,11 @@ public sealed partial class Codegen
                 {
                     _code.AppendLine($".extern {function.Def.Name}");
                 }
+            }
+
+            foreach (string external in _externCells)
+            {
+                _code.AppendLine($".extern {external}");
             }
 
             _code.AppendLine(".extern cc_arg1");
@@ -492,7 +522,7 @@ public sealed partial class Codegen
                 continue;
             }
 
-            if (name.StartsWith("cc_g_", StringComparison.Ordinal))
+            if (name.StartsWith("cc_g_", StringComparison.Ordinal) && !_localSymbols.Contains(name))
             {
                 data.AppendLine($".global {name}");
             }
@@ -524,7 +554,7 @@ public sealed partial class Codegen
 
         foreach ((string label, string symbol) in _words)
         {
-            if (_wordGlobals.Contains(label))
+            if (label.StartsWith("cc_g_", StringComparison.Ordinal) && !_localSymbols.Contains(label))
             {
                 data.AppendLine($".global {label}");
             }
@@ -542,7 +572,7 @@ public sealed partial class Codegen
             }
 
             int size = type.Size;
-            if (name.StartsWith("cc_g_", StringComparison.Ordinal))
+            if (name.StartsWith("cc_g_", StringComparison.Ordinal) && !_localSymbols.Contains(name))
             {
                 bss.AppendLine($".global {name}");
             }
@@ -620,6 +650,13 @@ public sealed partial class Codegen
         {
             var cell = new Cell($"{_prefix}__{local.Name}", local.Type);
             _cells[local.Name] = cell;
+            if (local.Flags.HasFlag(DeclFlags.Static))
+            {
+                _localSymbols.Add(cell.Lo);
+                AddStorage(cell.Lo, local, global: false);
+                continue;
+            }
+
             DataCell(cell.Lo, local.Type);
             if (local.Type.Kind is "array" or "struct")
             {
@@ -651,7 +688,11 @@ public sealed partial class Codegen
         _extraCells.Clear();
         Comment(function.Def);
         _code.AppendLine($".proc {function.Def.Name}");
-        _code.AppendLine($".global {function.Def.Name}");
+        if (!function.Def.IsStatic)
+        {
+            _code.AppendLine($".global {function.Def.Name}");
+        }
+
         _code.AppendLine("STA cc_arg1");
         _code.AppendLine("TXA");
         _code.AppendLine("STA cc_arg1_h");

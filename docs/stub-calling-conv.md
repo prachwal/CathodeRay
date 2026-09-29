@@ -163,3 +163,15 @@ brak `ADD`/`SUB` z pamięci absolutnej (tryb `,X` z `X = 0`).
 - `#if`/`#elif` (stałe całkowite, `defined`, makra, `? :`, `&& ||`, nieznane nazwy = 0), `#ifdef`, `#ifndef`, `#else`, `#endif`,
   `#error`. Dyrektywy zostawiają puste linie (numeracja linii bez zmian; `#include` wkleja plik).
 - Bez `#` (napis) i `##` (sklejanie).
+
+## static, extern, const (plan 29 C)
+
+- `static` zmienna lokalna: jedna komórka na cały program (DATA/BSS pod etykietą `funkcja__nazwa`, bez ramki, nie
+  zapisywana przy rekurencji), inicjalizator musi być stały i jest liczony raz. `static` globalna i funkcja:
+  symbol lokalny modułu (bez `.global`), więc dwa moduły mogą mieć własne `count` i `helper`.
+- `extern T x;` bez miejsca (`.extern cc_g_x`); starszy bajt globala to zawsze `cc_g_x+1` (komórki lo/hi leżą obok
+  siebie), więc `extern int`, tablice, struktury i wskaźniki działają między modułami. `extern` po definicji w tym
+  samym pliku jest dozwolone, `extern` z inicjalizatorem lub lokalny — błąd.
+- `const`: `const T x`, `T const x`, `const T *p` (pełna kontrola: zapis przez wskaźnik do const, `discards const`
+  przy przypisaniu `const T*` do `T*`), `const` w polach i strukturach. `T * const p` jest parsowane, ale
+  wskaźnik pozostaje zapisywalny. Dane const nie trafiają do osobnej pamięci (RAM bez ochrony).

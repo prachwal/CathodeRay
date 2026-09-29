@@ -36,6 +36,8 @@ public sealed partial class Codegen
                 }
 
                 break;
+            case Ast.Decl decl when decl.Flags.HasFlag(DeclFlags.Static):
+                break;
             case Ast.Decl decl:
                 if ((decl.Init is Ast.InitList or Ast.Str) && CellOf(decl.Name).Type.Kind is "array" or "struct")
                 {

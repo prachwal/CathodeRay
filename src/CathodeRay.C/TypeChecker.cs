@@ -46,6 +46,19 @@ public sealed class TypeChecker
         }
     }
 
+    /// <summary>Ten sam kształt typu, pomijając <c>const</c> (tablice, wskaźniki i struktury rekurencyjnie).</summary>
+    private static bool SameShape(CType a, CType b) =>
+        a.Kind == b.Kind && a.Length == b.Length && a.Info == b.Info
+        && (a.Base is null ? b.Base is null : b.Base is not null && SameShape(a.Base, b.Base));
+
+    private static void RequireWritable(CType target, string what)
+    {
+        if (target.IsConst)
+        {
+            throw new CTypeException($"assignment to const {what}.");
+        }
+    }
+
     private static int NumberValue(string text) =>
         text.StartsWith("0x", StringComparison.OrdinalIgnoreCase) ? Convert.ToInt32(text[2..], 16) : int.Parse(text, System.Globalization.CultureInfo.InvariantCulture);
 
@@ -166,9 +179,16 @@ public sealed class TypeChecker
 
     private CType Declared(string type, int stars, int length = 0)
     {
-        CType result = type.StartsWith("struct ", StringComparison.Ordinal)
-            ? CType.Struct(_structs.TryGetValue(type[7..], out StructInfo? info) ? info : throw new CTypeException($"unknown {type}."))
-            : CType.FromName(type);
+        bool isConst = type.StartsWith("const ", StringComparison.Ordinal);
+        string bare = isConst ? type[6..] : type;
+        CType result = bare.StartsWith("struct ", StringComparison.Ordinal)
+            ? CType.Struct(_structs.TryGetValue(bare[7..], out StructInfo? info) ? info : throw new CTypeException($"unknown {bare}."))
+            : CType.FromName(bare);
+        if (isConst)
+        {
+            result = result with { IsConst = true };
+        }
+
         for (int i = 0; i < stars; i++)
         {
             result = CType.Pointer(result);
@@ -212,9 +232,10 @@ public sealed class TypeChecker
         int offset = 0;
         foreach (Ast.FieldDecl field in defs[name].Fields)
         {
-            if (field.Type.StartsWith("struct ", StringComparison.Ordinal) && field.Stars == 0 && defs.ContainsKey(field.Type[7..]))
+            string bareField = field.Type.StartsWith("const ", StringComparison.Ordinal) ? field.Type[6..] : field.Type;
+            if (bareField.StartsWith("struct ", StringComparison.Ordinal) && field.Stars == 0 && defs.ContainsKey(bareField[7..]))
             {
-                LayoutStruct(defs, field.Type[7..], visiting);
+                LayoutStruct(defs, bareField[7..], visiting);
             }
 
             CType type = Declared(field.Type, field.Stars, field.ArrayLength);
@@ -242,9 +263,30 @@ public sealed class TypeChecker
         BuildStructs(program);
         foreach (Ast.Decl global in program.Globals)
         {
-            if (!_globals.TryAdd(global.Name, new TypedSymbol(global.Name, Declared(global.Type, global.PointerDepth, LengthOf(global)), global.Init)))
+            CType globalType = Declared(global.Type, global.PointerDepth, LengthOf(global));
+            var symbol = new TypedSymbol(global.Name, globalType, global.Init, global.Flags);
+            bool isExtern = global.Flags.HasFlag(DeclFlags.Extern);
+            if (isExtern && global.Init is not null)
             {
-                throw new CTypeException($"redefinition of '{global.Name}'.");
+                throw new CTypeException($"extern '{global.Name}' cannot be initialized.");
+            }
+
+            if (_globals.TryGetValue(global.Name, out TypedSymbol? previous))
+            {
+                bool previousExtern = previous.Flags.HasFlag(DeclFlags.Extern);
+                if ((!previousExtern && !isExtern) || !SameShape(previous.Type, globalType))
+                {
+                    throw new CTypeException($"redefinition of '{global.Name}'.");
+                }
+
+                if (previousExtern)
+                {
+                    _globals[global.Name] = symbol;
+                }
+            }
+            else
+            {
+                _globals[global.Name] = symbol;
             }
         }
 
@@ -393,7 +435,12 @@ public sealed class TypeChecker
                     throw new CTypeException($"redefinition of '{decl.Name}'.");
                 }
 
-                _locals.Add(new TypedSymbol(decl.Name, Declared(decl.Type, decl.PointerDepth, LengthOf(decl))));
+                if (decl.Flags.HasFlag(DeclFlags.Extern))
+                {
+                    throw new CTypeException("extern is only allowed at file scope.");
+                }
+
+                _locals.Add(new TypedSymbol(decl.Name, Declared(decl.Type, decl.PointerDepth, LengthOf(decl)), decl.Flags.HasFlag(DeclFlags.Static) ? decl.Init : null, decl.Flags));
                 CheckInit(decl);
                 break;
             case Ast.If ifStmt:
@@ -559,8 +606,13 @@ public sealed class TypeChecker
 
     private void Assignable(CType target, CType value, string where)
     {
-        if (target == value || (target.Kind == "int" && value.Kind == "uchar"))
+        if (SameShape(target, value) || (target.Kind == "int" && value.Kind == "uchar"))
         {
+            if (target.Kind == "ptr" && value.Base is { IsConst: true } && target.Base is { IsConst: false })
+            {
+                throw new CTypeException($"{where}: discards const ({value} to {target}).");
+            }
+
             return;
         }
 
@@ -723,6 +775,7 @@ public sealed class TypeChecker
             case Ast.AssignOpTo assignOp:
             {
                 CType target = TypeOf(assignOp.Target);
+                RequireWritable(target, "object");
                 Assignable(target, TypeOf(assignOp.Combined), "compound assignment through pointer");
                 return target;
             }
@@ -817,7 +870,7 @@ public sealed class TypeChecker
 
         if (binary.Op == "-" && left.Kind == "ptr" && right.Kind == "ptr")
         {
-            return left.Base == right.Base ? CType.Int : throw new CTypeException("pointer difference needs pointers to the same type.");
+            return SameShape(left.Base!, right.Base!) ? CType.Int : throw new CTypeException("pointer difference needs pointers to the same type.");
         }
 
         if (binary.Op is "+" or "-")
@@ -849,6 +902,7 @@ public sealed class TypeChecker
         }
 
         CType target = TypeOf(assignTo.Target);
+        RequireWritable(target, "object");
         if (target.Kind == "ptr" && assignTo.Target is Ast.Member field && MemberType(field).Kind == "array")
         {
             throw new CTypeException("array field is not assignable.");
@@ -865,6 +919,8 @@ public sealed class TypeChecker
         {
             throw new CTypeException($"array '{assign.Name}' is not assignable.");
         }
+
+        RequireWritable(target, $"variable '{assign.Name}'");
 
         AssignableOrNull(target, assign.Value, $"assignment to '{assign.Name}'");
         return target;
@@ -909,7 +965,9 @@ public sealed class TypeChecker
             info = baseType.Kind == "struct" ? baseType.Info! : throw new CTypeException("'.' needs a struct.");
         }
 
-        return info.Find(member.Name)?.Type ?? throw new CTypeException($"struct '{info.Name}' has no field '{member.Name}'.");
+        CType fieldType = info.Find(member.Name)?.Type ?? throw new CTypeException($"struct '{info.Name}' has no field '{member.Name}'.");
+        bool constBase = member.Arrow ? baseType.Base!.IsConst : baseType.IsConst;
+        return constBase && !fieldType.IsConst ? fieldType with { IsConst = true } : fieldType;
     }
 
     private CType DerefType(Ast.Deref deref)

@@ -70,12 +70,30 @@ public sealed class Parser
         token is { Kind: TokenKind.Keyword } && token.Text is "uchar" or "int" or "void" or "struct";
 
     private bool IsType(Token token) =>
-        IsBuiltinType(token) || (token.Kind == TokenKind.Ident && _typedefs.ContainsKey(token.Text));
+        IsBuiltinType(token) || (token is { Kind: TokenKind.Keyword, Text: "const" }) || (token.Kind == TokenKind.Ident && _typedefs.ContainsKey(token.Text));
+
+    /// <summary>Zjada <c>static</c>/<c>extern</c> przed deklaracją.</summary>
+    private DeclFlags Modifiers()
+    {
+        DeclFlags flags = DeclFlags.None;
+        while (Peek() is { Kind: TokenKind.Keyword, Text: "static" or "extern" } modifier)
+        {
+            Next();
+            flags |= modifier.Text == "static" ? DeclFlags.Static : DeclFlags.Extern;
+        }
+
+        return flags;
+    }
+
+    private bool StartsDeclaration(Token token) =>
+        IsType(token) || token is { Kind: TokenKind.Keyword, Text: "static" or "extern" };
 
     /// <summary>Nazwa typu (słowo kluczowe albo alias <c>typedef</c>) z gwiazdkami aliasu.</summary>
     private (string Type, int Stars) TypeSpec()
     {
+        bool isConst = ConsumeConst();
         Token token = Next();
+        (string Type, int Stars) spec;
         if (token is { Kind: TokenKind.Keyword, Text: "struct" })
         {
             string name = Peek().Kind == TokenKind.Ident ? Next().Text : $"__anon{_anonymous++}";
@@ -84,12 +102,29 @@ public sealed class Parser
                 StructBody(name, token.Line);
             }
 
-            return ($"struct {name}", 0);
+            spec = ($"struct {name}", 0);
+        }
+        else
+        {
+            spec = token.Kind == TokenKind.Ident && _typedefs.TryGetValue(token.Text, out (string Type, int Stars) alias)
+                ? alias
+                : (token.Text, 0);
         }
 
-        return token.Kind == TokenKind.Ident && _typedefs.TryGetValue(token.Text, out (string Type, int Stars) alias)
-            ? alias
-            : (token.Text, 0);
+        isConst |= ConsumeConst();
+        return isConst && !spec.Type.StartsWith("const ", StringComparison.Ordinal) ? ($"const {spec.Type}", spec.Stars) : spec;
+    }
+
+    private bool ConsumeConst()
+    {
+        bool found = false;
+        while (Peek() is { Kind: TokenKind.Keyword, Text: "const" })
+        {
+            Next();
+            found = true;
+        }
+
+        return found;
     }
 
     private void StructBody(string name, int line)
@@ -185,6 +220,7 @@ public sealed class Parser
         var functions = new List<Ast.Function>();
         while (Peek().Kind != TokenKind.End)
         {
+            DeclFlags flags = Modifiers();
             Token type = Peek();
             if (type is { Kind: TokenKind.Keyword, Text: "enum" })
             {
@@ -213,11 +249,11 @@ public sealed class Parser
             string name = ExpectKind(TokenKind.Ident, "name").Text;
             if (Peek() is { Kind: TokenKind.Punct, Text: "(" })
             {
-                functions.Add(FunctionRest(typeName, name, type.Line, stars));
+                functions.Add(FunctionRest(typeName, name, type.Line, stars, flags.HasFlag(DeclFlags.Static)));
             }
             else
             {
-                globals.Add(GlobalRest(typeName, name, stars, type.Line));
+                globals.Add(GlobalRest(typeName, name, stars, type.Line, flags));
             }
         }
 
@@ -234,9 +270,9 @@ public sealed class Parser
             _structs);
     }
 
-    private Ast.Decl GlobalRest(string type, string name, int stars, int line)
+    private Ast.Decl GlobalRest(string type, string name, int stars, int line, DeclFlags flags)
     {
-        Ast.Decl decl = DeclTail(type, name, stars, line);
+        Ast.Decl decl = DeclTail(type, name, stars, line, flags);
         Expect(";");
         return decl;
     }
@@ -282,12 +318,13 @@ public sealed class Parser
         while (Take("*"))
         {
             count++;
+            ConsumeConst();
         }
 
         return count;
     }
 
-    private Ast.Function FunctionRest(string type, string name, int line, int returnStars = 0)
+    private Ast.Function FunctionRest(string type, string name, int line, int returnStars = 0, bool isStatic = false)
     {
         Expect("(");
         var parameters = new List<Ast.Param>();
@@ -312,10 +349,10 @@ public sealed class Parser
 
         if (Take(";"))
         {
-            return At(line, new Ast.Function(type, name, parameters, new Ast.Block([]), IsExtern: true, ReturnStars: returnStars));
+            return At(line, new Ast.Function(type, name, parameters, new Ast.Block([]), IsExtern: true, ReturnStars: returnStars, IsStatic: isStatic));
         }
 
-        return At(line, new Ast.Function(type, name, parameters, Block(), ReturnStars: returnStars));
+        return At(line, new Ast.Function(type, name, parameters, Block(), ReturnStars: returnStars, IsStatic: isStatic));
     }
 
     private Ast.Block Block()
@@ -434,7 +471,7 @@ public sealed class Parser
             return At(token.Line, new Ast.Nop());
         }
 
-        if (IsType(token))
+        if (StartsDeclaration(token))
         {
             return DeclOrTypeOnly();
         }
@@ -526,12 +563,13 @@ public sealed class Parser
 
     private Ast.Stmt DeclOrTypeOnly()
     {
+        DeclFlags flags = Modifiers();
         if (IsStructOnly())
         {
             return At(Peek().Line, new Ast.Nop());
         }
 
-        return Decl();
+        return Decl(flags);
     }
 
     /// <summary>Wygląda na <c>struct X { … };</c> albo <c>struct X;</c> bez deklarowanej zmiennej.</summary>
@@ -559,20 +597,20 @@ public sealed class Parser
         return false;
     }
 
-    private Ast.Decl Decl()
+    private Ast.Decl Decl(DeclFlags flags = DeclFlags.None)
     {
         Token typeToken = Peek();
         (string type, int baseStars) = TypeSpec();
         int stars = baseStars + Stars();
         string name = ExpectKind(TokenKind.Ident, "variable name").Text;
-        Ast.Decl decl = DeclTail(type, name, stars, typeToken.Line);
+        Ast.Decl decl = DeclTail(type, name, stars, typeToken.Line, flags);
         Expect(";");
         return decl;
     }
 
     /// <summary>Reszta deklaracji po nazwie: <c>[n]</c> lub <c>[]</c>, opcjonalnie <c>= init</c>
     /// (dla tablicy <c>{a, b}</c> lub napis; <c>[]</c> bierze długość z inicjalizatora).</summary>
-    private Ast.Decl DeclTail(string type, string name, int stars, int line)
+    private Ast.Decl DeclTail(string type, string name, int stars, int line, DeclFlags flags = DeclFlags.None)
     {
         Token open = Peek();
         int length = ArrayLength(out bool unsized, out Ast.Expr? lengthExpr);
@@ -592,7 +630,7 @@ public sealed class Parser
             };
         }
 
-        return At(line, new Ast.Decl(type, name, init, stars, length, lengthExpr));
+        return At(line, new Ast.Decl(type, name, init, stars, length, lengthExpr, flags));
     }
 
     private Ast.Expr ArrayInit()
@@ -852,9 +890,10 @@ public sealed class Parser
             {
                 (string sizeType, int sizeBase) = TypeSpec();
                 int stars = sizeBase + Stars();
-                size = sizeType.StartsWith("struct ", StringComparison.Ordinal) && stars == 0
-                    ? new Ast.SizeOfType(sizeType, stars)
-                    : new Ast.Number(stars > 0 || sizeType == "int" ? "2" : "1");
+                string bareType = sizeType.StartsWith("const ", StringComparison.Ordinal) ? sizeType[6..] : sizeType;
+                size = bareType.StartsWith("struct ", StringComparison.Ordinal) && stars == 0
+                    ? new Ast.SizeOfType(bareType, stars)
+                    : new Ast.Number(stars > 0 || bareType == "int" ? "2" : "1");
             }
             else
             {
