@@ -493,7 +493,7 @@ public sealed partial class TypeChecker
                 CheckBlock(block);
                 break;
             case Ast.Decl decl:
-                if (decl.Type == "void")
+                if (decl.Type == "void" && decl.PointerDepth == 0)
                 {
                     throw new CTypeException($"variable '{decl.Name}' has void type.");
                 }
@@ -707,6 +707,16 @@ public sealed partial class TypeChecker
 
     private void Assignable(CType target, CType value, string where)
     {
+        if (target.Kind == "ptr" && value.Kind == "ptr" && (target.Base?.Kind == "void" || value.Base?.Kind == "void"))
+        {
+            if (value.Base is { IsConst: true } && target.Base is { IsConst: false })
+            {
+                throw new CTypeException($"{where}: discards const ({value} to {target}).");
+            }
+
+            return;
+        }
+
         if (SameShape(target, value) || (target.Kind is "int" or "uint" && value.Kind is "uchar" or "int" or "uint"))
         {
             if (target.Kind == "ptr" && value.Base is { IsConst: true } && target.Base is { IsConst: false })
@@ -735,7 +745,7 @@ public sealed partial class TypeChecker
 
         CType type = TypeOfInner(expr);
         _types[expr] = type;
-        if (expr is Ast.Unary or Ast.Binary or Ast.Ternary or Ast.SizeOf or Ast.SizeOfType or Ast.SizeOfExpr or Ast.Cast && TryConst(expr, out int folded))
+        if (expr is Ast.Unary or Ast.Binary or Ast.Ternary or Ast.SizeOf or Ast.SizeOfType or Ast.SizeOfExpr or Ast.OffsetOf or Ast.Cast && TryConst(expr, out int folded))
         {
             // stała: typ jak litery (<= 255 to uchar, wyżej int), kod zna wartość z _constants; rzutowanie zachowuje swój typ
             _constants[expr] = folded;
@@ -766,6 +776,9 @@ public sealed partial class TypeChecker
                 return true;
             case Ast.SizeOfExpr sizeOfExpr:
                 value = RawType(sizeOfExpr.Operand).Size;
+                return true;
+            case Ast.OffsetOf offset:
+                value = OffsetOfField(offset);
                 return true;
             case Ast.Cast cast when TryConst(cast.Value, out int cast0):
                 value = Declared(cast.Type, cast.Stars).Size == 1 ? cast0 & 0xFF : cast0 & 0xFFFF;
@@ -909,9 +922,19 @@ public sealed partial class TypeChecker
                 return IndexType(index);
             case Ast.Cast cast:
                 return CastType(cast);
+            case Ast.OffsetOf:
+                return CType.UChar;
             default:
                 throw new CTypeException($"unsupported expression {expr.GetType().Name}.");
         }
+    }
+
+    private int OffsetOfField(Ast.OffsetOf offset)
+    {
+        CType type = Declared(offset.Type, offset.Stars);
+        return type.Kind == "struct" && type.Info!.Find(offset.Field) is { } field
+            ? field.Offset
+            : throw new CTypeException($"offsetof: '{offset.Type}' has no field '{offset.Field}'.");
     }
 
     private CType CastType(Ast.Cast cast)
@@ -1059,6 +1082,11 @@ public sealed partial class TypeChecker
             return CType.UChar;
         }
 
+        if (binary.Op is "+" or "-" && ((left.Kind == "ptr" && left.Base?.Kind == "void") || (right.Kind == "ptr" && right.Base?.Kind == "void")))
+        {
+            throw new CTypeException($"operator '{binary.Op}' is not supported for void pointers.");
+        }
+
         if (binary.Op == "-" && left.Kind == "ptr" && right.Kind == "ptr")
         {
             return SameShape(left.Base!, right.Base!) ? CType.Int : throw new CTypeException("pointer difference needs pointers to the same type.");
@@ -1169,6 +1197,11 @@ public sealed partial class TypeChecker
             return pointer;
         }
 
+        if (pointer.Kind == "ptr" && pointer.Base?.Kind == "void")
+        {
+            throw new CTypeException("cannot dereference a void pointer.");
+        }
+
         return pointer.Kind == "ptr" && pointer.Base is not null
             ? pointer.Base
             : throw new CTypeException("dereference needs a pointer.");
@@ -1181,6 +1214,11 @@ public sealed partial class TypeChecker
         if (@base.Kind != "ptr" || @base.Base is null)
         {
             throw new CTypeException("indexing needs a pointer.");
+        }
+
+        if (@base.Base.Kind == "void")
+        {
+            throw new CTypeException("cannot index a void pointer.");
         }
 
         if (offset.Kind == "void" || offset.Kind == "ptr")

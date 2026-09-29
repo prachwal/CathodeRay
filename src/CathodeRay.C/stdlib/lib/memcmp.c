@@ -1,13 +1,15 @@
 #include <string.h>
 
-int memcmp(const uchar *a, const uchar *b, uint n) {
+int memcmp(const void *a, const void *b, size_t n) {
+    const uchar *x = a;
+    const uchar *y = b;
     while (n) {
-        if (*a != *b) {
-            int x = *a;
-            return x - *b;
+        if (*x != *y) {
+            int v = *x;
+            return v - *y;
         }
-        a++;
-        b++;
+        x++;
+        y++;
         n--;
     }
     return 0;

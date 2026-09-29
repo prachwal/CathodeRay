@@ -89,7 +89,7 @@
     {
       "id": "15",
       "title": "[M] void * i size_t: <stddef.h> (size_t = uint, NULL, offsetof), niejawna konwersja void * <-> T *, brak dereferencji i arytmetyki, sygnatury memcpy/memset/memcmp na void *",
-      "status": "todo",
+      "status": "done",
       "note": ""
     },
     {

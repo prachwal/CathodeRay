@@ -1,6 +1,6 @@
 #include <string.h>
 
-uchar *memset(uchar *dst, uchar value, uint n) {
+void *memset(void *dst, uchar value, size_t n) {
     uchar *d = dst;
     while (n) {
         *d++ = value;

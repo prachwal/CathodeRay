@@ -1,7 +1,7 @@
 /* stdlib.h — abs/min/max, konwersje liczb i generator pseudolosowy (xorshift 16-bit). */
 #ifndef _STDLIB_H
 #define _STDLIB_H
-#define NULL 0
+#include <stddef.h>
 #define RAND_MAX 65535
 int abs(int x);
 int min(int a, int b);

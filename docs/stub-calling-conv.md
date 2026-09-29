@@ -290,3 +290,9 @@ liczbę parametrów (`printf(fmt, a1..a5)`), więc `...` można tylko deklarowa�
 `Ast.Cast` (parser rozpoznaje `(` typ `)` w `Unary`, także `(R (*)(A))`), `TypeChecker.CastType` (skalary i wskaźniki; struct/void błąd)
 i `Lowering.CastValue`: zawężenie do bajtu to `Mov` do komórki W=1, rozszerzenie do słowa to `Mov` do komórki W=2 (zero, bo jedyny typ
 8-bitowy jest bez znaku), reszta zmienia tylko typ. Flaga `allowPointerIntegerConversion` usunięta: `printf` rzutuje `(const uchar *)v`.
+
+## `void *`, `size_t`, `offsetof` (plan 30, krok 15)
+
+`Declared("void", n>0)` daje wskaźnik do `void`; `Assignable` przepuszcza `void *` ↔ `T *` (z kontrolą `const`), a dereferencja,
+indeksowanie i `+`/`-` na `void *` są błędami typów. `offsetof` to wyrażenie stałe (`Ast.OffsetOf` → `TypeChecker.TryConst`),
+`<stddef.h>` definiuje `size_t` i `NULL`. `f(void)` oznacza pustą listę parametrów.

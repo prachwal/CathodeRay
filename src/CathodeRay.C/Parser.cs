@@ -439,13 +439,23 @@ public sealed class Parser
                     break;
                 }
 
-                if (!IsType(paramType) || paramType.Text == "void")
+                if (!IsType(paramType))
                 {
                     throw new CParseException(paramType.Line, paramType.Column, "expected parameter type.");
                 }
 
                 (string paramTypeName, int paramBase) = TypeSpec();
                 int stars = paramBase + Stars();
+                if (paramTypeName == "void" && stars == 0)
+                {
+                    if (parameters.Count == 0 && Peek() is { Kind: TokenKind.Punct, Text: ")" })
+                    {
+                        break;
+                    }
+
+                    throw new CParseException(paramType.Line, paramType.Column, "a parameter cannot be void.");
+                }
+
                 if (TryFnPtr(paramTypeName, stars, out string paramFn, out string paramFnName, out _, out _))
                 {
                     parameters.Add(new Ast.Param(paramFn, paramFnName, 0));
@@ -1072,6 +1082,17 @@ public sealed class Parser
             }
 
             return size;
+        }
+
+        if (token is { Kind: TokenKind.Ident, Text: "offsetof" } && Peek(1) is { Kind: TokenKind.Punct, Text: "(" })
+        {
+            Next();
+            Next();
+            (string structType, int structBase) = TypeSpec();
+            Expect(",");
+            string field = ExpectKind(TokenKind.Ident, "field name").Text;
+            Expect(")");
+            return At(token.Line, new Ast.OffsetOf(structType, structBase, field));
         }
 
         if (token.Kind == TokenKind.Ident && _enums.TryGetValue(token.Text, out int enumValue) && Peek(1) is not { Kind: TokenKind.Punct, Text: "(" })

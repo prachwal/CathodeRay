@@ -217,6 +217,12 @@ public static class Ast
     /// <param name="Value">Rzutowane wyrażenie.</param>
     public sealed record Cast(string Type, int Stars, Expr Value) : Expr;
 
+    /// <summary>Przesunięcie pola w strukturze (<c>offsetof(struct S, f)</c>), stała.</summary>
+    /// <param name="Type">Nazwa typu strukturalnego.</param>
+    /// <param name="Stars">Liczba <c>*</c> aliasu (musi być 0).</param>
+    /// <param name="Field">Nazwa pola.</param>
+    public sealed record OffsetOf(string Type, int Stars, string Field) : Expr;
+
     /// <summary>Adres zmiennej (<c>&amp;x</c>).</summary>
     /// <param name="Name">Nazwa zmiennej.</param>
     public sealed record AddressOf(string Name) : Expr;

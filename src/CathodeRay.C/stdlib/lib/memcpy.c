@@ -1,9 +1,10 @@
 #include <string.h>
 
-uchar *memcpy(uchar *dst, const uchar *src, uint n) {
+void *memcpy(void *dst, const void *src, size_t n) {
     uchar *d = dst;
+    const uchar *s = src;
     while (n) {
-        *d++ = *src++;
+        *d++ = *s++;
         n--;
     }
     return dst;

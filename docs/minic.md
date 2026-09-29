@@ -18,7 +18,7 @@ zakończyć się błędem kompilacji zawierającym tekst.
 | `T *`, `T (*f)(…)` | 2 B | wskaźnik do danych / funkcji |
 | `T a[N]` | N·rozmiar | tablica jednowymiarowa, rozpada się na wskaźnik |
 | `struct S` | suma pól | bez wyrównania |
-| `void` | — | tylko wynik funkcji |
+| `void` | — | wynik funkcji, pusta lista parametrów `f(void)`, `void *` |
 
 Działanie na dwóch `uchar` daje `uchar` (zawija się na 8 bitach), z `int`/`uint` — 16 bitów (`uint`, jeśli któryś jest `uint`).
 Stałe do 255 mają typ `uchar`, większe `int`; działania na samych stałych liczy kompilator w 16 bitach (`1 << 15` to `int`).
@@ -98,6 +98,34 @@ int main() {
 int main() {
     uchar *p = 1000;                                 // bez rzutowania
     return 0;
+}
+```
+
+## `void *`, `size_t`, `NULL`, `offsetof`
+
+`void *` przenosi dowolny wskaźnik: niejawnie konwertuje się do i z `T *` (bez odrzucania `const`), ale nie wolno go dereferencjonować,
+indeksować ani używać w arytmetyce. `<stddef.h>` daje `size_t` (`uint`), `NULL` (`((void *)0)`) i `offsetof(struct S, pole)` — stałą
+czasu kompilacji. Funkcje pamięciowe biblioteki mają sygnatury `void *memcpy(void *, const void *, size_t)`,
+`void *memset(void *, uchar, size_t)`, `int memcmp(const void *, const void *, size_t)`.
+
+```c expect=1004
+#include <stddef.h>
+#include <string.h>
+struct Pair { uchar tag; int value; };
+int main() {
+    int a[3] = {1000, 2, 3};
+    int b[3];
+    void *dst = b;
+    memcpy(dst, a, sizeof(a));
+    return b[0] + offsetof(struct Pair, value) + (int)sizeof(void *) + (dst != NULL);   // 1000 + 1 + 2 + 1
+}
+```
+
+```c error="cannot dereference a void pointer"
+int main() {
+    int x = 1;
+    void *p = &x;
+    return *p;
 }
 ```
 

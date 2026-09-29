@@ -2,7 +2,7 @@
    Formaty: %d %u %x %c %s %%. */
 #ifndef _STDIO_H
 #define _STDIO_H
-#define NULL 0
+#include <stddef.h>
 void putchar(uchar c);
 void puthex(uchar b);
 void putdec(int v);
