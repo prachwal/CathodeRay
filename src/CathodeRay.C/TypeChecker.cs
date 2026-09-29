@@ -3,7 +3,7 @@ namespace CathodeRay.C;
 /// <summary>Kontrola typów mini-C: zakresy blokowe, sygnatury funkcji, promocje
 /// (<c>uchar→int</c>), zawężenie <c>int→uchar</c> z ostrzeżeniem, arytmetyka
 /// wskaźników (skala przez rozmiar elementu w codegen).</summary>
-public sealed class TypeChecker
+public sealed partial class TypeChecker
 {
     /// <summary>Maks. liczba argumentów (A, X, potem komórki <c>cc_arg2</c>..<c>cc_arg6</c>).</summary>
     public const int MaxArgs = 6;
@@ -11,6 +11,8 @@ public sealed class TypeChecker
     private readonly Dictionary<string, Ast.Function> _functions = new(StringComparer.Ordinal);
     private readonly Dictionary<string, TypedSymbol> _globals = new(StringComparer.Ordinal);
     private readonly List<string> _warnings = [];
+    private readonly HashSet<string> _usedNames = new(StringComparer.Ordinal);
+    private readonly List<(string Name, int Line, bool IsParameter)> _declared = [];
     private readonly Dictionary<Ast.Expr, int> _constants = new(ReferenceEqualityComparer.Instance);
     private readonly Dictionary<string, StructInfo> _structs = new(StringComparer.Ordinal);
     private readonly HashSet<string> _labels = new(StringComparer.OrdinalIgnoreCase);
@@ -21,6 +23,7 @@ public sealed class TypeChecker
     private CType _returnType = CType.Void;
     private int _loops;
     private int _switches;
+    private int _stmtLine;
     private bool _allowPointerInteger;
     private IReadOnlyDictionary<Ast.Node, int> _lineMap = new Dictionary<Ast.Node, int>();
 
@@ -414,6 +417,8 @@ public sealed class TypeChecker
         _switches = 0;
         _labels.Clear();
         _gotos.Clear();
+        _usedNames.Clear();
+        _declared.Clear();
         if (function.Params.Count > MaxArgs)
         {
             throw new CTypeException($"'{function.Name}' takes at most {MaxArgs} parameters.");
@@ -429,9 +434,17 @@ public sealed class TypeChecker
             }
 
             parameters.Add(new TypedSymbol(param.Name, Declared(param.Type, param.PointerDepth)));
+            _declared.Add((param.Name, _lineMap.GetValueOrDefault(function), true));
         }
 
         CheckBlock(function.Body);
+        ReportUnused(_declared);
+        if (_returnType.Kind != "void" && !AlwaysReturns(function.Body))
+        {
+            _stmtLine = _lineMap.GetValueOrDefault(function);
+            Warn($"function '{function.Name}' may reach its end without returning a value.");
+        }
+
         foreach (Ast.Goto jump in _gotos.Where(j => !_labels.Contains(j.Name)))
         {
             throw new CTypeException($"undefined label '{jump.Name}'.") { Line = _lineMap.GetValueOrDefault(jump) };
@@ -443,9 +456,22 @@ public sealed class TypeChecker
     private void CheckBlock(Ast.Block block)
     {
         _scopes.Push(new Dictionary<string, CType>(StringComparer.Ordinal));
+        bool dead = false;
         foreach (Ast.Stmt item in block.Items)
         {
+            if (item is Ast.Label)
+            {
+                dead = false;
+            }
+            else if (dead && item is not Ast.Nop)
+            {
+                _stmtLine = _lineMap.GetValueOrDefault(item);
+                Warn("unreachable code.");
+                dead = false;
+            }
+
             CheckStmt(item);
+            dead |= AlwaysReturns(item) || item is Ast.Break or Ast.Continue;
         }
 
         _scopes.Pop();
@@ -453,6 +479,11 @@ public sealed class TypeChecker
 
     private void CheckStmt(Ast.Stmt stmt)
     {
+        if (_lineMap.TryGetValue(stmt, out int currentLine))
+        {
+            _stmtLine = currentLine;
+        }
+
         try
         {
             CheckStmtCore(stmt);
@@ -487,6 +518,7 @@ public sealed class TypeChecker
                     throw new CTypeException("extern is only allowed at file scope.");
                 }
 
+                _declared.Add((decl.Name, _stmtLine, false));
                 _locals.Add(new TypedSymbol(decl.Name, Declared(decl.Type, decl.PointerDepth, LengthOf(decl)), decl.Flags.HasFlag(DeclFlags.Static) ? decl.Init : null, decl.Flags));
                 CheckInit(decl);
                 break;
@@ -616,6 +648,11 @@ public sealed class TypeChecker
 
     private void Condition(Ast.Expr cond)
     {
+        if (cond is Ast.Assign or Ast.AssignTo or Ast.AssignOpTo)
+        {
+            Warn("assignment used as a condition (did you mean '=='?).");
+        }
+
         CType type = TypeOf(cond);
         if (type.Kind is "void" or "struct")
         {
@@ -834,11 +871,13 @@ public sealed class TypeChecker
 
             case Ast.SizeOf sizeOf:
             {
+                _usedNames.Add(sizeOf.Name);
                 int size = Lookup(sizeOf.Name).Size;
                 return size <= byte.MaxValue ? CType.UChar : CType.Int;
             }
 
             case Ast.Var variable:
+                _usedNames.Add(variable.Name);
                 return !TryLookup(variable.Name, out _) && _functions.TryGetValue(variable.Name, out Ast.Function? designated)
                     ? FunctionDesignator(designated)
                     : Lookup(variable.Name).Decay();
@@ -870,6 +909,7 @@ public sealed class TypeChecker
                 return FunctionDesignator(addressed);
             case Ast.AddressOf addressOf:
             {
+                _usedNames.Add(addressOf.Name);
                 CType raw = Lookup(addressOf.Name);
                 CType target = raw.Kind == "array" && raw.Base is not null ? raw.Base : raw;
                 return CType.Pointer(target);
@@ -909,6 +949,7 @@ public sealed class TypeChecker
     {
         if (TryLookup(call.Name, out CType variable))
         {
+            _usedNames.Add(call.Name);
             return variable.Kind == "fptr"
                 ? CheckIndirect(variable.Sig!, call.Args, $"'{call.Name}'")
                 : throw new CTypeException($"'{call.Name}' is not a function.");

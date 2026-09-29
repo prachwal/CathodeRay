@@ -27,7 +27,8 @@ internal static partial class CcCommand
         var define = new Option<string[]>("-D", "--define") { Description = "Makro preprocesora: NAZWA lub NAZWA=wartość (można powtarzać).", DefaultValueFactory = _ => [] };
         var noStdlib = new Option<bool>("--nostdlib") { Description = "Nie linkuj biblioteki standardowej (nagłówki <...> z --incdir nadal działają)." };
         var noOpt = new Option<bool>("--no-opt", "-O0") { Description = "Wyłącza optymalizator okienkowy asemblera." };
-        var command = new Command("cc", "Kompiluje program mini-C na stub (C→obiekt→link).") { inputs, output, format, listing, map, config, incdir, define, noStdlib, noOpt };
+        var werror = new Option<bool>("-Werror", "--werror") { Description = "Traktuj ostrzeżenia kompilatora jak błędy." };
+        var command = new Command("cc", "Kompiluje program mini-C na stub (C→obiekt→link).") { inputs, output, format, listing, map, config, incdir, define, noStdlib, noOpt, werror };
         command.SetAction(parse =>
         {
             TextWriter error = parse.InvocationConfiguration.Error;
@@ -57,17 +58,25 @@ internal static partial class CcCommand
             string[] includePaths = [.. parse.GetValue(incdir)!.Select(static d => d.FullName)];
             AssemblerTarget target = AssemblerTargets.Find("stub")!;
             var modules = new List<(string File, ObjectModule Module)>();
+            var warningText = new StringWriter();
             try
             {
                 modules.Add(("crt0.s", AssembleObject(target, Crt0.Source, "crt0.s", _ => null, includePaths)));
                 foreach (FileInfo input in files)
                 {
-                    modules.Add((input.Name, AssembleModule(target, input, includePaths, error, ParseDefines(parse.GetValue(define)!), !parse.GetValue(noOpt))));
+                    modules.Add((input.Name, AssembleModule(target, input, includePaths, warningText, ParseDefines(parse.GetValue(define)!), !parse.GetValue(noOpt))));
                 }
 
                 if (!parse.GetValue(noStdlib))
                 {
                     LinkStdlib(target, modules, includePaths, !parse.GetValue(noOpt));
+                }
+
+                error.Write(warningText.ToString());
+                if (parse.GetValue(werror) && warningText.ToString().Length > 0)
+                {
+                    error.WriteLine("cc: warnings treated as errors (-Werror).");
+                    return 1;
                 }
             }
             catch (AssemblerException e)
