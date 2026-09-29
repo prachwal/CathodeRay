@@ -89,13 +89,14 @@ public sealed partial class Codegen
     /// <param name="program">Program po kontroli typów.</param>
     /// <param name="fileName">Nazwa pliku C do adnotacji <c>;c:</c> (null = sama linia).</param>
     /// <param name="objectMode">Tryb obiektowy (linker): emituje <c>.extern</c> dla prototypów.</param>
+    /// <param name="optimize">Optymalizator okienkowy (<see cref="Peephole"/>).</param>
     /// <returns>Źródło dla <c>cathode asm --cpu stub</c> (bez wpisu: start zapewnia
     /// crt0 z <see cref="Crt0"/>, linkowany zawsze pierwszy).</returns>
-    public static string Emit(CheckedProgram program, string? fileName = null, bool objectMode = false)
+    public static string Emit(CheckedProgram program, string? fileName = null, bool objectMode = false, bool optimize = true)
     {
         ArgumentNullException.ThrowIfNull(program);
         var gen = new Codegen();
-        return gen.Run(program, fileName, objectMode);
+        return gen.Run(program, fileName, objectMode, optimize);
     }
 
     private static string Swap(string op) => op switch
@@ -400,7 +401,7 @@ public sealed partial class Codegen
 
     private string Hi(string lo) => _wordGlobals.Contains(lo) || lo.StartsWith("cc_g_", StringComparison.Ordinal) ? $"{lo}+1" : $"{lo}_h";
 
-    private string Run(CheckedProgram program, string? fileName, bool objectMode)
+    private string Run(CheckedProgram program, string? fileName, bool objectMode, bool optimize)
     {
         _globals = program.Globals;
         foreach (TypedSymbol g in program.Globals)
@@ -605,7 +606,8 @@ public sealed partial class Codegen
         }
 
         CheckStack(program.Warnings);
-        return _code.ToString() + initSegment.ToString() + data.ToString() + bss.ToString();
+        string code = optimize ? Peephole.Optimize(_code.ToString()) : _code.ToString();
+        return code + initSegment.ToString() + data.ToString() + bss.ToString();
     }
 
     private string Label(string hint) => $"L{++_labels}_{hint}";

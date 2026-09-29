@@ -26,7 +26,8 @@ internal static partial class CcCommand
 
         var define = new Option<string[]>("-D", "--define") { Description = "Makro preprocesora: NAZWA lub NAZWA=wartość (można powtarzać).", DefaultValueFactory = _ => [] };
         var noStdlib = new Option<bool>("--nostdlib") { Description = "Nie linkuj biblioteki standardowej (nagłówki <...> z --incdir nadal działają)." };
-        var command = new Command("cc", "Kompiluje program mini-C na stub (C→obiekt→link).") { inputs, output, format, listing, map, config, incdir, define, noStdlib };
+        var noOpt = new Option<bool>("--no-opt", "-O0") { Description = "Wyłącza optymalizator okienkowy asemblera." };
+        var command = new Command("cc", "Kompiluje program mini-C na stub (C→obiekt→link).") { inputs, output, format, listing, map, config, incdir, define, noStdlib, noOpt };
         command.SetAction(parse =>
         {
             TextWriter error = parse.InvocationConfiguration.Error;
@@ -61,12 +62,12 @@ internal static partial class CcCommand
                 modules.Add(("crt0.s", AssembleObject(target, Crt0.Source, "crt0.s", _ => null, includePaths)));
                 foreach (FileInfo input in files)
                 {
-                    modules.Add((input.Name, AssembleModule(target, input, includePaths, error, ParseDefines(parse.GetValue(define)!))));
+                    modules.Add((input.Name, AssembleModule(target, input, includePaths, error, ParseDefines(parse.GetValue(define)!), !parse.GetValue(noOpt))));
                 }
 
                 if (!parse.GetValue(noStdlib))
                 {
-                    LinkStdlib(target, modules, includePaths);
+                    LinkStdlib(target, modules, includePaths, !parse.GetValue(noOpt));
                 }
             }
             catch (AssemblerException e)
@@ -199,7 +200,7 @@ internal static partial class CcCommand
     /// <summary>Dokłada moduły biblioteki standardowej definiujące symbole, do których odwołują się
     /// dotychczasowe moduły (także moduły biblioteki między sobą); moduł, którego funkcję zdefiniował
     /// użytkownik, nie jest potrzebny.</summary>
-    private static void LinkStdlib(AssemblerTarget target, List<(string File, ObjectModule Module)> modules, string[] includePaths)
+    private static void LinkStdlib(AssemblerTarget target, List<(string File, ObjectModule Module)> modules, string[] includePaths, bool optimize)
     {
         var added = new HashSet<string>(StringComparer.Ordinal);
         while (true)
@@ -229,7 +230,7 @@ internal static partial class CcCommand
             if (!next.IsAssembly)
             {
                 CheckedProgram program = TypeChecker.Check(Parser.Parse(source, StdLib.HeaderReader), allowPointerIntegerConversion: true);
-                source = Codegen.Emit(program, next.Name, objectMode: true);
+                source = Codegen.Emit(program, next.Name, objectMode: true, optimize: optimize);
             }
 
             modules.Add(($"<stdlib>/{next.Name}", AssembleObject(target, source, next.Name, _ => null, includePaths)));
@@ -251,7 +252,7 @@ internal static partial class CcCommand
     private static string Where(string? file, int line) =>
         file is null ? string.Empty : line > 0 ? $"{file}:{line}: " : $"{file}: ";
 
-    private static ObjectModule AssembleModule(AssemblerTarget target, FileInfo input, string[] includePaths, TextWriter warnings, Dictionary<string, string> defines)
+    private static ObjectModule AssembleModule(AssemblerTarget target, FileInfo input, string[] includePaths, TextWriter warnings, Dictionary<string, string> defines, bool optimize)
     {
         string? dir = Path.GetDirectoryName(input.FullName);
         Func<string, string?> reader = path =>
@@ -276,7 +277,7 @@ internal static partial class CcCommand
             try
             {
                 CheckedProgram program = TypeChecker.Check(Parser.Parse(File.ReadAllText(input.FullName), reader, defines));
-                asm = Codegen.Emit(program, input.Name, objectMode: true);
+                asm = Codegen.Emit(program, input.Name, objectMode: true, optimize: optimize);
                 foreach (string warning in program.Warnings)
                 {
                     warnings.WriteLine($"{input.Name}: warning: {warning}");
