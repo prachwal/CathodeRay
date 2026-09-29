@@ -302,12 +302,13 @@ public sealed class ScreenTests : IDisposable
     }
 
     [Fact]
-    public void Demo_Overflow_Drops_Chars_Past_999()
+    public void Demo_Overflow_Scrolls_Screen_Up()
     {
         IReadOnlyList<string> rows = RunCScreen("scr_over.c");
 
         rows.Should().HaveCount(25);
-        rows.Should().OnlyContain(s => s == new string('D', 40));
+        rows.Take(24).Should().OnlyContain(s => s == new string('A', 40));
+        rows[24].Should().Be("BBBBB" + new string('A', 35));
     }
 
     [Fact]

@@ -54,7 +54,8 @@ pierwsza linia CODE; zła kolejność wykonuje bibliotekę jako program).
 ## Ekran 40x25 (screen.s → Markdown)
 
 ` samples/stub/lib/screen.s`: bufor `__scr_buf` (1000 B, wierszami) + kursor
-`__scr_cur`/`_h` (0..999). `scr_putc` (A = znak) dopisuje (po 999 gubi),
+`__scr_cur`/`_h` (0..999). `scr_putc` (A = znak) dopisuje; pełny ekran scrolluje w górę (ostatni
+wiersz zerowany, kursor na 960, znaki sprzed scrolla przepadają),
 `scr_clear` zeruje bufor i kursor. Strony 256 B wybierane skokami
 (X ma 8 bitów): osobne etykiety `__scr_buf`, `+256`, `+512`, `+768`.
 Dekoder po stronie hosta (`cathode stub run … --screen-at ADDR
