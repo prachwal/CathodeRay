@@ -304,3 +304,10 @@ struktury wraca przez wspólny bufor `cc_retbuf` (64 B, definiuje crt0 w segmenc
 `return` kopiuje do bufora, wołający tuż po `Call` kopiuje z bufora do tymczasowej `f__agg@N` (zapisywanej w ramce funkcji rekurencyjnych).
 Pierwsza wersja z ukrytym parametrem `sret` wskazującym tymczasową wołającego była błędna w rekurencji: wołany odtwarzał z ramki tę samą
 statyczną tymczasową, do której właśnie zapisał wynik. Bufor poza ramką nie ma tej wady (między `Ret` a kopią nie ma innych wołań).
+
+## Tablice wielowymiarowe (plan 30, krok 17)
+
+Parser koduje dalsze wymiary w nazwie typu jako sufiks (`int[4]`, `int*[4][5]`; gwiazdki przed wymiarami należą do elementu, gwiazdki
+z osobnego pola — do wskaźnika na całość), `Declared` składa z tego tablicę tablic, a `(*p)[4]` i parametr `m[][4]` to wskaźnik do
+tablicy. `Index` i `Deref` typu tablicowego rozpadają się na wskaźnik (`RawType` daje nierozpadnięty typ dla `sizeof`); w `Lowering`
+rozmiar elementu bierze się z typu bazy (`TypeOf(index.Base).Base`), a odczyt wiersza zwraca jego adres.

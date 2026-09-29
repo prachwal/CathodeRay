@@ -31,9 +31,9 @@ Rozmiar: S = <1 h, M = kilka h, L = dzień+. Kolejność: A -> B -> C -> D. Krok
 - [x] **14.** [M] Rzutowania (T)x: uchar/int/uint/wskaźniki/wskaźniki do funkcji (rozróżnienie nawiasu typu w parserze, checker, konwersje w IR: zawężenie, rozszerzenie zerem/znakiem); po wprowadzeniu usunąć relaks int<->wskaźnik z biblioteki (printf %s)
 - [x] **15.** [M] void * i size_t: <stddef.h> (size_t = uint, NULL, offsetof), niejawna konwersja void * <-> T *, brak dereferencji i arytmetyki, sygnatury memcpy/memset/memcmp na void *
 - [x] **16.** [M] Struktury przez wartość: argument (kopia wołającego, przekazana jako wskaźnik) i wynik (ukryty parametr sret)
-- [ ] **17.** [M] Tablice wielowymiarowe int m[3][4]: typ tablicy tablic, m[i][j], sizeof, inicjalizatory {{...}}, int (*)[4] jako parametr
+- [x] **17.** [M] Tablice wielowymiarowe int m[3][4]: typ tablicy tablic, m[i][j], sizeof, inicjalizatory {{...}}, int (*)[4] jako parametr
 - [ ] **18.** [L] long/ulong 32-bit jako Cell z W=B4: legalizacja w TargetBase (rozbicie na operacje bajtowe/16-bitowe), rt.s (mul32/div32) per cel, literały L, printf %ld/%lu/%lx
 - [ ] **19.** [S] union, operator przecinka, konkatenacja napisów, \xHH, # i ## w makrach, enum z sizeof(struct)
 - [ ] **20.** [S] Testy e2e per pozycja, samples/minic/17_casts.c, 18_voidptr.c, 19_matrix.c, 20_long.c, tabela rozmiar/cykle per cel (golden tylko dla rozmiaru, nie dla poprawności), docs/targets.md (jak dodać CPU), docs/minic.md, hygiene
 
-Postęp: 16/20 gotowych.
+Postęp: 17/20 gotowych.

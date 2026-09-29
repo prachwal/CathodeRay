@@ -16,7 +16,7 @@ zakończyć się błędem kompilacji zawierającym tekst.
 | `int` | 2 B | ze znakiem; porównania, `/`, `%`, `>>` ze znakiem |
 | `uint` | 2 B | bez znaku |
 | `T *`, `T (*f)(…)` | 2 B | wskaźnik do danych / funkcji |
-| `T a[N]` | N·rozmiar | tablica jednowymiarowa, rozpada się na wskaźnik |
+| `T a[N]`, `T a[N][M]` | N·(M·)rozmiar | tablica (także wielowymiarowa: tablica tablic), rozpada się na wskaźnik do elementu |
 | `struct S` | suma pól | bez wyrównania |
 | `void` | — | wynik funkcji, pusta lista parametrów `f(void)`, `void *` |
 
@@ -148,6 +148,23 @@ int main() {
 }
 ```
 
+## Tablice wielowymiarowe
+
+`int m[3][4]` to tablica trzech tablic po cztery `int` (wiersze kolejno w pamięci); `m[i][j]`, `sizeof(m)` (24) i `sizeof(m[0])` (8)
+działają jak w C, a `m[i]` rozpada się na wskaźnik do wiersza. Pierwszy wymiar może być pominięty przy inicjalizatorze
+(`int m[][2] = {{1, 2}, {3, 4}}`), pozostałe muszą być literałami. Parametr to `int m[][4]` albo `int (*m)[4]`; wskaźnik do wiersza
+przesuwa się o cały wiersz (`p + 1`). Wiersza nie można przypisać.
+
+```c expect=2396
+int a[2][3] = {{1, 2, 3}, {4, 5, 6}};
+int row_sum(int (*rows)[3], int i) { return rows[i][0] + rows[i][1] + rows[i][2]; }
+int main() {
+    int (*p)[3] = a;
+    a[1][2] = 100;                                   // 4 + 5 + 100
+    return row_sum(a, 1) * 20 + sizeof(a) + p[0][1] * 100 + (p + 1)[0][0];   // 2180 + 12 + 200 + 4
+}
+```
+
 ## Instrukcje
 
 `if/else`, `while`, `do … while`, `for` (z deklaracją w inicjalizacji), `switch` (stałe `case`, przechodzenie dalej, `default`),
@@ -271,7 +288,7 @@ porównanie `int` z `uint`) drukuje `cc` na stderr; `-Werror` traktuje je jak b�
 | brak | zamiast |
 | --- | --- |
 | `float`, `long`, `short`, `unsigned` | `int`, `uint` |
-| `union`, pola bitowe, tablice wielowymiarowe | `struct`, jednowymiarowe z ręcznym indeksem |
+| `union`, pola bitowe | `struct` |
 | operator przecinka, wartości `enum` z `sizeof(struct …)` | osobne instrukcje, `#define` |
 | `#`, `##` w makrach, `\x` w napisach | — |
 | funkcja zwracająca wskaźnik do funkcji | `typedef` + parametr |

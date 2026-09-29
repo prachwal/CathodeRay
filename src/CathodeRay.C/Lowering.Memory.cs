@@ -17,7 +17,7 @@ internal sealed partial class Lowering
                 return (LowerCall(expr, depth, null), 0);
             case Ast.Index index:
             {
-                CType element = TypeOf(index);
+                CType element = TypeOf(index.Base).Base ?? TypeOf(index);
                 int size = element.Size;
                 Ir.Op basePointer = Value(index.Base, depth);
                 if (TryConstValue(index.Offset, out int position))
@@ -83,6 +83,18 @@ internal sealed partial class Lowering
         if (type.Kind == "struct")
         {
             throw new CCodegenException("struct used as a value.");
+        }
+
+        if (expr is Ast.Index { Base: var indexed } && TypeOf(indexed).Base is { Kind: "array" })
+        {
+            // element tablicy tablic rozpada się na adres wiersza
+            (Ir.Op rowPointer, int rowOffset) = LValueAddr(expr, depth);
+            return AddressValue(rowPointer, rowOffset, depth);
+        }
+
+        if (expr is Ast.Deref { Pointer: var dereferenced } && TypeOf(dereferenced).Base is { Kind: "array" })
+        {
+            return Value(dereferenced, depth);
         }
 
         (Ir.Op pointer, int offset) = LValueAddr(expr, depth);

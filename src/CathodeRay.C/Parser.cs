@@ -160,6 +160,13 @@ public sealed class Parser
                 throw new CParseException(at.Line, at.Column, "field array needs a literal length.");
             }
 
+            string fieldSuffix = length > 0 ? DimSuffix() : string.Empty;
+            if (fieldSuffix.Length > 0)
+            {
+                type += new string('*', stars) + fieldSuffix;
+                stars = 0;
+            }
+
             Expect(";");
             fields.Add(At(at.Line, new Ast.FieldDecl(type, stars, field, length)));
         }
@@ -338,6 +345,13 @@ public sealed class Parser
             }
 
             int stars = baseStars + Stars();
+            if (TryArrayPointer(ref typeName, ref stars, out string globalArrayName))
+            {
+                globals.Add(DeclRest(typeName, globalArrayName, stars, type.Line, flags, (0, false, null), Peek()));
+                Expect(";");
+                continue;
+            }
+
             if (TryFnPtr(typeName, stars, out string fnType, out string fnName, out int fnLength, out Ast.Expr? fnLengthExpr))
             {
                 globals.Add(DeclRest(fnType, fnName, 0, type.Line, flags, (fnLength, false, fnLengthExpr), Peek()));
@@ -446,6 +460,12 @@ public sealed class Parser
 
                 (string paramTypeName, int paramBase) = TypeSpec();
                 int stars = paramBase + Stars();
+                if (TryArrayPointer(ref paramTypeName, ref stars, out string arrayParamName))
+                {
+                    parameters.Add(new Ast.Param(paramTypeName, arrayParamName.Length > 0 ? arrayParamName : throw new CParseException(paramType.Line, paramType.Column, "parameter needs a name."), stars));
+                    continue;
+                }
+
                 if (paramTypeName == "void" && stars == 0)
                 {
                     if (parameters.Count == 0 && Peek() is { Kind: TokenKind.Punct, Text: ")" })
@@ -462,7 +482,27 @@ public sealed class Parser
                     continue;
                 }
 
-                parameters.Add(new Ast.Param(paramTypeName, ExpectKind(TokenKind.Ident, "parameter name").Text, stars));
+                string paramName = ExpectKind(TokenKind.Ident, "parameter name").Text;
+                if (Take("["))
+                {
+                    // parametr tablicowy: pierwszy wymiar znika (wskaźnik), pozostałe wchodzą do typu elementu
+                    if (!Take("]"))
+                    {
+                        Conditional();
+                        Expect("]");
+                    }
+
+                    string rest = DimSuffix();
+                    if (rest.Length > 0)
+                    {
+                        paramTypeName += new string('*', stars) + rest;
+                        stars = 0;
+                    }
+
+                    stars++;
+                }
+
+                parameters.Add(new Ast.Param(paramTypeName, paramName, stars));
             }
             while (Take(","));
 
@@ -731,7 +771,11 @@ public sealed class Parser
         (string type, int baseStars) = TypeSpec();
         int stars = baseStars + Stars();
         Ast.Decl decl;
-        if (TryFnPtr(type, stars, out string fnType, out string fnName, out int fnLength, out Ast.Expr? fnLengthExpr))
+        if (TryArrayPointer(ref type, ref stars, out string arrayName))
+        {
+            decl = DeclRest(type, arrayName, stars, typeToken.Line, flags, (0, false, null), Peek());
+        }
+        else if (TryFnPtr(type, stars, out string fnType, out string fnName, out int fnLength, out Ast.Expr? fnLengthExpr))
         {
             decl = DeclRest(fnType, fnName, 0, typeToken.Line, flags, (fnLength, false, fnLengthExpr), Peek());
         }
@@ -751,6 +795,13 @@ public sealed class Parser
     {
         Token open = Peek();
         int length = ArrayLength(out bool unsized, out Ast.Expr? lengthExpr);
+        string suffix = length > 0 || unsized ? DimSuffix() : string.Empty;
+        if (suffix.Length > 0)
+        {
+            type += new string('*', stars) + suffix;
+            stars = 0;
+        }
+
         return DeclRest(type, name, stars, line, flags, (length, unsized, lengthExpr), open);
     }
 
@@ -795,6 +846,55 @@ public sealed class Parser
         }
 
         return new Ast.InitList(items);
+    }
+
+    /// <summary>Dalsze wymiary tablicy (<c>[4][5]</c>) jako sufiks nazwy typu; wymiary muszą być stałymi literałowymi.</summary>
+    private string DimSuffix()
+    {
+        string suffix = string.Empty;
+        while (Peek() is { Kind: TokenKind.Punct, Text: "[" })
+        {
+            Token open = Next();
+            Ast.Expr dimension = Conditional();
+            Expect("]");
+            if (!TryValue(dimension, out int size) || size <= 0)
+            {
+                throw new CParseException(open.Line, open.Column, "inner array dimension must be a positive literal.");
+            }
+
+            suffix += $"[{size}]";
+        }
+
+        return suffix;
+    }
+
+    /// <summary>Wskaźnik do tablicy: <c>(*p)[4]</c> albo bez nazwy <c>(*)[4]</c>; typ dostaje wymiary, a liczba gwiazdek rośnie.</summary>
+    private bool TryArrayPointer(ref string type, ref int stars, out string name)
+    {
+        name = string.Empty;
+        if (Peek() is not { Kind: TokenKind.Punct, Text: "(" } || Peek(1) is not { Kind: TokenKind.Punct, Text: "*" })
+        {
+            return false;
+        }
+
+        int nameAt = Peek(2).Kind == TokenKind.Ident ? 3 : 2;
+        if (Peek(nameAt) is not { Kind: TokenKind.Punct, Text: ")" } || Peek(nameAt + 1) is not { Kind: TokenKind.Punct, Text: "[" })
+        {
+            return false;
+        }
+
+        Next();
+        Next();
+        if (nameAt == 3)
+        {
+            name = Next().Text;
+        }
+
+        Expect(")");
+        string starText = new('*', stars);
+        type += starText + DimSuffix();
+        stars = 1;
+        return true;
     }
 
     private int ArrayLength(out bool unsized, out Ast.Expr? lengthExpr)
@@ -947,7 +1047,7 @@ public sealed class Parser
             Next();
             (string castType, int castBase) = TypeSpec();
             int castStars = castBase + Stars();
-            if (TryFnPtr(castType, castStars, out string fnType, out _, out _, out _))
+            if (!TryArrayPointer(ref castType, ref castStars, out _) && TryFnPtr(castType, castStars, out string fnType, out _, out _, out _))
             {
                 castType = fnType;
                 castStars = 0;

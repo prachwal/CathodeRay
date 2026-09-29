@@ -101,7 +101,7 @@
     {
       "id": "17",
       "title": "[M] Tablice wielowymiarowe int m[3][4]: typ tablicy tablic, m[i][j], sizeof, inicjalizatory {{...}}, int (*)[4] jako parametr",
-      "status": "todo",
+      "status": "done",
       "note": ""
     },
     {

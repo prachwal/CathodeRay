@@ -177,6 +177,22 @@ public sealed partial class TypeChecker
     {
         bool isConst = type.StartsWith("const ", StringComparison.Ordinal);
         string bare = isConst ? type[6..] : type;
+        var dimensions = new List<int>();
+        int innerStars = 0;
+        int bracket = bare.IndexOf('[', StringComparison.Ordinal);
+        if (bracket >= 0 && !bare.StartsWith("fptr<", StringComparison.Ordinal))
+        {
+            // sufiks wymiarów z parsera: "int*[4][5]" = tablica 4 x tablica 5 x wskaźnik do int
+            foreach (string part in bare[(bracket + 1)..].Split(']', StringSplitOptions.RemoveEmptyEntries))
+            {
+                dimensions.Add(int.Parse(part.TrimStart('['), System.Globalization.CultureInfo.InvariantCulture));
+            }
+
+            bare = bare[..bracket];
+            innerStars = bare.Length - bare.TrimEnd('*').Length;
+            bare = bare.TrimEnd('*');
+        }
+
         CType result = bare.StartsWith("fptr<", StringComparison.Ordinal)
             ? DeclaredFuncPtr(bare)
             : bare.StartsWith("struct ", StringComparison.Ordinal)
@@ -185,6 +201,16 @@ public sealed partial class TypeChecker
         if (isConst)
         {
             result = result with { IsConst = true };
+        }
+
+        for (int i = 0; i < innerStars; i++)
+        {
+            result = CType.Pointer(result);
+        }
+
+        for (int i = dimensions.Count - 1; i >= 0; i--)
+        {
+            result = CType.Array(result, dimensions[i]);
         }
 
         for (int i = 0; i < stars; i++)
@@ -819,6 +845,8 @@ public sealed partial class TypeChecker
     {
         Ast.Member member => MemberType(member),
         Ast.Var variable => Lookup(variable.Name),
+        Ast.Index index => IndexType(index),
+        Ast.Deref deref => DerefType(deref),
         _ => TypeOf(operand),
     };
 
@@ -900,7 +928,7 @@ public sealed partial class TypeChecker
             }
 
             case Ast.Deref deref:
-                return DerefType(deref);
+                return DerefType(deref).Decay();
             case Ast.AddressOf addressOf when !TryLookup(addressOf.Name, out _) && _functions.TryGetValue(addressOf.Name, out Ast.Function? addressed):
                 return FunctionDesignator(addressed);
             case Ast.AddressOf addressOf:
@@ -912,7 +940,7 @@ public sealed partial class TypeChecker
             }
 
             case Ast.Index index:
-                return IndexType(index);
+                return IndexType(index).Decay();
             case Ast.Cast cast:
                 return CastType(cast);
             case Ast.OffsetOf:
@@ -1120,6 +1148,11 @@ public sealed partial class TypeChecker
             throw new CTypeException("array field is not assignable.");
         }
 
+        if (target.Kind == "ptr" && assignTo.Target is Ast.Index or Ast.Deref && RawType(assignTo.Target).Kind == "array")
+        {
+            throw new CTypeException("array row is not assignable.");
+        }
+
         AssignableOrNull(target, assignTo.Value, "assignment through pointer");
         return target;
     }
@@ -1202,7 +1235,7 @@ public sealed partial class TypeChecker
 
     private CType IndexType(Ast.Index index)
     {
-        CType @base = TypeOf(index.Base);
+        CType @base = TypeOf(index.Base).Decay();
         CType offset = TypeOf(index.Offset);
         if (@base.Kind != "ptr" || @base.Base is null)
         {
