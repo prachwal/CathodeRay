@@ -185,6 +185,45 @@ public sealed class ScreenTests : IDisposable
         mdText.Should().Contain($"# Screen dump (40x25 @ $");
     }
 
+    [Fact]
+    public void Cli_Run_Accepts_Custom_Screen_Size()
+    {
+        const string Driver = """
+            .segment "CODE"
+            CALL scr_clear
+            LDI 72
+            CALL scr_putc
+            LDI 105
+            CALL scr_putc
+            HLT
+            .include "screen.s"
+            """;
+        string asmPath = Path.Combine(_dir.FullName, "draw.asm");
+        File.WriteAllText(asmPath, Driver.Replace(".include \"screen.s\"", $".include \"{Path.Combine(LibDir(), "screen.s")}\""));
+        string bin = Path.Combine(_dir.FullName, "draw.bin");
+        string listing = Path.Combine(_dir.FullName, "draw.lst");
+        string md = Path.Combine(_dir.FullName, "screen.md");
+
+        var (asmExit, _, asmErr) = Cli("asm", asmPath, "--cpu", "stub", "-o", bin, "-l", listing, "-m", "CODE@0x1000", "-m", "DATA@0x2000");
+        asmExit.Should().Be(0, asmErr);
+
+        string bufHex = System.Text.RegularExpressions.Regex.Match(
+            File.ReadAllText(listing),
+            @"^([0-9A-F]+)\s.*__scr_buf:",
+            System.Text.RegularExpressions.RegexOptions.Multiline).Groups[1].Value;
+
+        var (exit, output, err) = Cli("stub", "run", bin, "--load", "0x1000", "--screen-at", "0x" + bufHex, "--screen-size", "8x2", "--screen-out", md);
+        exit.Should().Be(0, err);
+        output.Should().Contain("screen (8x2 @ $");
+        string mdText = File.ReadAllText(md);
+        mdText.Should().Contain("# Screen dump (8x2 @ $");
+        mdText.Should().Contain("```text\nHi\n\n```");
+
+        var (badExit, _, badErr) = Cli("stub", "run", bin, "--load", "0x1000", "--screen-at", "0x" + bufHex, "--screen-size", "ax25");
+        badExit.Should().Be(1);
+        badErr.Should().Contain("Invalid --screen-size");
+    }
+
     private static (int Exit, string Out, string Err) Cli(params string[] args)
     {
         var output = new StringWriter();

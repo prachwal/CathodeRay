@@ -58,8 +58,10 @@ pierwsza linia CODE; zła kolejność wykonuje bibliotekę jako program).
 `scr_clear` zeruje bufor i kursor. Strony 256 B wybierane skokami
 (X ma 8 bitów): osobne etykiety `__scr_buf`, `+256`, `+512`, `+768`.
 Dekoder po stronie hosta (`cathode stub run … --screen-at ADDR
-[--screen-out plik.md]`): 1000 B → 25 wierszy po 40 znaków (0/niedrukowalne
-to spacja, końcowe spacje cięte), plik `.md` to nagłówek + blok text.
+[--screen-size SxW] [--screen-out plik.md]`): obszar pamięci wierszami
+(domyślnie 40x25) na tekst (0/niedrukowalne to spacja, końcowe spacje cięte),
+plik `.md` to nagłówek + blok text. Adres wybiera dowolny bufor
+(np. `--screen-at` na `__io_buf` + `--screen-size 16x2).`
 
 ## Wzorce codegen
 

@@ -49,14 +49,18 @@ internal static class StubCommands
         };
         var screenAt = new Option<string?>("--screen-at")
         {
-            Description = "Dekoduje bufor ekranu 40x25 spod adresu ($hex/0xhex/dec) po zakończeniu.",
+            Description = "Dekoduje bufor ekranu spod adresu ($hex/0xhex/dec) po zakończeniu.",
+        };
+        var screenSize = new Option<string?>("--screen-size")
+        {
+            Description = "Rozmiar ekranu SxW do --screen-at (np. 40x25, domyślnie 40x25).",
         };
         var screenOut = new Option<FileInfo?>("--screen-out")
         {
             Description = "Zapisuje zdekodowany ekran do pliku Markdown (bez: wypisuje na stdout).",
         };
 
-        var command = new Command("run", "Uruchamia program do HLT lub limitu kroków.") { binary, maxSteps, trace, dump, load, screenAt, screenOut };
+        var command = new Command("run", "Uruchamia program do HLT lub limitu kroków.") { binary, maxSteps, trace, dump, load, screenAt, screenSize, screenOut };
         command.SetAction(parse =>
         {
             TextWriter output = parse.InvocationConfiguration.Output;
@@ -117,7 +121,16 @@ internal static class StubCommands
 
             if (parse.GetValue(screenAt) is { } screenText)
             {
-                var screen = new ScreenDecoder();
+                int width = 40;
+                int height = 25;
+                if (parse.GetValue(screenSize) is { } sizeText
+                    && !ScreenDecoder.TryParseSize(sizeText, out width, out height))
+                {
+                    error.WriteLine($"Invalid --screen-size '{sizeText}' (expected WxH, e.g. 40x25).");
+                    return 1;
+                }
+
+                var screen = new ScreenDecoder(width, height);
                 if (!CathodeRay.NumberLiteral.TryParse(screenText, out int screenAddress)
                     || screenAddress is < 0 or > ushort.MaxValue
                     || screenAddress + screen.Size > 0x10000)

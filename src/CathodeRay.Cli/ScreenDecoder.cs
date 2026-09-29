@@ -31,6 +31,21 @@ internal sealed class ScreenDecoder
     /// <summary>Rozmiar bufora ekranu w bajtach.</summary>
     public int Size => Width * Height;
 
+    /// <summary>Parsuje rozmiar "SxW" (np. "40x25").</summary>
+    /// <param name="text">Tekst do sparsowania.</param>
+    /// <param name="width">Szerokość.</param>
+    /// <param name="height">Wysokość.</param>
+    /// <returns>Czy parsowanie się udało (wymiary dodatnie).</returns>
+    public static bool TryParseSize(string text, out int width, out int height)
+    {
+        width = 0;
+        height = 0;
+        string[] parts = text.Split('x');
+        return parts.Length == 2
+            && int.TryParse(parts[0], out width) && width >= 1
+            && int.TryParse(parts[1], out height) && height >= 1;
+    }
+
     /// <summary>Dekoduje bufor na wiersze tekstu (0/niedrukowalne to spacja, końcowe spacje cięte).</summary>
     /// <param name="memory">Odczyt bajtu spod adresu.</param>
     /// <param name="address">Adres bufora.</param>
