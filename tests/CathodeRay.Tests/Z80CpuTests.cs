@@ -89,4 +89,12 @@ public sealed class Z80CpuTests
         Z80Cpu cpu = Run(false, 0xC3, 0x00, 0x10);
         cpu.Halted.Should().BeTrue();
     }
+
+    [Fact]
+    public void Unconditional_Relative_Jump_Uses_The_Address_After_The_Offset()
+    {
+        // JR +1 (pomija INC A); INC A; INC A -> A = 1
+        Z80Cpu cpu = Run(false, 0x18, 0x01, 0x3C, 0x3C);
+        cpu.A.Should().Be(1);
+    }
 }

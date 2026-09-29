@@ -350,3 +350,15 @@ nazwę z wielką literą na małe litery plus maskę pozycji wielkich w hex (`Fo
   funkcji (`nazwa__`), których adres nie jest brany. Przy okazji naprawiony błąd: `WideLegalizer` pomijał rozszerzenie `Mov` W=4 ← W=2 w tej samej komórce.
 - Procedury `__cc_*` (mnożenie, dzielenie, przesunięcia, bloki, wersje 32-bitowe) to osobne moduły `stdlib/portable/rt_*.c` linkowane raz na żądanie;
   moduł obiektowy tylko deklaruje `.extern`, a dołączanie kopii zostało wyłącznie w trybie całego programu bez linkera.
+
+## Inlining, mnożenie, indeksowanie i rt w asemblerze (plan 31, kroki 8–10)
+
+- `IrInliner` (po `Lowering`, więc wyrocznia widzi to samo): funkcje liści bez ramki i bez wziętego adresu są wstawiane w miejsca wołań, gdy mają
+  do 10 instrukcji IR albo są `static` z jednym miejscem wołania (do 40); parametry i wynik przechodzą przez komórki wołanej funkcji, potem
+  `IrPasses` składa stałe. Nieużywane funkcje `static` znikają. Eksportowana definicja zostaje.
+- `Legalizer`: mnożenie przez stałą z najwyżej trzema bitami albo 2^n − 1 to przesunięcia i dodawania; `uchar` × `uchar` i dzielenie bajtów wołają
+  `__cc_mul8`/`__cc_divu8`/`__cc_modu8`. Dla 6502 i Z80 mnożenie 16-bitowe i dzielenie bez znaku są ręcznie w asemblerze (`stdlib/target/…`),
+  stoją w `RuntimeModules` przed wersjami z C (`rt_div.c` podzielone na `rt_div.c` i `rt_divs.c`, żeby asembler nie dublował symboli).
+- `IndexFusion` + `Ir.LoadIdx`/`StoreIdx` (tylko dla celów z adresowaniem indeksowanym, dziś 6502/65C02): `[s = i << k;] t = &tab + s;` z odczytem/zapisem przez `t`
+  na tablicy o znanym adresie do 256 B staje się `lda tab,x` (indeks poza tablicą to zachowanie niezdefiniowane).
+- Błąd `Z80Cpu` w testach: `JR` bezwarunkowy liczył cel od adresu przed bajtem przesunięcia; wyszło dopiero na ręcznym dzieleniu Z80.

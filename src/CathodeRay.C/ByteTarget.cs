@@ -19,6 +19,10 @@ public abstract class ByteTarget : ICTarget
             new TargetSegment("DATA", "C_DATA"),
         ]);
 
+    /// <summary>Konsola w C (wspólna dla celów bajtowych).</summary>
+    private static readonly StdModule IoModule =
+        new("io.c", StdLib.Portable("io.c"), false, new HashSet<string>(["putchar", "puthex", "putdec"], StringComparer.Ordinal));
+
     /// <inheritdoc/>
     public abstract string Name { get; }
 
@@ -41,11 +45,10 @@ public abstract class ByteTarget : ICTarget
     public string Crt0 => CreateIsa().Crt0();
 
     /// <inheritdoc/>
-    public IReadOnlyList<StdModule> RuntimeModules { get; } =
-    [
-        new("io.c", StdLib.Portable("io.c"), false, new HashSet<string>(["putchar", "puthex", "putdec"], StringComparer.Ordinal)),
-        .. StdLib.RuntimeModules,
-    ];
+    public IReadOnlyList<StdModule> RuntimeModules => [.. AssemblyRuntime, IoModule, .. StdLib.RuntimeModules];
+
+    /// <summary>Ręcznie pisane procedury wykonawcze celu; wygrywają z wersjami z C przy linkowaniu (stoją przed nimi).</summary>
+    protected virtual IReadOnlyList<StdModule> AssemblyRuntime => [];
 
     /// <inheritdoc/>
     public string Emit(Ir.Module module, bool optimize)
@@ -54,6 +57,11 @@ public abstract class ByteTarget : ICTarget
         Ir.Module wide = WideLegalizer.Run(Legalizer.Run(CaseFold.Apply(module), wide: true), ByteOrder);
         Ir.Module legal = Legalizer.Run(wide);
         ByteIsa isa = CreateIsa();
+        if (isa.SupportsIndexed)
+        {
+            legal = IndexFusion.Run(legal);
+        }
+
         return new ByteSelector(Tune(legal, isa), isa).Emit();
     }
 

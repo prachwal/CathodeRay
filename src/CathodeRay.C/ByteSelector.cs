@@ -295,6 +295,12 @@ internal sealed class ByteSelector
             case Ir.Store store:
                 EmitStore(store);
                 break;
+            case Ir.LoadIdx loadIdx:
+                EmitLoadIdx(loadIdx);
+                break;
+            case Ir.StoreIdx storeIdx:
+                EmitStoreIdx(storeIdx);
+                break;
             case Ir.BrCmp branch:
                 EmitBranch(function, branch);
                 break;
@@ -480,6 +486,37 @@ internal sealed class ByteSelector
             }
 
             StoreA(Dst(load.Dst, i));
+        }
+    }
+
+    private void EmitLoadIdx(Ir.LoadIdx load)
+    {
+        _isa.IndexSetup(_isa.Loc(load.Index.Sym, load.Index.W, 0), load.Shift);
+        _acc.Clear();
+        for (int i = 0; i < load.Dst.W; i++)
+        {
+            if (i < load.Bytes)
+            {
+                _isa.IndexLoad(At(load.Sym, load.Off + MemIndex(i, load.Bytes)));
+                _acc.Clear();
+            }
+            else
+            {
+                LoadA(Zero());
+            }
+
+            StoreA(Dst(load.Dst, i));
+        }
+    }
+
+    private void EmitStoreIdx(Ir.StoreIdx store)
+    {
+        _isa.IndexSetup(_isa.Loc(store.Index.Sym, store.Index.W, 0), store.Shift);
+        _acc.Clear();
+        for (int i = 0; i < store.Bytes; i++)
+        {
+            LoadA(ByteOf(store.Value, i));
+            _isa.IndexStore(At(store.Sym, store.Off + MemIndex(i, store.Bytes)));
         }
     }
 

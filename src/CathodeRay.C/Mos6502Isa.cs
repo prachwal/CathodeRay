@@ -19,6 +19,8 @@ internal sealed class Mos6502Isa : ByteIsa
 
     private string _pointer = "__p";
 
+    public override bool SupportsIndexed => true;
+
     protected override IReadOnlySet<string> Reserved => ReservedNames;
 
     public override string Segment(string name) => $".segment \"{name}\"";
@@ -128,6 +130,27 @@ internal sealed class Mos6502Isa : ByteIsa
         L($"{skip}:");
         return true;
     }
+
+    public override void IndexSetup(string index, int shift)
+    {
+        if (shift == 0)
+        {
+            L($"ldx {Mem(index)}");
+            return;
+        }
+
+        L($"lda {Mem(index)}");
+        for (int i = 0; i < shift; i++)
+        {
+            L("asl a");
+        }
+
+        L("tax");
+    }
+
+    public override void IndexLoad(string address) => L($"lda {Mem(address)},x");
+
+    public override void IndexStore(string address) => L($"sta {Mem(address)},x");
 
     public override void PushA() => L("pha");
 

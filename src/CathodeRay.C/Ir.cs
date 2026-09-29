@@ -145,6 +145,26 @@ public static class Ir
     /// <param name="Bytes">Liczba zapisywanych bajtów (1 lub 2).</param>
     public sealed record Store(Op Ptr, int Off, Op Value, int Bytes) : Ins;
 
+    /// <summary>Odczyt z tablicy o znanym adresie z indeksem w komórce: adres = <c>Sym + Off + (Index &lt;&lt; Shift)</c>. Powstaje dopiero
+    /// tuż przed selektorem celu z indeksowaniem (<see cref="IndexFusion"/>), więc interpreter i przebiegi IR go nie widzą. Używany
+    /// jest tylko młodszy bajt indeksu (tablica ma najwyżej 256 B).</summary>
+    /// <param name="Dst">Cel.</param>
+    /// <param name="Sym">Tablica.</param>
+    /// <param name="Off">Stałe przesunięcie.</param>
+    /// <param name="Index">Komórka indeksu.</param>
+    /// <param name="Shift">Przesunięcie indeksu (rozmiar elementu = 1 &lt;&lt; Shift).</param>
+    /// <param name="Bytes">Liczba czytanych bajtów.</param>
+    public sealed record LoadIdx(Cell Dst, string Sym, int Off, Cell Index, int Shift, int Bytes) : Ins;
+
+    /// <summary>Zapis do tablicy o znanym adresie z indeksem w komórce (zob. <see cref="LoadIdx"/>).</summary>
+    /// <param name="Sym">Tablica.</param>
+    /// <param name="Off">Stałe przesunięcie.</param>
+    /// <param name="Index">Komórka indeksu.</param>
+    /// <param name="Shift">Przesunięcie indeksu.</param>
+    /// <param name="Value">Wartość.</param>
+    /// <param name="Bytes">Liczba zapisywanych bajtów.</param>
+    public sealed record StoreIdx(string Sym, int Off, Cell Index, int Shift, Op Value, int Bytes) : Ins;
+
     /// <summary>Kopiowanie bloku pamięci (rozłączne obszary).</summary>
     /// <param name="Dst">Adres celu.</param>
     /// <param name="Src">Adres źródła.</param>

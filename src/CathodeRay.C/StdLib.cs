@@ -12,7 +12,7 @@ public static partial class StdLib
 
     private static readonly Lazy<IReadOnlyList<StdModule>> LazyRuntime = new(() =>
     [
-        .. new[] { "rt_mul.c", "rt_div.c", "rt_shift.c", "rt_mem.c", "rt_mul32.c", "rt_div32.c", "rt_shift32.c" }.Select(static name =>
+        .. new[] { "rt_mul.c", "rt_mul8.c", "rt_div.c", "rt_divs.c", "rt_div8.c", "rt_shift.c", "rt_mem.c", "rt_mul32.c", "rt_div32.c", "rt_shift32.c" }.Select(static name =>
         {
             string source = Portable(name);
             HashSet<string> defines = [.. Parser.Parse(source, HeaderReader).Functions.Where(static f => !f.IsExtern && !f.IsStatic).Select(static f => f.Name)];
@@ -40,6 +40,14 @@ public static partial class StdLib
     /// <returns>Tekst nagłówka albo <see langword="null"/>.</returns>
     public static string? HeaderReader(string name) =>
         name.StartsWith('<') ? Header(name[1..^1]) : null;
+
+    /// <summary>Moduł asemblerowy procedur wykonawczych konkretnego celu (<c>stdlib/target/&lt;cel&gt;/plik.s</c>); linkowany zamiast wersji z C.</summary>
+    /// <param name="target">Katalog celu (<c>6502</c>, <c>z80</c>).</param>
+    /// <param name="name">Nazwa pliku.</param>
+    /// <param name="defines">Symbole definiowane przez moduł.</param>
+    /// <returns>Moduł.</returns>
+    public static StdModule TargetModule(string target, string name, params string[] defines) =>
+        new($"{name}@{target}", Read($"stdlib/target/{target}/{name}") ?? throw new InvalidOperationException($"missing embedded resource 'stdlib/target/{target}/{name}'."), true, new HashSet<string>(defines, StringComparer.Ordinal));
 
     /// <summary>Czyta źródło modułu przenośnego (<c>stdlib/portable</c>): C kompilowane na dowolny cel.</summary>
     /// <param name="name">Nazwa pliku (<c>rt.c</c>).</param>

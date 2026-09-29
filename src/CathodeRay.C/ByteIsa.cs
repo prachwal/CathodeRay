@@ -17,6 +17,9 @@ internal abstract class ByteIsa
     /// <summary>Symbole wspólne wołania pośredniego (definiuje crt0), do zadeklarowania w module.</summary>
     public virtual IEnumerable<string> IndirectSymbols => ["__icall", "cc_fp"];
 
+    /// <summary>CPU ma adresowanie indeksowane z 8-bitowym rejestrem indeksowym (<see cref="Ir.LoadIdx"/>).</summary>
+    public virtual bool SupportsIndexed => false;
+
     /// <summary>Długość dotychczasowego tekstu (znacznik początku funkcji).</summary>
     public int Mark => _out.Length;
 
@@ -178,6 +181,19 @@ internal abstract class ByteIsa
             _out.Append(relaxed);
         }
     }
+
+    /// <summary>Ładuje rejestr indeksowy młodszym bajtem indeksu przesuniętym w lewo o <paramref name="shift"/>; może zniszczyć A.</summary>
+    /// <param name="index">Adres młodszego bajtu indeksu.</param>
+    /// <param name="shift">Przesunięcie.</param>
+    public virtual void IndexSetup(string index, int shift) => throw new NotSupportedException();
+
+    /// <summary>A ← bajt spod <c>adres + indeks</c>.</summary>
+    /// <param name="address">Adres bazowy.</param>
+    public virtual void IndexLoad(string address) => throw new NotSupportedException();
+
+    /// <summary>Bajt spod <c>adres + indeks</c> ← A.</summary>
+    /// <param name="address">Adres bazowy.</param>
+    public virtual void IndexStore(string address) => throw new NotSupportedException();
 
     /// <summary>Kolejna unikalna etykieta lokalna instrukcji (dla krótkich skoków wewnątrz sekwencji).</summary>
     /// <returns>Nazwa etykiety.</returns>

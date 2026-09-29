@@ -15,7 +15,7 @@ Rozmiar kodu programów przykładowych na każdym celu: [target-sizes.md](target
 
 ## Potok
 
-```
+```text
 źródło C → CPreprocessor → Lexer → Parser → TypeChecker → Lowering (Ir.Module) → IrPasses
         → cel.Emit:  Legalizer(wide) → WideLegalizer → Legalizer → ByteSelector(ByteIsa) → tekst asemblera
         → asembler → linker (crt0 pierwszy, biblioteka na żądanie)

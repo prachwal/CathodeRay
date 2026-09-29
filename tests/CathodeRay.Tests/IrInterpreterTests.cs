@@ -92,7 +92,7 @@ public sealed class IrInterpreterTests
     [Fact]
     public void Interpreter_Detects_A_Tampered_Program()
     {
-        Ir.Module module = Codegen.Lower(TypeChecker.Check(Parser.Parse("int add(int a, int b) { return a + b; }\nint main() { return add(40, 2); }")));
+        Ir.Module module = Codegen.Lower(TypeChecker.Check(Parser.Parse("int add(int a, int b) { return a + b; }\nint main() { int (*f)(int, int) = add; return f(40, 2); }")));
         Ir.Function add = module.Functions.Single(static f => f.Name == "add");
         var tampered = add with { Body = [.. add.Body.Select(static i => i is Ir.Bin { Kind: Ir.BinOp.Add } bin ? bin with { Kind = Ir.BinOp.Sub } : i)] };
         Ir.Function[] functions = [.. module.Functions.Select(f => f.Name == "add" ? tampered : f)];

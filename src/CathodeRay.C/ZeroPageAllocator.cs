@@ -107,6 +107,8 @@ internal static class ZeroPageAllocator
         Ir.Un un => [un.Dst, un.A],
         Ir.Load load => [load.Dst, load.Ptr],
         Ir.Store store => [store.Ptr, store.Value],
+        Ir.LoadIdx loadIdx => [loadIdx.Dst, loadIdx.Index],
+        Ir.StoreIdx storeIdx => [storeIdx.Index, storeIdx.Value],
         Ir.BrCmp branch => [branch.A, branch.B],
         Ir.Call call => [.. call.Args, .. call.Result is null ? [] : new Ir.Op[] { call.Result }, .. call.Indirect is null ? [] : new Ir.Op[] { call.Indirect }],
         Ir.Ret { Value: { } value } => [value],

@@ -25,6 +25,13 @@ public sealed class Mos6502Target : ByteTarget
         [.. FlatLayout.Segments, new TargetSegment("ZP", "C_ZP")]);
 
     /// <inheritdoc/>
+    protected override IReadOnlyList<StdModule> AssemblyRuntime { get; } =
+    [
+        StdLib.TargetModule("6502", "rt_mul.s", "__cc_mul"),
+        StdLib.TargetModule("6502", "rt_div.s", "__cc_divu", "__cc_modu"),
+    ];
+
+    /// <inheritdoc/>
     internal override ByteIsa CreateIsa() => new Mos6502Isa();
 
     /// <inheritdoc/>
