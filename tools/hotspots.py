@@ -103,7 +103,6 @@ def compile_bench(bench_path, temp_dir):
         'dotnet', DLL, 'cc',
         bench_path,
         prelude_path,
-        '--nostdlib',
         '-o', bin_path,
         '-l', listing_path,
         '--cpu', '6502'
