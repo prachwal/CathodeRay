@@ -5,13 +5,13 @@
     {
       "id": "1",
       "title": "[S] Rejestr celów i --cpu: ICTarget (Name, AssemblerCpu, Endianness, StackLimit, DefaultLayout, Crt0, RuntimeModules, Emit) i CTargets.All/Find (ten sam kształt co AssemblerTargets); StubTarget przejmuje crt0, io.s, DefaultConfig z CcCommand i nazwę ISA; inne nazwy dają czytelny błąd 'target not implemented'",
-      "status": "todo",
+      "status": "done",
       "note": ""
     },
     {
       "id": "2",
       "title": "[M] IR pod spodem: Codegen zamiast AppendLine buduje IrModule (Ins: Raw z tekstem stuba), StubTarget drukuje go bez zmian; bramka: asembler wyjściowy wszystkich samples i testów bajt w bajt taki sam jak przed zmianą (test różnicowy), Peephole staje się prywatnym elementem StubTarget",
-      "status": "todo",
+      "status": "done",
       "note": ""
     },
     {

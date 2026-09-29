@@ -28,7 +28,8 @@ internal static partial class CcCommand
         var noStdlib = new Option<bool>("--nostdlib") { Description = "Nie linkuj biblioteki standardowej (nagłówki <...> z --incdir nadal działają)." };
         var noOpt = new Option<bool>("--no-opt", "-O0") { Description = "Wyłącza optymalizator okienkowy asemblera." };
         var werror = new Option<bool>("-Werror", "--werror") { Description = "Traktuj ostrzeżenia kompilatora jak błędy." };
-        var command = new Command("cc", "Kompiluje program mini-C na stub (C→obiekt→link).") { inputs, output, format, listing, map, config, incdir, define, noStdlib, noOpt, werror };
+        var cpu = new Option<string>("--cpu") { Description = "Cel kompilatora: nazwa z rejestru celów (domyślnie stub).", DefaultValueFactory = _ => CTargets.Default.Name };
+        var command = new Command("cc", "Kompiluje program mini-C na wybrany cel (domyślnie stub): C→obiekt→link.") { inputs, output, format, listing, map, config, incdir, define, noStdlib, noOpt, werror, cpu };
         command.SetAction(parse =>
         {
             TextWriter error = parse.InvocationConfiguration.Error;
@@ -56,20 +57,29 @@ internal static partial class CcCommand
             }
 
             string[] includePaths = [.. parse.GetValue(incdir)!.Select(static d => d.FullName)];
-            AssemblerTarget target = AssemblerTargets.Find("stub")!;
+            string cpuName = parse.GetValue(cpu)!;
+            ICTarget? cTarget = CTargets.Find(cpuName);
+            if (cTarget is null)
+            {
+                bool planned = CTargets.Planned.Contains(cpuName, StringComparer.OrdinalIgnoreCase);
+                error.WriteLine($"cc: {(planned ? "target not implemented yet" : "unknown target")} '{cpuName}' (available: {string.Join(", ", CTargets.All.Select(static t => t.Name))}).");
+                return 1;
+            }
+
+            AssemblerTarget target = AssemblerTargets.Find(cTarget.AssemblerCpu)!;
             var modules = new List<(string File, ObjectModule Module)>();
             var warningText = new StringWriter();
             try
             {
-                modules.Add(("crt0.s", AssembleObject(target, Crt0.Source, "crt0.s", _ => null, includePaths)));
+                modules.Add(("crt0.s", AssembleObject(target, cTarget.Crt0, "crt0.s", _ => null, includePaths)));
                 foreach (FileInfo input in files)
                 {
-                    modules.Add((input.Name, AssembleModule(target, input, includePaths, warningText, ParseDefines(parse.GetValue(define)!), !parse.GetValue(noOpt))));
+                    modules.Add((input.Name, AssembleModule(target, cTarget, input, includePaths, warningText, ParseDefines(parse.GetValue(define)!), !parse.GetValue(noOpt))));
                 }
 
                 if (!parse.GetValue(noStdlib))
                 {
-                    LinkStdlib(target, modules, includePaths, !parse.GetValue(noOpt));
+                    LinkStdlib(target, cTarget, modules, includePaths, !parse.GetValue(noOpt));
                 }
 
                 error.Write(warningText.ToString());
@@ -121,7 +131,7 @@ internal static partial class CcCommand
 
                 linkerConfig = cfg is not null
                     ? LinkerConfig.Parse(File.ReadAllText(cfg.FullName))
-                    : DefaultConfig();
+                    : ToConfig(cTarget.Layout);
             }
             catch (LinkerException e)
             {
@@ -172,21 +182,12 @@ internal static partial class CcCommand
         return command;
     }
 
-    /// <summary>Domyślny layout C (jak w testach runtime).</summary>
+    /// <summary>Układ pamięci celu jako konfiguracja linkera.</summary>
+    /// <param name="layout">Układ z <see cref="ICTarget.Layout"/>.</param>
     /// <returns>Konfiguracja linkera.</returns>
-    internal static LinkerConfig DefaultConfig() => new(
-        [
-            new MemoryArea("C_CODE", 0x1000, 0x5F00),
-            new MemoryArea("C_INIT", 0x6F00, 0x100),
-            new MemoryArea("C_BSS", 0x7000, 0x1000),
-            new MemoryArea("C_DATA", 0x8000, 0x8000),
-        ],
-        [
-            new SegmentMapping("CODE", "C_CODE"),
-            new SegmentMapping("INIT", "C_INIT"),
-            new SegmentMapping("BSS", "C_BSS"),
-            new SegmentMapping("DATA", "C_DATA"),
-        ]);
+    internal static LinkerConfig ToConfig(TargetLayout layout) => new(
+        [.. layout.Areas.Select(static a => new MemoryArea(a.Name, a.Start, a.Size))],
+        [.. layout.Segments.Select(static m => new SegmentMapping(m.Name, m.Area))]);
 
     internal static string WriteDebugMap(AssemblyResult result)
     {
@@ -209,7 +210,7 @@ internal static partial class CcCommand
     /// <summary>Dokłada moduły biblioteki standardowej definiujące symbole, do których odwołują się
     /// dotychczasowe moduły (także moduły biblioteki między sobą); moduł, którego funkcję zdefiniował
     /// użytkownik, nie jest potrzebny.</summary>
-    private static void LinkStdlib(AssemblerTarget target, List<(string File, ObjectModule Module)> modules, string[] includePaths, bool optimize)
+    private static void LinkStdlib(AssemblerTarget target, ICTarget cTarget, List<(string File, ObjectModule Module)> modules, string[] includePaths, bool optimize)
     {
         var added = new HashSet<string>(StringComparer.Ordinal);
         while (true)
@@ -228,7 +229,7 @@ internal static partial class CcCommand
                 }
             }
 
-            StdModule? next = StdLib.Modules.FirstOrDefault(m => !added.Contains(m.Name) && m.Defines.Any(unresolved.Contains));
+            StdModule? next = StdLib.Modules.Where(static m => !m.IsAssembly).Concat(cTarget.RuntimeModules).FirstOrDefault(m => !added.Contains(m.Name) && m.Defines.Any(unresolved.Contains));
             if (next is null)
             {
                 return;
@@ -239,7 +240,7 @@ internal static partial class CcCommand
             if (!next.IsAssembly)
             {
                 CheckedProgram program = TypeChecker.Check(Parser.Parse(source, StdLib.HeaderReader), allowPointerIntegerConversion: true);
-                source = Codegen.Emit(program, next.Name, objectMode: true, optimize: optimize);
+                source = Codegen.Emit(program, cTarget, next.Name, objectMode: true, optimize: optimize);
             }
 
             modules.Add(($"<stdlib>/{next.Name}", AssembleObject(target, source, next.Name, _ => null, includePaths)));
@@ -261,7 +262,7 @@ internal static partial class CcCommand
     private static string Where(string? file, int line) =>
         file is null ? string.Empty : line > 0 ? $"{file}:{line}: " : $"{file}: ";
 
-    private static ObjectModule AssembleModule(AssemblerTarget target, FileInfo input, string[] includePaths, TextWriter warnings, Dictionary<string, string> defines, bool optimize)
+    private static ObjectModule AssembleModule(AssemblerTarget target, ICTarget cTarget, FileInfo input, string[] includePaths, TextWriter warnings, Dictionary<string, string> defines, bool optimize)
     {
         string? dir = Path.GetDirectoryName(input.FullName);
         Func<string, string?> reader = path =>
@@ -286,7 +287,7 @@ internal static partial class CcCommand
             try
             {
                 CheckedProgram program = TypeChecker.Check(Parser.Parse(File.ReadAllText(input.FullName), reader, defines));
-                asm = Codegen.Emit(program, input.Name, objectMode: true, optimize: optimize);
+                asm = Codegen.Emit(program, cTarget, input.Name, objectMode: true, optimize: optimize);
                 foreach (string warning in program.Warnings)
                 {
                     warnings.WriteLine($"{input.Name}: warning: {warning}");

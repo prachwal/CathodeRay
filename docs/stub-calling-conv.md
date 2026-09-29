@@ -208,3 +208,16 @@ nierozwiązane symbole (także moduły biblioteki między sobą); funkcja zdefin
 
 Wariadyczne prototypy (`...`): dodatkowe argumenty są zawsze 16-bit w kolejnych komórkach `cc_argN`; definicja ma stałą
 liczbę parametrów (`printf(fmt, a1..a5)`), więc `...` można tylko deklarować. Konsola to bufor `__io_buf` (256 B).
+
+## Cele i kod pośredni (plan 30, kroki 1–2)
+
+- `cc --cpu <nazwa>` wybiera cel z rejestru `CTargets` (dziś tylko `stub`; `6502`, `65c02`, `z80`, `8080`, `6800` są
+  zapowiedziane i dają komunikat „target not implemented yet”). Cel (`ICTarget`) dostarcza crt0, moduły
+  asemblerowe biblioteki (`io.s`), domyślny układ pamięci, limit stosu i drukuje kod pośredni jako asembler
+  swojego CPU (`Emit`). Front-end C nie zależy od asemblera: układ pamięci to dane (`TargetLayout`), a `cc` zamienia je na `LinkerConfig`.
+- Generator (`Codegen.Lower`) zwraca `IrModule` (kod jako `IrFunction` i luźne `Raw`, oraz segmenty INIT/DATA/BSS).
+  Na tym etapie instrukcje to jeszcze `Raw` z mnemonikami stuba, więc `StubTarget` drukuje je bez zmian
+  (a `Peephole` jest jego prywatnym przebiegiem). Kolejne kroki planu zastępują `Raw` typowanymi operacjami na komórkach.
+- Bramka `IrGateTests` porównuje asembler wygenerowany dla korpusu (samples, moduły biblioteki, przykłady z `minic.md`;
+  4 warianty: tryb obiektowy × optymalizacja) z zapisanym wzorcem `tests/CathodeRay.Tests/ir-gate.txt` bajt w bajt.
+  Zmiana generatora, która świadomie zmienia wyjście, regeneruje wzorzec: `UPDATE_IR_GATE=1 dotnet test --filter IrGateTests`.

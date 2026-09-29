@@ -59,7 +59,7 @@ public sealed partial class Codegen
 
     private int _addrs;
 
-    private StringBuilder _code = new();
+    private IrWriter _code = new();
 
     private IReadOnlyList<TypedSymbol> _globals = [];
 
@@ -92,11 +92,33 @@ public sealed partial class Codegen
     /// <param name="optimize">Optymalizator okienkowy (<see cref="Peephole"/>).</param>
     /// <returns>Źródło dla <c>cathode asm --cpu stub</c> (bez wpisu: start zapewnia
     /// crt0 z <see cref="Crt0"/>, linkowany zawsze pierwszy).</returns>
-    public static string Emit(CheckedProgram program, string? fileName = null, bool objectMode = false, bool optimize = true)
+    public static string Emit(CheckedProgram program, string? fileName = null, bool objectMode = false, bool optimize = true) =>
+        Emit(program, CTargets.Default, fileName, objectMode, optimize);
+
+    /// <summary>Generuje tekst asemblera dla wybranego celu.</summary>
+    /// <param name="program">Program po kontroli typów.</param>
+    /// <param name="target">Cel (drukuje kod pośredni jako asembler).</param>
+    /// <param name="fileName">Nazwa pliku C do adnotacji <c>;c:</c> (null = sama linia).</param>
+    /// <param name="objectMode">Tryb obiektowy (linker): emituje <c>.extern</c> dla prototypów.</param>
+    /// <param name="optimize">Optymalizacje celu.</param>
+    /// <returns>Źródło dla asemblera celu.</returns>
+    public static string Emit(CheckedProgram program, ICTarget target, string? fileName = null, bool objectMode = false, bool optimize = true)
+    {
+        ArgumentNullException.ThrowIfNull(target);
+        return target.Emit(Lower(program, fileName, objectMode, target.StackLimit), optimize);
+    }
+
+    /// <summary>Generuje kod pośredni (jeszcze z tekstem stuba w <see cref="Raw"/>) dla programu po kontroli typów.</summary>
+    /// <param name="program">Program po kontroli typów.</param>
+    /// <param name="fileName">Nazwa pliku C do adnotacji <c>;c:</c> (null = sama linia).</param>
+    /// <param name="objectMode">Tryb obiektowy (linker): emituje <c>.extern</c> dla prototypów.</param>
+    /// <param name="stackLimit">Rozmiar stosu sprzętowego do kontroli głębokości wołań (null = bez kontroli).</param>
+    /// <returns>Moduł IR.</returns>
+    public static IrModule Lower(CheckedProgram program, string? fileName = null, bool objectMode = false, int? stackLimit = 256)
     {
         ArgumentNullException.ThrowIfNull(program);
         var gen = new Codegen();
-        return gen.Run(program, fileName, objectMode, optimize);
+        return gen.Run(program, fileName, objectMode, stackLimit);
     }
 
     private static string Swap(string op) => op switch
@@ -169,7 +191,7 @@ public sealed partial class Codegen
         offset == 0 ? symbol : $"{symbol}{(offset > 0 ? "+" : "-")}{Math.Abs(offset)}";
 
     /// <summary>Dane z adresami w środku: <c>.byte</c> dla bajtów i <c>.word symbol</c> dla wskaźników.</summary>
-    private static void AppendPieces(StringBuilder data, string name, byte[] init, Dictionary<int, string> symbols)
+    private static void AppendPieces(IrWriter data, string name, byte[] init, Dictionary<int, string> symbols)
     {
         string label = $"{name}: ";
         var run = new List<byte>();
@@ -343,8 +365,8 @@ public sealed partial class Codegen
         _maxTemp = -1;
         _addrs = -1;
         _extraCells.Clear();
-        StringBuilder outer = _code;
-        var body = new StringBuilder();
+        IrWriter outer = _code;
+        var body = new IrWriter();
         _code = body;
         try
         {
@@ -364,10 +386,12 @@ public sealed partial class Codegen
             DataCell($"{_prefix}__t{temp}_h", CType.UChar);
         }
 
+        _code.BeginFunction("__cc_init", isStatic: true);
         _code.AppendLine(".proc __cc_init");
-        _code.Append(body.ToString());
+        _code.AppendAll(body);
         _code.AppendLine("RET");
         _code.AppendLine(".endproc");
+        _code.EndFunction();
     }
 
     /// <summary>Miejsce na zmienną globalną lub <c>static</c>: bajty (DATA/BSS), adres jako <c>.word</c> albo
@@ -401,7 +425,7 @@ public sealed partial class Codegen
 
     private string Hi(string lo) => _wordGlobals.Contains(lo) || lo.StartsWith("cc_g_", StringComparison.Ordinal) ? $"{lo}+1" : $"{lo}_h";
 
-    private string Run(CheckedProgram program, string? fileName, bool objectMode, bool optimize)
+    private IrModule Run(CheckedProgram program, string? fileName, bool objectMode, int? stackLimit)
     {
         _globals = program.Globals;
         foreach (TypedSymbol g in program.Globals)
@@ -498,7 +522,7 @@ public sealed partial class Codegen
             EmitSDiv16();
         }
 
-        var initSegment = new StringBuilder();
+        var initSegment = new IrWriter();
         if (_runtimeInits.Count > 0 || !objectMode)
         {
             initSegment.AppendLine(".segment \"INIT\"");
@@ -518,7 +542,7 @@ public sealed partial class Codegen
             }
         }
 
-        var data = new StringBuilder();
+        var data = new IrWriter();
         data.AppendLine(".segment \"DATA\"");
         foreach ((string name, CType type, byte[]? init) in _data)
         {
@@ -567,7 +591,7 @@ public sealed partial class Codegen
             data.AppendLine($"{label}: .word {symbol}");
         }
 
-        var bss = new StringBuilder();
+        var bss = new IrWriter();
         bss.AppendLine(".segment \"BSS\"");
         foreach ((string name, CType type, byte[]? init) in _data)
         {
@@ -605,9 +629,8 @@ public sealed partial class Codegen
             bss.AppendLine("__bss_end:");
         }
 
-        CheckStack(program.Warnings);
-        string code = optimize ? Peephole.Optimize(_code.ToString()) : _code.ToString();
-        return code + initSegment.ToString() + data.ToString() + bss.ToString();
+        CheckStack(program.Warnings, stackLimit);
+        return new IrModule(_code.Items, initSegment.ToInstructions(), data.ToInstructions(), bss.ToInstructions());
     }
 
     private string Label(string hint) => $"L{++_labels}_{hint}";
@@ -692,6 +715,7 @@ public sealed partial class Codegen
         _maxTemp = -1;
         _addrs = -1;
         _extraCells.Clear();
+        _code.BeginFunction(function.Def.Name, function.Def.IsStatic);
         Comment(function.Def);
         _code.AppendLine($".proc {function.Def.Name}");
         if (!function.Def.IsStatic)
@@ -703,8 +727,8 @@ public sealed partial class Codegen
         _code.AppendLine("TXA");
         _code.AppendLine("STA cc_arg1_h");
 
-        StringBuilder outer = _code;
-        var body = new StringBuilder();
+        IrWriter outer = _code;
+        var body = new IrWriter();
         _code = body;
         try
         {
@@ -735,7 +759,7 @@ public sealed partial class Codegen
             _code.AppendLine("PUSH");
         }
 
-        _code.Append(body.ToString());
+        _code.AppendAll(body);
         _code.AppendLine($"{_prefix}__ret:");
         _code.AppendLine("STA cc_ret");
         _code.AppendLine("TXA");
@@ -752,6 +776,7 @@ public sealed partial class Codegen
         _code.AppendLine("LDA cc_ret");
         _code.AppendLine("RET");
         _code.AppendLine(".endproc");
+        _code.EndFunction();
     }
 
     private void EmitParamStores(CheckedFunction function)

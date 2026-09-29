@@ -145,9 +145,9 @@ public sealed partial class Codegen
     /// <summary>Stos sprzętowy to jedna strona (256 B): błąd, gdy najgłębsza nierekurencyjna
     /// ścieżka wołań (ramka = PUSHe + adres powrotu) się nie mieści; rekurencja dostaje ostrzeżenie
     /// z szacunkiem głębokości.</summary>
-    private void CheckStack(List<string> warnings)
+    private void CheckStack(List<string> warnings, int? limit)
     {
-        const int Page = 256;
+        int page = limit ?? int.MaxValue;
         var reported = new HashSet<string>(StringComparer.Ordinal);
         int Depth(string name, List<string> path)
         {
@@ -162,7 +162,7 @@ public sealed partial class Codegen
                     int cycle = path.Skip(at).Sum(n => _frames.GetValueOrDefault(n, 2));
                     if (reported.Add(string.Join(">", path.Skip(at).Order(StringComparer.Ordinal))))
                     {
-                        warnings.Add($"'{callee}' is recursive: {cycle} B per cycle, at most ~{Page / cycle} nested calls fit the stack page.");
+                        warnings.Add($"'{callee}' is recursive: {cycle} B per cycle, at most ~{Math.Min(page, 65536) / cycle} nested calls fit the stack page.");
                     }
 
                     continue;
@@ -178,9 +178,9 @@ public sealed partial class Codegen
         foreach (string root in _frames.Keys)
         {
             int total = Depth(root, []);
-            if (total > Page)
+            if (total > page)
             {
-                throw new CCodegenException($"call chain from '{root}' needs {total} B of stack (page is {Page} B).");
+                throw new CCodegenException($"call chain from '{root}' needs {total} B of stack (page is {page} B).");
             }
         }
     }
