@@ -12,14 +12,14 @@
     {
       "id": "2",
       "title": "[M] Budżet strony zerowej: obszar ZP ($10-$DF), przydział komórek wg wagi użyć z IR (licznik użyć ważony głębokością pętli), operandy zp zamiast absolutnych w Mos6502Isa (krótsze i szybsze), fallback do absolutnych po wyczerpaniu budżetu; symbole ZP między modułami przez relokację Abs8; dotyczy 6502 i 65C02",
-      "status": "todo",
+      "status": "done",
       "note": "",
       "section": "B. Strona zerowa 6502"
     },
     {
       "id": "3",
       "title": "[M] Wskaźniki na stronie zerowej: zmienne i parametry wskaźnikowe alokowane parami w ZP, PtrSetup pomija kopię do __p, gdy komórka wskaźnika już leży w ZP (LDY #n; LDA (zp),Y wprost); tabela rozmiarów przed/po i test, że wyniki się nie zmieniają",
-      "status": "todo",
+      "status": "done",
       "note": "",
       "section": "B. Strona zerowa 6502"
     },
@@ -33,7 +33,7 @@
     {
       "id": "5",
       "title": "[M] Krótkie skoki warunkowe: dziś skok odwrócony + JMP (6502, 6800); relaksacja po policzeniu adresów (albo dwuprzebiegowo w selektorze) emituje Bcc/JR wprost, gdy cel jest w zasięgu, i skok odwrócony tylko poza nim",
-      "status": "todo",
+      "status": "done",
       "note": "",
       "section": "C. Optymalizacje"
     },

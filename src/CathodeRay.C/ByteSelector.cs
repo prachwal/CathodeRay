@@ -126,9 +126,9 @@ internal sealed class ByteSelector
         _acc.Clear();
     }
 
-    private void PtrSetup(string cell, int offset)
+    private void PtrSetup(string cell, int offset, bool mustCopy = false)
     {
-        _isa.PtrSetup(cell, offset);
+        _isa.PtrSetup(cell, offset, mustCopy);
         _acc.Clear();
     }
 
@@ -188,6 +188,13 @@ internal sealed class ByteSelector
     private string Dst(Ir.Cell cell, int index) => _isa.Loc(cell.Sym, cell.W, index);
 
     private void EmitFunction(Ir.Function function)
+    {
+        int mark = _isa.Mark;
+        EmitFunctionBody(function);
+        _isa.RelaxFrom(mark);
+    }
+
+    private void EmitFunctionBody(Ir.Function function)
     {
         int start = 0;
         if (function.Body.Count > 0 && function.Body[0] is Ir.Src leading)
@@ -460,7 +467,7 @@ internal sealed class ByteSelector
         }
 
         var pointer = (Ir.Cell)load.Ptr;
-        PtrSetup(_isa.Sym(pointer.Sym), load.Off);
+        PtrSetup(_isa.Sym(pointer.Sym), load.Off, pointer.Sym == load.Dst.Sym);
         for (int i = 0; i < load.Dst.W; i++)
         {
             if (i < load.Bytes)
@@ -721,8 +728,23 @@ internal sealed class ByteSelector
     private string PrintBss()
     {
         var text = new StringBuilder();
-        text.AppendLine(_isa.Segment("BSS"));
-        foreach (Ir.Data data in _module.Data.Where(static d => d.Segment == "BSS"))
+        foreach (string segment in new[] { "ZP", "BSS" })
+        {
+            AppendReserved(text, segment);
+        }
+
+        return text.ToString();
+    }
+
+    private void AppendReserved(StringBuilder text, string segment)
+    {
+        if (segment == "ZP" && !_module.Data.Any(static d => d.Segment == "ZP") && _module.ObjectMode)
+        {
+            return;
+        }
+
+        text.AppendLine(_isa.Segment(segment));
+        foreach (Ir.Data data in _module.Data.Where(d => d.Segment == segment))
         {
             if (data.Exported)
             {
@@ -732,12 +754,14 @@ internal sealed class ByteSelector
             text.AppendLine($"{_isa.Sym(data.Sym)}: {_isa.Reserve(data.Size)}");
         }
 
-        if (!_module.ObjectMode)
+        if (!_module.ObjectMode && segment == "BSS")
         {
             text.AppendLine("__bss_end:");
         }
-
-        return text.ToString();
+        else if (!_module.ObjectMode && segment == "ZP")
+        {
+            text.AppendLine("__zp_end:");
+        }
     }
 
     private void AppendData(StringBuilder text, Ir.Data data)

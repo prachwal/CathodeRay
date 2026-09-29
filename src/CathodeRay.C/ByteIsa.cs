@@ -17,6 +17,9 @@ internal abstract class ByteIsa
     /// <summary>Symbole wspólne wołania pośredniego (definiuje crt0), do zadeklarowania w module.</summary>
     public virtual IEnumerable<string> IndirectSymbols => ["__icall", "cc_fp"];
 
+    /// <summary>Długość dotychczasowego tekstu (znacznik początku funkcji).</summary>
+    public int Mark => _out.Length;
+
     /// <summary>Tekst dotychczas wyemitowanych instrukcji.</summary>
     public string Text => _out.ToString();
 
@@ -137,7 +140,8 @@ internal abstract class ByteIsa
     /// od najmłodszego).</summary>
     /// <param name="cell">Komórka 2-bajtowa z adresem.</param>
     /// <param name="offset">Stałe przesunięcie.</param>
-    public abstract void PtrSetup(string cell, int offset);
+    /// <param name="mustCopy">Wynik odczytu trafi do tej samej komórki co wskaźnik: adres trzeba zapamiętać poza nią.</param>
+    public abstract void PtrSetup(string cell, int offset, bool mustCopy = false);
 
     /// <summary>A ← bajt pod wskaźnikiem (indeks liczony od ustawionego adresu; kolejne rosnąco).</summary>
     /// <param name="index">Numer bajtu.</param>
@@ -162,6 +166,19 @@ internal abstract class ByteIsa
     /// <returns><see langword="true"/>, gdy sekwencja została wyemitowana; inaczej selektor użyje ogólnego łańcucha ADD/SUB.</returns>
     public virtual bool TryStep(IReadOnlyList<string> bytes, bool increment) => false;
 
+    /// <summary>Zamienia tekst od znacznika na jego wersję po relaksacji skoków (krótkie skoki warunkowe tam, gdzie cel jest w zasięgu).</summary>
+    /// <param name="mark">Znacznik z <see cref="Mark"/>.</param>
+    public void RelaxFrom(int mark)
+    {
+        string text = _out.ToString(mark, _out.Length - mark);
+        string relaxed = Relax(text);
+        if (!ReferenceEquals(text, relaxed))
+        {
+            _out.Length = mark;
+            _out.Append(relaxed);
+        }
+    }
+
     /// <summary>Kolejna unikalna etykieta lokalna instrukcji (dla krótkich skoków wewnątrz sekwencji).</summary>
     /// <returns>Nazwa etykiety.</returns>
     public string LocalLabel() => $"__i{++_localLabels}";
@@ -169,6 +186,11 @@ internal abstract class ByteIsa
     /// <summary>Dopisuje linię surowego tekstu (etykieta, komentarz).</summary>
     /// <param name="line">Linia.</param>
     public void Raw(string line) => L(line);
+
+    /// <summary>Relaksacja skoków w tekście jednej funkcji; domyślnie bez zmian (CPU z absolutnymi skokami warunkowymi).</summary>
+    /// <param name="text">Tekst funkcji.</param>
+    /// <returns>Ten sam obiekt, gdy nic się nie zmieniło.</returns>
+    protected virtual string Relax(string text) => text;
 
     /// <summary>Dopisuje linię kodu.</summary>
     /// <param name="line">Linia.</param>

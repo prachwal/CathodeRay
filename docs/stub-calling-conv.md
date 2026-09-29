@@ -332,3 +332,13 @@ Wcześniej złapany błąd: `Load` z komórką wskaźnika w tej samej komórce c
 Asemblery i linker nie rozróżniają wielkości liter w symbolach, a C tak. Przebieg `CaseFold` (IR → IR, pierwszy w `Emit` każdego celu) zamienia
 nazwę z wielką literą na małe litery plus maskę pozycji wielkich w hex (`Foo` → `foo__c1`, `FOO` → `foo__c7`), więc `foo`, `Foo` i `FOO`
 (funkcje, globale, lokalne, etykiety) zostają różne, również między osobno linkowanymi modułami.
+
+## Strona zerowa i krótkie skoki 6502/6800 (plan 31, kroki 2, 3, 5)
+
+- `ZeroPageAllocator` (6502/65C02, po legalizacji) przenosi do segmentu `ZP` najczęściej używane nieeksportowane komórki BSS (waga = liczba
+  odwołań × 8^głębokość pętli, wskaźniki z premią), do 16 B na moduł; obszar `C_ZP` to $0010–$00FF. crt0 trzyma tam `__p`, `__q`, `cc_arg1..3`,
+  `cc_ret`, `cc_t0/1` i zeruje cały ZP (`__zp_start`..`__zp_end`), bo komórki lokalne `static` startują od zera. Operandy ZP mają w asemblerze
+  przedrostek `z:` (ca65), co daje relokację Abs8; wskaźnik leżący w ZP idzie wprost do `LDA (zp),Y` bez kopii do `__p` (chyba że wynik odczytu
+  trafia do tej samej komórki — wtedy `mustCopy`).
+- `BranchRelaxer` po wyemitowaniu funkcji zamienia trójkę `bXX pomiń; jmp cel; pomiń:` na jeden krótki skok, gdy cel jest w zasięgu
+  (liczone na układzie z długimi skokami, więc bezpiecznie); rozmiary instrukcji podaje ISA (`Size`).

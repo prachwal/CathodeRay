@@ -107,7 +107,7 @@ internal sealed class Z80Isa : ByteIsa
 
     public override void Return() => L("ret");
 
-    public override void PtrSetup(string cell, int offset)
+    public override void PtrSetup(string cell, int offset, bool mustCopy = false)
     {
         L($"ld hl,({cell})");
         if (offset is > 0 and <= 3)

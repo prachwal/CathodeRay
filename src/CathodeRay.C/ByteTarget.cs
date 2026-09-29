@@ -51,8 +51,16 @@ public abstract class ByteTarget : ICTarget
     {
         ArgumentNullException.ThrowIfNull(module);
         Ir.Module wide = WideLegalizer.Run(Legalizer.Run(CaseFold.Apply(module), wide: true), ByteOrder);
-        return new ByteSelector(Legalizer.Run(wide), CreateIsa()).Emit();
+        Ir.Module legal = Legalizer.Run(wide);
+        ByteIsa isa = CreateIsa();
+        return new ByteSelector(Tune(legal, isa), isa).Emit();
     }
+
+    /// <summary>Dostosowanie modułu do CPU po legalizacji (np. przydział strony zerowej); domyślnie bez zmian.</summary>
+    /// <param name="module">Moduł po legalizacji.</param>
+    /// <param name="isa">Prymitywy, które mogą zapamiętać wybory.</param>
+    /// <returns>Moduł przekazywany selektorowi.</returns>
+    internal virtual Ir.Module Tune(Ir.Module module, ByteIsa isa) => module;
 
     /// <summary>Tworzy nowy zestaw prymitywów CPU (ma stan emisji).</summary>
     /// <returns>Prymitywy.</returns>

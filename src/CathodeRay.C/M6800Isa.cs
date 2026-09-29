@@ -112,7 +112,7 @@ internal sealed class M6800Isa : ByteIsa
 
     public override void Return() => L("rts");
 
-    public override void PtrSetup(string cell, int offset)
+    public override void PtrSetup(string cell, int offset, bool mustCopy = false)
     {
         if (offset <= 254)
         {
@@ -187,6 +187,46 @@ internal sealed class M6800Isa : ByteIsa
         text.AppendLine("cc_rethi: .res 2");
 
         return text.ToString();
+    }
+
+    protected override string Relax(string text) => BranchRelaxer.Apply(text, Size, Invert);
+
+    private static string? Invert(string branch) => branch switch
+    {
+        "bne" => "beq",
+        "beq" => "bne",
+        "bcc" => "bcs",
+        "bcs" => "bcc",
+        _ => null,
+    };
+
+    /// <summary>Rozmiar instrukcji 6800 w bajtach (do relaksacji skoków).</summary>
+    private static int Size(string line)
+    {
+        string[] parts = line.Split(' ', 2, StringSplitOptions.RemoveEmptyEntries);
+        string mnemonic = parts[0];
+        if (parts.Length == 1)
+        {
+            return 1;
+        }
+
+        string operand = parts[1];
+        if (mnemonic is "jmp" or "jsr")
+        {
+            return operand.EndsWith(",x", StringComparison.Ordinal) ? 2 : 3;
+        }
+
+        if (mnemonic.Length == 3 && mnemonic[0] == 'b' && mnemonic != "bit")
+        {
+            return 2;
+        }
+
+        if (operand.StartsWith('#'))
+        {
+            return mnemonic is "ldx" or "lds" or "cpx" ? 3 : 2;
+        }
+
+        return operand.EndsWith(",x", StringComparison.Ordinal) ? 2 : 3;
     }
 
     private static IEnumerable<string> CrtCells()

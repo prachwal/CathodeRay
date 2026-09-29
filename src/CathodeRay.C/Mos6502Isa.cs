@@ -8,9 +8,16 @@ internal sealed class Mos6502Isa : ByteIsa
 {
     private static readonly HashSet<string> ReservedNames = new(["A", "X", "Y"], StringComparer.OrdinalIgnoreCase);
 
+    private static readonly string[] FixedZeroPage =
+        ["cc_arg1", "cc_arg1_h", "cc_arg2", "cc_arg2_h", "cc_arg3", "cc_arg3_h", "cc_ret", "cc_ret_h", "cc_t0", "cc_t1", "__p"];
+
+    private readonly HashSet<string> _zeroPage = new(FixedZeroPage, StringComparer.Ordinal);
+
     private int _labels;
 
     private int _offset;
+
+    private string _pointer = "__p";
 
     protected override IReadOnlySet<string> Reserved => ReservedNames;
 
@@ -30,13 +37,17 @@ internal sealed class Mos6502Isa : ByteIsa
 
     public override string? AddressByte(string expression, int index) => (index == 0 ? "<(" : ">(") + expression + ")";
 
-    public override void LoadA(Octet value) => L(value.IsImmediate ? $"lda #{value.Text}" : $"lda {value.Text}");
+    /// <summary>Dopisuje komórki modułu przeniesione na stronę zerową (operandy dostają przedrostek <c>z:</c>).</summary>
+    /// <param name="names">Nazwy symboli (bez przesunięć).</param>
+    public void AddZeroPage(IEnumerable<string> names) => _zeroPage.UnionWith(names);
 
-    public override void StoreA(string address) => L($"sta {address}");
+    public override void LoadA(Octet value) => L(value.IsImmediate ? $"lda #{value.Text}" : $"lda {Mem(value.Text)}");
+
+    public override void StoreA(string address) => L($"sta {Mem(address)}");
 
     public override void Alu(ByteAlu op, Octet value, bool first)
     {
-        string operand = value.IsImmediate ? $"#{value.Text}" : value.Text;
+        string operand = value.IsImmediate ? $"#{value.Text}" : Mem(value.Text);
         switch (op)
         {
             case ByteAlu.Add:
@@ -67,7 +78,7 @@ internal sealed class Mos6502Isa : ByteIsa
         }
     }
 
-    public override void Cmp(Octet value) => L(value.IsImmediate ? $"cmp #{value.Text}" : $"cmp {value.Text}");
+    public override void Cmp(Octet value) => L(value.IsImmediate ? $"cmp #{value.Text}" : $"cmp {Mem(value.Text)}");
 
     public override void ShlA(bool first) => L(first ? "asl a" : "rol a");
 
@@ -93,24 +104,24 @@ internal sealed class Mos6502Isa : ByteIsa
     {
         if (bytes.Count == 1)
         {
-            L($"{(increment ? "inc" : "dec")} {bytes[0]}");
+            L($"{(increment ? "inc" : "dec")} {Mem(bytes[0])}");
             return true;
         }
 
         string skip = LocalLabel();
         if (increment)
         {
-            L($"inc {bytes[0]}");
+            L($"inc {Mem(bytes[0])}");
             L($"bne {skip}");
-            L($"inc {bytes[1]}");
+            L($"inc {Mem(bytes[1])}");
         }
         else
         {
-            L($"lda {bytes[0]}");
+            L($"lda {Mem(bytes[0])}");
             L($"bne {skip}");
-            L($"dec {bytes[1]}");
+            L($"dec {Mem(bytes[1])}");
             L($"{skip}:");
-            L($"dec {bytes[0]}");
+            L($"dec {Mem(bytes[0])}");
             return true;
         }
 
@@ -126,47 +137,56 @@ internal sealed class Mos6502Isa : ByteIsa
 
     public override void CallIndirect(string cell)
     {
-        L($"lda {cell}");
+        L($"lda {Mem(cell)}");
         L("sta cc_fp");
-        L($"lda {cell}+1");
+        L($"lda {Mem(cell + "+1")}");
         L("sta cc_fp+1");
         L("jsr __icall");
     }
 
     public override void Return() => L("rts");
 
-    public override void PtrSetup(string cell, int offset)
+    public override void PtrSetup(string cell, int offset, bool mustCopy = false)
     {
-        if (offset <= 254)
+        if (offset <= 254 && !mustCopy && _zeroPage.Contains(cell))
         {
-            L($"lda {cell}");
-            L("sta __p");
-            L($"lda {cell}+1");
-            L("sta __p+1");
+            // wskaźnik już leży na stronie zerowej: (zp),Y wprost, bez kopii
+            _pointer = cell;
             _offset = offset;
             return;
         }
 
-        L($"lda {cell}");
+        _pointer = "__p";
+        if (offset <= 254)
+        {
+            L($"lda {Mem(cell)}");
+            L("sta z:__p");
+            L($"lda {Mem(cell + "+1")}");
+            L("sta z:__p+1");
+            _offset = offset;
+            return;
+        }
+
+        L($"lda {Mem(cell)}");
         L("clc");
         L($"adc #{offset & 0xFF}");
-        L("sta __p");
-        L($"lda {cell}+1");
+        L("sta z:__p");
+        L($"lda {Mem(cell + "+1")}");
         L($"adc #{offset >> 8}");
-        L("sta __p+1");
+        L("sta z:__p+1");
         _offset = 0;
     }
 
     public override void PtrLoad(int index)
     {
         L($"ldy #{_offset + index}");
-        L("lda (__p),y");
+        L($"lda ({_pointer}),y");
     }
 
     public override void PtrStore(int index)
     {
         L($"ldy #{_offset + index}");
-        L("sta (__p),y");
+        L($"sta ({_pointer}),y");
     }
 
     public override string Crt0()
@@ -187,10 +207,18 @@ internal sealed class Mos6502Isa : ByteIsa
         text.AppendLine(".extern __init_start");
         text.AppendLine(".extern __init_end");
         text.AppendLine(".segment \"CODE\"");
+        text.AppendLine(".global __zp_start");
+        text.AppendLine(".extern __zp_end");
         text.AppendLine("""
             ldx #255
             txs
             cld
+            ldx #<__zp_start
+            lda #0
+            __crt_zz: sta 0,x
+            inx
+            cpx #<__zp_end
+            bne __crt_zz
             lda #<__bss_start
             sta __q
             lda #>__bss_start
@@ -237,11 +265,17 @@ internal sealed class Mos6502Isa : ByteIsa
             __icall: jmp (cc_fp)
             """);
         text.AppendLine(".segment \"ZP\"");
+        text.AppendLine("__zp_start:");
         text.AppendLine("__p: .res 2");
         text.AppendLine("__q: .res 2");
+        foreach (string symbol in Cells().Where(_zeroPage.Contains))
+        {
+            text.AppendLine($"{symbol}: .res 1");
+        }
+
         text.AppendLine(".segment \"BSS\"");
         text.AppendLine("__bss_start: .res 1");
-        foreach (string symbol in Cells())
+        foreach (string symbol in Cells().Where(symbol => !_zeroPage.Contains(symbol)))
         {
             text.AppendLine($"{symbol}: .res 1");
         }
@@ -255,6 +289,8 @@ internal sealed class Mos6502Isa : ByteIsa
         return text.ToString();
     }
 
+    protected override string Relax(string text) => BranchRelaxer.Apply(text, Size, Invert);
+
     private static IEnumerable<string> Cells()
     {
         for (int arg = 1; arg <= TypeChecker.MaxArgs; arg++)
@@ -267,5 +303,51 @@ internal sealed class Mos6502Isa : ByteIsa
         yield return "cc_ret_h";
         yield return "cc_t0";
         yield return "cc_t1";
+    }
+
+    private static string? Invert(string branch) => branch switch
+    {
+        "bne" => "beq",
+        "beq" => "bne",
+        "bcc" => "bcs",
+        "bcs" => "bcc",
+        _ => null,
+    };
+
+    /// <summary>Rozmiar instrukcji 6502 w bajtach (do relaksacji skoków).</summary>
+    private static int Size(string line)
+    {
+        string[] parts = line.Split(' ', 2, StringSplitOptions.RemoveEmptyEntries);
+        string mnemonic = parts[0];
+        if (parts.Length == 1)
+        {
+            return 1;
+        }
+
+        string operand = parts[1];
+        if (mnemonic is "jmp" or "jsr")
+        {
+            return 3;
+        }
+
+        if (mnemonic.Length == 3 && mnemonic[0] == 'b' && mnemonic != "bit")
+        {
+            return 2;
+        }
+
+        if (mnemonic is "asl" or "lsr" or "rol" or "ror" && operand == "a")
+        {
+            return 1;
+        }
+
+        return operand.StartsWith('#') || operand.StartsWith("z:", StringComparison.Ordinal) || operand.StartsWith('(') || operand.StartsWith("0,x", StringComparison.Ordinal) ? 2 : 3;
+    }
+
+    /// <summary>Adres z przedrostkiem <c>z:</c> (strona zerowa), gdy symbol bazowy leży na stronie zerowej.</summary>
+    private string Mem(string address)
+    {
+        int plus = address.IndexOfAny(['+', '-']);
+        string symbol = plus < 0 ? address : address[..plus];
+        return _zeroPage.Contains(symbol) ? "z:" + address : address;
     }
 }
