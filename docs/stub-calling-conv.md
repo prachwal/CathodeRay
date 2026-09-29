@@ -259,3 +259,17 @@ liczbę parametrów (`printf(fmt, a1..a5)`), więc `...` można tylko deklarowa�
   z `Runners` — wyniki muszą być bajt w bajt równe.
 - `Mos6502` (tests/) to minimalny interpreter NMOS 6502 z tablicami z `mcp_6502_instructions.json`; opcody
   nieudokumentowane, BRK i tryb dziesiętny rzucają wyjątek; stop na KIL lub skoku do samego siebie.
+
+## Cele akumulatorowe generowane z prymitywów (plan 30, krok 10)
+
+- `ByteSelector` składa kod dowolnego CPU z prymitywów `ByteIsa` (A ← bajt, A ← A op bajt, bajt ← A, skoki, stos, wskaźnik);
+  cel to ~150 linii składni i instrukcji CPU (`Mos6502Isa`), reszta jest wspólna. Komórki leżą w pamięci absolutnej,
+  argumenty w `cc_argN`/`cc_argN_h`, wynik w `cc_ret`/`cc_ret_h`, wołanie pośrednie przez `cc_fp` + `__icall`.
+- `Legalizer` (IR → IR) zamienia mnożenie, dzielenie, reszty, przesunięcia o zmienną liczbę, `Sar` oraz duże bloki na wołania
+  funkcji z `stdlib/portable/rt.c` (mini-C kompilowane tym samym frontendem; dołączane do modułu jako funkcje lokalne);
+  małe bloki (≤ 6 B) rozwija w Load/Store. Porównania ze znakiem odwracają najstarszy bit (xor 128) i używają ciągu SUB.
+- Konsola: `stdlib/portable/io.c` (`__io_buf`, `__io_cur`, `putchar`/`puthex`/`putdec`), linkowana jako `RuntimeModules`.
+- 6502/65c02: wskaźnik dostępu pośredniego `__p` na stronie zerowej (segment `ZP`, obszar $00E0..$00FF), `LDY #n; LDA (__p),Y`;
+  skoki warunkowe jako krótki skok odwrócony + `JMP` (bez ograniczenia zasięgu). Komórki C nie trafiają na stronę zerową
+  (świadome uproszczenie: kod większy, ale bez budżetu ZP).
+- Testy: `TargetMatrixTests` (samples 01–16 na każdym celu z runnerem = wynik i konsola stuba), `IrConformanceTests`.

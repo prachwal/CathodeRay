@@ -24,5 +24,9 @@ public sealed class StubRunner : ICpuRunner
 
     public void Step() => _cpu.Step();
 
+    /// <summary>Wynik main: X·256 + A.</summary>
+    /// <returns>Słowo.</returns>
+    public int Word() => (_cpu.State.X * 256) + _cpu.State.A;
+
     public int Read(int address) => _bus.Read((ushort)address);
 }

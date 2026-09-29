@@ -59,7 +59,7 @@
     {
       "id": "10",
       "title": "[M] Mos6502Target i 65C02: komórki i wskaźniki na stronie zerowej (budżet + wspólny ZP scratch), Load/Store przez LDY #off; LDA (zp),Y, wołanie pośrednie przez JSR cc_icall (JMP (cc_fp)), CLC/SEC + ADC/SBC, PHA/PLA, INC A tylko na 65C02, crt0, io.s, rt.s, DefaultLayout; dołącza do macierzy",
-      "status": "todo",
+      "status": "done",
       "note": ""
     },
     {

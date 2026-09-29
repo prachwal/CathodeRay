@@ -14,9 +14,10 @@ public sealed class CTargetTests
     public void Registry_Finds_Targets_Case_Insensitively_And_Exposes_Planned_Names()
     {
         CTargets.Find("STUB").Should().BeSameAs(CTargets.Default);
-        CTargets.Find("6502").Should().BeNull();
-        CTargets.All.Select(static t => t.Name).Should().Equal("stub");
-        CTargets.Planned.Should().Contain(["6502", "65c02", "z80", "8080", "6800"]);
+        CTargets.Find("z80").Should().BeNull();
+        CTargets.Find("6502")!.Name.Should().Be("6502");
+        CTargets.All.Select(static t => t.Name).Should().StartWith("stub");
+        CTargets.Planned.Should().Contain(["z80", "8080", "6800"]);
     }
 
     [Fact]
@@ -73,9 +74,9 @@ public sealed class CTargetTests
             (int okExit, string okError) = Cc("cc", path, "-o", bin, "--cpu", "stub");
             okExit.Should().Be(0, okError);
 
-            (int plannedExit, string plannedError) = Cc("cc", path, "-o", bin, "--cpu", "6502");
+            (int plannedExit, string plannedError) = Cc("cc", path, "-o", bin, "--cpu", "z80");
             plannedExit.Should().NotBe(0);
-            plannedError.Should().Contain("target not implemented yet '6502'").And.Contain("available: stub");
+            plannedError.Should().Contain("target not implemented yet 'z80'").And.Contain("available: stub");
 
             (int unknownExit, string unknownError) = Cc("cc", path, "-o", bin, "--cpu", "pdp11");
             unknownExit.Should().NotBe(0);

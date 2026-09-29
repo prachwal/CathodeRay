@@ -15,6 +15,7 @@
     <EmbeddedResource Include="stdlib\include\*.h" LogicalName="stdlib/include/%(Filename)%(Extension)" />
     <EmbeddedResource Include="stdlib\lib\*.c" LogicalName="stdlib/lib/%(Filename)%(Extension)" />
     <EmbeddedResource Include="..\..\samples\stub\lib\io.s" LogicalName="stdlib/lib/io.s" />
+    <EmbeddedResource Include="stdlib\portable\*.c" LogicalName="stdlib/portable/%(Filename)%(Extension)" />
     <EmbeddedResource Include="stdlib\stub\*.s" LogicalName="stdlib/lib/%(Filename)%(Extension)" />
   </ItemGroup>
 

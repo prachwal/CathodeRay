@@ -24,6 +24,12 @@ public static partial class StdLib
     public static string? HeaderReader(string name) =>
         name.StartsWith('<') ? Header(name[1..^1]) : null;
 
+    /// <summary>Czyta źródło modułu przenośnego (<c>stdlib/portable</c>): C kompilowane na dowolny cel.</summary>
+    /// <param name="name">Nazwa pliku (<c>rt.c</c>).</param>
+    /// <returns>Tekst źródłowy.</returns>
+    public static string Portable(string name) =>
+        Read($"stdlib/portable/{name}") ?? throw new InvalidOperationException($"missing embedded resource 'stdlib/portable/{name}'.");
+
     private static string? Read(string resource)
     {
         using Stream? stream = typeof(StdLib).Assembly.GetManifestResourceStream(resource);
