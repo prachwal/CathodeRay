@@ -82,7 +82,7 @@ internal static class IrInliner
                 }
             }
 
-            functions.Add(inlined.Count == 0 ? function : function with { Body = IrPasses.Optimize(body, function.Name, inlined) });
+            functions.Add(inlined.Count == 0 ? function : function with { Body = IrPasses.Optimize(body, function.Name, inlined, module.Volatile) });
         }
 
         // po inliningu usuń funkcje static, do których nikt już nie woła

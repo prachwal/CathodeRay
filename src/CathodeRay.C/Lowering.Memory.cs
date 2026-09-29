@@ -100,7 +100,7 @@ internal sealed partial class Lowering
         (Ir.Op pointer, int offset) = LValueAddr(expr, depth);
         int width = Width(type);
         Ir.Cell dst = Dst(into, width, depth);
-        Emit(new Ir.Load(dst, pointer, offset, width));
+        Emit(new Ir.Load(dst, pointer, offset, width, type.IsVolatile));
         return dst;
     }
 }

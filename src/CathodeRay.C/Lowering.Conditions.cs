@@ -20,7 +20,8 @@ internal sealed partial class Lowering
     /// <summary>Warunek porównania: bez znaku, gdy oba operandy są bajtami albo któryś jest uint/wskaźnikiem.</summary>
     private Ir.Cond ConditionFor(string op, Ast.Expr left, Ast.Expr right)
     {
-        bool unsignedCompare = (WidthOf(left) == 1 && WidthOf(right) == 1)
+        bool signedBytes = KindOf(left) == "schar" || KindOf(right) == "schar";
+        bool unsignedCompare = (WidthOf(left) == 1 && WidthOf(right) == 1 && !signedBytes)
             || KindOf(left) is "uint" or "ulong" or "ptr" or "fptr" || KindOf(right) is "uint" or "ulong" or "ptr" or "fptr";
         return op switch
         {
@@ -93,10 +94,16 @@ internal sealed partial class Lowering
                 }
 
                 Ir.Op right = Value(compare.Right, depth + 1);
-                if (Math.Max(WidthOf(compare.Left), WidthOf(compare.Right)) == 4)
+                int compareWidth = Math.Max(WidthOf(compare.Left), WidthOf(compare.Right));
+                if (KindOf(compare.Left) == "schar" || KindOf(compare.Right) == "schar")
                 {
-                    left = Extend(left, TypeOf(compare.Left), true, depth + 2);
-                    right = Extend(right, TypeOf(compare.Right), true, depth + 3);
+                    compareWidth = Math.Max(compareWidth, 2);
+                }
+
+                if (compareWidth >= 2)
+                {
+                    left = Widen(left, TypeOf(compare.Left), compareWidth, depth + 2);
+                    right = Widen(right, TypeOf(compare.Right), compareWidth, depth + 3);
                 }
 
                 Ir.Cond cond = ConditionFor(compare.Op, compare.Left, compare.Right);

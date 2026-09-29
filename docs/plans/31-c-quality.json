@@ -82,21 +82,21 @@
     {
       "id": "12",
       "title": "[S] short, unsigned short, unsigned i signed jako aliasy istniejących typów (short = int, unsigned = uint, unsigned char = uchar); ostrzeżenia bez zmian",
-      "status": "todo",
+      "status": "done",
       "note": "",
       "section": "D. Typy i kwalifikatory"
     },
     {
       "id": "13",
       "title": "[M] signed char (schar): 8-bitowy ze znakiem, rozszerzanie znakiem do int/long (Extend), porównania ze znakiem na W1, Sar na W1, warunki BrCmp; char zostaje uchar",
-      "status": "todo",
+      "status": "done",
       "note": "",
       "section": "D. Typy i kwalifikatory"
     },
     {
       "id": "14",
       "title": "[M] volatile: każdy odczyt i zapis zachowany (wyłącza propagację, martwe zapisy i pamięć podręczną A dla tej komórki i adresów); inline jako podpowiedź (współpracuje z 10), register przyjmowany i ignorowany",
-      "status": "todo",
+      "status": "done",
       "note": "",
       "section": "D. Typy i kwalifikatory"
     },

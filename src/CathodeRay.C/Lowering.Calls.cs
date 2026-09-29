@@ -72,10 +72,7 @@ internal sealed partial class Lowering
             else
             {
                 values[i] = Value(args[i], at);
-                if (i < paramTypes.Count)
-                {
-                    values[i] = Extend(values[i], TypeOf(args[i]), paramTypes[i].Size == 4, at + count + 2);
-                }
+                values[i] = Widen(values[i], TypeOf(args[i]), i < paramTypes.Count ? Width(paramTypes[i]) : widths[i], at + count + 2);
             }
         }
 

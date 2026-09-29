@@ -44,6 +44,7 @@ internal static class CaseFold
             Data = [.. module.Data.Select(Data)],
             ExternFunctions = [.. module.ExternFunctions.Select(Name)],
             ExternCells = [.. module.ExternCells.Select(Name)],
+            Volatile = module.Volatile is null ? null : new HashSet<string>(module.Volatile.Select(Name), StringComparer.Ordinal),
         };
     }
 

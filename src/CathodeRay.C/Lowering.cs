@@ -31,6 +31,8 @@ internal sealed partial class Lowering
 
     private readonly HashSet<int> _wideTemps = [];
 
+    private readonly HashSet<string> _volatileSyms = new(StringComparer.Ordinal);
+
     private readonly TargetByteOrder _byteOrder;
 
     private readonly HashSet<string> _localSymbols = new(StringComparer.Ordinal);
@@ -146,12 +148,12 @@ internal sealed partial class Lowering
                 .Where(name => !program.Functions.Any(f => !f.Def.IsExtern && f.Def.Name == name))
                 .Distinct(StringComparer.Ordinal),
         ];
-        return new Ir.Module(_functionsOut, _dataOut, externFunctions, _usesReturnBuffer ? [.. _externCells, ReturnBuffer] : _externCells, _objectMode);
+        return new Ir.Module(_functionsOut, _dataOut, externFunctions, _usesReturnBuffer ? [.. _externCells, ReturnBuffer] : _externCells, _objectMode, _volatileSyms);
     }
 
     private static string GlobalLabel(string name) => $"cc_g_{name}";
 
-    private static int Width(CType type) => type.Kind == "uchar" ? 1 : type.Kind is "long" or "ulong" ? 4 : 2;
+    private static int Width(CType type) => type.Kind is "uchar" or "schar" ? 1 : type.Kind is "long" or "ulong" ? 4 : 2;
 
     private static bool IsWide(CType type) => type.Kind is "int" or "uint" or "long" or "ulong" or "ptr" or "fptr";
 
@@ -168,12 +170,15 @@ internal sealed partial class Lowering
         return true;
     }
 
-    private static int ReturnWidth(Ast.Function def) =>
-        def.ReturnStars > 0 ? 2
-        : def.ReturnType == "void" || def.ReturnType.StartsWith("struct ", StringComparison.Ordinal) || def.ReturnType.StartsWith("const struct ", StringComparison.Ordinal) ? 0
-        : def.ReturnType is "uchar" or "const uchar" ? 1
-        : def.ReturnType is "long" or "ulong" or "const long" or "const ulong" ? 4
-        : 2;
+    private static int ReturnWidth(Ast.Function def)
+    {
+        string bare = TypeQualifiers.Split(def.ReturnType, out _, out _);
+        return def.ReturnStars > 0 ? 2
+            : bare == "void" || bare.StartsWith("struct ", StringComparison.Ordinal) ? 0
+            : bare is "uchar" or "schar" ? 1
+            : bare is "long" or "ulong" ? 4
+            : 2;
+    }
 
     /// <summary>Usuwa <c>Jmp L</c> tuż przed <c>L:</c> (pomijając znaczniki linii).</summary>
     private static List<Ir.Ins> DropJumpsToNext(List<Ir.Ins> body)
@@ -202,7 +207,7 @@ internal sealed partial class Lowering
     }
 
     private static bool ReturnsStruct(Ast.Function def) =>
-        def.ReturnStars == 0 && (def.ReturnType.StartsWith("struct ", StringComparison.Ordinal) || def.ReturnType.StartsWith("const struct ", StringComparison.Ordinal));
+        def.ReturnStars == 0 && TypeQualifiers.Split(def.ReturnType, out _, out _).StartsWith("struct ", StringComparison.Ordinal);
 
     /// <summary>Tymczasowa struktura (wynik wywołania zwracającego strukturę): pamięć statyczna, zapisywana w ramce.</summary>
     private string NewAggregate(int size)
@@ -211,6 +216,20 @@ internal sealed partial class Lowering
         AddBss(sym, size);
         _extraOwned.Add(new Ir.Owned(sym, size, true));
         return sym;
+    }
+
+    private void MarkVolatile(VarCell cell)
+    {
+        CType type = cell.Type;
+        while (type.Kind == "array" && type.Base is not null)
+        {
+            type = type.Base;
+        }
+
+        if (type.IsVolatile)
+        {
+            _volatileSyms.Add(cell.Sym);
+        }
     }
 
     private string TempSym(int depth) => $"{_prefix}__t@{depth}";
@@ -283,6 +302,7 @@ internal sealed partial class Lowering
         foreach (TypedSymbol global in _globals)
         {
             _cells[global.Name] = new VarCell(GlobalLabel(global.Name), global.Type);
+            MarkVolatile(_cells[global.Name]);
         }
 
         var saved = new List<Ir.Owned>();
@@ -311,6 +331,7 @@ internal sealed partial class Lowering
 
             var cell = new VarCell($"{_prefix}__{param.Name}", param.Type);
             _cells[param.Name] = cell;
+            MarkVolatile(cell);
             AddBss(cell.Sym, Width(param.Type));
             saved.Add(new Ir.Owned(cell.Sym, Width(param.Type), false));
             parameters.Add(new Ir.Cell(cell.Sym, Width(param.Type)));
@@ -320,6 +341,7 @@ internal sealed partial class Lowering
         {
             var cell = new VarCell($"{_prefix}__{local.Name}", local.Type);
             _cells[local.Name] = cell;
+            MarkVolatile(cell);
             if (local.Flags.HasFlag(DeclFlags.Static))
             {
                 _localSymbols.Add(cell.Sym);
@@ -363,7 +385,7 @@ internal sealed partial class Lowering
 
         saved.AddRange(_extraOwned);
         int retW = ReturnWidth(function.Def);
-        _pending.Add(new Pending(new Ir.Function(function.Def.Name, function.Def.IsStatic, parameters, retW, [], IrPasses.Optimize(DropJumpsToNext(_body), function.Def.Name)), saved, aggregates));
+        _pending.Add(new Pending(new Ir.Function(function.Def.Name, function.Def.IsStatic, parameters, retW, [], IrPasses.Optimize(DropJumpsToNext(_body), function.Def.Name, null, _volatileSyms)), saved, aggregates));
         _current = null;
     }
 

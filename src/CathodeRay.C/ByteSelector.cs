@@ -20,6 +20,8 @@ internal sealed class ByteSelector
     /// Każdy zapis do pamięci to zapis A, więc zapisy zachowują tę wiedzę; zmienia ją zmiana A, wołanie i etykieta (wejście z innego miejsca).</summary>
     private readonly HashSet<string> _acc = new(StringComparer.Ordinal);
 
+    private readonly HashSet<string> _volatile;
+
     private int _labels;
 
     private bool _usesIcall;
@@ -28,6 +30,7 @@ internal sealed class ByteSelector
     {
         _module = module;
         _isa = isa;
+        _volatile = module.Volatile is null ? [] : [.. module.Volatile.Select(isa.Sym)];
     }
 
     /// <summary>Składa asembler modułu.</summary>
@@ -65,23 +68,41 @@ internal sealed class ByteSelector
 
     private string At(string sym, int offset) => _isa.At(sym, offset);
 
+    private bool IsVolatile(string address)
+    {
+        if (_volatile.Count == 0)
+        {
+            return false;
+        }
+
+        int cut = address.IndexOfAny(['+', '-']);
+        return _volatile.Contains(cut < 0 ? address : address[..cut]);
+    }
+
     private void LoadA(Octet value)
     {
         string key = Key(value);
-        if (_acc.Contains(key))
+        bool cacheable = value.IsImmediate || !IsVolatile(value.Text);
+        if (cacheable && _acc.Contains(key))
         {
             return;
         }
 
         _isa.LoadA(value);
         _acc.Clear();
-        _acc.Add(key);
+        if (cacheable)
+        {
+            _acc.Add(key);
+        }
     }
 
     private void StoreA(string address)
     {
         _isa.StoreA(address);
-        _acc.Add(address);
+        if (!IsVolatile(address))
+        {
+            _acc.Add(address);
+        }
     }
 
     private void Alu(ByteAlu op, Octet value, bool first)

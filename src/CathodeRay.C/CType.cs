@@ -7,10 +7,14 @@ namespace CathodeRay.C;
 /// <param name="Info">Układ struktury (tylko <c>struct</c>).</param>
 /// <param name="IsConst">Wartość tylko do odczytu (<c>const</c>).</param>
 /// <param name="Sig">Sygnatura (tylko <c>fptr</c>, wskaźnik do funkcji).</param>
-public sealed record CType(string Kind, CType? Base = null, int Length = 0, StructInfo? Info = null, bool IsConst = false, FuncSig? Sig = null)
+/// <param name="IsVolatile">Każdy odczyt i zapis musi zostać wykonany (<c>volatile</c>).</param>
+public sealed record CType(string Kind, CType? Base = null, int Length = 0, StructInfo? Info = null, bool IsConst = false, FuncSig? Sig = null, bool IsVolatile = false)
 {
     /// <summary>8-bit bez znaku.</summary>
     public static CType UChar { get; } = new("uchar");
+
+    /// <summary>8-bit ze znakiem (<c>signed char</c>).</summary>
+    public static CType SChar { get; } = new("schar");
 
     /// <summary>16-bit ze znakiem.</summary>
     public static CType Int { get; } = new("int");
@@ -30,7 +34,7 @@ public sealed record CType(string Kind, CType? Base = null, int Length = 0, Stru
     /// <summary>Rozmiar w bajtach (wskaźnik: 2, tablica: N * rozmiar elementu).</summary>
     public int Size => Kind switch
     {
-        "uchar" => 1,
+        "uchar" or "schar" => 1,
         "long" or "ulong" => 4,
         "array" => Length * (Base?.Size ?? 0),
         "struct" => Info?.Size ?? 0,
@@ -38,7 +42,7 @@ public sealed record CType(string Kind, CType? Base = null, int Length = 0, Stru
     };
 
     /// <summary>Typ całkowity (uchar, int, uint, long, ulong).</summary>
-    public bool IsInteger => Kind is "uchar" or "int" or "uint" or "long" or "ulong";
+    public bool IsInteger => Kind is "uchar" or "schar" or "int" or "uint" or "long" or "ulong";
 
     /// <summary>Wskaźnik.</summary>
     /// <param name="base">Typ bazowy.</param>
@@ -67,7 +71,8 @@ public sealed record CType(string Kind, CType? Base = null, int Length = 0, Stru
     /// <param name="b">Drugi typ.</param>
     /// <returns>Typ wyniku.</returns>
     public static CType Promote(CType a, CType b) =>
-        a.Kind == "ulong" || b.Kind == "ulong" ? ULong
+        (a.Kind == "schar" && b.Kind is "schar" or "uchar") || (b.Kind == "schar" && a.Kind == "uchar") ? SChar
+        : a.Kind == "ulong" || b.Kind == "ulong" ? ULong
         : a.Kind == "long" || b.Kind == "long" ? Long
         : a.Kind == "uint" || b.Kind == "uint" ? UInt
         : a.Kind == "int" || b.Kind == "int" ? Int
@@ -78,7 +83,7 @@ public sealed record CType(string Kind, CType? Base = null, int Length = 0, Stru
     public CType Decay() => Kind == "array" && Base is not null ? Pointer(Base) : this;
 
     /// <inheritdoc/>
-    public override string ToString() => (IsConst ? "const " : string.Empty) + Kind switch
+    public override string ToString() => (IsConst ? "const " : string.Empty) + (IsVolatile ? "volatile " : string.Empty) + Kind switch
     {
         "ptr" => Base + "*",
         "array" => Base + "[" + Length + "]",
@@ -93,6 +98,7 @@ public sealed record CType(string Kind, CType? Base = null, int Length = 0, Stru
     public static CType FromName(string name) => name switch
     {
         "uchar" => UChar,
+        "schar" => SChar,
         "int" => Int,
         "uint" => UInt,
         "long" => Long,

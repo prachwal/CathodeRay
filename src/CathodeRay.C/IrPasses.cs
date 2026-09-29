@@ -8,8 +8,9 @@ internal static class IrPasses
     /// <param name="function">Nazwa funkcji: jej komórki lokalne mają przedrostek <c>nazwa__</c> i tylko one podlegają propagacji i usuwaniu.</param>
     /// <returns>Instrukcje po optymalizacji.</returns>
     /// <param name="inlined">Nazwy funkcji wstawionych do tego ciała: ich komórki też są lokalne (używane tylko w wstawionym kodzie).</param>
-    public static List<Ir.Ins> Optimize(List<Ir.Ins> body, string function, IReadOnlySet<string>? inlined = null) =>
-        RemoveDead(Propagate(ForwardTemporaries(body), function, inlined), function, inlined);
+    /// <param name="volatiles">Symbole <c>volatile</c>: nie są propagowane ani usuwane.</param>
+    public static List<Ir.Ins> Optimize(List<Ir.Ins> body, string function, IReadOnlySet<string>? inlined = null, IReadOnlySet<string>? volatiles = null) =>
+        RemoveDead(Propagate(ForwardTemporaries(body), function, inlined, volatiles), function, inlined, volatiles);
 
     private static bool IsTemporary(Ir.Cell cell) => cell.Sym.Contains("__t@", StringComparison.Ordinal);
 
@@ -131,10 +132,10 @@ internal static class IrPasses
 
     /// <summary>Propagacja stałych, adresów i kopii w bloku podstawowym oraz składanie działań na stałych. Dotyczy tylko komórek lokalnych funkcji,
     /// których adres nie jest brany (nie mogą być zmienione przez wskaźnik ani wołanie).</summary>
-    private static List<Ir.Ins> Propagate(List<Ir.Ins> body, string function, IReadOnlySet<string>? inlined)
+    private static List<Ir.Ins> Propagate(List<Ir.Ins> body, string function, IReadOnlySet<string>? inlined, IReadOnlySet<string>? volatiles)
     {
         HashSet<string> taken = AddressTaken(body);
-        bool Tracked(string sym) => IsLocal(sym, function, inlined) && !taken.Contains(sym);
+        bool Tracked(string sym) => IsLocal(sym, function, inlined) && !taken.Contains(sym) && volatiles?.Contains(sym) != true;
         var known = new Dictionary<string, Ir.Op>(StringComparer.Ordinal);
         var result = new List<Ir.Ins>(body.Count);
 
@@ -302,7 +303,7 @@ internal static class IrPasses
     }
 
     /// <summary>Usuwa zapisy do komórek lokalnych, których nikt nie czyta (adres nie jest brany), do braku zmian.</summary>
-    private static List<Ir.Ins> RemoveDead(List<Ir.Ins> body, string function, IReadOnlySet<string>? inlined)
+    private static List<Ir.Ins> RemoveDead(List<Ir.Ins> body, string function, IReadOnlySet<string>? inlined, IReadOnlySet<string>? volatiles)
     {
         while (true)
         {
@@ -320,7 +321,7 @@ internal static class IrPasses
             }
 
             int before = body.Count;
-            body = [.. body.Where(ins => ins is Ir.Call || Defined(ins) is not { } d || !IsLocal(d.Sym, function, inlined) || taken.Contains(d.Sym) || reads.Contains(d.Sym))];
+            body = [.. body.Where(ins => ins is Ir.Call or Ir.Load { Volatile: true } || Defined(ins) is not { } d || !IsLocal(d.Sym, function, inlined) || taken.Contains(d.Sym) || reads.Contains(d.Sym) || volatiles?.Contains(d.Sym) == true)];
             if (body.Count == before)
             {
                 return body;

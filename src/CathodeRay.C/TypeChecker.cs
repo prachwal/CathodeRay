@@ -163,8 +163,7 @@ public sealed partial class TypeChecker
 
     private CType Declared(string type, int stars, int length = 0)
     {
-        bool isConst = type.StartsWith("const ", StringComparison.Ordinal);
-        string bare = isConst ? type[6..] : type;
+        string bare = TypeQualifiers.Split(type, out bool isConst, out bool isVolatile);
         var dimensions = new List<int>();
         int innerStars = 0;
         int bracket = bare.IndexOf('[', StringComparison.Ordinal);
@@ -186,9 +185,9 @@ public sealed partial class TypeChecker
             : bare.StartsWith("struct ", StringComparison.Ordinal)
             ? CType.Struct(_structs.TryGetValue(bare[7..], out StructInfo? info) ? info : throw new CTypeException($"unknown {bare}."))
             : CType.FromName(bare);
-        if (isConst)
+        if (isConst || isVolatile)
         {
-            result = result with { IsConst = true };
+            result = result with { IsConst = isConst, IsVolatile = isVolatile };
         }
 
         for (int i = 0; i < innerStars; i++)
@@ -280,7 +279,7 @@ public sealed partial class TypeChecker
         info.IsUnion = union;
         foreach (Ast.FieldDecl field in defs[name].Fields)
         {
-            string bareField = field.Type.StartsWith("const ", StringComparison.Ordinal) ? field.Type[6..] : field.Type;
+            string bareField = TypeQualifiers.Split(field.Type, out _, out _);
             if (bareField.StartsWith("struct ", StringComparison.Ordinal) && field.Stars == 0 && defs.ContainsKey(bareField[7..]))
             {
                 LayoutStruct(defs, bareField[7..], visiting);
@@ -615,7 +614,7 @@ public sealed partial class TypeChecker
     private void CheckSwitch(Ast.Switch stmt)
     {
         CType type = TypeOf(stmt.Value);
-        if (type.Kind is not ("uchar" or "int" or "uint"))
+        if (type.Kind is not ("uchar" or "schar" or "int" or "uint"))
         {
             throw new CTypeException("switch needs an integer value.");
         }
@@ -711,8 +710,17 @@ public sealed partial class TypeChecker
             return;
         }
 
-        Assignable(target, TypeOf(value), where);
+        CType valueType = TypeOf(value);
+        if (target.Kind == "schar" && valueType.Kind is "int" or "uint" && ConstantValue(value) is int constant && (short)constant is >= sbyte.MinValue and <= sbyte.MaxValue)
+        {
+            return;
+        }
+
+        Assignable(target, valueType, where);
     }
+
+    private int? ConstantValue(Ast.Expr expr) =>
+        expr is Ast.Number number && !ParseLiteral(number.Text).IsLong ? NumberValue(number.Text) & 0xFFFF : _constants.TryGetValue(expr, out int folded) ? folded : null;
 
     private void Assignable(CType target, CType value, string where)
     {
@@ -726,7 +734,7 @@ public sealed partial class TypeChecker
             return;
         }
 
-        if (SameShape(target, value) || (target.IsInteger && target.Kind != "uchar" && value.IsInteger && value.Size <= target.Size))
+        if (SameShape(target, value) || (target.IsInteger && target.Kind != "uchar" && value.IsInteger && value.Size <= target.Size) || (target.Kind == "uchar" && value.Kind == "schar"))
         {
             if (target.Kind == "ptr" && value.Base is { IsConst: true } && target.Base is { IsConst: false })
             {
@@ -1205,8 +1213,10 @@ public sealed partial class TypeChecker
         }
 
         CType fieldType = info.Find(member.Name)?.Type ?? throw new CTypeException($"struct '{info.Name}' has no field '{member.Name}'.");
-        bool constBase = member.Arrow ? baseType.Base!.IsConst : baseType.IsConst;
-        return constBase && !fieldType.IsConst ? fieldType with { IsConst = true } : fieldType;
+        CType owner = member.Arrow ? baseType.Base! : baseType;
+        return (owner.IsConst && !fieldType.IsConst) || (owner.IsVolatile && !fieldType.IsVolatile)
+            ? fieldType with { IsConst = fieldType.IsConst || owner.IsConst, IsVolatile = fieldType.IsVolatile || owner.IsVolatile }
+            : fieldType;
     }
 
     private CType DerefType(Ast.Deref deref)
