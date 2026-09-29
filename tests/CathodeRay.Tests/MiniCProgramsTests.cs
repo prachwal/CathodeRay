@@ -47,6 +47,7 @@ public sealed class MiniCProgramsTests
             cpu.Step();
         }
 
+        IrOracle.AssertSameAsCpu(checkedProgram, cpu);
         return (cpu, bus, result);
     }
 

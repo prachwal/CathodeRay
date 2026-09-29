@@ -40,6 +40,11 @@ public sealed class CCodegenTests
             cpu.Step();
         }
 
+        if (poke is null)
+        {
+            IrOracle.AssertSameAsCpu(checkedProgram, cpu);
+        }
+
         return (cpu, bus, result);
     }
 
