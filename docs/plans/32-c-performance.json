@@ -13,7 +13,7 @@
     {
       "id": "2",
       "title": "[S] `IrPasses.ForwardTemporaries`: przypadek `Mov(t, X)` po którym tuż następuje `Mov(v, t)` i `t` jest martwa (użyj istniejącego `IsDeadAfter`) → jedna instrukcja `Mov(v, X)`. Dodaj test w `tests/CathodeRay.Tests/IrPassesTests.cs` (nowy plik, jeśli brak) na małym IR zbudowanym ręcznie: dwie kopie w łańcuchu dają jedną. Zmierz: liczba `sta M ; lda M` w `hotspots.md` maleje.",
-      "status": "todo",
+      "status": "done",
       "note": "",
       "section": "B. Kopie przez tymczasowe (IR, `IrPasses.cs`)"
     },

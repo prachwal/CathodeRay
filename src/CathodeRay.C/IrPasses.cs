@@ -12,6 +12,52 @@ internal static class IrPasses
     public static List<Ir.Ins> Optimize(List<Ir.Ins> body, string function, IReadOnlySet<string>? inlined = null, IReadOnlySet<string>? volatiles = null) =>
         RemoveDead(Propagate(ForwardTemporaries(body), function, inlined, volatiles), function, inlined, volatiles);
 
+    /// <summary>Zamienia <c>t = op …; v = t</c> na <c>v = op …</c>, gdy <c>t</c> jest tymczasową martwą po kopii, a szerokości się zgadzają.</summary>
+    internal static List<Ir.Ins> ForwardTemporaries(List<Ir.Ins> body)
+    {
+        var result = new List<Ir.Ins>(body.Count);
+        for (int i = 0; i < body.Count; i++)
+        {
+            // Case: Mov(t, X) followed by Mov(v, t) where t is dead
+            if (i + 1 < body.Count
+                && body[i] is Ir.Mov movFirst && IsTemporary(movFirst.Dst)
+                && body[i + 1] is Ir.Mov { Src: Ir.Cell cellSrc } movSecond && cellSrc.Sym == movFirst.Dst.Sym
+                && movSecond.Dst.W == movFirst.Dst.W
+                && GetWidth(movFirst.Src) == movFirst.Dst.W
+                && IsDeadAfter(body, i + 2, movFirst.Dst.Sym))
+            {
+                result.Add(new Ir.Mov(movSecond.Dst, movFirst.Src));
+                i++;
+                continue;
+            }
+
+            if (i + 1 < body.Count
+                && Defined(body[i]) is { } tempVar && IsTemporary(tempVar)
+                && body[i] is not Ir.Mov
+                && body[i + 1] is Ir.Mov { Src: Ir.Cell copySource } copyMov && copySource.Sym == tempVar.Sym
+                && copyMov.Dst.W == tempVar.W && copySource.W == tempVar.W
+                && !ReadOperands(body[i]).Any(op => Reads(op, copyMov.Dst.Sym) && body[i] is Ir.Bin { Kind: not (Ir.BinOp.Add or Ir.BinOp.Sub or Ir.BinOp.And or Ir.BinOp.Or or Ir.BinOp.Xor) })
+                && IsDeadAfter(body, i + 2, tempVar.Sym))
+            {
+                result.Add(WithDestination(body[i], copyMov.Dst));
+                i++;
+                continue;
+            }
+
+            result.Add(body[i]);
+        }
+
+        return result;
+    }
+
+    private static int GetWidth(Ir.Op op) => op switch
+    {
+        Ir.Cell cell => cell.W,
+        Ir.Imm imm => imm.W,
+        Ir.AddrOf => 2,
+        _ => 0,
+    };
+
     private static bool IsTemporary(Ir.Cell cell) => cell.Sym.Contains("__t@", StringComparison.Ordinal);
 
     private static bool Reads(Ir.Op op, string symbol) => op is Ir.Cell cell && cell.Sym == symbol;
@@ -81,31 +127,6 @@ internal static class IrPasses
         }
 
         return true;
-    }
-
-    /// <summary>Zamienia <c>t = op …; v = t</c> na <c>v = op …</c>, gdy <c>t</c> jest tymczasową martwą po kopii, a szerokości się zgadzają.</summary>
-    private static List<Ir.Ins> ForwardTemporaries(List<Ir.Ins> body)
-    {
-        var result = new List<Ir.Ins>(body.Count);
-        for (int i = 0; i < body.Count; i++)
-        {
-            if (i + 1 < body.Count
-                && Defined(body[i]) is { } temporary && IsTemporary(temporary)
-                && body[i] is not Ir.Mov
-                && body[i + 1] is Ir.Mov { Src: Ir.Cell source } copy && source.Sym == temporary.Sym
-                && copy.Dst.W == temporary.W && source.W == temporary.W
-                && !ReadOperands(body[i]).Any(op => Reads(op, copy.Dst.Sym) && body[i] is Ir.Bin { Kind: not (Ir.BinOp.Add or Ir.BinOp.Sub or Ir.BinOp.And or Ir.BinOp.Or or Ir.BinOp.Xor) })
-                && IsDeadAfter(body, i + 2, temporary.Sym))
-            {
-                result.Add(WithDestination(body[i], copy.Dst));
-                i++;
-                continue;
-            }
-
-            result.Add(body[i]);
-        }
-
-        return result;
     }
 
     private static bool IsLocal(string symbol, string function, IReadOnlySet<string>? inlined = null) =>
