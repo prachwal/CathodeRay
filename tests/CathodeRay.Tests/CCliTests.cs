@@ -64,6 +64,11 @@ public sealed class CCliTests : IDisposable
         mapText.Should().MatchRegex(@"(?m)^[0-9A-F]{4} a\.c:2$");
         mapText.Should().MatchRegex(@"(?m)^[0-9A-F]{4} b\.c:2$");
         System.IO.File.ReadAllText(listing).Should().Contain(";c:");
+
+        var run = Cli("stub", "run", bin, "--load", "0x1000");
+        run.Exit.Should().Be(0, run.Err);
+        run.Out.Should().Contain("halted=True");
+        run.Out.Should().Contain("A=8E");
     }
 
     [Fact]

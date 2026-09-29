@@ -76,6 +76,20 @@ public sealed class CliTests : IDisposable
     }
 
     [Fact]
+    public void Run_Load_Sets_Base_Address()
+    {
+        string bin = Binary(Sum);
+
+        var (exit, output, _) = Cli("stub", "run", bin, "--load", "0");
+        exit.Should().Be(0);
+        output.Should().Contain("halted=True").And.Contain("A=05");
+
+        var (badExit, _, err) = Cli("stub", "run", bin, "--load", "0xFFFF");
+        badExit.Should().Be(1);
+        err.Should().Contain("does not fit");
+    }
+
+    [Fact]
     public void Run_Trace_Prints_Each_Step()
     {
         var (_, output, _) = Cli("stub", "run", Binary(Sum), "--trace");

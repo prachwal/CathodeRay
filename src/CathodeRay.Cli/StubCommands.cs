@@ -30,8 +30,12 @@ internal static class StubCommands
 
     private static Command CreateRun(Option<FileInfo> isa)
     {
-        var binary = new Argument<FileInfo>("binary") { Description = "Plik binarny ładowany od adresu 0." };
+        var binary = new Argument<FileInfo>("binary") { Description = "Plik binarny (ładowany pod --load)." };
         binary.AcceptExistingOnly();
+        var load = new Option<string>("--load")
+        {
+            Description = "Bazowy adres ładowania i startu PC ($hex/0xhex/dec, domyślnie 0).",
+        };
         var maxSteps = new Option<int>("--max-steps")
         {
             Description = "Limit kroków (ochrona przed pętlą bez HLT).",
@@ -44,24 +48,40 @@ internal static class StubCommands
             CustomParser = ParseRanges,
         };
 
-        var command = new Command("run", "Uruchamia program do HLT lub limitu kroków.") { binary, maxSteps, trace, dump };
+        var command = new Command("run", "Uruchamia program do HLT lub limitu kroków.") { binary, maxSteps, trace, dump, load };
         command.SetAction(parse =>
         {
             TextWriter output = parse.InvocationConfiguration.Output;
+            TextWriter error = parse.InvocationConfiguration.Error;
             byte[] image = File.ReadAllBytes(parse.GetRequiredValue(binary).FullName);
             if (image.Length > 0x10000)
             {
-                parse.InvocationConfiguration.Error.WriteLine($"Binary too large: {image.Length} B (max 65536).");
+                error.WriteLine($"Binary too large: {image.Length} B (max 65536).");
+                return 1;
+            }
+
+            int loadAddress = 0;
+            if (parse.GetValue(load) is { } loadText
+                && (!CathodeRay.NumberLiteral.TryParse(loadText, out loadAddress) || loadAddress is < 0 or > ushort.MaxValue))
+            {
+                error.WriteLine($"Invalid --load '{loadText}' (expected $0000..$FFFF).");
+                return 1;
+            }
+
+            if (loadAddress + image.Length > 0x10000)
+            {
+                error.WriteLine($"Binary does not fit: load ${loadAddress:X4} + {image.Length} B exceeds 64 KB.");
                 return 1;
             }
 
             var bus = new StubBus();
             for (int i = 0; i < image.Length; i++)
             {
-                bus.Write((ushort)i, image[i]);
+                bus.Write((ushort)(loadAddress + i), image[i]);
             }
 
             var cpu = new StubCpu(LoadIsa(parse, isa), bus);
+            cpu.State.ProgramCounter = (ushort)loadAddress;
             int limit = parse.GetValue(maxSteps);
             int steps;
             long start = Stopwatch.GetTimestamp();
