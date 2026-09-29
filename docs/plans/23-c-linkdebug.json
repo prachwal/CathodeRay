@@ -1,29 +1,29 @@
 {
   "title": "Mini-C: linkowanie C i debug",
-  "status": "queued",
+  "status": "closed",
   "items": [
     {
       "id": "1",
       "title": "Emisja GLOBAL/EXTERN per symbol C + kolejność modułów",
-      "status": "todo",
+      "status": "done",
       "note": "Gotowe gdy: każda funkcja/zmienna globalna C → .global, extern → .extern, main z crt0, kolejność: crt0, lib, user"
     },
     {
       "id": "2",
       "title": "cathode cc: sterownik (C→obiekt→link w jednym wywołaniu)",
-      "status": "todo",
+      "status": "done",
       "note": "Gotowe gdy: cathode cc prog.c [-o prog.bin] robi C→asm→obj→link (+-f hex, -l listing)"
     },
     {
       "id": "3",
       "title": "Mapa debug: linia C ↔ adres (listing z adnotacją)",
-      "status": "todo",
+      "status": "done",
       "note": "Gotowe gdy: listing z adnotacją linii C (komentarz ;c:linia przy emisji) + cathode cc --map"
     },
     {
       "id": "4",
       "title": "Testy end-to-end (2 moduły C) + build/test/hygiene",
-      "status": "todo",
+      "status": "done",
       "note": "Gotowe gdy: 2 moduły C wołające się + main, wynik runtime + build -warnaserror + test + hygiene OK"
     }
   ]

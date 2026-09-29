@@ -139,9 +139,10 @@ public static class Linker
             }
         }
 
+        List<ListingLine> listing = MergeListing(modules, chunks);
         if (image.Count == 0)
         {
-            return new AssemblyResult(0, [], globals, [], spans);
+            return new AssemblyResult(0, [], globals, listing, spans);
         }
 
         int low = image.Keys.Min();
@@ -152,7 +153,55 @@ public static class Linker
             flat[address - low] = value;
         }
 
-        return new AssemblyResult(low, flat, globals, [], spans);
+        return new AssemblyResult(low, flat, globals, listing, spans);
+    }
+
+    private static List<ListingLine> MergeListing(
+        IReadOnlyList<(string File, ObjectModule Module)> modules,
+        Dictionary<(int Module, string Segment), int> chunks)
+    {
+        var patched = new HashSet<(int Module, string Segment, int Offset)>();
+        for (int m = 0; m < modules.Count; m++)
+        {
+            foreach (Relocation reloc in modules[m].Module.Relocations)
+            {
+                int width = reloc.Kind == RelocKind.Abs16 ? 2 : 1;
+                for (int i = 0; i < width; i++)
+                {
+                    patched.Add((m, reloc.Segment, reloc.Offset + i));
+                }
+            }
+        }
+
+        var rows = new List<(int Address, int Order, ListingLine Row)>();
+        int order = 0;
+        for (int m = 0; m < modules.Count; m++)
+        {
+            foreach (ObjectSegment segment in modules[m].Module.Segments)
+            {
+                if (segment.Lines is null || !chunks.TryGetValue((m, segment.Name), out int baseAddress))
+                {
+                    continue;
+                }
+
+                foreach (ObjectLine row in segment.Lines)
+                {
+                    byte[] bytes = row.Bytes;
+                    for (int i = 0; i < bytes.Length; i++)
+                    {
+                        if (patched.Contains((m, segment.Name, row.Offset + i)))
+                        {
+                            bytes = [];
+                            break;
+                        }
+                    }
+
+                    rows.Add((baseAddress + row.Offset, order++, new ListingLine(row.Line, baseAddress + row.Offset, bytes, row.Text, row.File, segment.Name)));
+                }
+            }
+        }
+
+        return [.. rows.OrderBy(static r => r.Address).ThenBy(static r => r.Order).Select(static r => r.Row)];
     }
 
     private static void Apply(Dictionary<int, byte> image, string file, Relocation reloc, int position, int value)

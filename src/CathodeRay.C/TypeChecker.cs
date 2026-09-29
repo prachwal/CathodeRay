@@ -108,7 +108,11 @@ public sealed class TypeChecker
             checkedFunctions.Add(function.IsExtern ? ProtoFunction(function) : CheckFunction(function));
         }
 
-        return new CheckedProgram(checkedFunctions, [.. _globals.Values], _warnings);
+        return new CheckedProgram(
+            checkedFunctions,
+            [.. _globals.Values],
+            _warnings,
+            new Dictionary<Ast.Node, int>(program.Lines ?? new Dictionary<Ast.Node, int>(), ReferenceEqualityComparer.Instance));
     }
 
     private CheckedFunction ProtoFunction(Ast.Function function)

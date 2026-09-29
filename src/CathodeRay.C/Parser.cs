@@ -5,6 +5,7 @@ namespace CathodeRay.C;
 public sealed class Parser
 {
     private readonly IReadOnlyList<Token> _tokens;
+    private readonly Dictionary<Ast.Node, int> _lines = new(ReferenceEqualityComparer.Instance);
     private int _pos;
 
     private Parser(IReadOnlyList<Token> tokens) => _tokens = tokens;
@@ -20,6 +21,13 @@ public sealed class Parser
 
     private static bool IsType(Token token) =>
         token is { Kind: TokenKind.Keyword } && token.Text is "uchar" or "int" or "void";
+
+    private T At<T>(int line, T node)
+        where T : Ast.Node
+    {
+        _lines[node] = line;
+        return node;
+    }
 
     private Token Peek(int ahead = 0) => _pos + ahead < _tokens.Count ? _tokens[_pos + ahead] : _tokens[^1];
 
@@ -74,11 +82,11 @@ public sealed class Parser
             string name = ExpectKind(TokenKind.Ident, "name").Text;
             if (Peek() is { Kind: TokenKind.Punct, Text: "(" })
             {
-                functions.Add(FunctionRest(type.Text, name));
+                functions.Add(FunctionRest(type.Text, name, type.Line));
             }
             else
             {
-                globals.Add(GlobalRest(type.Text, name));
+                globals.Add(GlobalRest(type.Text, name, type.Line));
             }
         }
 
@@ -88,15 +96,18 @@ public sealed class Parser
             throw new CParseException(token.Line, token.Column, "expected a function.");
         }
 
-        return new Ast.Program(globals, functions);
+        return new Ast.Program(
+            globals,
+            functions,
+            new Dictionary<Ast.Node, int>(_lines, ReferenceEqualityComparer.Instance));
     }
 
-    private Ast.Decl GlobalRest(string type, string name)
+    private Ast.Decl GlobalRest(string type, string name, int line)
     {
         int stars = Stars();
         Ast.Expr? init = Take("=") ? Expression() : null;
         Expect(";");
-        return new Ast.Decl(type, name, init, stars);
+        return At(line, new Ast.Decl(type, name, init, stars));
     }
 
     private int Stars()
@@ -110,7 +121,7 @@ public sealed class Parser
         return count;
     }
 
-    private Ast.Function FunctionRest(string type, string name)
+    private Ast.Function FunctionRest(string type, string name, int line)
     {
         Expect("(");
         var parameters = new List<Ast.Param>();
@@ -135,10 +146,10 @@ public sealed class Parser
 
         if (Take(";"))
         {
-            return new Ast.Function(type, name, parameters, new Ast.Block([]), IsExtern: true);
+            return At(line, new Ast.Function(type, name, parameters, new Ast.Block([]), IsExtern: true));
         }
 
-        return new Ast.Function(type, name, parameters, Block());
+        return At(line, new Ast.Function(type, name, parameters, Block()));
     }
 
     private Ast.Block Block()
@@ -173,7 +184,7 @@ public sealed class Parser
             Expect("(");
             Ast.Expr cond = Expression();
             Expect(")");
-            return new Ast.While(cond, Statement());
+            return At(token.Line, new Ast.While(cond, Statement()));
         }
 
         if (token is { Kind: TokenKind.Keyword, Text: "for" })
@@ -186,7 +197,7 @@ public sealed class Parser
             Next();
             Ast.Expr? result = Peek() is { Kind: TokenKind.Punct, Text: ";" } ? null : Expression();
             Expect(";");
-            return new Ast.Return(result);
+            return At(token.Line, new Ast.Return(result));
         }
 
         if (token is { Kind: TokenKind.Punct, Text: "{" })
@@ -197,7 +208,7 @@ public sealed class Parser
         if (token is { Kind: TokenKind.Punct, Text: ";" })
         {
             Next();
-            return new Ast.Nop();
+            return At(token.Line, new Ast.Nop());
         }
 
         if (IsType(token))
@@ -207,18 +218,18 @@ public sealed class Parser
 
         Ast.Expr value = Expression();
         Expect(";");
-        return new Ast.ExprStmt(value);
+        return At(token.Line, new Ast.ExprStmt(value));
     }
 
     private Ast.If If()
     {
-        Next();
+        Token keyword = Next();
         Expect("(");
         Ast.Expr cond = Expression();
         Expect(")");
         Ast.Stmt then = Statement();
         Ast.Stmt? els = Peek() is { Kind: TokenKind.Keyword, Text: "else" } ? Else() : null;
-        return new Ast.If(cond, then, els);
+        return At(keyword.Line, new Ast.If(cond, then, els));
     }
 
     private Ast.Stmt Else()
@@ -229,7 +240,7 @@ public sealed class Parser
 
     private Ast.For For()
     {
-        Next();
+        Token keyword = Next();
         Expect("(");
         Ast.Stmt? init = Peek() is { Kind: TokenKind.Punct, Text: ";" } ? null : ForInit();
         Expect(";");
@@ -237,19 +248,24 @@ public sealed class Parser
         Expect(";");
         Ast.Expr? step = Peek() is { Kind: TokenKind.Punct, Text: ")" } ? null : Expression();
         Expect(")");
-        return new Ast.For(init, cond, step, Statement());
+        return At(keyword.Line, new Ast.For(init, cond, step, Statement()));
     }
 
-    private Ast.Stmt ForInit() => IsType(Peek()) ? Decl() : new Ast.ExprStmt(Expression());
+    private Ast.Stmt ForInit()
+    {
+        Token first = Peek();
+        return IsType(first) ? Decl() : At(first.Line, new Ast.ExprStmt(Expression()));
+    }
 
     private Ast.Decl Decl()
     {
-        string type = Next().Text;
+        Token typeToken = Next();
+        string type = typeToken.Text;
         int stars = Stars();
         string name = ExpectKind(TokenKind.Ident, "variable name").Text;
         Ast.Expr? init = Take("=") ? Expression() : null;
         Expect(";");
-        return new Ast.Decl(type, name, init, stars);
+        return At(typeToken.Line, new Ast.Decl(type, name, init, stars));
     }
 
     private Ast.Expr Expression() => Assignment();

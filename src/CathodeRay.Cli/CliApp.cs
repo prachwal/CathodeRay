@@ -12,6 +12,7 @@ internal static class CliApp
         var root = new RootCommand("CathodeRay: asemblery i uruchamianie programów dla emulowanych CPU.");
         root.Subcommands.Add(AsmCommand.Create());
         root.Subcommands.Add(LinkCommand.Create());
+        root.Subcommands.Add(CcCommand.Create());
         root.Subcommands.Add(StubCommands.Create());
         return root;
     }

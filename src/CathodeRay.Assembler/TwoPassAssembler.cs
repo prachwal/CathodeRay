@@ -276,7 +276,16 @@ public sealed class TwoPassAssembler(InstructionSet isa, SyntaxDialect dialect)
                     }
                 }
 
-                segments.Add(new ObjectSegment(name, !segment.Emit, segment.Emit ? data : [], segment.Emit ? data.Length : end - start));
+                var rows = new List<ObjectLine>();
+                foreach (ListingLine row in _listing)
+                {
+                    if (string.Equals(row.Segment, name, StringComparison.OrdinalIgnoreCase))
+                    {
+                        rows.Add(new ObjectLine(row.Address - origin, [.. row.Bytes], row.Source, row.File, row.Line));
+                    }
+                }
+
+                segments.Add(new ObjectSegment(name, !segment.Emit, segment.Emit ? data : [], segment.Emit ? data.Length : end - start, rows));
             }
 
             var symbolsOut = new List<ObjectSymbol>();
@@ -513,10 +522,10 @@ public sealed class TwoPassAssembler(InstructionSet isa, SyntaxDialect dialect)
             var used = new HashSet<string>(owner.Dialect.SymbolComparer);
             Expression.Evaluate(expression, owner.Dialect, _lineStart, name =>
             {
-                string key = IsLocal(name) ? ScopeKey(name) : name;
+                string key = IsLocal(name) ? ScopeKey(name) : Qualify(name);
                 if (symbols.ContainsKey(key) || links.Externals.Contains(name))
                 {
-                    used.Add(name);
+                    used.Add(key);
                 }
 
                 return Lookup(name);
@@ -533,9 +542,12 @@ public sealed class TwoPassAssembler(InstructionSet isa, SyntaxDialect dialect)
         private int EvalWith(string expression, string symbol, int probe)
         {
             return Expression.Evaluate(expression, owner.Dialect, _lineStart, name =>
-                links.Externals.Contains(name)
-                    ? owner.Dialect.SymbolComparer.Equals(name, symbol) ? probe : 0
-                    : Lookup(name)) ?? 0;
+            {
+                string key = IsLocal(name) ? ScopeKey(name) : Qualify(name);
+                return owner.Dialect.SymbolComparer.Equals(key, symbol) ? probe
+                    : links.Externals.Contains(name) ? 0
+                    : Lookup(name);
+            }) ?? 0;
         }
 
         private string FormatMessage(string message)
@@ -823,7 +835,7 @@ public sealed class TwoPassAssembler(InstructionSet isa, SyntaxDialect dialect)
             string display = name;
             if (!IsLocal(name))
             {
-                if (links.Externals.Contains(name))
+                if (links.Externals.Contains(name) && objectMode)
                 {
                     throw Error($"'{name}' is declared external.");
                 }

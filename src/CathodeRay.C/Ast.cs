@@ -9,7 +9,11 @@ public static class Ast
     /// <summary>Program: globale i funkcje.</summary>
     /// <param name="Globals">Zmienne globalne.</param>
     /// <param name="Functions">Funkcje w kolejności źródła.</param>
-    public sealed record Program(IReadOnlyList<Decl> Globals, IReadOnlyList<Function> Functions) : Node;
+    /// <param name="Lines">Linie węzłów (funkcje, instrukcje) do mapy debug.</param>
+    public sealed record Program(
+        IReadOnlyList<Decl> Globals,
+        IReadOnlyList<Function> Functions,
+        IReadOnlyDictionary<Node, int>? Lines = null) : Node;
 
     /// <summary>Definicja funkcji.</summary>
     /// <param name="ReturnType">Typ wyniku.</param>

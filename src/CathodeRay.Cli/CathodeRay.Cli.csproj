@@ -20,6 +20,7 @@
   <ItemGroup>
     <ProjectReference Include="..\CathodeRay\CathodeRay.csproj" />
     <ProjectReference Include="..\CathodeRay.Assembler\CathodeRay.Assembler.csproj" />
+    <ProjectReference Include="..\CathodeRay.C\CathodeRay.C.csproj" />
   </ItemGroup>
 
   <ItemGroup>

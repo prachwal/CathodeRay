@@ -21,6 +21,8 @@ bez zgadywania. Stub ma tylko `A`, `X` i stos na `A` — reszta to umowa.
   `X`=hi(arg1), a arg2 odkłada do umówionych komórek `cc_arg2`/`cc_arg2_h`
   tuż przed `CALL` (po ewaluacji arg1 — bezpieczne przy zagnieżdżeniu);
   callee kopiuje je do swoich komórek w prologu, zanim cokolwiek zawoła.
+- Komórki umówione (`cc_arg1`, `cc_arg2`, `cc_ret` + `_h`) i `__bss_start`
+  definiuje crt0 (linkowane zawsze pierwsze); moduły C ich nie emitują.
 - Caller: nic nie zachowuje (rejestry ulotne). Callee: nie rusza `SP`
   (poza własnymi `PUSH`/`POP` w parach) i odtwarza `X`, jeśli go używa
   niezgodnie z rolą (przez `PUSH`/`TXA` + odtworzenie).

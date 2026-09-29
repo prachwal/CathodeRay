@@ -20,6 +20,8 @@ public sealed class Codegen
     private readonly List<(string Name, int Size, byte[]? Init)> _data = [];
     private readonly Dictionary<string, Cell> _cells = new(StringComparer.Ordinal);
     private readonly Dictionary<string, CheckedFunction> _functions = new(StringComparer.Ordinal);
+    private IReadOnlyDictionary<Ast.Node, int> _lines = new Dictionary<Ast.Node, int>();
+    private string? _file;
     private StringBuilder _code = new();
     private IReadOnlyList<TypedSymbol> _globals = [];
     private int _labels;
@@ -36,13 +38,15 @@ public sealed class Codegen
 
     /// <summary>Generuje tekst asemblera.</summary>
     /// <param name="program">Program po kontroli typów.</param>
+    /// <param name="fileName">Nazwa pliku C do adnotacji <c>;c:</c> (null = sama linia).</param>
+    /// <param name="objectMode">Tryb obiektowy (linker): emituje <c>.extern</c> dla prototypów.</param>
     /// <returns>Źródło dla <c>cathode asm --cpu stub</c> (bez wpisu: start zapewnia
     /// crt0 z <see cref="Crt0"/>, linkowany zawsze pierwszy).</returns>
-    public static string Emit(CheckedProgram program)
+    public static string Emit(CheckedProgram program, string? fileName = null, bool objectMode = false)
     {
         ArgumentNullException.ThrowIfNull(program);
         var gen = new Codegen();
-        return gen.Run(program);
+        return gen.Run(program, fileName, objectMode);
     }
 
     private static string Swap(string op) => op switch
@@ -80,9 +84,11 @@ public sealed class Codegen
         throw new CCodegenException($"initializer of '{symbol.Name}' must be a constant (plan 20).");
     }
 
-    private string Run(CheckedProgram program)
+    private string Run(CheckedProgram program, string? fileName, bool objectMode)
     {
         _globals = program.Globals;
+        _lines = program.Lines;
+        _file = fileName;
         foreach (CheckedFunction function in program.Functions)
         {
             _functions[function.Def.Name] = function;
@@ -93,14 +99,25 @@ public sealed class Codegen
             DataCell($"cc_g_{global.Name}", global.Type, InitBytes(global));
         }
 
-        DataCell("cc_arg2", CType.UChar);
-        DataCell("cc_arg2_h", CType.UChar);
-        DataCell("cc_ret", CType.UChar);
-        DataCell("cc_ret_h", CType.UChar);
-        DataCell("cc_arg1", CType.UChar);
-        DataCell("cc_arg1_h", CType.UChar);
-
         _code.AppendLine(".segment \"CODE\"");
+        if (objectMode)
+        {
+            foreach (CheckedFunction function in program.Functions)
+            {
+                if (function.Def.IsExtern)
+                {
+                    _code.AppendLine($".extern {function.Def.Name}");
+                }
+            }
+
+            _code.AppendLine(".extern cc_arg1");
+            _code.AppendLine(".extern cc_arg1_h");
+            _code.AppendLine(".extern cc_arg2");
+            _code.AppendLine(".extern cc_arg2_h");
+            _code.AppendLine(".extern cc_ret");
+            _code.AppendLine(".extern cc_ret_h");
+        }
+
         foreach (CheckedFunction function in program.Functions)
         {
             if (!function.Def.IsExtern)
@@ -128,6 +145,11 @@ public sealed class Codegen
                 continue;
             }
 
+            if (name.StartsWith("cc_g_", StringComparison.Ordinal))
+            {
+                data.AppendLine($".global {name}");
+            }
+
             if (size == 2 && init.Length == 2)
             {
                 data.AppendLine($"{name}: .byte {init[0]}");
@@ -142,7 +164,6 @@ public sealed class Codegen
 
         var bss = new StringBuilder();
         bss.AppendLine(".segment \"BSS\"");
-        bss.AppendLine("__bss_start:");
         int bssBytes = 0;
         foreach ((string name, int size, byte[]? init) in _data)
         {
@@ -152,6 +173,11 @@ public sealed class Codegen
             }
 
             bssBytes += size;
+            if (name.StartsWith("cc_g_", StringComparison.Ordinal))
+            {
+                bss.AppendLine($".global {name}");
+            }
+
             if (size == 1)
             {
                 bss.AppendLine($"{name}: .byte 0");
@@ -172,6 +198,14 @@ public sealed class Codegen
     }
 
     private string Label(string hint) => $"L{++_labels}_{hint}";
+
+    private void Comment(Ast.Node node)
+    {
+        if (_lines.TryGetValue(node, out int line))
+        {
+            _code.AppendLine(_file is null ? $";c:{line}" : $";c:{_file}:{line}");
+        }
+    }
 
     private void DataCell(string name, CType type, byte[]? init = null) =>
         _data.Add((name, type.Size, init));
@@ -218,6 +252,7 @@ public sealed class Codegen
         }
 
         _maxTemp = -1;
+        Comment(function.Def);
         _code.AppendLine($".proc {function.Def.Name}");
         _code.AppendLine($".global {function.Def.Name}");
         _code.AppendLine("STA cc_arg1");
@@ -318,6 +353,11 @@ public sealed class Codegen
 
     private void EmitStmt(Ast.Stmt stmt)
     {
+        if (stmt is not Ast.Block and not Ast.Nop)
+        {
+            Comment(stmt);
+        }
+
         switch (stmt)
         {
             case Ast.Nop:
