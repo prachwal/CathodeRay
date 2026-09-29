@@ -99,3 +99,14 @@ brak `ADD`/`SUB` z pamięci absolutnej (tryb `,X` z `X = 0`).
 - Działania na dwóch stałych składa parser (16-bit z zawijaniem): `1 << 15`, `200 + 100`, `-1` to `int`.
 - Błędy typów/codegenu mają `plik:linia` (`cc`).
 - `for (int i = ...; ...)` działa (wcześniej deklaracja w init łamała parser).
+
+## Rozszerzenia mini-C (plan 27 B)
+
+- `do … while`, `switch` (stałe `case`, przechodzenie dalej jak w C, `default`, `break`; wartość
+  w parze komórek `__swN`, `continue` przechodzi do zewnętrznej pętli).
+- `enum { A, B = 5 };` (stałe podstawiane przez parser), `sizeof(typ)`, `sizeof x` (tablice też), `char` = `uchar`.
+- `*p += x`, `p[i] -= x`, `p += n`, `x[i]++` (cel liczony dwa razy, więc bez `++`/wywołań w celu).
+- Tablice: `uchar a[] = {1,2}`, `int w[4] = {1000}`, `uchar s[] = "hi"`; brakujące elementy zerowane
+  (lokalne przy każdym wejściu). Długość `[N]` może być stałym wyrażeniem (`enum`, `sizeof`).
+- Globalne wskaźniki z napisem, `&g` albo nazwą tablicy: komórka `.word` (starszy bajt to `nazwa+1`).
+- Globalne wskaźniki i funkcje: `int *g;` działa (wcześniej gwiazdka po nazwie); funkcje zwracające wskaźnik nie.

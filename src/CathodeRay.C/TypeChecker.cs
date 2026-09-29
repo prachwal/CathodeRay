@@ -16,6 +16,7 @@ public sealed class TypeChecker
     private readonly Dictionary<Ast.Expr, CType> _types = new(ReferenceEqualityComparer.Instance);
     private string _returnType = "void";
     private int _loops;
+    private int _switches;
     private IReadOnlyDictionary<Ast.Node, int> _lineMap = new Dictionary<Ast.Node, int>();
 
     private TypeChecker()
@@ -33,14 +34,6 @@ public sealed class TypeChecker
         return checker.CheckProgram(program);
     }
 
-    private static void CheckArray(Ast.Decl decl)
-    {
-        if (decl.ArrayLength > 0 && decl.Init is not null)
-        {
-            throw new CTypeException($"array '{decl.Name}' needs no initializer (zeroed).");
-        }
-    }
-
     private static CType Declared(string type, int stars, int length = 0)
     {
         CType result = CType.FromName(type);
@@ -51,6 +44,9 @@ public sealed class TypeChecker
 
         return length > 0 ? CType.Array(result, length) : result;
     }
+
+    private static int NumberValue(string text) =>
+        text.StartsWith("0x", StringComparison.OrdinalIgnoreCase) ? Convert.ToInt32(text[2..], 16) : int.Parse(text, System.Globalization.CultureInfo.InvariantCulture);
 
     private static CType NumberType(string text)
     {
@@ -75,20 +71,67 @@ public sealed class TypeChecker
         return value <= byte.MaxValue ? CType.UChar : CType.Int;
     }
 
+    private void CheckInit(Ast.Decl decl, bool global)
+    {
+        CType type = Declared(decl.Type, decl.PointerDepth, decl.ArrayLength);
+        if (decl.Init is null)
+        {
+            return;
+        }
+
+        if (type.Kind != "array")
+        {
+            if (decl.Init is Ast.InitList)
+            {
+                throw new CTypeException($"'{decl.Name}' is not an array.");
+            }
+
+            AssignableOrNull(type, decl.Init, $"initializer of '{decl.Name}'");
+            return;
+        }
+
+        CType elem = type.Base!;
+        switch (decl.Init)
+        {
+            case Ast.Str str when elem.Kind == "uchar":
+                if (str.Value.Length + 1 > type.Length)
+                {
+                    throw new CTypeException($"string too long for '{decl.Name}[{type.Length}]'.");
+                }
+
+                break;
+            case Ast.InitList list:
+                if (list.Items.Count > type.Length)
+                {
+                    throw new CTypeException($"too many initializers for '{decl.Name}[{type.Length}]'.");
+                }
+
+                foreach (Ast.Expr item in list.Items)
+                {
+                    if (global && item is not Ast.Number)
+                    {
+                        throw new CTypeException($"initializer of global '{decl.Name}' must be constant.");
+                    }
+
+                    AssignableOrNull(elem, item, $"initializer of '{decl.Name}'");
+                }
+
+                break;
+            default:
+                throw new CTypeException($"array '{decl.Name}' needs an initializer list or a string.");
+        }
+    }
+
     private CheckedProgram CheckProgram(Ast.Program program)
     {
         foreach (Ast.Decl global in program.Globals)
         {
-            CheckArray(global);
             if (!_globals.TryAdd(global.Name, new TypedSymbol(global.Name, Declared(global.Type, global.PointerDepth, global.ArrayLength), global.Init)))
             {
                 throw new CTypeException($"redefinition of '{global.Name}'.");
             }
 
-            if (global.Init is not null)
-            {
-                AssignableOrNull(Declared(global.Type, global.PointerDepth, global.ArrayLength), global.Init, $"initializer of '{global.Name}'");
-            }
+            CheckInit(global, global: true);
         }
 
         foreach (Ast.Function function in program.Functions)
@@ -153,6 +196,7 @@ public sealed class TypeChecker
         _scopes.Push(new Dictionary<string, CType>(StringComparer.Ordinal));
         _returnType = function.ReturnType;
         _loops = 0;
+        _switches = 0;
         if (function.Params.Count > MaxArgs)
         {
             throw new CTypeException($"'{function.Name}' takes at most {MaxArgs} parameters.");
@@ -210,18 +254,13 @@ public sealed class TypeChecker
                     throw new CTypeException($"variable '{decl.Name}' has void type.");
                 }
 
-                CheckArray(decl);
                 if (!_scopes.Peek().TryAdd(decl.Name, Declared(decl.Type, decl.PointerDepth, decl.ArrayLength)))
                 {
                     throw new CTypeException($"redefinition of '{decl.Name}'.");
                 }
 
                 _locals.Add(new TypedSymbol(decl.Name, Declared(decl.Type, decl.PointerDepth, decl.ArrayLength)));
-                if (decl.Init is not null)
-                {
-                    AssignableOrNull(Declared(decl.Type, decl.PointerDepth, decl.ArrayLength), decl.Init, $"initializer of '{decl.Name}'");
-                }
-
+                CheckInit(decl, global: false);
                 break;
             case Ast.If ifStmt:
                 Condition(ifStmt.Cond);
@@ -238,13 +277,21 @@ public sealed class TypeChecker
                 CheckStmt(whileStmt.Body);
                 _loops--;
                 break;
+            case Ast.DoWhile doStmt:
+                _loops++;
+                CheckStmt(doStmt.Body);
+                _loops--;
+                Condition(doStmt.Cond);
+                break;
+            case Ast.Switch switchStmt:
+                CheckSwitch(switchStmt);
+                break;
+            case Ast.Break when _loops + _switches == 0:
+                throw new CTypeException("'break' outside a loop or switch.");
+            case Ast.Continue when _loops == 0:
+                throw new CTypeException("'continue' outside a loop.");
             case Ast.Break:
             case Ast.Continue:
-                if (_loops == 0)
-                {
-                    throw new CTypeException($"'{(stmt is Ast.Break ? "break" : "continue")}' outside a loop.");
-                }
-
                 break;
             case Ast.For forStmt:
                 _scopes.Push(new Dictionary<string, CType>(StringComparer.Ordinal));
@@ -294,6 +341,39 @@ public sealed class TypeChecker
             default:
                 throw new CTypeException($"unsupported statement {stmt.GetType().Name}.");
         }
+    }
+
+    private void CheckSwitch(Ast.Switch stmt)
+    {
+        CType type = TypeOf(stmt.Value);
+        if (type.Kind is not ("uchar" or "int"))
+        {
+            throw new CTypeException("switch needs an integer value.");
+        }
+
+        var seen = new HashSet<int>();
+        bool hasDefault = false;
+        _switches++;
+        _scopes.Push(new Dictionary<string, CType>(StringComparer.Ordinal));
+        foreach (Ast.SwitchCase item in stmt.Cases)
+        {
+            if (item.Value is null)
+            {
+                hasDefault = hasDefault ? throw new CTypeException("duplicate 'default'.") : true;
+            }
+            else if (item.Value is not Ast.Number number || !seen.Add((short)NumberValue(number.Text)))
+            {
+                throw new CTypeException(item.Value is Ast.Number ? "duplicate 'case'." : "'case' needs a constant.");
+            }
+
+            foreach (Ast.Stmt body in item.Body)
+            {
+                CheckStmt(body);
+            }
+        }
+
+        _scopes.Pop();
+        _switches--;
     }
 
     private void Condition(Ast.Expr cond)
@@ -369,6 +449,12 @@ public sealed class TypeChecker
                 return NumberType(number.Text);
             case Ast.Str:
                 return CType.Pointer(CType.UChar);
+            case Ast.SizeOf sizeOf:
+            {
+                int size = Lookup(sizeOf.Name).Size;
+                return size <= byte.MaxValue ? CType.UChar : CType.Int;
+            }
+
             case Ast.Var variable:
                 return Lookup(variable.Name).Decay();
             case Ast.Call call:

@@ -7,6 +7,7 @@ public sealed class Parser
     private readonly IReadOnlyList<Token> _tokens;
     private readonly Dictionary<Ast.Node, int> _lines = new(ReferenceEqualityComparer.Instance);
     private readonly Dictionary<Ast.Expr, Ast.Expr> _postfix = new(ReferenceEqualityComparer.Instance);
+    private readonly Dictionary<string, int> _enums = new(StringComparer.Ordinal);
     private int _pos;
 
     private Parser(IReadOnlyList<Token> tokens) => _tokens = tokens;
@@ -60,6 +61,25 @@ public sealed class Parser
             ? new Ast.Number((folded & 0xFFFF).ToString(System.Globalization.CultureInfo.InvariantCulture))
             : binary;
     }
+
+    /// <summary>Cel złożonego przypisania/++ liczymy dwa razy, więc bez skutków ubocznych.</summary>
+    private static void RequirePure(Ast.Expr expr, Token at)
+    {
+        if (!IsPure(expr))
+        {
+            throw new CParseException(at.Line, at.Column, "compound assignment target must not have side effects.");
+        }
+    }
+
+    private static bool IsPure(Ast.Expr expr) => expr switch
+    {
+        Ast.Var or Ast.Number => true,
+        Ast.Unary unary => IsPure(unary.Operand),
+        Ast.Binary binary => IsPure(binary.Left) && IsPure(binary.Right),
+        Ast.Deref deref => IsPure(deref.Pointer),
+        Ast.Index index => IsPure(index.Base) && IsPure(index.Offset),
+        _ => false,
+    };
 
     private static bool IsType(Token token) =>
         token is { Kind: TokenKind.Keyword } && token.Text is "uchar" or "int" or "void";
@@ -115,20 +135,32 @@ public sealed class Parser
         while (Peek().Kind != TokenKind.End)
         {
             Token type = Peek();
+            if (type is { Kind: TokenKind.Keyword, Text: "enum" })
+            {
+                EnumDecl();
+                continue;
+            }
+
             if (!IsType(type))
             {
                 throw new CParseException(type.Line, type.Column, $"expected type, got '{type.Text}'.");
             }
 
             Next();
+            int stars = Stars();
             string name = ExpectKind(TokenKind.Ident, "name").Text;
             if (Peek() is { Kind: TokenKind.Punct, Text: "(" })
             {
+                if (stars > 0)
+                {
+                    throw new CParseException(type.Line, type.Column, "pointer return types are not supported.");
+                }
+
                 functions.Add(FunctionRest(type.Text, name, type.Line));
             }
             else
             {
-                globals.Add(GlobalRest(type.Text, name, type.Line));
+                globals.Add(GlobalRest(type.Text, name, stars, type.Line));
             }
         }
 
@@ -144,13 +176,46 @@ public sealed class Parser
             new Dictionary<Ast.Node, int>(_lines, ReferenceEqualityComparer.Instance));
     }
 
-    private Ast.Decl GlobalRest(string type, string name, int line)
+    private Ast.Decl GlobalRest(string type, string name, int stars, int line)
     {
-        int stars = Stars();
-        int length = ArrayLength();
-        Ast.Expr? init = Take("=") ? Expression() : null;
+        Ast.Decl decl = DeclTail(type, name, stars, line);
         Expect(";");
-        return At(line, new Ast.Decl(type, name, init, stars, length));
+        return decl;
+    }
+
+    /// <summary><c>enum [nazwa] { A, B = 5, C };</c> — stałe podstawiane w miejscu użycia (typ zostaje int).</summary>
+    private void EnumDecl()
+    {
+        Next();
+        if (Peek().Kind == TokenKind.Ident)
+        {
+            Next();
+        }
+
+        Expect("{");
+        int next = 0;
+        while (!Take("}"))
+        {
+            string name = ExpectKind(TokenKind.Ident, "enum constant").Text;
+            if (Take("="))
+            {
+                Token at = Peek();
+                if (!TryValue(Conditional(), out next))
+                {
+                    throw new CParseException(at.Line, at.Column, "enum value must be a constant.");
+                }
+            }
+
+            _enums[name] = next & 0xFFFF;
+            next++;
+            if (!Take(","))
+            {
+                Expect("}");
+                break;
+            }
+        }
+
+        Expect(";");
     }
 
     private int Stars()
@@ -235,6 +300,35 @@ public sealed class Parser
             return For();
         }
 
+        if (token is { Kind: TokenKind.Keyword, Text: "do" })
+        {
+            Next();
+            Ast.Stmt body = Statement();
+            Token keyword = Peek();
+            if (keyword is not { Kind: TokenKind.Keyword, Text: "while" })
+            {
+                throw new CParseException(keyword.Line, keyword.Column, $"expected 'while', got '{keyword.Text}'.");
+            }
+
+            Next();
+            Expect("(");
+            Ast.Expr cond = Expression();
+            Expect(")");
+            Expect(";");
+            return At(token.Line, new Ast.DoWhile(body, cond));
+        }
+
+        if (token is { Kind: TokenKind.Keyword, Text: "switch" })
+        {
+            return Switch();
+        }
+
+        if (token is { Kind: TokenKind.Keyword, Text: "enum" })
+        {
+            EnumDecl();
+            return At(token.Line, new Ast.Nop());
+        }
+
         if (token is { Kind: TokenKind.Keyword, Text: "break" or "continue" })
         {
             Next();
@@ -269,6 +363,46 @@ public sealed class Parser
         Ast.Expr value = Discard(Expression());
         Expect(";");
         return At(token.Line, new Ast.ExprStmt(value));
+    }
+
+    private Ast.Switch Switch()
+    {
+        Token keyword = Next();
+        Expect("(");
+        Ast.Expr value = Expression();
+        Expect(")");
+        Expect("{");
+        var cases = new List<Ast.SwitchCase>();
+        while (!Take("}"))
+        {
+            Token label = Next();
+            Ast.Expr? caseValue = null;
+            if (label is { Kind: TokenKind.Keyword, Text: "case" })
+            {
+                caseValue = Conditional();
+            }
+            else if (label is not { Kind: TokenKind.Keyword, Text: "default" })
+            {
+                throw new CParseException(label.Line, label.Column, $"expected 'case' or 'default', got '{label.Text}'.");
+            }
+
+            Expect(":");
+            var body = new List<Ast.Stmt>();
+            while (Peek() is not { Kind: TokenKind.Keyword, Text: "case" or "default" } && Peek() is not { Kind: TokenKind.Punct, Text: "}" })
+            {
+                if (Peek().Kind == TokenKind.End)
+                {
+                    Token end = Peek();
+                    throw new CParseException(end.Line, end.Column, "expected '}'.");
+                }
+
+                body.Add(Statement());
+            }
+
+            cases.Add(At(label.Line, new Ast.SwitchCase(caseValue, body)));
+        }
+
+        return At(keyword.Line, new Ast.Switch(value, cases));
     }
 
     private Ast.If If()
@@ -317,22 +451,79 @@ public sealed class Parser
         string type = typeToken.Text;
         int stars = Stars();
         string name = ExpectKind(TokenKind.Ident, "variable name").Text;
-        int length = ArrayLength();
-        Ast.Expr? init = Take("=") ? Expression() : null;
+        Ast.Decl decl = DeclTail(type, name, stars, typeToken.Line);
         Expect(";");
-        return At(typeToken.Line, new Ast.Decl(type, name, init, stars, length));
+        return decl;
     }
 
-    private int ArrayLength()
+    /// <summary>Reszta deklaracji po nazwie: <c>[n]</c> lub <c>[]</c>, opcjonalnie <c>= init</c>
+    /// (dla tablicy <c>{a, b}</c> lub napis; <c>[]</c> bierze długość z inicjalizatora).</summary>
+    private Ast.Decl DeclTail(string type, string name, int stars, int line)
     {
+        Token open = Peek();
+        int length = ArrayLength(out bool unsized);
+        Ast.Expr? init = null;
+        if (Take("="))
+        {
+            init = length > 0 || unsized ? ArrayInit() : Expression();
+        }
+
+        if (unsized)
+        {
+            length = init switch
+            {
+                Ast.InitList list => list.Items.Count,
+                Ast.Str str => str.Value.Length + 1,
+                _ => throw new CParseException(open.Line, open.Column, "array '[]' needs an initializer."),
+            };
+        }
+
+        return At(line, new Ast.Decl(type, name, init, stars, length));
+    }
+
+    private Ast.Expr ArrayInit()
+    {
+        if (!Take("{"))
+        {
+            return Expression();
+        }
+
+        var items = new List<Ast.Expr>();
+        while (!Take("}"))
+        {
+            items.Add(Conditional());
+            if (!Take(","))
+            {
+                Expect("}");
+                break;
+            }
+        }
+
+        return new Ast.InitList(items);
+    }
+
+    private int ArrayLength(out bool unsized)
+    {
+        unsized = false;
         if (!Take("["))
         {
             return 0;
         }
 
-        Token size = ExpectKind(TokenKind.Number, "array length");
+        if (Take("]"))
+        {
+            unsized = true;
+            return 0;
+        }
+
+        Token at = Peek();
+        if (!TryValue(Conditional(), out int length) || length <= 0)
+        {
+            throw new CParseException(at.Line, at.Column, "array length must be a positive constant.");
+        }
+
         Expect("]");
-        return int.TryParse(size.Text, out int length) ? length : 0;
+        return length;
     }
 
     private Ast.Expr Expression() => Assignment();
@@ -347,12 +538,13 @@ public sealed class Parser
             Ast.Expr right = Assignment();
             if (left is Ast.Deref || left is Ast.Index)
             {
-                if (token.Text != "=")
+                if (token.Text == "=")
                 {
-                    throw new CParseException(token.Line, token.Column, "compound assignment on pointers is not supported.");
+                    return new Ast.AssignTo(left, right);
                 }
 
-                return new Ast.AssignTo(left, right);
+                RequirePure(left, token);
+                return new Ast.AssignTo(left, new Ast.Binary(token.Text[..^1], left, right));
             }
 
             if (left is not Ast.Var variable)
@@ -500,6 +692,11 @@ public sealed class Parser
     private Ast.Expr Step(Ast.Expr target, Token op, string sign)
     {
         var one = new Ast.Number("1");
+        if (target is Ast.Deref or Ast.Index)
+        {
+            RequirePure(target, op);
+        }
+
         return target switch
         {
             Ast.Var variable => new Ast.Assign(variable.Name, new Ast.Binary(sign, target, one)),
@@ -515,6 +712,37 @@ public sealed class Parser
         {
             Next();
             return new Ast.Number(token.Text);
+        }
+
+        if (token is { Kind: TokenKind.Keyword, Text: "sizeof" })
+        {
+            Next();
+            bool paren = Take("(");
+            Token operand = Peek();
+            Ast.Expr size;
+            if (IsType(operand))
+            {
+                Next();
+                int stars = Stars();
+                size = new Ast.Number(stars > 0 || operand.Text == "int" ? "2" : "1");
+            }
+            else
+            {
+                size = new Ast.SizeOf(ExpectKind(TokenKind.Ident, "variable name").Text);
+            }
+
+            if (paren)
+            {
+                Expect(")");
+            }
+
+            return size;
+        }
+
+        if (token.Kind == TokenKind.Ident && _enums.TryGetValue(token.Text, out int enumValue) && Peek(1) is not { Kind: TokenKind.Punct, Text: "(" })
+        {
+            Next();
+            return new Ast.Number(enumValue.ToString(System.Globalization.CultureInfo.InvariantCulture));
         }
 
         if (token.Kind == TokenKind.String)

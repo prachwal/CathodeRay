@@ -23,31 +23,31 @@
     {
       "id": "4",
       "title": "[M] do…while i switch/case/default (switch na uchar/int: łańcuch porównań, break wspólny z pętlami)",
-      "status": "todo",
+      "status": "done",
       "note": ""
     },
     {
       "id": "5",
       "title": "[S] sizeof(typ|zmienna), enum (stałe), char jako alias uchar",
-      "status": "todo",
+      "status": "done",
       "note": ""
     },
     {
       "id": "6",
       "title": "[S] Złożone przypisania na wskaźnikach: *p += x, p[i] += x, p += n (desugar jak ++; jedno wyliczenie adresu w temp)",
-      "status": "todo",
+      "status": "done",
       "note": ""
     },
     {
       "id": "7",
       "title": "[M] Inicjalizatory tablic {1,2,3} i uchar s[] = \"abc\" (lokalne i globalne; długość z inicjalizatora)",
-      "status": "todo",
+      "status": "done",
       "note": ""
     },
     {
       "id": "8",
       "title": "[M] Globalny inicjalizator wskaźnika/napisu (label w DATA: .word + etykieta _h przez lo/hi operator lub init w crt0)",
-      "status": "todo",
+      "status": "done",
       "note": ""
     },
     {

@@ -11,11 +11,11 @@ Rozmiar: S = <1 h, M = kilka h. Kolejność: A → B → C → D.
 
 ## B. Składnia
 
-- [ ] **4.** [M] do…while i switch/case/default (switch na uchar/int: łańcuch porównań, break wspólny z pętlami)
-- [ ] **5.** [S] sizeof(typ|zmienna), enum (stałe), char jako alias uchar
-- [ ] **6.** [S] Złożone przypisania na wskaźnikach: *p += x, p[i] += x, p += n (desugar jak ++; jedno wyliczenie adresu w temp)
-- [ ] **7.** [M] Inicjalizatory tablic {1,2,3} i uchar s[] = "abc" (lokalne i globalne; długość z inicjalizatora)
-- [ ] **8.** [M] Globalny inicjalizator wskaźnika/napisu (label w DATA: .word + etykieta _h przez lo/hi operator lub init w crt0)
+- [x] **4.** [M] do…while i switch/case/default (switch na uchar/int: łańcuch porównań, break wspólny z pętlami)
+- [x] **5.** [S] sizeof(typ|zmienna), enum (stałe), char jako alias uchar
+- [x] **6.** [S] Złożone przypisania na wskaźnikach: *p += x, p[i] += x, p += n (desugar jak ++; jedno wyliczenie adresu w temp)
+- [x] **7.** [M] Inicjalizatory tablic {1,2,3} i uchar s[] = "abc" (lokalne i globalne; długość z inicjalizatora)
+- [x] **8.** [M] Globalny inicjalizator wskaźnika/napisu (label w DATA: .word + etykieta _h przez lo/hi operator lub init w crt0)
 
 ## C. Runtime i skala
 
@@ -29,4 +29,4 @@ Rozmiar: S = <1 h, M = kilka h. Kolejność: A → B → C → D.
 - [ ] **13.** [M] Rozbić Codegen.cs (~1900 linii) na partial: Expressions/Statements/Calls/Wide/Helpers; bez zmian zachowania, testy jako siatka
 - [ ] **14.** [S] Testy: matryca int (znak/brak) e2e, sample minic per nowa konstrukcja (samples/minic/), hygiene
 
-Postęp: 3/14 gotowych.
+Postęp: 8/14 gotowych.

@@ -8,7 +8,7 @@ public static class Lexer
 {
     private static readonly HashSet<string> Keywords = new(StringComparer.Ordinal)
     {
-        "uchar", "int", "void", "if", "else", "while", "for", "return", "break", "continue",
+        "uchar", "int", "void", "if", "else", "while", "for", "return", "break", "continue", "do", "switch", "case", "default", "sizeof", "enum",
     };
 
     private static readonly string[] Operators =
@@ -94,6 +94,11 @@ public static class Lexer
                 }
 
                 string text = source[start..pos];
+                if (text == "char")
+                {
+                    text = "uchar";
+                }
+
                 tokens.Add(new Token(Keywords.Contains(text) ? TokenKind.Keyword : TokenKind.Ident, text, line, startCol));
             }
             else if (char.IsAsciiDigit(c))

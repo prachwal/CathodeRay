@@ -70,6 +70,21 @@ public static class Ast
     /// <param name="Value">Wyrażenie.</param>
     public sealed record ExprStmt(Expr Value) : Stmt;
 
+    /// <summary>Pętla <c>do … while</c>.</summary>
+    /// <param name="Body">Ciało.</param>
+    /// <param name="Cond">Warunek (sprawdzany po ciele).</param>
+    public sealed record DoWhile(Stmt Body, Expr Cond) : Stmt;
+
+    /// <summary>Gałąź <c>switch</c>.</summary>
+    /// <param name="Value">Stała <c>case</c> lub <see langword="null"/> dla <c>default</c>.</param>
+    /// <param name="Body">Instrukcje do następnej etykiety (przechodzą dalej jak w C).</param>
+    public sealed record SwitchCase(Expr? Value, IReadOnlyList<Stmt> Body) : Node;
+
+    /// <summary>Instrukcja <c>switch</c> na <c>uchar</c>/<c>int</c> ze stałymi <c>case</c>.</summary>
+    /// <param name="Value">Wyrażenie wybierające.</param>
+    /// <param name="Cases">Gałęzie w kolejności źródła.</param>
+    public sealed record Switch(Expr Value, IReadOnlyList<SwitchCase> Cases) : Stmt;
+
     /// <summary>Instrukcja <c>break</c> (wyjście z najbliższej pętli).</summary>
     public sealed record Break : Stmt;
 
@@ -81,6 +96,14 @@ public static class Ast
 
     /// <summary>Wspólny korzeń wyrażeń.</summary>
     public abstract record Expr : Node;
+
+    /// <summary>Rozmiar zmiennej lub tablicy w bajtach (<c>sizeof x</c>); <c>sizeof(typ)</c> składa parser.</summary>
+    /// <param name="Name">Nazwa zmiennej.</param>
+    public sealed record SizeOf(string Name) : Expr;
+
+    /// <summary>Lista <c>{a, b, c}</c> inicjalizująca tablicę.</summary>
+    /// <param name="Items">Elementy.</param>
+    public sealed record InitList(IReadOnlyList<Expr> Items) : Expr;
 
     /// <summary>Literał napisowy: <c>uchar*</c> na bajty zakończone zerem.</summary>
     /// <param name="Value">Znaki (po rozwinięciu sekwencji <c>\</c>).</param>

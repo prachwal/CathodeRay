@@ -25,6 +25,10 @@ public sealed class Codegen
     private readonly List<(string Label, string Symbol)> _words = [];
     private readonly Dictionary<string, string> _strings = new(StringComparer.Ordinal);
     private readonly Stack<(string Break, string Continue)> _loopLabels = new();
+    private readonly HashSet<string> _wordGlobals = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, CType> _globalsByName = new(StringComparer.Ordinal);
+    private readonly List<string> _switchCells = [];
+    private int _switches;
     private IReadOnlyDictionary<Ast.Node, int> _lines = new Dictionary<Ast.Node, int>();
     private string? _file;
     private int _addrs;
@@ -67,9 +71,14 @@ public sealed class Codegen
         _ => op,
     };
 
+    private static bool TryNumber(string text, out int value) =>
+        text.StartsWith("0x", StringComparison.OrdinalIgnoreCase)
+            ? int.TryParse(text[2..], System.Globalization.NumberStyles.HexNumber, System.Globalization.CultureInfo.InvariantCulture, out value)
+            : int.TryParse(text, out value);
+
     private static bool TryConst(Ast.Expr expr, out int value)
     {
-        if (expr is Ast.Number number && int.TryParse(number.Text, out value))
+        if (expr is Ast.Number number && TryNumber(number.Text, out value))
         {
             value = (short)value;
             return true;
@@ -104,17 +113,74 @@ public sealed class Codegen
             return null;
         }
 
-        if (symbol.Init is Ast.Number number && int.TryParse(number.Text, out int value))
+        if (symbol.Type.Kind == "array")
+        {
+            return ArrayBytes(symbol);
+        }
+
+        if (symbol.Init is Ast.Number number && TryNumber(number.Text, out int value))
         {
             return symbol.Type.Size == 1 ? [(byte)(value & 0xFF)] : [(byte)(value & 0xFF), (byte)((value >> 8) & 0xFF)];
         }
 
-        throw new CCodegenException($"initializer of '{symbol.Name}' must be a constant (plan 20).");
+        throw new CCodegenException($"initializer of '{symbol.Name}' must be a constant.");
     }
+
+    private static byte[] ArrayBytes(TypedSymbol symbol)
+    {
+        CType elem = symbol.Type.Base!;
+        var bytes = new byte[symbol.Type.Size];
+        if (symbol.Init is Ast.Str str)
+        {
+            for (int i = 0; i < str.Value.Length; i++)
+            {
+                bytes[i] = str.Value[i] <= byte.MaxValue ? (byte)str.Value[i] : throw new CCodegenException("string char above 255.");
+            }
+
+            return bytes;
+        }
+
+        var items = ((Ast.InitList)symbol.Init!).Items;
+        for (int i = 0; i < items.Count; i++)
+        {
+            if (items[i] is not Ast.Number number || !TryNumber(number.Text, out int value))
+            {
+                throw new CCodegenException($"initializer of '{symbol.Name}' must be constant.");
+            }
+
+            if (elem.Size == 1)
+            {
+                bytes[i] = (byte)(value & 0xFF);
+            }
+            else
+            {
+                bytes[2 * i] = (byte)(value & 0xFF);
+                bytes[(2 * i) + 1] = (byte)((value >> 8) & 0xFF);
+            }
+        }
+
+        return bytes;
+    }
+
+    /// <summary>Adres jako inicjalizator globalnego wskaźnika: napis, <c>&amp;g</c> albo nazwa tablicy.</summary>
+    private string? SymbolInit(Ast.Expr? init) => init switch
+    {
+        Ast.Str str => StringLabel(str.Value),
+        Ast.AddressOf address => $"cc_g_{address.Name}",
+        Ast.Var variable when _globalsByName.TryGetValue(variable.Name, out CType? type) && type.Kind == "array" => $"cc_g_{variable.Name}",
+        _ => null,
+    };
+
+    private string Hi(string lo) => _wordGlobals.Contains(lo) ? $"{lo}+1" : $"{lo}_h";
 
     private string Run(CheckedProgram program, string? fileName, bool objectMode)
     {
         _globals = program.Globals;
+        foreach (TypedSymbol g in program.Globals)
+        {
+            _globalsByName[g.Name] = g.Type;
+        }
+
         _lines = program.Lines;
         _file = fileName;
         foreach (CheckedFunction function in program.Functions)
@@ -124,6 +190,13 @@ public sealed class Codegen
 
         foreach (TypedSymbol global in program.Globals)
         {
+            if (global.Type.Kind == "ptr" && SymbolInit(global.Init) is { } symbol)
+            {
+                _words.Add(($"cc_g_{global.Name}", symbol));
+                _wordGlobals.Add($"cc_g_{global.Name}");
+                continue;
+            }
+
             DataCell($"cc_g_{global.Name}", global.Type, InitBytes(global));
         }
 
@@ -194,7 +267,7 @@ public sealed class Codegen
             }
 
             int size = type.Size;
-            if (size == 2 && init.Length == 2)
+            if (size == 2 && init.Length == 2 && type.Kind != "array")
             {
                 data.AppendLine($"{name}: .byte {init[0]}");
                 data.AppendLine($"{name}_h: .byte {init[1]}");
@@ -214,6 +287,11 @@ public sealed class Codegen
 
         foreach ((string label, string symbol) in _words)
         {
+            if (_wordGlobals.Contains(label))
+            {
+                data.AppendLine($".global {label}");
+            }
+
             data.AppendLine($"{label}: .word {symbol}");
         }
 
@@ -316,6 +394,7 @@ public sealed class Codegen
 
         _maxTemp = -1;
         _addrs = -1;
+        _switchCells.Clear();
         Comment(function.Def);
         _code.AppendLine($".proc {function.Def.Name}");
         _code.AppendLine($".global {function.Def.Name}");
@@ -339,6 +418,7 @@ public sealed class Codegen
             _code = outer;
         }
 
+        owned.AddRange(_switchCells);
         for (int temp = 0; temp <= _maxTemp; temp++)
         {
             DataCell($"{_prefix}__t{temp}", CType.UChar);
@@ -430,11 +510,21 @@ public sealed class Codegen
 
                 break;
             case Ast.Decl decl:
-                if (decl.Init is not null)
+                if (decl.ArrayLength > 0 && decl.Init is not null)
+                {
+                    EmitArrayInit(decl);
+                }
+                else if (decl.Init is not null)
                 {
                     Store(decl.Name, decl.Init, 0);
                 }
 
+                break;
+            case Ast.DoWhile doStmt:
+                EmitDoWhile(doStmt);
+                break;
+            case Ast.Switch switchStmt:
+                EmitSwitch(switchStmt);
                 break;
             case Ast.If ifStmt:
                 EmitIf(ifStmt);
@@ -471,7 +561,7 @@ public sealed class Codegen
             _code.AppendLine($"LDA {lo}");
             _code.AppendLine($"STA {cell}");
             _code.AppendLine($"LDA {hi}");
-            _code.AppendLine($"STA {cell}_h");
+            _code.AppendLine($"STA {Hi(cell)}");
         }
         else
         {
@@ -507,6 +597,113 @@ public sealed class Codegen
         _loopLabels.Pop();
         _code.AppendLine($"JMP {loop}");
         _code.AppendLine($"{done}:");
+    }
+
+    private void EmitDoWhile(Ast.DoWhile doStmt)
+    {
+        string top = Label("do");
+        string cont = Label("dcont");
+        string done = Label("dend");
+        _code.AppendLine($"{top}:");
+        _loopLabels.Push((done, cont));
+        EmitStmt(doStmt.Body);
+        _loopLabels.Pop();
+        _code.AppendLine($"{cont}:");
+        JumpIfTrue(doStmt.Cond, top, 0);
+        _code.AppendLine($"{done}:");
+    }
+
+    /// <summary>switch: wartość do własnej pary komórek (chronionej ramką), łańcuch porównań
+    /// ze stałymi, potem ciała po kolei (przechodzą dalej jak w C).</summary>
+    private void EmitSwitch(Ast.Switch stmt)
+    {
+        string cell = $"{_prefix}__sw{_switches++}";
+        DataCell(cell, CType.UChar);
+        DataCell($"{cell}_h", CType.UChar);
+        _switchCells.Add(cell);
+        _switchCells.Add($"{cell}_h");
+        EvalInt(stmt.Value, 0, out string lo, out string hi);
+        _code.AppendLine($"LDA {lo}");
+        _code.AppendLine($"STA {cell}");
+        _code.AppendLine($"LDA {hi}");
+        _code.AppendLine($"STA {cell}_h");
+        string done = Label("swend");
+        var labels = new List<string>();
+        string? defaultLabel = null;
+        foreach (Ast.SwitchCase item in stmt.Cases)
+        {
+            string label = Label("case");
+            labels.Add(label);
+            if (item.Value is not Ast.Number number)
+            {
+                defaultLabel = label;
+                continue;
+            }
+
+            TryNumber(number.Text, out int value);
+            string next = Label("swnext");
+            _code.AppendLine($"LDA {cell}");
+            _code.AppendLine($"CPA {value & 0xFF}");
+            _code.AppendLine($"BNE {next}");
+            _code.AppendLine($"LDA {cell}_h");
+            _code.AppendLine($"CPA {(value >> 8) & 0xFF}");
+            _code.AppendLine($"BNE {next}");
+            _code.AppendLine($"JMP {label}");
+            _code.AppendLine($"{next}:");
+        }
+
+        _code.AppendLine($"JMP {defaultLabel ?? done}");
+        _loopLabels.Push((done, _loopLabels.Count > 0 ? _loopLabels.Peek().Continue : done));
+        for (int i = 0; i < stmt.Cases.Count; i++)
+        {
+            _code.AppendLine($"{labels[i]}:");
+            foreach (Ast.Stmt body in stmt.Cases[i].Body)
+            {
+                EmitStmt(body);
+            }
+        }
+
+        _loopLabels.Pop();
+        _code.AppendLine($"{done}:");
+    }
+
+    /// <summary>Lokalna tablica z <c>{…}</c>/napisem: elementy po kolei, reszta zerowana pętlą.</summary>
+    private void EmitArrayInit(Ast.Decl decl)
+    {
+        (string cell, CType type) = CellOf(decl.Name);
+        CType elem = type.Base!;
+        int size = elem.Size;
+        IReadOnlyList<Ast.Expr> items = decl.Init is Ast.InitList list
+            ? list.Items
+            : [.. ((Ast.Str)decl.Init!).Value.Append('\0').Select(static ch => (Ast.Expr)new Ast.Number(((int)ch).ToString(System.Globalization.CultureInfo.InvariantCulture)))];
+        for (int i = 0; i < items.Count; i++)
+        {
+            string at = i * size == 0 ? cell : $"{cell}+{i * size}";
+            if (size == 1)
+            {
+                Eval(items[i], 0);
+                _code.AppendLine($"STA {at}");
+                continue;
+            }
+
+            EvalInt(items[i], 0, out string lo, out string hi);
+            _code.AppendLine($"LDA {lo}");
+            _code.AppendLine($"STA {at}");
+            _code.AppendLine($"LDA {hi}");
+            _code.AppendLine($"STA {cell}+{(i * size) + 1}");
+        }
+
+        int start = items.Count * size;
+        if (start < type.Size)
+        {
+            string loop = Label("zero");
+            _code.AppendLine("LDI 0");
+            _code.AppendLine($"LDX {start}");
+            _code.AppendLine($"{loop}: STA {cell},X");
+            _code.AppendLine("INX");
+            _code.AppendLine($"CPX {type.Size & 0xFF}");
+            _code.AppendLine($"BNE {loop}");
+        }
     }
 
     private void EmitFor(Ast.For forStmt)
@@ -889,6 +1086,9 @@ public sealed class Codegen
             case Ast.Call call:
                 EmitCall(call, depth);
                 break;
+            case Ast.SizeOf sizeOf:
+                _code.AppendLine($"LDI {CellOf(sizeOf.Name).Type.Size}");
+                break;
             case Ast.Unary unary:
                 EmitUnary(unary, depth);
                 break;
@@ -922,7 +1122,7 @@ public sealed class Codegen
         hi = Temp(depth, hi: true);
         switch (expr)
         {
-            case Ast.Number number when int.TryParse(number.Text, out int value):
+            case Ast.Number number when TryNumber(number.Text, out int value):
                 _code.AppendLine($"LDX {(value >> 8) & 0xFF}");
                 _code.AppendLine($"LDI {value & 0xFF}");
                 _code.AppendLine($"STA {lo}");
@@ -950,7 +1150,7 @@ public sealed class Codegen
 
                 _code.AppendLine($"LDA {cell}");
                 _code.AppendLine($"STA {lo}");
-                _code.AppendLine($"LDA {cell}_h");
+                _code.AppendLine($"LDA {Hi(cell)}");
                 _code.AppendLine($"STA {hi}");
                 break;
             }
@@ -1005,6 +1205,14 @@ public sealed class Codegen
             case Ast.Str str:
                 EmitAddressOf(StringLabel(str.Value), lo, hi);
                 break;
+            case Ast.SizeOf sizeOf:
+                int sizeValue = CellOf(sizeOf.Name).Type.Size;
+                _code.AppendLine($"LDX {(sizeValue >> 8) & 0xFF}");
+                _code.AppendLine($"LDI {sizeValue & 0xFF}");
+                _code.AppendLine($"STA {lo}");
+                _code.AppendLine("TXA");
+                _code.AppendLine($"STA {hi}");
+                break;
             case Ast.Binary binary when !IsWideKind(binary):
                 // dwa uchary: wynik 8-bit, rozszerzony zerem
                 Eval(binary, depth + 1);
@@ -1040,7 +1248,7 @@ public sealed class Codegen
                     break;
                 }
 
-                _code.AppendLine($"LDA {assignCell}_h");
+                _code.AppendLine($"LDA {Hi(assignCell)}");
                 _code.AppendLine($"STA {hi}");
                 break;
             case Ast.Ternary ternary:
