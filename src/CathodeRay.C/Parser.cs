@@ -10,10 +10,13 @@ public sealed class Parser
     private Parser(IReadOnlyList<Token> tokens) => _tokens = tokens;
 
     /// <summary>Parsuje program.</summary>
-    /// <param name="source">Tekst programu.</param>
+    /// <param name="source">Tekst programu (dyrektywy <c>#</c> mapowane jak kropkowe).</param>
+    /// <param name="reader">Czyta pliki <c>.include</c> (null = brak).</param>
     /// <returns>Drzewo programu.</returns>
     /// <exception cref="CParseException">Błąd składni z pozycją.</exception>
-    public static Ast.Program Parse(string source) => new Parser(Lexer.Tokenize(source)).Program();
+    /// <exception cref="CPreprocessException">Błąd dyrektywy.</exception>
+    public static Ast.Program Parse(string source, Func<string, string?>? reader = null) =>
+        new Parser(Lexer.Tokenize(CPreprocessor.Expand(CPreprocessor.MapDirectives(source), reader))).Program();
 
     private static bool IsType(Token token) =>
         token is { Kind: TokenKind.Keyword } && token.Text is "uchar" or "int" or "void";

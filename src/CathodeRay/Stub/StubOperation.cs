@@ -109,4 +109,7 @@ public enum StubOperation
 
     /// <summary>Zatrzymanie CPU.</summary>
     Hlt,
+
+    /// <summary>SP = wartość (inicjalizacja stosu przez crt0).</summary>
+    Ldsp,
 }

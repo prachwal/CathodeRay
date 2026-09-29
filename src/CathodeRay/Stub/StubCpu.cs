@@ -196,6 +196,7 @@ public class StubCpu : ICpu<StubState>
             or StubOperation.Push or StubOperation.Pop or StubOperation.Ret or StubOperation.Hlt
             or StubOperation.Shl or StubOperation.Shr or StubOperation.Not => mode == OperandMode.None,
         StubOperation.Sta or StubOperation.Jmp or StubOperation.Bne or StubOperation.Beq or StubOperation.Bcs or StubOperation.Bcc or StubOperation.Call => IsAddress(mode),
+        StubOperation.Ldsp => mode == OperandMode.Immediate8,
         _ => mode == OperandMode.Immediate8 || IsAddress(mode),
     };
 
@@ -318,6 +319,9 @@ public class StubCpu : ICpu<StubState>
                 break;
             case StubOperation.Hlt:
                 StubOps.Hlt(state);
+                break;
+            case StubOperation.Ldsp:
+                StubOps.Ldsp(state, Value(mode, operand, address));
                 break;
             default:
                 ThrowUnhandled(operation);

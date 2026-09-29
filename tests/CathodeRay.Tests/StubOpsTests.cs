@@ -330,6 +330,17 @@ public sealed class StubOpsTests
         state.StackPointer.Should().Be(0xFF);
     }
 
+    [Fact]
+    public void Ldsp_Sets_Stack_Pointer_Without_Touching_Flags()
+    {
+        var state = new StubState { StackPointer = 0x10, Carry = true, Zero = true };
+
+        StubOps.Ldsp(state, 0xFF);
+        state.StackPointer.Should().Be(0xFF);
+        state.Carry.Should().BeTrue();
+        state.Zero.Should().BeTrue();
+    }
+
     [Theory]
     [InlineData(0x01, 0x02, false)]
     [InlineData(0x81, 0x02, true)]

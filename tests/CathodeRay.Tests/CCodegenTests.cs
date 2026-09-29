@@ -7,15 +7,19 @@ namespace CathodeRay.Tests;
 
 public sealed class CCodegenTests
 {
-    private static (StubCpu Cpu, StubBus Bus, AssemblyResult Result) RunC(string source)
+    private static (StubCpu Cpu, StubBus Bus, AssemblyResult Result) RunC(
+        string source,
+        Func<string, string?>? reader = null,
+        Action<StubBus, AssemblyResult>? poke = null)
     {
-        CheckedProgram checkedProgram = TypeChecker.Check(Parser.Parse(source));
-        string asm = Codegen.Emit(checkedProgram);
+        CheckedProgram checkedProgram = TypeChecker.Check(Parser.Parse(source, reader));
+        string asm = Crt0.Source + Codegen.Emit(checkedProgram);
         AssemblerTarget target = AssemblerTargets.Find("stub")!;
         var origins = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase)
         {
             ["CODE"] = 0x1000,
             ["DATA"] = 0x2000,
+            ["BSS"] = 0x2100,
         };
         AssemblyResult result = new TwoPassAssembler(Repo.LoadTarget(target), target.DefaultSyntax)
             .Assemble(asm, "prog.c", _ => null, [], null, origins);
@@ -25,6 +29,7 @@ public sealed class CCodegenTests
             bus.Write((ushort)(result.Origin + i), result.Image[i]);
         }
 
+        poke?.Invoke(bus, result);
         StubIsa isa = StubIsa.FromJsonFile(Repo.IsaFile("mcp_stub_instructions.json"));
         var cpu = new StubCpu(isa, bus);
         cpu.State.ProgramCounter = (ushort)origins["CODE"];
@@ -227,5 +232,45 @@ public sealed class CCodegenTests
         var (cpu, _, _) = RunC(Source);
 
         cpu.State.A.Should().Be((4660 - 7) & 0xFF);
+    }
+
+    [Fact]
+    public void Crt0_Zeroes_Bss_And_Sets_Stack()
+    {
+        const string Source = "int g; int main() { return g + 5; }";
+        var (cpu, _, result) = RunC(
+            Source,
+            poke: (bus, res) =>
+            {
+                int start = res.Symbols["__bss_start"];
+                for (int i = 0; i < 256; i++)
+                {
+                    bus.Write((ushort)(start + i), 0xAA);
+                }
+            });
+
+        cpu.State.A.Should().Be(5);
+        cpu.State.StackPointer.Should().Be(0xFF);
+    }
+
+    [Fact]
+    public void Preprocessor_Include_And_Define_Run()
+    {
+        const string Source = """
+            #include "hw.inc"
+            #define STEP 3
+            int main() {
+                int i = 0;
+                while (i < LIMIT) i = i + STEP;
+                return i + BASE;
+            }
+            """;
+        var files = new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            ["hw.inc"] = "int LIMIT = 9;\n#define BASE 100\n",
+        };
+        var (cpu, _, _) = RunC(Source, reader: files.GetValueOrDefault);
+
+        cpu.State.A.Should().Be(109);
     }
 }

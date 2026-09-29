@@ -11,6 +11,10 @@
   </ItemGroup>
 
   <ItemGroup>
+    <EmbeddedResource Include="crt0.s" />
+  </ItemGroup>
+
+  <ItemGroup>
     <InternalsVisibleTo Include="CathodeRay.Tests" />
   </ItemGroup>
 

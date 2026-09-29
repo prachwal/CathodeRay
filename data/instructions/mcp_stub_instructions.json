@@ -580,6 +580,22 @@
       "encoding": null,
       "operands": null,
       "variants": null
+    },
+    {
+      "opcode": "28",
+      "mnemonic": "LDSP",
+      "cycles": 2,
+      "words": 2,
+      "semantics": "SP = d8",
+      "group": "system",
+      "encoding": null,
+      "operands": [
+        {
+          "name": "d8",
+          "type": "immediate8"
+        }
+      ],
+      "variants": null
     }
   ]
 }

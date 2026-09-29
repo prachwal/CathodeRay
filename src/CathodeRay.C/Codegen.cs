@@ -36,7 +36,8 @@ public sealed class Codegen
 
     /// <summary>Generuje tekst asemblera.</summary>
     /// <param name="program">Program po kontroli typów.</param>
-    /// <returns>Źródło dla <c>cathode asm --cpu stub</c>.</returns>
+    /// <returns>Źródło dla <c>cathode asm --cpu stub</c> (bez wpisu: start zapewnia
+    /// crt0 z <see cref="Crt0"/>, linkowany zawsze pierwszy).</returns>
     public static string Emit(CheckedProgram program)
     {
         ArgumentNullException.ThrowIfNull(program);
@@ -100,12 +101,6 @@ public sealed class Codegen
         DataCell("cc_arg1_h", CType.UChar);
 
         _code.AppendLine(".segment \"CODE\"");
-        if (_functions.ContainsKey("main"))
-        {
-            _code.AppendLine("CALL main");
-            _code.AppendLine("HLT");
-        }
-
         foreach (CheckedFunction function in program.Functions)
         {
             EmitFunction(function);
@@ -125,31 +120,52 @@ public sealed class Codegen
         data.AppendLine(".segment \"DATA\"");
         foreach ((string name, int size, byte[]? init) in _data)
         {
-            if (init is not null)
+            if (init is null)
             {
-                if (size == 2 && init.Length == 2)
-                {
-                    data.AppendLine($"{name}: .byte {init[0]}");
-                    data.AppendLine($"{name}_h: .byte {init[1]}");
-                }
-                else
-                {
-                    data.Append(name).Append(": .byte ");
-                    data.AppendLine(string.Join(", ", init.Select(static b => b.ToString())));
-                }
+                continue;
             }
-            else if (size == 1)
+
+            if (size == 2 && init.Length == 2)
             {
-                data.AppendLine($"{name}: .byte 0");
+                data.AppendLine($"{name}: .byte {init[0]}");
+                data.AppendLine($"{name}_h: .byte {init[1]}");
             }
             else
             {
-                data.AppendLine($"{name}: .byte 0");
-                data.AppendLine($"{name}_h: .byte 0");
+                data.Append(name).Append(": .byte ");
+                data.AppendLine(string.Join(", ", init.Select(static b => b.ToString())));
             }
         }
 
-        return _code.ToString() + data.ToString();
+        var bss = new StringBuilder();
+        bss.AppendLine(".segment \"BSS\"");
+        bss.AppendLine("__bss_start:");
+        int bssBytes = 0;
+        foreach ((string name, int size, byte[]? init) in _data)
+        {
+            if (init is not null)
+            {
+                continue;
+            }
+
+            bssBytes += size;
+            if (size == 1)
+            {
+                bss.AppendLine($"{name}: .byte 0");
+            }
+            else
+            {
+                bss.AppendLine($"{name}: .byte 0");
+                bss.AppendLine($"{name}_h: .byte 0");
+            }
+        }
+
+        if (bssBytes > 256)
+        {
+            throw new CCodegenException($"BSS is {bssBytes} bytes (crt0 clears 256).");
+        }
+
+        return _code.ToString() + data.ToString() + bss.ToString();
     }
 
     private string Label(string hint) => $"L{++_labels}_{hint}";
