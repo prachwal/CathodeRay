@@ -22,7 +22,7 @@ Rozmiar: S = <1 h, M = kilka h, L = dzień+. Kolejność: A -> B -> C -> D. Krok
 ## C. Cele
 
 - [x] **10.** [M] Mos6502Target i 65C02: komórki i wskaźniki na stronie zerowej (budżet + wspólny ZP scratch), Load/Store przez LDY #off; LDA (zp),Y, wołanie pośrednie przez JSR cc_icall (JMP (cc_fp)), CLC/SEC + ADC/SBC, PHA/PLA, INC A tylko na 65C02, crt0, io.s, rt.s, DefaultLayout; dołącza do macierzy
-- [ ] **11.** [L] Z80Target: konwencja HL=arg1, DE=arg2, wynik HL (reszta w cc_argN), Load przez LD HL,(p); LD A,(HL), Add16 przez ADD HL,DE / SBC HL,DE, pamięć podręczna zawartości HL/A w bloku podstawowym, ramki przez PUSH HL, wołanie przez CALL cc_callhl (JP (HL)), porównania ze znakiem przez odchylenie EOR 128, interpreter Z80 (podzbiór) w tests/
+- [x] **11.** [L] Z80Target: konwencja HL=arg1, DE=arg2, wynik HL (reszta w cc_argN), Load przez LD HL,(p); LD A,(HL), Add16 przez ADD HL,DE / SBC HL,DE, pamięć podręczna zawartości HL/A w bloku podstawowym, ramki przez PUSH HL, wołanie przez CALL cc_callhl (JP (HL)), porównania ze znakiem przez odchylenie EOR 128, interpreter Z80 (podzbiór) w tests/
 - [ ] **12.** [M] Intel8080Target: ten sam selektor ograniczony do podzbioru 8080 z wydrukiem mnemonikami Intel (PCHL, LHLD, DAD), bez IX/IY; interpreter dzieli podzbiór z Z80
 - [ ] **13.** [M] M6800Target: LDX p; LDAA off,X, wołanie JSR 0,X, konwencja A:B, big-endian w danych i .word, interpreter 6800
 
@@ -36,4 +36,4 @@ Rozmiar: S = <1 h, M = kilka h, L = dzień+. Kolejność: A -> B -> C -> D. Krok
 - [ ] **19.** [S] union, operator przecinka, konkatenacja napisów, \xHH, # i ## w makrach, enum z sizeof(struct)
 - [ ] **20.** [S] Testy e2e per pozycja, samples/minic/17_casts.c, 18_voidptr.c, 19_matrix.c, 20_long.c, tabela rozmiar/cykle per cel (golden tylko dla rozmiaru, nie dla poprawności), docs/targets.md (jak dodać CPU), docs/minic.md, hygiene
 
-Postęp: 10/20 gotowych.
+Postęp: 11/20 gotowych.

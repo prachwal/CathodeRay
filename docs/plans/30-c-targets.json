@@ -65,7 +65,7 @@
     {
       "id": "11",
       "title": "[L] Z80Target: konwencja HL=arg1, DE=arg2, wynik HL (reszta w cc_argN), Load przez LD HL,(p); LD A,(HL), Add16 przez ADD HL,DE / SBC HL,DE, pamięć podręczna zawartości HL/A w bloku podstawowym, ramki przez PUSH HL, wołanie przez CALL cc_callhl (JP (HL)), porównania ze znakiem przez odchylenie EOR 128, interpreter Z80 (podzbiór) w tests/",
-      "status": "todo",
+      "status": "done",
       "note": ""
     },
     {

@@ -551,8 +551,10 @@ internal sealed class ByteSelector
 
         if (_usesIcall)
         {
-            text.AppendLine(_isa.Extern("__icall"));
-            text.AppendLine(_isa.Extern("cc_fp"));
+            foreach (string symbol in _isa.IndirectSymbols)
+            {
+                text.AppendLine(_isa.Extern(symbol));
+            }
         }
 
         return text.ToString();

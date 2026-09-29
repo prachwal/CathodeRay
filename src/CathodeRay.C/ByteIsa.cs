@@ -12,6 +12,9 @@ internal abstract class ByteIsa
     /// <summary>Bajty słowa w pamięci od najstarszego (6800).</summary>
     public virtual bool BigEndian => false;
 
+    /// <summary>Symbole wspólne wołania pośredniego (definiuje crt0), do zadeklarowania w module.</summary>
+    public virtual IEnumerable<string> IndirectSymbols => ["__icall", "cc_fp"];
+
     /// <summary>Tekst dotychczas wyemitowanych instrukcji.</summary>
     public string Text => _out.ToString();
 

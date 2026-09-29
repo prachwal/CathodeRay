@@ -273,3 +273,7 @@ liczbę parametrów (`printf(fmt, a1..a5)`), więc `...` można tylko deklarowa�
   skoki warunkowe jako krótki skok odwrócony + `JMP` (bez ograniczenia zasięgu). Komórki C nie trafiają na stronę zerową
   (świadome uproszczenie: kod większy, ale bez budżetu ZP).
 - Testy: `TargetMatrixTests` (samples 01–16 na każdym celu z runnerem = wynik i konsola stuba), `IrConformanceTests`.
+- Z80 (krok 11): ten sam `ByteSelector`; `Z80Isa` używa HL jako rejestru adresowego (`LD HL,adres; ADD A,(HL)`, wskaźniki
+  `LD HL,(komórka)`; `INC HL` między bajtami), wołanie pośrednie `LD HL,(komórka); CALL __callhl` (`JP (HL)` w crt0), stos od $1000 w dół.
+  Odstępstwo od pierwotnego planu: konwencja argumentów jest wspólna dla wszystkich celów bajtowych (`cc_argN`), nie w HL/DE —
+  jeden mechanizm zamiast wielu; interpreter w tests/ (`Z80Cpu`) obsługuje podzbiór Z80 i 8080.
