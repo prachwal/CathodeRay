@@ -124,7 +124,7 @@
     {
       "id": "18",
       "title": "[S] Testy e2e per pozycja, samples/minic/23_*.c ...; docs/minic.md (usunąć spełnione pozycje z „Nie działa”), docs/targets.md, docs/compare.md, docs/target-sizes.md, hygiene",
-      "status": "todo",
+      "status": "done",
       "note": "",
       "section": "E. Zamknięcie"
     }

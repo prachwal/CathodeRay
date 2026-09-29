@@ -16,16 +16,21 @@ Rozmiar kodu programów przykładowych na każdym celu: [target-sizes.md](target
 ## Potok
 
 ```text
-źródło C → CPreprocessor → Lexer → Parser → TypeChecker → Lowering (Ir.Module) → IrPasses
-        → cel.Emit:  Legalizer(wide) → WideLegalizer → Legalizer → ByteSelector(ByteIsa) → tekst asemblera
+źródło C → CPreprocessor → Lexer → Parser → TypeChecker → Lowering (Wide8Legalizer → IrPasses) → IrInliner
+        → cel.Emit:  CaseFold → Legalizer(wide) → WideLegalizer → Legalizer → [IndexFusion, strona zerowa: 6502]
+                     → ByteSelector(ByteIsa) → Peephole/BranchRelaxer → tekst asemblera
         → asembler → linker (crt0 pierwszy, biblioteka na żądanie)
 ```
 
-- **IR** (`Ir.cs`): trójadresowe operacje na komórkach W=1/2/4; `IrInterpreter` wykonuje go bez procesora i jest wyrocznią
+- **IR** (`Ir.cs`): trójadresowe operacje na komórkach W=1/2/4 (W=8 istnieje tylko do końca obniżania funkcji); `IrInterpreter` wykonuje go bez procesora i jest wyrocznią
   (`IrOracle`, `IrConformanceTests`).
 - **`Legalizer`** zamienia operacje, których cel nie ma (mnożenie, dzielenie, przesunięcia o zmienną liczbę, duże bloki), na wołania funkcji z
-  `stdlib/portable/rt.c` (mini-C kompilowane tym samym front-endem).
-- **`WideLegalizer`** rozbija komórki 32-bitowe na połówki 16-bitowe.
+  `stdlib/portable/rt_*.c` (mini-C kompilowane tym samym front-endem, linkowane raz na żądanie; dla 6502 i Z80 mnożenie i dzielenie są
+  w asemblerze w `stdlib/target/<cel>/`).
+- **`WideLegalizer`** rozbija komórki 32-bitowe na połówki 16-bitowe. **`Wide8Legalizer`** (`long long`) robi to samo z 64-bitowymi
+  na połówki 32-bitowe, zanim ruszą przebiegi IR. `float` to zwykła komórka 32-bitowa: działania to wołania `__cc_f*` z `rt_float.c`.
+- **`IrPasses`/`IrInliner`**: propagacja stałych i kopii, usuwanie martwych zapisów, wstawianie małych funkcji liściowych.
+- **`CaseFold`** zmienia nazwy symboli różniących się tylko wielkością liter (asemblery Intela i Zilog ich nie rozróżniają).
 - **`ByteSelector`** składa kod z prymitywów `ByteIsa` (A ← bajt, A ← A op bajt, bajt ← A, skoki, stos, wskaźnik) — to jedyna część zależna od CPU.
 
 ## Jak dodać procesor
@@ -45,6 +50,8 @@ Rozmiar kodu programów przykładowych na każdym celu: [target-sizes.md](target
 
 ## Ograniczenia celów bajtowych
 
-- Komórki leżą w pamięci absolutnej (6502: bez strony zerowej poza wskaźnikiem `__p`), więc kod jest większy niż ręcznie pisany.
-- Skoki warunkowe 6502 i 6800 to krótki skok odwrócony + `JMP` (bez ograniczenia zasięgu).
-- Nazwy symboli w asemblerach Intela i Zilog nie rozróżniają wielkości liter: identyfikatory C różniące się tylko wielkością liter kolidują.
+- Komórki leżą w pamięci absolutnej (6502: najczęściej używane skalarne i wskaźniki trafiają na stronę zerową, prefiks `z:`), więc kod jest
+  większy niż ręcznie pisany (miara: `docs/compare.md` — ok. 1,7× cc65 na 6502, ok. 3,6× SDCC na Z80).
+- Skoki warunkowe 6502 i 6800 są relaksowane: krótki skok, gdy cel jest w zasięgu, inaczej odwrócony skok + `JMP`.
+- `float`, `long long` i dzielenie/mnożenie 32-bitowe są programowe, więc wolne; `float` i `long long` na `stub` (24 KB kodu) mieszczą się
+  tylko w małych programach.

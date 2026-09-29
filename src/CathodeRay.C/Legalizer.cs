@@ -182,7 +182,15 @@ internal sealed class Legalizer
                 continue;
             }
 
-            included.Add(function with { IsStatic = true });
+            // procedura z biblioteki dostaje rozpiskę bieżącej fazy (jej mnożenia i przesunięcia mogą wołać dalsze procedury)
+            var rewritten = new List<Ir.Ins>();
+            foreach (Ir.Ins ins in function.Body)
+            {
+                Rewrite(ins, rewritten);
+            }
+
+            function = function with { Body = rewritten, IsStatic = true };
+            included.Add(function);
             foreach (string reference in References(function))
             {
                 symbols.Add(reference);

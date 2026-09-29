@@ -13,11 +13,14 @@ zakończyć się błędem kompilacji zawierającym tekst.
 
 | typ | rozmiar | uwagi |
 | --- | --- | --- |
-| `uchar` (`char`) | 1 B | bez znaku, 0..255 |
-| `int` | 2 B | ze znakiem; porównania, `/`, `%`, `>>` ze znakiem |
-| `uint` | 2 B | bez znaku |
-| `long` | 4 B | ze znakiem; stałe `100000`, `7L` |
-| `ulong` | 4 B | bez znaku; stałe `4000000000`, `7UL`, `0x10000000UL` |
+| `uchar` (`char`, `unsigned char`) | 1 B | bez znaku, 0..255 |
+| `schar` (`signed char`) | 1 B | ze znakiem, -128..127; działania dzielenie i `>>` liczone na 16 bitach |
+| `int` (`short`, `short int`, `signed`) | 2 B | ze znakiem; porównania, `/`, `%`, `>>` ze znakiem |
+| `uint` (`unsigned`, `unsigned short`, `unsigned int`) | 2 B | bez znaku |
+| `long` (`long int`) | 4 B | ze znakiem; stałe `100000`, `7L` |
+| `ulong` (`unsigned long`) | 4 B | bez znaku; stałe `4000000000`, `7UL`, `0x10000000UL` |
+| `long long`, `unsigned long long` | 8 B | 64 bity; stałe `5LL`, `5ULL` i każda powyżej 32 bitów |
+| `float`, `double` | 4 B | IEEE-754 pojedynczej precyzji liczony programowo (`double` to ten sam typ); stałe `1.5`, `2e3`, `0.5f` |
 | `T *`, `T (*f)(…)` | 2 B | wskaźnik do danych / funkcji |
 | `T a[N]`, `T a[N][M]` | N·(M·)rozmiar | tablica (także wielowymiarowa: tablica tablic), rozpada się na wskaźnik do elementu |
 | `struct S` | suma pól | bez wyrównania |
@@ -229,6 +232,86 @@ int main() {
 }
 ```
 
+## `short`, `unsigned`, `signed char`, `volatile`, `inline`, `register`
+
+`short` to `int`, `unsigned`/`unsigned short` to `uint`, `unsigned char` to `uchar`, `signed char` to osobny 8-bitowy typ ze znakiem
+(rozszerzany znakiem, porównywany ze znakiem). `volatile` (także `const volatile`, `volatile uchar *`) wyłącza optymalizacje
+odczytów i zapisów obiektu: każdy odczyt i zapis zostaje wykonany, w kolejności programu. `inline` i `register` są przyjmowane i
+ignorowane (małe funkcje wstawia optymalizator sam).
+
+```c expect=57
+volatile uchar port;
+typedef unsigned short word;
+static inline short twice(short x) { return x + x; }
+
+int main() {
+    signed char down = -100;
+    word w = 40000;
+    register int total = 0;
+    port = 5;
+    port = port + 1;
+    if (down < 0 && (down >> 2) == -25) total += 1;
+    if (w > 30000) total += 10;
+    return total + twice(20) + port;      // 11 + 40 + 6
+}
+```
+
+## Pola bitowe
+
+`struct { uchar a : 3; uchar b : 5; int c : 6; }` — pola upakowane od najmłodszego bitu w jednostce o rozmiarze typu (`uchar`, `schar`,
+`int`, `uint`), bez przekraczania jednostki. Typy ze znakiem rozszerzają znakiem. Zapis (także `+=`, `++`) to odczyt–modyfikacja–zapis
+jednostki; inicjalizator `{...}` wymaga stałych. Nie ma adresu pola bitowego ani pól bez nazwy.
+
+```c expect=7
+struct Flags { uchar ready : 1; uchar mode : 3; int delta : 5; };
+
+int main() {
+    struct Flags f = { 1, 5, 0 };
+    f.mode++;
+    f.delta = 0 - 3;
+    return f.ready + f.mode + (f.delta < 0) - (sizeof(struct Flags) == 3) ;
+}
+```
+
+## `float` i `double`
+
+32-bitowa liczba IEEE-754 liczona programowo (procedury `rt_float.c`, linkowane raz i tylko gdy program ich używa). Działania `+ - * /`,
+porównania, `-x`, `!x`, konwersje z i na typy całkowite (niejawne przy przypisaniu, argumentach i `return`; `float` → całkowity
+z ostrzeżeniem). Uproszczenia: wynik obcinany zamiast zaokrąglany, liczby zdenormalizowane to zero. Nie ma `% & | ^ << >> ~`
+na `float`, konwersji do i z `long long` ani funkcji matematycznych. Tekst dziesiętny daje `ftoa(x, buf)` z `<stdlib.h>` (6 cyfr
+ułamka); `printf` nie ma `%f`, żeby nie powiększać każdego programu.
+
+```c expect=15
+float half = 0.5;
+
+int main() {
+    float x = 3;
+    float y = x * 4 + half * 5 - 0.5;
+    int n = (int)y;                    // 14
+    return n + (y > 13.5);
+}
+```
+
+## `long long`
+
+64-bitowe liczby całkowite na połówkach 32-bitowych. Dodawanie, odejmowanie, porównania i przesunięcia o stałą są rozwijane w miejscu,
+mnożenie, dzielenie i przesunięcia o zmienną liczbę pozycji to wołania procedur `rt_ll64.c`. Argument i wynik `long long` jadą przez
+adres kopii i bufor wyniku (zajmują jedno miejsce z sześciu na argumenty). Tekst: `lltoa(x, buf, base)` i `ulltoa(x, buf, base)`
+z `<stdlib.h>`; `printf` nie ma `%lld`.
+
+```c expect=26
+long long fact(int n) {
+    long long r = 1;
+    while (n > 1) { r = r * n; n--; }
+    return r;
+}
+
+int main() {
+    long long f = fact(20);                          // 2432902008176640000
+    return (int)(f / 100000000000000000) + (int)(f >> 60);   // 24 + 2
+}
+```
+
 ## Instrukcje
 
 `if/else`, `while`, `do … while`, `for` (z deklaracją w inicjalizacji), `switch` (stałe `case`, przechodzenie dalej, `default`),
@@ -351,8 +434,10 @@ porównanie `int` z `uint`) drukuje `cc` na stderr; `-Werror` traktuje je jak b�
 
 | brak | zamiast |
 | --- | --- |
-| pola bitowe | maski i przesunięcia |
-| `float`, `short`, `unsigned` | `int`, `uint`, `long`, `ulong` |
+| `%f` i `%lld` w `printf` | `ftoa`, `lltoa` z `<stdlib.h>` |
+| `long double`, funkcje matematyczne (`sin`, `sqrt`…) | — |
+| konwersja `float` <-> `long long` | przez `long` |
+| pola bitowe bez nazwy (`: 3;`), adres pola bitowego | nazwane pola |
 | funkcja zwracająca wskaźnik do funkcji | `typedef` + parametr |
 
 ```c error="takes at most 6"
