@@ -41,6 +41,6 @@ Nie robić: ogólnego alokatora rejestrów (to osobny, duży plan po pomiarze ef
 
 - [x] **11.** [S] Dodawanie stałej 16-bitowej o zerowym bajcie starszym (`x = y + 5` przy typie 2-bajtowym): zamiast `lda hi ; adc #0 ; sta` użyj `bcc skip ; inc hi` (6502: `inc` na ZP/abs). Ogranicz do celów z `TryStep`/INC pamięci (6502, 6800 nie; 6502 tak). Zacznij od metody obsługującej `Bin` Add z `Imm`, znajdź `TryStep`. Test: `x = y + 3` dla `uint` na 6502 daje kod z `inc` i poprawny wynik na pełnym zakresie (0xFFFE+3).
 - [x] **12.** [S] Porównanie 16-bitowe z stałą 0 i `==`/`!=`: użyj `lda lo ; ora hi` (jest już dla zera na jednym bajcie — rozszerz na 2 bajty, jeśli nie ma). Test na 6502/z80: `if (x == 0)` dla `uint` przy x=0, 0x100, 0x01, 0xFFFF.
-- [ ] **13.** [S] Zmierz i opisz: uruchom `python3 tools/hotspots.py --write` i `python3 tools/compare.py --write`, wklej do `docs/stub-calling-conv.md` sekcję „Plan 32: efekt” z liczbami przed/po (baza ze wstępu) i wnioskami; commit. Jeśli spadek sta;lda < 30% bazy, dodaj do planu następne zadania na podstawie nowych top-10 par.
+- [x] **13.** [S] Zmierz i opisz: uruchom `python3 tools/hotspots.py --write` i `python3 tools/compare.py --write`, wklej do `docs/stub-calling-conv.md` sekcję „Plan 32: efekt” z liczbami przed/po (baza ze wstępu) i wnioskami; commit. Jeśli spadek sta;lda < 30% bazy, dodaj do planu następne zadania na podstawie nowych top-10 par.
 
-Postęp: 11/13 gotowych.
+Postęp: 12/13 gotowych.

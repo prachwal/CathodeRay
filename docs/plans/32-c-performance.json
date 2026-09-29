@@ -90,7 +90,7 @@
     {
       "id": "13",
       "title": "[S] Zmierz i opisz: uruchom `python3 tools/hotspots.py --write` i `python3 tools/compare.py --write`, wklej do `docs/stub-calling-conv.md` sekcję „Plan 32: efekt” z liczbami przed/po (baza ze wstępu) i wnioskami; commit. Jeśli spadek sta;lda < 30% bazy, dodaj do planu następne zadania na podstawie nowych top-10 par.",
-      "status": "todo",
+      "status": "done",
       "note": "",
       "section": "E. Ścieżka 16-bitowa (`ByteSelector.cs`)"
     }

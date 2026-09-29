@@ -9,9 +9,9 @@ Odświeżenie: `python3 tools/compare.py --write` (po `dotnet build`; wymaga cc6
 | add32 | 119 | 22 | 170 | 33 |
 | bubble | 462 | 271 | 586 | 276 |
 | copy | 66 | 74 | 90 | 30 |
-| div16* | 586 | 38 | 747 | 25 |
-| fib | 171 | 52 | 231 | 31 |
-| find | 146 | 80 | 195 | 106 |
+| div16* | 562 | 38 | 715 | 25 |
+| fib | 156 | 52 | 212 | 31 |
+| find | 143 | 80 | 192 | 106 |
 | fnptr | 229 | 104 | 302 | 33 |
 | max3 | 107 | 70 | 154 | 53 |
 | mul16* | 91 | 19 | 104 | 3 |
@@ -21,4 +21,4 @@ Odświeżenie: `python3 tools/compare.py --write` (po `dotnet build`; wymaga cc6
 | sum_bytes | 66 | 71 | 90 | 37 |
 | sw | 122 | 57 | 152 | 47 |
 
-Średnia geometryczna bez wierszy z `*`: mini-C / cc65 = 1.74, mini-C / SDCC = 3.56.
+Średnia geometryczna bez wierszy z `*`: mini-C / cc65 = 1.73, mini-C / SDCC = 3.52.
