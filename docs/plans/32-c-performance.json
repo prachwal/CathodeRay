@@ -48,7 +48,7 @@
     {
       "id": "7",
       "title": "[S] Usuń `ldy #N` gdy poprzedni `ldy #N` tego samego N był w tym samym bloku bez zmiany Y (Y zmieniają: `ldy`, `iny`, `dey`, `tay`, `jsr`, etykieta, `jmp`, gałąź, `rts`). Wzorzec 22× w bazie (`sta M ; ldy #I`). Test w `PeepholeTests` (istniejący plik — sprawdź `ls tests/CathodeRay.Tests | grep -i peep`): dwa kolejne dostępy `(zp),y` z tym samym indeksem mają jedno `ldy`.",
-      "status": "todo",
+      "status": "done",
       "note": "",
       "section": "D. Peephole 6502 (`Peephole.cs`, tekst asemblera po `ByteSelector`)"
     },

@@ -71,4 +71,30 @@ public sealed class PeepholeTests
         plain.Value.Should().Be(90);
         optimized.Steps.Should().BeLessThan(plain.Steps);
     }
+
+    [Fact]
+    public void Redundant_Ldy_Same_Index_Is_Removed()
+    {
+        Peephole.Optimize("LDY #3\nLDA (ZP),Y\nSTA X\nLDY #3\nLDA (ZP),Y\nRET").Should()
+            .Be("LDY #3\nLDA (ZP),Y\nSTA X\nLDA (ZP),Y\nRET");
+        Peephole.Optimize("LDY #5\nSTX (ZP),Y\nLDY #5\nLDA (ZP),Y\nRET").Should()
+            .Be("LDY #5\nSTX (ZP),Y\nLDA (ZP),Y\nRET");
+    }
+
+    [Fact]
+    public void Redundant_Ldy_Stops_At_Block_Boundary()
+    {
+        Peephole.Optimize("LDY #3\nL: LDY #3\nRET").Should().Be("LDY #3\nL: LDY #3\nRET");
+        Peephole.Optimize("LDY #3\nJMP L\nLDY #3\nL: RET").Should().Be("LDY #3\nJMP L\nLDY #3\nL: RET");
+    }
+
+    [Fact]
+    public void Redundant_Ldy_Stops_When_Y_Modified()
+    {
+        Peephole.Optimize("LDY #3\nINY\nLDY #3\nRET").Should().Be("LDY #3\nINY\nLDY #3\nRET");
+        Peephole.Optimize("LDY #3\nDEY\nLDY #3\nRET").Should().Be("LDY #3\nDEY\nLDY #3\nRET");
+        Peephole.Optimize("LDY #3\nTAY\nLDY #3\nRET").Should().Be("LDY #3\nTAY\nLDY #3\nRET");
+        Peephole.Optimize("LDY #3\nLDY #4\nLDY #3\nRET").Should().Be("LDY #3\nLDY #4\nLDY #3\nRET");
+        Peephole.Optimize("LDY #3\nJSR F\nLDY #3\nRET").Should().Be("LDY #3\nJSR F\nLDY #3\nRET");
+    }
 }
