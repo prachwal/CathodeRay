@@ -69,7 +69,7 @@
     {
       "id": "10",
       "title": "[S] `lda #0` + `sta M` + `lda #0` + `sta N` (zerowanie sąsiednich bajtów) → drugie `lda #0` usuń, bo A nadal 0 (tylko gdy między nimi są wyłącznie `sta`/`stx`/`sty`). Wzorzec z `lda #I ; sta M` 19× w bazie. Test.",
-      "status": "todo",
+      "status": "done",
       "note": "",
       "section": "D. Peephole 6502 (`Peephole.cs`, tekst asemblera po `ByteSelector`)"
     },

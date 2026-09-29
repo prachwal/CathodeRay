@@ -110,4 +110,33 @@ public sealed class PeepholeTests
     {
         Peephole.Optimize("RTS\nLDA #1\nL: RET").Should().Be("RTS\nL: RET");
     }
+
+    [Fact]
+    public void Redundant_Lda_Zero_After_Store_Sequence_Is_Removed()
+    {
+        Peephole.Optimize("LDA #0\nSTA M\nLDA #0\nSTA N\nRET").Should()
+            .Be("LDA #0\nSTA M\nSTA N\nRET");
+        Peephole.Optimize("LDA #0\nSTA M\nSTX X\nLDA #0\nSTA N\nRET").Should()
+            .Be("LDA #0\nSTA M\nSTX X\nSTA N\nRET");
+        Peephole.Optimize("LDA #0\nSTA M\nSTY Y\nLDA #0\nSTA N\nRET").Should()
+            .Be("LDA #0\nSTA M\nSTY Y\nSTA N\nRET");
+    }
+
+    [Fact]
+    public void Redundant_Lda_Zero_Stops_At_Non_Store_Instruction()
+    {
+        Peephole.Optimize("LDA #0\nSTA M\nLDA #1\nSTA N\nRET").Should()
+            .Be("LDA #0\nSTA M\nLDA #1\nSTA N\nRET");
+        Peephole.Optimize("LDA #0\nSTA M\nADD 1\nLDA #0\nSTA N\nRET").Should()
+            .Be("LDA #0\nSTA M\nADD 1\nLDA #0\nSTA N\nRET");
+    }
+
+    [Fact]
+    public void Redundant_Lda_Zero_Stops_At_Label()
+    {
+        Peephole.Optimize("LDA #0\nSTA M\nL: LDA #0\nSTA N\nRET").Should()
+            .Be("LDA #0\nSTA M\nL: LDA #0\nSTA N\nRET");
+        Peephole.Optimize("LDA #0\nL:\nLDA #0\nSTA N\nRET").Should()
+            .Be("LDA #0\nL:\nLDA #0\nSTA N\nRET");
+    }
 }

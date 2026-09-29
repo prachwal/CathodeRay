@@ -64,6 +64,11 @@ public static partial class Peephole
             return true;
         }
 
+        if (TryRemoveRedundantLoadZero(result, line))
+        {
+            return true;
+        }
+
         if (TryRemoveDeadAfterJump(result, line))
         {
             return true;
@@ -144,6 +149,53 @@ public static partial class Peephole
     }
 
     private static bool IsPureLoadA(string op) => op is "LDA" or "LDI" or "TXA";
+
+    private static bool TryRemoveRedundantLoadZero(List<string> result, string line)
+    {
+        (string? label, string op, string operand) = Split(line);
+
+        if (op != "LDA" || operand != "#0" || label is not null)
+        {
+            return false;
+        }
+
+        // Scan backwards to find if A is already set to 0 in the current block
+        for (int i = result.Count - 1; i >= 0; i--)
+        {
+            (string? prevLabel, string prevOp, string prevOperand) = Split(result[i]);
+
+            // Skip comments, but check for labels
+            if (prevOp.Length == 0)
+            {
+                if (prevLabel is not null)
+                {
+                    return false;  // Hit a label, stop
+                }
+
+                continue;  // Skip comments
+            }
+
+            // If we hit a label, we've left the block
+            if (prevLabel is not null)
+            {
+                return false;
+            }
+
+            // If we find a previous LDA #0, this one is redundant
+            if (prevOp == "LDA" && prevOperand == "#0")
+            {
+                return true;
+            }
+
+            // If we find any other instruction that is not STA/STX/STY, stop
+            if (prevOp is not ("STA" or "STX" or "STY"))
+            {
+                return false;
+            }
+        }
+
+        return false;
+    }
 
     private static bool TryRemoveDeadAfterJump(List<string> result, string line)
     {
