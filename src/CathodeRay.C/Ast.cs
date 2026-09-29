@@ -41,7 +41,8 @@ public static class Ast
     /// <param name="Name">Nazwa.</param>
     /// <param name="Init">Inicjalizator lub <see langword="null"/>.</param>
     /// <param name="PointerDepth">Liczba <c>*</c> (wskaźnik).</param>
-    public sealed record Decl(string Type, string Name, Expr? Init, int PointerDepth = 0) : Stmt;
+    /// <param name="ArrayLength">Długość tablicy (0 = skalar).</param>
+    public sealed record Decl(string Type, string Name, Expr? Init, int PointerDepth = 0, int ArrayLength = 0) : Stmt;
 
     /// <summary>Warunek z gałęzią else.</summary>
     /// <param name="Cond">Warunek.</param>
@@ -113,6 +114,11 @@ public static class Ast
     /// <summary>Dereferencja wskaźnika (<c>*p</c>).</summary>
     /// <param name="Pointer">Wskaźnik.</param>
     public sealed record Deref(Expr Pointer) : Expr;
+
+    /// <summary>Przypisanie przez wskaźnik/indeks (<c>*p = v</c>, <c>p[i] = v</c>).</summary>
+    /// <param name="Target">Cel (<c>Deref</c> lub <c>Index</c>).</param>
+    /// <param name="Value">Wartość.</param>
+    public sealed record AssignTo(Expr Target, Expr Value) : Expr;
 
     /// <summary>Adres zmiennej (<c>&amp;x</c>).</summary>
     /// <param name="Name">Nazwa zmiennej.</param>

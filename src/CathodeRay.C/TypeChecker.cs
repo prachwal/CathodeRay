@@ -28,7 +28,15 @@ public sealed class TypeChecker
         return checker.CheckProgram(program);
     }
 
-    private static CType Declared(string type, int stars)
+    private static void CheckArray(Ast.Decl decl)
+    {
+        if (decl.ArrayLength > 0 && decl.Init is not null)
+        {
+            throw new CTypeException($"array '{decl.Name}' needs no initializer (zeroed).");
+        }
+    }
+
+    private static CType Declared(string type, int stars, int length = 0)
     {
         CType result = CType.FromName(type);
         for (int i = 0; i < stars; i++)
@@ -36,7 +44,7 @@ public sealed class TypeChecker
             result = CType.Pointer(result);
         }
 
-        return result;
+        return length > 0 ? CType.Array(result, length) : result;
     }
 
     private static CType NumberType(string text)
@@ -66,14 +74,15 @@ public sealed class TypeChecker
     {
         foreach (Ast.Decl global in program.Globals)
         {
-            if (!_globals.TryAdd(global.Name, new TypedSymbol(global.Name, Declared(global.Type, global.PointerDepth), global.Init)))
+            CheckArray(global);
+            if (!_globals.TryAdd(global.Name, new TypedSymbol(global.Name, Declared(global.Type, global.PointerDepth, global.ArrayLength), global.Init)))
             {
                 throw new CTypeException($"redefinition of '{global.Name}'.");
             }
 
             if (global.Init is not null)
             {
-                Assignable(Declared(global.Type, global.PointerDepth), TypeOf(global.Init), $"initializer of '{global.Name}'");
+                AssignableOrNull(Declared(global.Type, global.PointerDepth, global.ArrayLength), global.Init, $"initializer of '{global.Name}'");
             }
         }
 
@@ -176,15 +185,16 @@ public sealed class TypeChecker
                     throw new CTypeException($"variable '{decl.Name}' has void type.");
                 }
 
-                if (!_scopes.Peek().TryAdd(decl.Name, Declared(decl.Type, decl.PointerDepth)))
+                CheckArray(decl);
+                if (!_scopes.Peek().TryAdd(decl.Name, Declared(decl.Type, decl.PointerDepth, decl.ArrayLength)))
                 {
                     throw new CTypeException($"redefinition of '{decl.Name}'.");
                 }
 
-                _locals.Add(new TypedSymbol(decl.Name, Declared(decl.Type, decl.PointerDepth)));
+                _locals.Add(new TypedSymbol(decl.Name, Declared(decl.Type, decl.PointerDepth, decl.ArrayLength)));
                 if (decl.Init is not null)
                 {
-                    Assignable(Declared(decl.Type, decl.PointerDepth), TypeOf(decl.Init), $"initializer of '{decl.Name}'");
+                    AssignableOrNull(Declared(decl.Type, decl.PointerDepth, decl.ArrayLength), decl.Init, $"initializer of '{decl.Name}'");
                 }
 
                 break;
@@ -276,6 +286,16 @@ public sealed class TypeChecker
         throw new CTypeException($"undeclared '{name}'.");
     }
 
+    private void AssignableOrNull(CType target, Ast.Expr value, string where)
+    {
+        if (value is Ast.Number { Text: "0" } && target.Kind == "ptr")
+        {
+            return;
+        }
+
+        Assignable(target, TypeOf(value), where);
+    }
+
     private void Assignable(CType target, CType value, string where)
     {
         if (target == value || (target.Kind == "int" && value.Kind == "uchar"))
@@ -311,7 +331,7 @@ public sealed class TypeChecker
             case Ast.Number number:
                 return NumberType(number.Text);
             case Ast.Var variable:
-                return Lookup(variable.Name);
+                return Lookup(variable.Name).Decay();
             case Ast.Call call:
                 return CallType(call);
             case Ast.Unary unary:
@@ -322,11 +342,17 @@ public sealed class TypeChecker
                 return AssignType(assign);
             case Ast.Ternary ternary:
                 return TernaryType(ternary);
+            case Ast.AssignTo assignTo:
+                return AssignToType(assignTo);
             case Ast.Deref deref:
                 return DerefType(deref);
             case Ast.AddressOf addressOf:
-                Lookup(addressOf.Name);
-                return CType.Pointer(CType.UChar);
+            {
+                CType raw = Lookup(addressOf.Name);
+                CType target = raw.Kind == "array" && raw.Base is not null ? raw.Base : raw;
+                return CType.Pointer(target);
+            }
+
             case Ast.Index index:
                 return IndexType(index);
             default:
@@ -348,9 +374,9 @@ public sealed class TypeChecker
 
         for (int i = 0; i < call.Args.Count; i++)
         {
-            Assignable(
+            AssignableOrNull(
                 Declared(function.Params[i].Type, function.Params[i].PointerDepth),
-                TypeOf(call.Args[i]),
+                call.Args[i],
                 $"argument {i + 1} of '{call.Name}'");
         }
 
@@ -362,8 +388,8 @@ public sealed class TypeChecker
         CType operand = TypeOf(unary.Operand);
         return unary.Op switch
         {
-            "-" or "~" => operand.Kind == "void"
-                ? throw new CTypeException($"operator '{unary.Op}' needs an arithmetic operand.")
+            "-" or "~" => operand.Kind is "void" or "ptr" or "array"
+                ? throw new CTypeException($"operator '{unary.Op}' needs arithmetic operands.")
                 : operand,
             "!" => operand.Kind == "void"
                 ? throw new CTypeException("operator '!' needs a value.")
@@ -374,8 +400,8 @@ public sealed class TypeChecker
 
     private CType BinaryType(Ast.Binary binary)
     {
-        CType left = TypeOf(binary.Left);
-        CType right = TypeOf(binary.Right);
+        CType left = TypeOf(binary.Left).Decay();
+        CType right = TypeOf(binary.Right).Decay();
         if (left.Kind == "void" || right.Kind == "void")
         {
             throw new CTypeException($"operator '{binary.Op}' needs values.");
@@ -401,18 +427,48 @@ public sealed class TypeChecker
             return CType.UChar;
         }
 
+        if (binary.Op is "+" or "-")
+        {
+            if (left.Kind == "ptr" && right.Kind != "ptr" && right.Kind != "void")
+            {
+                return left;
+            }
+
+            if (right.Kind == "ptr" && binary.Op == "+" && left.Kind != "ptr" && left.Kind != "void")
+            {
+                return right;
+            }
+        }
+
         if (left.Kind == "ptr" || right.Kind == "ptr")
         {
-            throw new CTypeException($"operator '{binary.Op}' needs arithmetic operands (pointer arithmetic is explicit in codegen).");
+            throw new CTypeException($"operator '{binary.Op}' is not supported for pointers.");
         }
 
         return left.Kind == "int" || right.Kind == "int" ? CType.Int : CType.UChar;
     }
 
+    private CType AssignToType(Ast.AssignTo assignTo)
+    {
+        if (assignTo.Target is not (Ast.Deref or Ast.Index))
+        {
+            throw new CTypeException("assignment target must be *p or p[i].");
+        }
+
+        CType target = TypeOf(assignTo.Target);
+        Assignable(target, TypeOf(assignTo.Value), "assignment through pointer");
+        return target;
+    }
+
     private CType AssignType(Ast.Assign assign)
     {
         CType target = Lookup(assign.Name);
-        Assignable(target, TypeOf(assign.Value), $"assignment to '{assign.Name}'");
+        if (target.Kind == "array")
+        {
+            throw new CTypeException($"array '{assign.Name}' is not assignable.");
+        }
+
+        AssignableOrNull(target, assign.Value, $"assignment to '{assign.Name}'");
         return target;
     }
 
@@ -428,6 +484,11 @@ public sealed class TypeChecker
 
         if (then.Kind == "ptr" || els.Kind == "ptr")
         {
+            if (then == els && then.Kind == "ptr")
+            {
+                return then;
+            }
+
             throw new CTypeException("ternary branches need arithmetic values.");
         }
 

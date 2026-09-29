@@ -105,9 +105,10 @@ public sealed class Parser
     private Ast.Decl GlobalRest(string type, string name, int line)
     {
         int stars = Stars();
+        int length = ArrayLength();
         Ast.Expr? init = Take("=") ? Expression() : null;
         Expect(";");
-        return At(line, new Ast.Decl(type, name, init, stars));
+        return At(line, new Ast.Decl(type, name, init, stars, length));
     }
 
     private int Stars()
@@ -263,9 +264,22 @@ public sealed class Parser
         string type = typeToken.Text;
         int stars = Stars();
         string name = ExpectKind(TokenKind.Ident, "variable name").Text;
+        int length = ArrayLength();
         Ast.Expr? init = Take("=") ? Expression() : null;
         Expect(";");
-        return At(typeToken.Line, new Ast.Decl(type, name, init, stars));
+        return At(typeToken.Line, new Ast.Decl(type, name, init, stars, length));
+    }
+
+    private int ArrayLength()
+    {
+        if (!Take("["))
+        {
+            return 0;
+        }
+
+        Token size = ExpectKind(TokenKind.Number, "array length");
+        Expect("]");
+        return int.TryParse(size.Text, out int length) ? length : 0;
     }
 
     private Ast.Expr Expression() => Assignment();
@@ -278,6 +292,16 @@ public sealed class Parser
         {
             Next();
             Ast.Expr right = Assignment();
+            if (left is Ast.Deref || left is Ast.Index)
+            {
+                if (token.Text != "=")
+                {
+                    throw new CParseException(token.Line, token.Column, "compound assignment on pointers is not supported.");
+                }
+
+                return new Ast.AssignTo(left, right);
+            }
+
             if (left is not Ast.Var variable)
             {
                 throw new CParseException(token.Line, token.Column, "assignment needs a variable.");

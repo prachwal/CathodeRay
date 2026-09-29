@@ -31,7 +31,39 @@ public sealed class CTypesTests
     [Fact]
     public void Pointers_Deref_Index_And_Address()
     {
-        CheckedProgram program = Check("int f(int *p, uchar *q) { int x = *p; uchar y = q[1]; int *r = p; uchar *s = &x; return x; }");
+        CheckedProgram program = Check("int f(int *p, uchar *q) { int x = *p; uchar y = q[1]; int *r = p; uchar *s = &y; return x; }");
+
+        program.Warnings.Should().BeEmpty();
+    }
+
+    [Fact]
+    public void Arrays_Decay_To_Pointers_And_Index()
+    {
+        CheckedProgram program = Check("uchar g[4]; int f() { int l[2]; uchar *p = g; int *q = l + 1; l[0] = 1; g[3] = p[0]; q[0] = 2; return l[1] + q[0]; }");
+
+        program.Warnings.Should().BeEmpty();
+    }
+
+    [Fact]
+    public void AddressOf_Keeps_Variable_Type()
+    {
+        CheckedProgram program = Check("int f() { int x = 1; int *p = &x; uchar y = 2; uchar *q = &y; return *p + *q; }");
+
+        program.Warnings.Should().BeEmpty();
+    }
+
+    [Fact]
+    public void Pointer_Arithmetic_Keeps_Base_Type()
+    {
+        CheckedProgram program = Check("int f() { uchar b[4]; uchar *p = b; p = p + 2; int g[2]; int *q = g + 1; q = 1 + q; return *p + *q; }");
+
+        program.Warnings.Should().BeEmpty();
+    }
+
+    [Fact]
+    public void Null_Pointer_Assigns_To_Ptr()
+    {
+        CheckedProgram program = Check("int f() { int *p = 0; p = 0; return 0; }");
 
         program.Warnings.Should().BeEmpty();
     }
@@ -61,7 +93,6 @@ public sealed class CTypesTests
             { "int g(int *p) { return 0; } int f() { int x; return g(x); }" },
             { "void f() { return 1; }" },
             { "int f() { return; }" },
-            { "int f(int *p) { int x = p[1] + *p; return x; } int g() { return f(0); }" },
             { "int f() { int x = &y; return 0; }" },
             { "int f() { void x; return 0; }" },
         };

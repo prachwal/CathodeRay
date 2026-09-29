@@ -107,4 +107,28 @@ public sealed class MiniCProgramsTests
 
         cpu.State.A.Should().Be(109);
     }
+
+    [Fact]
+    public void PtrBasic_Covers_Address_And_Deref()
+    {
+        var (cpu, _, _) = Run("ptr_basic.c");
+
+        cpu.State.A.Should().Be(84);
+    }
+
+    [Fact]
+    public void PtrArray_Covers_Arrays_Index_And_Arithmetic()
+    {
+        var (cpu, _, _) = Run("ptr_array.c");
+
+        cpu.State.A.Should().Be(80);
+    }
+
+    [Fact]
+    public void PtrInt_Covers_Int_Pointer_Scale()
+    {
+        var (cpu, _, _) = Run("ptr_int.c");
+
+        cpu.State.A.Should().Be(100);
+    }
 }

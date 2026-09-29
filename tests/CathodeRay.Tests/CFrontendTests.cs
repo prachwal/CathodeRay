@@ -109,8 +109,8 @@ public sealed class CFrontendTests
             { "int f() { while (1) { }", 1, 24 },
             { "int f() { for (i = 0 i < 1) { } }", 1, 22 },
             { "int f() { 1 = 2; }", 1, 13 },
-            { "int f() { int x; *x = 1; return 0; }", 1, 21 },
-            { "int f() { int x; x[0] = 1; return 0; }", 1, 23 },
+            { "int f() { int x; *x += 1; return 0; }", 1, 21 },
+            { "int f() { int x; x[0] += 1; return 0; }", 1, 23 },
             { "int f() { return; return", 1, 25 },
         };
     }

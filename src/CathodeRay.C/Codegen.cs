@@ -17,11 +17,13 @@ namespace CathodeRay.C;
 /// Bez: int *,/,%,&lt;&lt;,&gt;&gt;,&amp;,|,^, wskaźników, tablic (jawny błąd).</summary>
 public sealed class Codegen
 {
-    private readonly List<(string Name, int Size, byte[]? Init)> _data = [];
+    private readonly List<(string Name, CType Type, byte[]? Init)> _data = [];
     private readonly Dictionary<string, Cell> _cells = new(StringComparer.Ordinal);
     private readonly Dictionary<string, CheckedFunction> _functions = new(StringComparer.Ordinal);
+    private readonly List<(string Label, string Symbol)> _words = [];
     private IReadOnlyDictionary<Ast.Node, int> _lines = new Dictionary<Ast.Node, int>();
     private string? _file;
+    private int _addrs;
     private StringBuilder _code = new();
     private IReadOnlyList<TypedSymbol> _globals = [];
     private int _labels;
@@ -68,6 +70,10 @@ public sealed class Codegen
         value = 0;
         return false;
     }
+
+    private static bool IsWide(CType type) => type.Kind is "int" or "ptr";
+
+    private static int ElemSize(CType type) => type.Kind == "uchar" ? 1 : 2;
 
     private static byte[]? InitBytes(TypedSymbol symbol)
     {
@@ -138,7 +144,7 @@ public sealed class Codegen
 
         var data = new StringBuilder();
         data.AppendLine(".segment \"DATA\"");
-        foreach ((string name, int size, byte[]? init) in _data)
+        foreach ((string name, CType type, byte[]? init) in _data)
         {
             if (init is null)
             {
@@ -150,6 +156,7 @@ public sealed class Codegen
                 data.AppendLine($".global {name}");
             }
 
+            int size = type.Size;
             if (size == 2 && init.Length == 2)
             {
                 data.AppendLine($"{name}: .byte {init[0]}");
@@ -162,23 +169,36 @@ public sealed class Codegen
             }
         }
 
+        foreach ((string label, string symbol) in _words)
+        {
+            data.AppendLine($"{label}: .word {symbol}");
+        }
+
         var bss = new StringBuilder();
         bss.AppendLine(".segment \"BSS\"");
         int bssBytes = 0;
-        foreach ((string name, int size, byte[]? init) in _data)
+        foreach ((string name, CType type, byte[]? init) in _data)
         {
             if (init is not null)
             {
                 continue;
             }
 
+            int size = type.Size;
             bssBytes += size;
             if (name.StartsWith("cc_g_", StringComparison.Ordinal))
             {
                 bss.AppendLine($".global {name}");
             }
 
-            if (size == 1)
+            if (type.Kind == "array")
+            {
+                for (int i = 0; i < size; i++)
+                {
+                    bss.AppendLine(i == 0 ? $"{name}: .byte 0" : ".byte 0");
+                }
+            }
+            else if (size == 1)
             {
                 bss.AppendLine($"{name}: .byte 0");
             }
@@ -208,7 +228,7 @@ public sealed class Codegen
     }
 
     private void DataCell(string name, CType type, byte[]? init = null) =>
-        _data.Add((name, type.Size, init));
+        _data.Add((name, type, init));
 
     private string Temp(int depth, bool hi)
     {
@@ -252,6 +272,7 @@ public sealed class Codegen
         }
 
         _maxTemp = -1;
+        _addrs = -1;
         Comment(function.Def);
         _code.AppendLine($".proc {function.Def.Name}");
         _code.AppendLine($".global {function.Def.Name}");
@@ -313,7 +334,7 @@ public sealed class Codegen
         for (int i = 0; i < function.Params.Count; i++)
         {
             Cell cell = _cells[function.Params[i].Name];
-            if (function.Params[i].Type.Kind == "int")
+            if (IsWide(function.Params[i].Type))
             {
                 if (i == 0)
                 {
@@ -350,6 +371,8 @@ public sealed class Codegen
 
     private string KindOf(Ast.Expr expr) =>
         _types.TryGetValue(expr, out CType? type) ? type.Kind : "uchar";
+
+    private bool IsWideKind(Ast.Expr expr) => KindOf(expr) is "int" or "ptr";
 
     private void EmitStmt(Ast.Stmt stmt)
     {
@@ -399,7 +422,7 @@ public sealed class Codegen
     private void Store(string name, Ast.Expr value, int depth)
     {
         (string cell, CType type) = CellOf(name);
-        if (type.Kind == "int")
+        if (IsWide(type))
         {
             EvalInt(value, depth, out string lo, out string hi);
             _code.AppendLine($"LDA {lo}");
@@ -522,7 +545,7 @@ public sealed class Codegen
             return;
         }
 
-        if (KindOf(cond) == "int")
+        if (IsWideKind(cond))
         {
             EvalInt(cond, depth, out string lo, out string hi);
             _code.AppendLine("LDX 0");
@@ -571,7 +594,7 @@ public sealed class Codegen
             return;
         }
 
-        if (KindOf(cond) == "int")
+        if (IsWideKind(cond))
         {
             EvalInt(cond, depth, out string lo, out string hi);
             _code.AppendLine("LDX 0");
@@ -789,7 +812,7 @@ public sealed class Codegen
 
     private void Eval(Ast.Expr expr, int depth)
     {
-        if (KindOf(expr) == "int")
+        if (expr is Ast.Deref or Ast.Index or Ast.AssignTo || IsWideKind(expr))
         {
             EvalInt(expr, depth, out _, out _);
             return;
@@ -823,15 +846,12 @@ public sealed class Codegen
                 Store(assign.Name, assign.Value, depth);
                 _code.AppendLine($"LDA {CellOf(assign.Name).Lo}");
                 break;
+            case Ast.AssignTo assignTo:
+                StorePtr(assignTo, depth);
+                break;
             case Ast.Ternary ternary:
                 EmitTernary(ternary, depth);
                 break;
-            case Ast.Deref:
-                throw new CCodegenException("pointers need address arithmetic (plan 20).");
-            case Ast.AddressOf:
-                throw new CCodegenException("address-of needs linker symbols (plan 23).");
-            case Ast.Index:
-                throw new CCodegenException("arrays need address arithmetic (plan 20).");
             default:
                 throw new CCodegenException($"unsupported expression {expr.GetType().Name}.");
         }
@@ -851,8 +871,15 @@ public sealed class Codegen
                 _code.AppendLine($"STA {hi}");
                 break;
             case Ast.Var variable:
+            {
                 (string cell, CType vtype) = CellOf(variable.Name);
-                if (vtype.Kind != "int")
+                if (vtype.Kind == "array")
+                {
+                    EmitAddressOf(cell, lo, hi);
+                    break;
+                }
+
+                if (vtype.Kind == "uchar")
                 {
                     Eval(expr, depth);
                     _code.AppendLine($"STA {lo}");
@@ -867,6 +894,8 @@ public sealed class Codegen
                 _code.AppendLine($"LDA {cell}_h");
                 _code.AppendLine($"STA {hi}");
                 break;
+            }
+
             case Ast.Call call when ReturnsInt(call):
                 EmitCall(call, depth);
                 _code.AppendLine($"STA {lo}");
@@ -881,8 +910,34 @@ public sealed class Codegen
                 _code.AppendLine("TXA");
                 _code.AppendLine($"STA {hi}");
                 break;
+            case Ast.Binary binary when binary.Op is "+" or "-"
+                && (KindOf(binary.Left) == "ptr" || KindOf(binary.Right) == "ptr"):
+                EmitPtrArith(binary, depth, lo, hi);
+                break;
             case Ast.Binary binary when binary.Op is "+" or "-":
                 EvalIntArith(binary, depth, lo, hi);
+                break;
+            case Ast.AddressOf addressOf:
+            {
+                (string acell, _) = CellOf(addressOf.Name);
+                EmitAddressOf(acell, lo, hi);
+                break;
+            }
+
+            case Ast.Deref deref:
+                EvalPtrAddr(deref, depth, out string dalo, out string dahi);
+                PatchedLoad(dalo, dahi, ElemSize(TypeOfDeref(deref)), lo, hi, depth);
+                break;
+            case Ast.Index index:
+                EvalPtrAddr(index, depth, out string ialo, out string iahi);
+                PatchedLoad(ialo, iahi, ElemSize(TypeOfIndex(index)), lo, hi, depth);
+                break;
+            case Ast.AssignTo assignTo:
+                StorePtr(assignTo, depth);
+                _code.AppendLine($"LDA {Temp(depth, hi: false)}");
+                _code.AppendLine($"LDA {Temp(depth, hi: true)}");
+                _code.AppendLine("TAX");
+                _code.AppendLine($"LDA {Temp(depth, hi: false)}");
                 break;
             case Ast.Binary binary when binary.Op is "==" or "!=" or "<" or "<=" or ">" or ">=" or "&&" or "||":
             case Ast.Unary { Op: "!" }:
@@ -898,7 +953,7 @@ public sealed class Codegen
                 (string assignCell, CType assignType) = CellOf(assign.Name);
                 _code.AppendLine($"LDA {assignCell}");
                 _code.AppendLine($"STA {lo}");
-                if (assignType.Kind != "int")
+                if (assignType.Kind == "uchar")
                 {
                     _code.AppendLine("LDX 0");
                     _code.AppendLine("TXA");
@@ -972,6 +1027,257 @@ public sealed class Codegen
         }
     }
 
+    /// <summary>Adres labela do pary (ukryta komórka .word, linker wypełnia).</summary>
+    private void EmitAddressOf(string cellLabel, string lo, string hi)
+    {
+        string addr = $"{_prefix}__addr{++_addrs}";
+        _words.Add((addr, cellLabel));
+        _code.AppendLine($"LDA {addr}");
+        _code.AppendLine($"STA {lo}");
+        _code.AppendLine($"LDA {addr}+1");
+        _code.AppendLine($"STA {hi}");
+    }
+
+    /// <summary>Podwaja parę (lo,hi) w miejscu (skala x2 dla int*).</summary>
+    private void DoublePair(string lo, string hi)
+    {
+        _code.AppendLine("LDX 0");
+        _code.AppendLine($"LDA {lo}");
+        _code.AppendLine($"ADD {lo},X");
+        _code.AppendLine($"STA {lo}");
+        _code.AppendLine($"LDA {hi}");
+        _code.AppendLine($"ADC {hi},X");
+        _code.AppendLine($"STA {hi}");
+    }
+
+    /// <summary>Liczy adres celu (*p lub p[i]) do pary Temp(depth).</summary>
+    private void EvalPtrAddr(Ast.Expr target, int depth, out string lo, out string hi)
+    {
+        lo = Temp(depth, hi: false);
+        hi = Temp(depth, hi: true);
+        if (target is Ast.Deref deref)
+        {
+            EvalInt(deref.Pointer, depth + 1, out string plo, out string phi);
+            _code.AppendLine($"LDA {plo}");
+            _code.AppendLine($"STA {lo}");
+            _code.AppendLine($"LDA {phi}");
+            _code.AppendLine($"STA {hi}");
+            return;
+        }
+
+        if (target is Ast.Index index)
+        {
+            EvalInt(index.Base, depth + 1, out string blo, out string bhi);
+            EvalInt(index.Offset, depth + 2, out string ilo, out string ihi);
+            if (ElemSize(TypeOfIndex(index)) == 2)
+            {
+                DoublePair(ilo, ihi);
+            }
+
+            _code.AppendLine("LDX 0");
+            _code.AppendLine($"LDA {blo}");
+            _code.AppendLine($"ADD {ilo},X");
+            _code.AppendLine($"STA {lo}");
+            _code.AppendLine($"LDA {bhi}");
+            _code.AppendLine($"ADC {ihi},X");
+            _code.AppendLine($"STA {hi}");
+            return;
+        }
+
+        throw new CCodegenException($"pointer target '{target.GetType().Name}' not supported.");
+    }
+
+    /// <summary>Czyta spod adresu (łatany operand, wzorzec divmod); nadpisuje parę.</summary>
+    private void PatchedLoad(string addrLo, string addrHi, int elemSize, string outLo, string outHi, int depth)
+    {
+        string tmp = Temp(depth + 3, hi: false);
+        string tmph = Temp(depth + 3, hi: true);
+        _code.AppendLine($"LDA {addrLo}");
+        _code.AppendLine("ADD 1");
+        _code.AppendLine($"STA {tmp}");
+        _code.AppendLine($"LDA {addrHi}");
+        _code.AppendLine("ADC 0");
+        _code.AppendLine($"STA {tmph}");
+        string site = Label("ld");
+        _code.AppendLine($"LDA {addrLo}");
+        _code.AppendLine($"STA {site}+1");
+        _code.AppendLine($"LDA {addrHi}");
+        _code.AppendLine($"STA {site}+2");
+        _code.AppendLine($"{site}: LDA 0");
+        _code.AppendLine($"STA {outLo}");
+        if (elemSize == 1)
+        {
+            _code.AppendLine("LDX 0");
+            _code.AppendLine("TXA");
+            _code.AppendLine($"STA {outHi}");
+            return;
+        }
+
+        string siteHi = Label("ld");
+        _code.AppendLine($"LDA {tmp}");
+        _code.AppendLine($"STA {siteHi}+1");
+        _code.AppendLine($"LDA {tmph}");
+        _code.AppendLine($"STA {siteHi}+2");
+        _code.AppendLine($"{siteHi}: LDA 0");
+        _code.AppendLine($"STA {outHi}");
+    }
+
+    /// <summary>Pisze pod adres (łatany operand); wartość z pary/rejestru.</summary>
+    private void PatchedStore(string addrLo, string addrHi, int elemSize, string valLo, string valHi, int depth)
+    {
+        string site = Label("st");
+        _code.AppendLine($"LDA {addrLo}");
+        _code.AppendLine($"STA {site}+1");
+        _code.AppendLine($"LDA {addrHi}");
+        _code.AppendLine($"STA {site}+2");
+        _code.AppendLine($"LDA {valLo}");
+        _code.AppendLine($"{site}: STA 0");
+        if (elemSize == 1)
+        {
+            return;
+        }
+
+        string tmp = Temp(depth + 3, hi: false);
+        string tmph = Temp(depth + 3, hi: true);
+        _code.AppendLine($"LDA {addrLo}");
+        _code.AppendLine("ADD 1");
+        _code.AppendLine($"STA {tmp}");
+        _code.AppendLine($"LDA {addrHi}");
+        _code.AppendLine("ADC 0");
+        _code.AppendLine($"STA {tmph}");
+        string siteHi = Label("st");
+        _code.AppendLine($"LDA {tmp}");
+        _code.AppendLine($"STA {siteHi}+1");
+        _code.AppendLine($"LDA {tmph}");
+        _code.AppendLine($"STA {siteHi}+2");
+        _code.AppendLine($"LDA {valHi}");
+        _code.AppendLine($"{siteHi}: STA 0");
+    }
+
+    /// <summary>Zapis przez wskaźnik/indeks (wartość, potem adres).</summary>
+    private void StorePtr(Ast.AssignTo assignTo, int depth)
+    {
+        CType elem = assignTo.Target is Ast.Index index ? TypeOfIndex(index) : TypeOfDeref(assignTo.Target);
+        int size = ElemSize(elem);
+        string vlo;
+        string vhi;
+        if (size == 1)
+        {
+            Eval(assignTo.Value, depth);
+            vlo = Temp(depth, hi: false);
+            _code.AppendLine($"STA {vlo}");
+            vhi = vlo;
+        }
+        else
+        {
+            EvalInt(assignTo.Value, depth, out vlo, out vhi);
+        }
+
+        EvalPtrAddr(assignTo.Target, depth + 1, out string alo, out string ahi);
+        if (size == 1)
+        {
+            PatchedStore(alo, ahi, size, vlo, vhi, depth + 1);
+            _code.AppendLine($"LDA {vlo}");
+            return;
+        }
+
+        PatchedStore(alo, ahi, size, vlo, vhi, depth + 1);
+        _code.AppendLine($"LDA {vlo}");
+        _code.AppendLine($"LDA {vhi}");
+        _code.AppendLine("TAX");
+        _code.AppendLine($"LDA {vlo}");
+    }
+
+    private CType TypeOfIndex(Ast.Index index) =>
+        _types.TryGetValue(index, out CType? type) ? type : CType.UChar;
+
+    private CType TypeOfDeref(Ast.Expr target) =>
+        _types.TryGetValue(target, out CType? type) ? type : CType.UChar;
+
+    /// <summary>Arytmetyka wskaźników (ptr+int, int+ptr, ptr-int; skala z elementu).</summary>
+    private void EmitPtrArith(Ast.Binary binary, int depth, string lo, string hi)
+    {
+        bool leftPtr = KindOf(binary.Left) == "ptr";
+        Ast.Expr ptrSide = leftPtr ? binary.Left : binary.Right;
+        Ast.Expr intSide = leftPtr ? binary.Right : binary.Left;
+        if (binary.Op == "-" && !leftPtr)
+        {
+            throw new CCodegenException("int - ptr is not supported.");
+        }
+
+        CType? @base = _types.TryGetValue(ptrSide, out CType? ptrType) ? ptrType.Base : null;
+        int scale = @base is not null && @base.Kind == "uchar" ? 1 : 2;
+        EvalInt(ptrSide, depth + 1, out string plo, out string phi);
+        EvalInt(intSide, depth + 2, out string ilo, out string ihi);
+        if (scale == 2)
+        {
+            DoublePair(ilo, ihi);
+            _code.AppendLine("LDX 0");
+            _code.AppendLine($"LDA {plo}");
+            if (binary.Op == "+")
+            {
+                _code.AppendLine($"ADD {ilo},X");
+            }
+            else
+            {
+                string site = Label("psub");
+                _code.AppendLine($"LDA {ilo}");
+                _code.AppendLine($"STA {site}+1");
+                _code.AppendLine($"LDA {plo}");
+                _code.AppendLine($"{site}: SUB 0");
+            }
+
+            _code.AppendLine($"STA {lo}");
+            _code.AppendLine($"LDA {phi}");
+            if (binary.Op == "+")
+            {
+                _code.AppendLine($"ADC {ihi},X");
+            }
+            else
+            {
+                string siteHi = Label("psub");
+                _code.AppendLine($"LDA {ihi}");
+                _code.AppendLine($"STA {siteHi}+1");
+                _code.AppendLine($"LDA {phi}");
+                _code.AppendLine($"{siteHi}: SUB 0");
+            }
+
+            _code.AppendLine($"STA {hi}");
+            return;
+        }
+
+        _code.AppendLine("LDX 0");
+        _code.AppendLine($"LDA {plo}");
+        if (binary.Op == "+")
+        {
+            _code.AppendLine($"ADD {ilo},X");
+            _code.AppendLine($"STA {lo}");
+            _code.AppendLine($"LDA {phi}");
+            _code.AppendLine($"ADC {ihi},X");
+            _code.AppendLine($"STA {hi}");
+            return;
+        }
+
+        string patchLo = Label("psub");
+        string patchHi = Label("psub");
+        string noBorrow = Label("nb");
+        _code.AppendLine($"LDA {ilo}");
+        _code.AppendLine($"STA {patchLo}+1");
+        _code.AppendLine($"LDA {plo}");
+        _code.AppendLine($"{patchLo}: SUB 0");
+        _code.AppendLine($"STA {lo}");
+        _code.AppendLine($"BCS {noBorrow}");
+        _code.AppendLine($"LDA {ihi}");
+        _code.AppendLine("ADD 1");
+        _code.AppendLine($"STA {ihi}");
+        _code.AppendLine($"{noBorrow}:");
+        _code.AppendLine($"LDA {ihi}");
+        _code.AppendLine($"STA {patchHi}+1");
+        _code.AppendLine($"LDA {phi}");
+        _code.AppendLine($"{patchHi}: SUB 0");
+        _code.AppendLine($"STA {hi}");
+    }
+
     private bool ReturnsInt(Ast.Call call) =>
         _functions.TryGetValue(call.Name, out CheckedFunction? target)
         && target.Def.ReturnType == "int";
@@ -1000,7 +1306,7 @@ public sealed class Codegen
             throw new CCodegenException($"operator '{unary.Op}' needs int operands.");
         }
 
-        if (KindOf(unary.Operand) != "int")
+        if (KindOf(unary.Operand) == "uchar")
         {
             Eval(unary.Operand, depth);
             _code.AppendLine("NOT");
@@ -1069,8 +1375,8 @@ public sealed class Codegen
             throw new CCodegenException($"'{call.Name}' takes at most 2 arguments (A, X).");
         }
 
-        bool secondInt = call.Args.Count == 2 && target.Params.Count > 1 && target.Params[1].Type.Kind == "int";
-        bool firstInt = call.Args.Count >= 1 && target.Params.Count > 0 && target.Params[0].Type.Kind == "int";
+        bool secondInt = call.Args.Count == 2 && target.Params.Count > 1 && IsWide(target.Params[1].Type);
+        bool firstInt = call.Args.Count >= 1 && target.Params.Count > 0 && IsWide(target.Params[0].Type);
         if (call.Args.Count == 2 && secondInt)
         {
             EvalInt(call.Args[1], depth + 1, out _, out _);

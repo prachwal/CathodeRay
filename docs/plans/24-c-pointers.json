@@ -1,29 +1,29 @@
 {
   "title": "Mini-C: wskaźniki",
-  "status": "queued",
+  "status": "closed",
   "items": [
     {
       "id": "1",
       "title": "Address-of: &x przez ukryte komórki .word (.word do stub-dialektu) + test e2e",
-      "status": "todo",
+      "status": "done",
       "note": ""
     },
     {
       "id": "2",
       "title": "Deref: *p i p[i] przez łatane LDA/STA (wzorzec divmod) + testy runtime",
-      "status": "todo",
+      "status": "done",
       "note": ""
     },
     {
       "id": "3",
       "title": "Arytmetyka wskaźników: p+1/p++/p-- (uchar* bajtowo; int* decyzja w tasku)",
-      "status": "todo",
+      "status": "done",
       "note": ""
     },
     {
       "id": "4",
       "title": "Testy + build/test/hygiene",
-      "status": "todo",
+      "status": "done",
       "note": ""
     }
   ]
