@@ -38,9 +38,6 @@ internal sealed class ByteSelector
         return Header() + _isa.Text + PrintInit() + PrintData() + PrintBss();
     }
 
-    private static string At(string sym, int offset) =>
-        offset == 0 ? sym : $"{sym}{(offset > 0 ? "+" : "-")}{Math.Abs(offset)}";
-
     private static int WidthOf(Ir.Op op) => op switch
     {
         Ir.Cell cell => cell.W,
@@ -57,6 +54,8 @@ internal sealed class ByteSelector
     private static string Mangle(Ir.Function function, string label) => $"{function.Name}__{label}";
 
     private static Octet Zero() => new(true, "0");
+
+    private string At(string sym, int offset) => _isa.At(sym, offset);
 
     private string Label(string hint) => $"S{++_labels}_{hint}";
 
@@ -109,10 +108,10 @@ internal sealed class ByteSelector
 
         if (!function.IsStatic)
         {
-            _isa.Raw(_isa.Global(function.Name));
+            _isa.Raw(_isa.Global(_isa.Sym(function.Name)));
         }
 
-        _isa.Raw($"{function.Name}:");
+        _isa.Raw($"{_isa.Sym(function.Name)}:");
         foreach (Ir.Owned owned in function.Saved)
         {
             foreach (string address in SavedBytes(owned))
@@ -361,7 +360,7 @@ internal sealed class ByteSelector
         }
 
         var pointer = (Ir.Cell)load.Ptr;
-        _isa.PtrSetup(pointer.Sym, load.Off);
+        _isa.PtrSetup(_isa.Sym(pointer.Sym), load.Off);
         for (int i = 0; i < load.Dst.W; i++)
         {
             if (i < load.Bytes)
@@ -391,7 +390,7 @@ internal sealed class ByteSelector
         }
 
         var pointer = (Ir.Cell)store.Ptr;
-        _isa.PtrSetup(pointer.Sym, store.Off);
+        _isa.PtrSetup(_isa.Sym(pointer.Sym), store.Off);
         for (int i = 0; i < store.Bytes; i++)
         {
             _isa.LoadA(ByteOf(store.Value, i));
@@ -484,11 +483,11 @@ internal sealed class ByteSelector
         if (call.Indirect is not null)
         {
             _usesIcall = true;
-            _isa.CallIndirect(call.Indirect.Sym);
+            _isa.CallIndirect(_isa.Sym(call.Indirect.Sym));
         }
         else
         {
-            _isa.Call(call.Direct!);
+            _isa.Call(_isa.Sym(call.Direct!));
         }
 
         if (call.Result is not null)
@@ -530,12 +529,12 @@ internal sealed class ByteSelector
         text.Append(_isa.Preamble());
         foreach (string function in _module.ExternFunctions)
         {
-            text.AppendLine(_isa.Extern(function));
+            text.AppendLine(_isa.Extern(_isa.Sym(function)));
         }
 
         foreach (string external in _module.ExternCells)
         {
-            text.AppendLine(_isa.Extern(external));
+            text.AppendLine(_isa.Extern(_isa.Sym(external)));
         }
 
         for (int arg = 1; arg <= TypeChecker.MaxArgs; arg++)
@@ -613,10 +612,10 @@ internal sealed class ByteSelector
         {
             if (data.Exported)
             {
-                text.AppendLine(_isa.Global(data.Sym));
+                text.AppendLine(_isa.Global(_isa.Sym(data.Sym)));
             }
 
-            text.AppendLine($"{data.Sym}: {_isa.Reserve(data.Size)}");
+            text.AppendLine($"{_isa.Sym(data.Sym)}: {_isa.Reserve(data.Size)}");
         }
 
         if (!_module.ObjectMode)
@@ -631,10 +630,10 @@ internal sealed class ByteSelector
     {
         if (data.Exported)
         {
-            text.AppendLine(_isa.Global(data.Sym));
+            text.AppendLine(_isa.Global(_isa.Sym(data.Sym)));
         }
 
-        string label = data.Sym.Length == 0 ? string.Empty : $"{data.Sym}: ";
+        string label = data.Sym.Length == 0 ? string.Empty : $"{_isa.Sym(data.Sym)}: ";
         foreach (Ir.Piece piece in data.Init!)
         {
             switch (piece)

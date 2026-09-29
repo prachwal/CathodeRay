@@ -3,12 +3,12 @@ using System.Text;
 
 namespace CathodeRay.C;
 
-/// <summary>Prymitywy Z80 (składnia Zilog): A jako akumulator, HL jako rejestr adresowy (operandy pamięciowe ALU przez
-/// <c>LD HL,adres; op A,(HL)</c>, wskaźniki przez <c>LD HL,(komórka)</c>), zapis/odczyt komórek przez <c>LD A,(adres)</c>.</summary>
-internal sealed class Z80Isa : ByteIsa
+/// <summary>Prymitywy Intel 8080 (mnemoniki Intel): A jako akumulator, HL jako rejestr adresowy (<c>LXI H,adres; ADD M</c>,
+/// wskaźniki przez <c>LHLD</c>), bez rejestrów IX/IY i bez instrukcji Z80.</summary>
+internal sealed class Intel8080Isa : ByteIsa
 {
     private static readonly HashSet<string> ReservedNames = new(
-        ["A", "B", "C", "D", "E", "H", "L", "I", "R", "AF", "BC", "DE", "HL", "SP", "IX", "IY", "IXH", "IXL", "IYH", "IYL", "NZ", "Z", "NC", "PO", "PE", "P", "M", "LOW", "HIGH", "MOD", "SHL", "SHR", "AND", "OR", "XOR", "NOT"],
+        ["A", "B", "C", "D", "E", "H", "L", "M", "SP", "PSW", "LOW", "HIGH", "MOD", "SHL", "SHR", "AND", "OR", "XOR", "NOT", "EQ", "NE", "LT", "LE", "GT", "GE"],
         StringComparer.OrdinalIgnoreCase);
 
     private int _position;
@@ -29,48 +29,56 @@ internal sealed class Z80Isa : ByteIsa
 
     public override string Reserve(int size) => $"DS {size}";
 
-    public override void LoadA(Octet value) => L(value.IsImmediate ? $"ld a,{value.Text}" : $"ld a,({value.Text})");
+    public override void LoadA(Octet value) => L(value.IsImmediate ? $"mvi a,{value.Text}" : $"lda {value.Text}");
 
-    public override void StoreA(string address) => L($"ld ({address}),a");
+    public override void StoreA(string address) => L($"sta {address}");
 
     public override void Alu(ByteAlu op, Octet value, bool first)
     {
-        string mnemonic = op switch
+        (string immediate, string memory) = op switch
         {
-            ByteAlu.Add => first ? "add a," : "adc a,",
-            ByteAlu.Sub => first ? "sub " : "sbc a,",
-            ByteAlu.And => "and ",
-            ByteAlu.Or => "or ",
-            _ => "xor ",
+            ByteAlu.Add => first ? ("adi", "add") : ("aci", "adc"),
+            ByteAlu.Sub => first ? ("sui", "sub") : ("sbi", "sbb"),
+            ByteAlu.And => ("ani", "ana"),
+            ByteAlu.Or => ("ori", "ora"),
+            _ => ("xri", "xra"),
         };
-        Operate(mnemonic, value);
+        Operate(immediate, memory, value);
     }
 
-    public override void Cmp(Octet value) => Operate("cp ", value);
+    public override void Cmp(Octet value) => Operate("cpi", "cmp", value);
 
-    public override void ShlA(bool first) => L(first ? "sla a" : "rl a");
+    public override void ShlA(bool first) => L(first ? "add a" : "ral");
 
-    public override void ShrA(bool first) => L(first ? "srl a" : "rr a");
+    public override void ShrA(bool first)
+    {
+        if (first)
+        {
+            L("ora a");
+        }
 
-    public override void Jump(string label) => L($"jp {label}");
+        L("rar");
+    }
+
+    public override void Jump(string label) => L($"jmp {label}");
 
     public override void JumpIf(ByteFlag flag, string label) => L(flag switch
     {
-        ByteFlag.Zero => $"jp z,{label}",
-        ByteFlag.NotZero => $"jp nz,{label}",
-        ByteFlag.Borrow => $"jp c,{label}",
-        _ => $"jp nc,{label}",
+        ByteFlag.Zero => $"jz {label}",
+        ByteFlag.NotZero => $"jnz {label}",
+        ByteFlag.Borrow => $"jc {label}",
+        _ => $"jnc {label}",
     });
 
-    public override void PushA() => L("push af");
+    public override void PushA() => L("push psw");
 
-    public override void PopA() => L("pop af");
+    public override void PopA() => L("pop psw");
 
     public override void Call(string symbol) => L($"call {symbol}");
 
     public override void CallIndirect(string cell)
     {
-        L($"ld hl,({cell})");
+        L($"lhld {cell}");
         L("call __callhl");
     }
 
@@ -78,18 +86,18 @@ internal sealed class Z80Isa : ByteIsa
 
     public override void PtrSetup(string cell, int offset)
     {
-        L($"ld hl,({cell})");
+        L($"lhld {cell}");
         if (offset is > 0 and <= 3)
         {
             for (int i = 0; i < offset; i++)
             {
-                L("inc hl");
+                L("inx h");
             }
         }
         else if (offset > 3)
         {
-            L($"ld de,{offset}");
-            L("add hl,de");
+            L($"lxi d,{offset}");
+            L("dad d");
         }
 
         _position = 0;
@@ -98,13 +106,13 @@ internal sealed class Z80Isa : ByteIsa
     public override void PtrLoad(int index)
     {
         Advance(index);
-        L("ld a,(hl)");
+        L("mov a,m");
     }
 
     public override void PtrStore(int index)
     {
         Advance(index);
-        L("ld (hl),a");
+        L("mov m,a");
     }
 
     public override string Crt0()
@@ -123,38 +131,38 @@ internal sealed class Z80Isa : ByteIsa
         text.AppendLine("EXTERN __init_end");
         text.AppendLine("SEGMENT \"CODE\"");
         text.AppendLine("""
-            ld sp,1000h
-            ld hl,__bss_start
-            __crt_z: ld de,__bss_end
-            ld a,l
-            cp e
-            jp nz,__crt_z1
-            ld a,h
-            cp d
-            jp z,__crt_zd
-            __crt_z1: ld (hl),0
-            inc hl
-            jp __crt_z
-            __crt_zd: ld hl,__init_start
-            __crt_i: ld de,__init_end
-            ld a,l
-            cp e
-            jp nz,__crt_i1
-            ld a,h
-            cp d
-            jp z,__crt_id
-            __crt_i1: ld e,(hl)
-            inc hl
-            ld d,(hl)
-            inc hl
-            push hl
-            ex de,hl
+            lxi sp,1000h
+            lxi h,__bss_start
+            __crt_z: lxi d,__bss_end
+            mov a,l
+            cmp e
+            jnz __crt_z1
+            mov a,h
+            cmp d
+            jz __crt_zd
+            __crt_z1: mvi m,0
+            inx h
+            jmp __crt_z
+            __crt_zd: lxi h,__init_start
+            __crt_i: lxi d,__init_end
+            mov a,l
+            cmp e
+            jnz __crt_i1
+            mov a,h
+            cmp d
+            jz __crt_id
+            __crt_i1: mov e,m
+            inx h
+            mov d,m
+            inx h
+            push h
+            xchg
             call __callhl
-            pop hl
-            jp __crt_i
+            pop h
+            jmp __crt_i
             __crt_id: call main
-            halt
-            __callhl: jp (hl)
+            hlt
+            __callhl: pchl
             """);
         text.AppendLine("SEGMENT \"BSS\"");
         text.AppendLine("__bss_start: DS 1");
@@ -180,23 +188,23 @@ internal sealed class Z80Isa : ByteIsa
         yield return "cc_t1";
     }
 
-    private void Operate(string mnemonic, Octet value)
+    private void Operate(string immediate, string memory, Octet value)
     {
         if (value.IsImmediate)
         {
-            L($"{mnemonic}{value.Text}");
+            L($"{immediate} {value.Text}");
             return;
         }
 
-        L($"ld hl,{value.Text}");
-        L($"{mnemonic}(hl)");
+        L($"lxi h,{value.Text}");
+        L($"{memory} m");
     }
 
     private void Advance(int index)
     {
         while (_position < index)
         {
-            L("inc hl");
+            L("inx h");
             _position++;
         }
     }

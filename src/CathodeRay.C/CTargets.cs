@@ -4,13 +4,13 @@ namespace CathodeRay.C;
 public static class CTargets
 {
     /// <summary>Zaimplementowane cele.</summary>
-    public static IReadOnlyList<ICTarget> All { get; } = [new StubTarget(), new Mos6502Target(), new Mos6502Target(cmos: true), new Z80Target()];
+    public static IReadOnlyList<ICTarget> All { get; } = [new StubTarget(), new Mos6502Target(), new Mos6502Target(cmos: true), new Z80Target(), new Intel8080Target()];
 
     /// <summary>Cel domyślny (stub).</summary>
     public static ICTarget Default => All[0];
 
     /// <summary>Nazwy celów zapowiedzianych w planie 30, których jeszcze nie ma.</summary>
-    public static IReadOnlyList<string> Planned { get; } = ["8080", "6800"];
+    public static IReadOnlyList<string> Planned { get; } = ["6800"];
 
     /// <summary>Szuka celu po nazwie.</summary>
     /// <param name="name">Nazwa (bez rozróżniania wielkości liter).</param>

@@ -6,9 +6,13 @@ namespace CathodeRay.C;
 /// <summary>Prymitywy 6502 (składnia ca65). Wskaźnik dostępu pośredniego: <c>__p</c> na stronie zerowej + <c>LDY</c>.</summary>
 internal sealed class Mos6502Isa : ByteIsa
 {
+    private static readonly HashSet<string> ReservedNames = new(["A", "X", "Y"], StringComparer.OrdinalIgnoreCase);
+
     private int _labels;
 
     private int _offset;
+
+    protected override IReadOnlySet<string> Reserved => ReservedNames;
 
     public override string Segment(string name) => $".segment \"{name}\"";
 

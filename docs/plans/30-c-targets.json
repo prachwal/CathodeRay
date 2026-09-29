@@ -71,7 +71,7 @@
     {
       "id": "12",
       "title": "[M] Intel8080Target: ten sam selektor ograniczony do podzbioru 8080 z wydrukiem mnemonikami Intel (PCHL, LHLD, DAD), bez IX/IY; interpreter dzieli podzbiór z Z80",
-      "status": "todo",
+      "status": "done",
       "note": ""
     },
     {

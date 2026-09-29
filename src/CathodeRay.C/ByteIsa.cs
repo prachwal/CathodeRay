@@ -18,13 +18,28 @@ internal abstract class ByteIsa
     /// <summary>Tekst dotychczas wyemitowanych instrukcji.</summary>
     public string Text => _out.ToString();
 
+    /// <summary>Nazwy, których asembler nie przyjmie jako symbole użytkownika (bez rozróżniania wielkości liter).</summary>
+    protected virtual IReadOnlySet<string> Reserved { get; } = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
     /// <summary>Adres bajtu komórki (indeks 0 = młodszy).</summary>
     /// <param name="sym">Symbol komórki.</param>
     /// <param name="width">Szerokość komórki.</param>
     /// <param name="index">Numer bajtu od najmłodszego.</param>
     /// <returns>Wyrażenie adresu.</returns>
     public string Loc(string sym, int width, int index) =>
-        width == 1 ? sym : BigEndian ? At(sym, width - 1 - index) : At(sym, index);
+        width == 1 ? Sym(sym) : BigEndian ? At(sym, width - 1 - index) : At(sym, index);
+
+    /// <summary>Nazwa symbolu w asemblerze: nazwy zastrzeżone CPU (rejestry, mnemoniki, operatory) dostają przedrostek.</summary>
+    /// <param name="name">Nazwa z kodu pośredniego.</param>
+    /// <returns>Nazwa bezpieczna dla asemblera.</returns>
+    public string Sym(string name) => Reserved.Contains(name) ? "cc_r_" + name : name;
+
+    /// <summary>Adres symbolu z przesunięciem.</summary>
+    /// <param name="sym">Symbol.</param>
+    /// <param name="offset">Przesunięcie w bajtach.</param>
+    /// <returns>Wyrażenie adresu.</returns>
+    public string At(string sym, int offset) =>
+        offset == 0 ? Sym(sym) : $"{Sym(sym)}{(offset > 0 ? "+" : "-")}{Math.Abs(offset)}";
 
     /// <summary>Dyrektywa wyboru segmentu.</summary>
     /// <param name="name">Nazwa segmentu.</param>
@@ -144,7 +159,4 @@ internal abstract class ByteIsa
     /// <summary>Dopisuje linię kodu.</summary>
     /// <param name="line">Linia.</param>
     protected void L(string line) => _out.AppendLine(line);
-
-    private static string At(string sym, int offset) =>
-        offset == 0 ? sym : $"{sym}+{offset}";
 }
