@@ -184,3 +184,8 @@ brak `ADD`/`SUB` z pamięci absolutnej (tryb `,X` z `X = 0`).
   (A, X, `cc_arg2..6`), adres wpisywany w operand `CALL` tuż przed skokiem. Porównania i `if (f)` działają, arytmetyka nie.
 - Wołanie pośrednie nie trafia do grafu wołań: rekurencja przez wskaźnik nie jest wykrywana (lokalne tablice takiej
   funkcji nie są zapisywane na stosie), a kontrola stosu jej nie zna.
+
+## uint (plan 29 C)
+
+- `uint` to 16-bit bez znaku: porównania, `/`, `%`, `>>` i mnożenie bez znaku; `int` op `uint` daje `uint`.
+  Konwersje `int`/`uchar`/`uint` są niejawne (bez zmiany bitów). Porównanie `int` z `uint` (oba nie stałe) ostrzega.

@@ -281,7 +281,7 @@ public sealed partial class Codegen
     /// więc hi zerujemy (bez propagacji carry/pożyczki).</summary>
     private void MaskUchar(Ast.Binary binary, string hi)
     {
-        if (KindOf(binary.Left) != "int" && KindOf(binary.Right) != "int")
+        if (KindOf(binary.Left) is not ("int" or "uint") && KindOf(binary.Right) is not ("int" or "uint"))
         {
             _code.AppendLine("LDX 0");
             _code.AppendLine("TXA");

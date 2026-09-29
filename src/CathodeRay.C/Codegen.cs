@@ -124,7 +124,7 @@ public sealed partial class Codegen
         return false;
     }
 
-    private static bool IsWide(CType type) => type.Kind is "int" or "ptr" or "fptr";
+    private static bool IsWide(CType type) => type.Kind is "int" or "uint" or "ptr" or "fptr";
 
     private static int ElemSize(CType type) => type.Kind == "uchar" ? 1 : 2;
 
@@ -776,7 +776,7 @@ public sealed partial class Codegen
     private string KindOf(Ast.Expr expr) =>
         _types.TryGetValue(expr, out CType? type) ? type.Kind : "uchar";
 
-    private bool IsWideKind(Ast.Expr expr) => KindOf(expr) is "int" or "ptr" or "fptr";
+    private bool IsWideKind(Ast.Expr expr) => KindOf(expr) is "int" or "uint" or "ptr" or "fptr";
 
     private string StringLabel(string value)
     {

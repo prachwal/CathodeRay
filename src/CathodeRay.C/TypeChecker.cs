@@ -575,7 +575,7 @@ public sealed class TypeChecker
     private void CheckSwitch(Ast.Switch stmt)
     {
         CType type = TypeOf(stmt.Value);
-        if (type.Kind is not ("uchar" or "int"))
+        if (type.Kind is not ("uchar" or "int" or "uint"))
         {
             throw new CTypeException("switch needs an integer value.");
         }
@@ -671,7 +671,7 @@ public sealed class TypeChecker
 
     private void Assignable(CType target, CType value, string where)
     {
-        if (SameShape(target, value) || (target.Kind == "int" && value.Kind == "uchar"))
+        if (SameShape(target, value) || (target.Kind is "int" or "uint" && value.Kind is "uchar" or "int" or "uint"))
         {
             if (target.Kind == "ptr" && value.Base is { IsConst: true } && target.Base is { IsConst: false })
             {
@@ -681,7 +681,7 @@ public sealed class TypeChecker
             return;
         }
 
-        if (target.Kind == "uchar" && value.Kind == "int")
+        if (target.Kind == "uchar" && value.Kind is "int" or "uint")
         {
             _warnings.Add($"{where}: narrowing int to uchar.");
             return;
@@ -956,6 +956,12 @@ public sealed class TypeChecker
 
         if (binary.Op is "==" or "!=" or "<" or "<=" or ">" or ">=")
         {
+            bool mixed = (left.Kind == "int" && right.Kind == "uint") || (left.Kind == "uint" && right.Kind == "int");
+            if (mixed && binary.Left is not Ast.Number && binary.Right is not Ast.Number && !_constants.ContainsKey(binary.Left) && !_constants.ContainsKey(binary.Right))
+            {
+                _warnings.Add($"comparison '{binary.Op}' of signed and unsigned values.");
+            }
+
             return CType.UChar;
         }
 
@@ -1002,7 +1008,7 @@ public sealed class TypeChecker
             throw new CTypeException($"operator '{binary.Op}' is not supported for pointers.");
         }
 
-        return left.Kind == "int" || right.Kind == "int" ? CType.Int : CType.UChar;
+        return left.Kind == "uint" || right.Kind == "uint" ? CType.UInt : left.Kind == "int" || right.Kind == "int" ? CType.Int : CType.UChar;
     }
 
     private CType AssignToType(Ast.AssignTo assignTo)
@@ -1057,7 +1063,7 @@ public sealed class TypeChecker
             throw new CTypeException("ternary branches need arithmetic values.");
         }
 
-        return then.Kind == "int" || els.Kind == "int" ? CType.Int : CType.UChar;
+        return then.Kind == "uint" || els.Kind == "uint" ? CType.UInt : then.Kind == "int" || els.Kind == "int" ? CType.Int : CType.UChar;
     }
 
     /// <summary>Typ pola bez rozpadu tablicy (struct przez <c>.</c> albo wskaźnik przez <c>-&gt;</c>).</summary>

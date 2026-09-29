@@ -20,7 +20,7 @@ Rozmiar: S = <1 h, M = kilka h, L = dzień. Kolejność: A → B → C → D →
 - [x] **8.** [M] static: zmienna lokalna static (jedna komórka w DATA/BSS, bez ramki), globalna static i funkcja static (symbol lokalny modułu, bez .global); extern int x; między modułami (.extern cc_g_x)
 - [x] **9.** [S] const: parsowanie, błąd typów przy zapisie do const zmiennej, const w parametrach wskaźnikowych (const uchar *s); tablice const trafiają do DATA
 - [x] **10.** [L] Wskaźniki do funkcji: typedef void (*handler)(int); wywołanie przez zmienną i pole struktury, tablice funkcji, adres funkcji (&f, f); CALL przez łatany operand jak w crt0
-- [ ] **11.** [M] Typ unsigned int (uint) i porównania/dzielenie/przesunięcia bez znaku obok int ze znakiem; konwersje i ostrzeżenia mieszania
+- [x] **11.** [M] Typ unsigned int (uint) i porównania/dzielenie/przesunięcia bez znaku obok int ze znakiem; konwersje i ostrzeżenia mieszania
 
 ## D. Biblioteka standardowa (samples/minic/lib + include/)
 
@@ -38,4 +38,4 @@ Rozmiar: S = <1 h, M = kilka h, L = dzień. Kolejność: A → B → C → D →
 
 - [ ] **18.** [S] Testy e2e per pozycja, samples/minic/13_strings.c, 14_macros.c, 15_funcptr.c, 16_printf.c, hygiene, aktualizacja planów
 
-Postęp: 10/18 gotowych.
+Postęp: 11/18 gotowych.

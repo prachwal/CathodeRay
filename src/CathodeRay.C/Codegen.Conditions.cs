@@ -223,7 +223,7 @@ public sealed partial class Codegen
         {
             EvalInt(cmp.Left, depth, out string leftLo, out string leftHi);
             EvalInt(cmp.Right, depth + 1, out string rightLo, out string rightHi);
-            EmitIntCompare(op, leftLo, leftHi, rightLo, rightHi, falseLabel, KindOf(cmp.Left) != "ptr" && KindOf(cmp.Right) != "ptr");
+            EmitIntCompare(op, leftLo, leftHi, rightLo, rightHi, falseLabel, KindOf(cmp.Left) is not ("ptr" or "uint" or "fptr") && KindOf(cmp.Right) is not ("ptr" or "uint" or "fptr"));
             return;
         }
 

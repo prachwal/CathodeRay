@@ -67,7 +67,7 @@ public sealed class Parser
     }
 
     private static bool IsBuiltinType(Token token) =>
-        token is { Kind: TokenKind.Keyword } && token.Text is "uchar" or "int" or "void" or "struct";
+        token is { Kind: TokenKind.Keyword } && token.Text is "uchar" or "int" or "uint" or "void" or "struct";
 
     private bool IsType(Token token) =>
         IsBuiltinType(token) || (token is { Kind: TokenKind.Keyword, Text: "const" }) || (token.Kind == TokenKind.Ident && _typedefs.ContainsKey(token.Text));
@@ -1023,7 +1023,7 @@ public sealed class Parser
                 string bareType = sizeType.StartsWith("const ", StringComparison.Ordinal) ? sizeType[6..] : sizeType;
                 size = bareType.StartsWith("struct ", StringComparison.Ordinal) && stars == 0
                     ? new Ast.SizeOfType(bareType, stars)
-                    : new Ast.Number(stars > 0 || bareType == "int" ? "2" : "1");
+                    : new Ast.Number(stars > 0 || bareType is "int" or "uint" ? "2" : "1");
             }
             else
             {

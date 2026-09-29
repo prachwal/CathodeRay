@@ -51,8 +51,16 @@ public sealed partial class Codegen
             string carry = Label("wshc");
             string next = Label("wshn");
             string sign = Temp(depth + 2, hi: false);
-            _code.AppendLine($"LDA {hi}");
-            _code.AppendLine("AND 128");
+            if (KindOf(binary.Left) == "uint")
+            {
+                _code.AppendLine("LDI 0");
+            }
+            else
+            {
+                _code.AppendLine($"LDA {hi}");
+                _code.AppendLine("AND 128");
+            }
+
             _code.AppendLine($"STA {sign}");
             _code.AppendLine($"LDA {hi}");
             _code.AppendLine("SHR");
@@ -101,7 +109,7 @@ public sealed partial class Codegen
         else
         {
             _needDiv16 = true;
-            _code.AppendLine("CALL cc_sdiv16");
+            _code.AppendLine(KindOf(binary.Left) == "uint" || KindOf(binary.Right) == "uint" ? "CALL cc_div16" : "CALL cc_sdiv16");
         }
 
         if (binary.Op == "%")

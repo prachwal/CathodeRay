@@ -65,7 +65,7 @@
     {
       "id": "11",
       "title": "[M] Typ unsigned int (uint) i porównania/dzielenie/przesunięcia bez znaku obok int ze znakiem; konwersje i ostrzeżenia mieszania",
-      "status": "todo",
+      "status": "done",
       "note": ""
     },
     {

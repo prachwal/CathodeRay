@@ -290,7 +290,7 @@ public sealed partial class Codegen
                 throw new CCodegenException("return with a value needs a function.");
             }
 
-            if (current.Def.ReturnType == "int" || current.Def.ReturnStars > 0)
+            if (current.Def.ReturnType is "int" or "uint" || current.Def.ReturnStars > 0)
             {
                 EvalInt(ret.Value, 0, out string lo, out string hi);
                 _code.AppendLine($"LDA {lo}");

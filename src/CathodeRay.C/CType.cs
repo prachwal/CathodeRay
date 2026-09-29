@@ -15,6 +15,9 @@ public sealed record CType(string Kind, CType? Base = null, int Length = 0, Stru
     /// <summary>16-bit ze znakiem.</summary>
     public static CType Int { get; } = new("int");
 
+    /// <summary>16-bit bez znaku.</summary>
+    public static CType UInt { get; } = new("uint");
+
     /// <summary>Bez typu (wynik procedur).</summary>
     public static CType Void { get; } = new("void");
 
@@ -69,6 +72,7 @@ public sealed record CType(string Kind, CType? Base = null, int Length = 0, Stru
     {
         "uchar" => UChar,
         "int" => Int,
+        "uint" => UInt,
         "void" => Void,
         _ => throw new ArgumentException($"Unknown type '{name}'.", nameof(name)),
     };
