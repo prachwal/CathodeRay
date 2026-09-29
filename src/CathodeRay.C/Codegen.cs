@@ -44,7 +44,7 @@ public sealed partial class Codegen
 
     private int _switches;
     private int _assignOps;
-    private IReadOnlyDictionary<string, CType> _structTypes = new Dictionary<string, CType>();
+    private IReadOnlyDictionary<Ast.Expr, int> _constants = new Dictionary<Ast.Expr, int>();
 
     private IReadOnlyDictionary<Ast.Node, int> _lines = new Dictionary<Ast.Node, int>();
 
@@ -171,44 +171,17 @@ public sealed partial class Codegen
         return (lo, wide ? $"{lo}_h" : null);
     }
 
-    /// <summary>Wartość stałej całkowitej (16-bit z zawijaniem): liczby, <c>sizeof</c>, działania i <c>-</c>/<c>~</c>.</summary>
+    /// <summary>Wartość stałego wyrażenia: literał albo węzeł, który checker policzył jako stałą.</summary>
     private bool TryConstValue(Ast.Expr? expr, out int value)
     {
         value = 0;
-        switch (expr)
+        if (expr is Ast.Number number && TryNumber(number.Text, out int parsed))
         {
-            case Ast.Number number when TryNumber(number.Text, out int parsed):
-                value = parsed & 0xFFFF;
-                return true;
-            case Ast.SizeOf sizeOf when _globalsByName.TryGetValue(sizeOf.Name, out CType? type):
-                value = type.Size;
-                return true;
-            case Ast.SizeOfType sizeOfType when _structTypes.TryGetValue(sizeOfType.Type, out CType? structType):
-                value = structType.Size;
-                return true;
-            case Ast.Unary { Op: "-" or "~" } unary when TryConstValue(unary.Operand, out int operand):
-                value = (unary.Op == "-" ? -operand : ~operand) & 0xFFFF;
-                return true;
-            case Ast.Binary binary when TryConstValue(binary.Left, out int a) && TryConstValue(binary.Right, out int b):
-                int? folded = binary.Op switch
-                {
-                    "+" => a + b,
-                    "-" => a - b,
-                    "*" => a * b,
-                    "/" when b != 0 => (short)a / (short)b,
-                    "%" when b != 0 => (short)a % (short)b,
-                    "<<" when b < 16 => a << b,
-                    ">>" when b < 16 => (short)a >> b,
-                    "&" => a & b,
-                    "|" => a | b,
-                    "^" => a ^ b,
-                    _ => null,
-                };
-                value = (folded ?? 0) & 0xFFFF;
-                return folded is not null;
-            default:
-                return false;
+            value = parsed & 0xFFFF;
+            return true;
         }
+
+        return expr is not null && _constants.TryGetValue(expr, out value);
     }
 
     private byte[]? InitBytes(TypedSymbol symbol)
@@ -333,7 +306,7 @@ public sealed partial class Codegen
             _globalsByName[g.Name] = g.Type;
         }
 
-        _structTypes = program.StructTypes ?? _structTypes;
+        _constants = program.Constants ?? _constants;
         _lines = program.Lines;
         _file = fileName;
         foreach (CheckedFunction function in program.Functions)

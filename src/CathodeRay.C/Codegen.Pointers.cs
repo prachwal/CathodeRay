@@ -346,6 +346,37 @@ public sealed partial class Codegen
     private CType TypeOfDeref(Ast.Expr target) =>
         _types.TryGetValue(target, out CType? type) ? type : CType.UChar;
 
+    /// <summary>Różnica wskaźników w elementach: (p - q) / rozmiar (dzielenie ze znakiem).</summary>
+    private void EmitPtrDiff(Ast.Binary binary, int depth, string lo, string hi)
+    {
+        EvalInt(binary.Left, depth + 1, out string leftLo, out string leftHi);
+        EvalInt(binary.Right, depth + 2, out string rightLo, out string rightHi);
+        _code.AppendLine($"LDA {leftLo}");
+        _code.AppendLine($"STA {lo}");
+        _code.AppendLine($"LDA {leftHi}");
+        _code.AppendLine($"STA {hi}");
+        EmitSub16(lo, hi, rightLo, rightHi);
+        int size = _types.TryGetValue(binary.Left, out CType? type) && type.Base is not null ? type.Base.Size : 1;
+        if (size <= 1)
+        {
+            return;
+        }
+
+        _needDiv16 = true;
+        _code.AppendLine($"LDA {lo}");
+        _code.AppendLine("STA cc_w_a");
+        _code.AppendLine($"LDA {hi}");
+        _code.AppendLine("STA cc_w_a_h");
+        _code.AppendLine($"LDI {size & 0xFF}");
+        _code.AppendLine("STA cc_w_b");
+        _code.AppendLine($"LDI {(size >> 8) & 0xFF}");
+        _code.AppendLine("STA cc_w_b_h");
+        _code.AppendLine("CALL cc_sdiv16");
+        _code.AppendLine($"STA {lo}");
+        _code.AppendLine("TXA");
+        _code.AppendLine($"STA {hi}");
+    }
+
     /// <summary>Arytmetyka wskaźników (ptr+int, int+ptr, ptr-int; skala z elementu).</summary>
     private void EmitPtrArith(Ast.Binary binary, int depth, string lo, string hi)
     {

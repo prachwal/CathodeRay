@@ -191,4 +191,62 @@ public sealed class CStructTests
             Directory.Delete(dir, recursive: true);
         }
     }
+
+    [Fact]
+    public void Pointer_Difference_Counts_Elements()
+    {
+        const string Source = """
+            struct T { uchar a; int b; };
+            uchar bytes[10];
+            int words[6];
+            struct T recs[4];
+            int main() {
+                uchar *b1 = bytes + 7;
+                int *w1 = words + 5;
+                struct T *r1 = &recs[3];
+                int back = bytes - b1;
+                return (b1 - bytes) * 1000 + (w1 - words) * 100 + (r1 - recs) * 10 + (words - w1 < 0) + (back < 0) * 2;
+            }
+            """;
+        Run(Source).Should().Be(7000 + 500 + 30 + 1 + 2);
+    }
+
+    [Fact]
+    public void Constants_From_Checker_Sizeof_Expressions_And_Array_Lengths()
+    {
+        const string Source = """
+            struct R { uchar a; int b; uchar c[3]; };
+            uchar buf[sizeof(struct R) * 2];
+            int tab[4];
+            int main() {
+                struct R r;
+                struct R *p = &r;
+                int k = 0;
+                switch (sizeof(*p)) {
+                    case sizeof(struct R): k = 1; break;
+                    default: k = 2;
+                }
+                switch (7) {
+                    case sizeof(tab) - 1: k += 10; break;
+                    case sizeof(struct R) + 2: k += 100; break;
+                }
+                return sizeof(buf) + sizeof(r.c) * 10 + sizeof(tab[0]) * 100 + sizeof(p->b) * 1000 + k;
+            }
+            """;
+        Run(Source).Should().Be(12 + 30 + 200 + 2000 + 1 + 10);
+    }
+
+    [Fact]
+    public void Constant_Expressions_Fold_In_Checker()
+    {
+        const string Source = """
+            struct S { int x; int y; uchar z; };
+            int main() {
+                int a = sizeof(struct S) * 100;
+                int b = (sizeof(struct S) << 4) - 1;
+                return a + b + (sizeof(struct S) == 5) * 1000 + (sizeof(int) > sizeof(uchar));
+            }
+            """;
+        Run(Source).Should().Be(500 + 79 + 1000 + 1);
+    }
 }

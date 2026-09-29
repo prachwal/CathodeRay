@@ -11,6 +11,7 @@ public sealed class TypeChecker
     private readonly Dictionary<string, Ast.Function> _functions = new(StringComparer.Ordinal);
     private readonly Dictionary<string, TypedSymbol> _globals = new(StringComparer.Ordinal);
     private readonly List<string> _warnings = [];
+    private readonly Dictionary<Ast.Expr, int> _constants = new(ReferenceEqualityComparer.Instance);
     private readonly Dictionary<string, StructInfo> _structs = new(StringComparer.Ordinal);
     private readonly HashSet<string> _labels = new(StringComparer.OrdinalIgnoreCase);
     private readonly List<Ast.Goto> _gotos = [];
@@ -73,7 +74,7 @@ public sealed class TypeChecker
 
     private void CheckInit(Ast.Decl decl)
     {
-        CType type = Declared(decl.Type, decl.PointerDepth, decl.ArrayLength);
+        CType type = Declared(decl.Type, decl.PointerDepth, LengthOf(decl));
         if (decl.Init is null)
         {
             return;
@@ -241,7 +242,7 @@ public sealed class TypeChecker
         BuildStructs(program);
         foreach (Ast.Decl global in program.Globals)
         {
-            if (!_globals.TryAdd(global.Name, new TypedSymbol(global.Name, Declared(global.Type, global.PointerDepth, global.ArrayLength), global.Init)))
+            if (!_globals.TryAdd(global.Name, new TypedSymbol(global.Name, Declared(global.Type, global.PointerDepth, LengthOf(global)), global.Init)))
             {
                 throw new CTypeException($"redefinition of '{global.Name}'.");
             }
@@ -291,7 +292,7 @@ public sealed class TypeChecker
             _warnings,
             new Dictionary<Ast.Node, int>(program.Lines ?? new Dictionary<Ast.Node, int>(), ReferenceEqualityComparer.Instance),
             globalTypes,
-            _structs.ToDictionary(static pair => $"struct {pair.Key}", static pair => CType.Struct(pair.Value), StringComparer.Ordinal));
+            _constants);
     }
 
     private CheckedFunction ProtoFunction(Ast.Function function)
@@ -387,12 +388,12 @@ public sealed class TypeChecker
                     throw new CTypeException($"variable '{decl.Name}' has void type.");
                 }
 
-                if (!_scopes.Peek().TryAdd(decl.Name, Declared(decl.Type, decl.PointerDepth, decl.ArrayLength)))
+                if (!_scopes.Peek().TryAdd(decl.Name, Declared(decl.Type, decl.PointerDepth, LengthOf(decl))))
                 {
                     throw new CTypeException($"redefinition of '{decl.Name}'.");
                 }
 
-                _locals.Add(new TypedSymbol(decl.Name, Declared(decl.Type, decl.PointerDepth, decl.ArrayLength)));
+                _locals.Add(new TypedSymbol(decl.Name, Declared(decl.Type, decl.PointerDepth, LengthOf(decl))));
                 CheckInit(decl);
                 break;
             case Ast.If ifStmt:
@@ -504,9 +505,9 @@ public sealed class TypeChecker
             {
                 hasDefault = hasDefault ? throw new CTypeException("duplicate 'default'.") : true;
             }
-            else if (item.Value is not Ast.Number number || !seen.Add((short)NumberValue(number.Text)))
+            else if (!seen.Add((short)ConstantOf(item.Value, "'case'")))
             {
-                throw new CTypeException(item.Value is Ast.Number ? "duplicate 'case'." : "'case' needs a constant.");
+                throw new CTypeException("duplicate 'case'.");
             }
 
             foreach (Ast.Stmt body in item.Body)
@@ -581,8 +582,94 @@ public sealed class TypeChecker
 
         CType type = TypeOfInner(expr);
         _types[expr] = type;
+        if (expr is Ast.Unary or Ast.Binary or Ast.Ternary or Ast.SizeOf or Ast.SizeOfType or Ast.SizeOfExpr && TryConst(expr, out int folded))
+        {
+            // stała: typ jak litery (<= 255 to uchar, wyżej int), kod zna wartość z _constants
+            _constants[expr] = folded;
+            type = folded <= byte.MaxValue ? CType.UChar : CType.Int;
+            _types[expr] = type;
+        }
+
         return type;
     }
+
+    /// <summary>Wartość stałego wyrażenia (16-bit z zawijaniem; <c>/ % &gt;&gt;</c> ze znakiem) albo <see langword="false"/>.</summary>
+    private bool TryConst(Ast.Expr expr, out int value)
+    {
+        value = 0;
+        switch (expr)
+        {
+            case Ast.Number number:
+                value = NumberValue(number.Text) & 0xFFFF;
+                return true;
+            case Ast.SizeOf sizeOf:
+                value = Lookup(sizeOf.Name).Size;
+                return true;
+            case Ast.SizeOfType sizeOfType:
+                value = Declared(sizeOfType.Type, sizeOfType.Stars).Size;
+                return true;
+            case Ast.SizeOfExpr sizeOfExpr:
+                value = RawType(sizeOfExpr.Operand).Size;
+                return true;
+            case Ast.Unary unary when TryConst(unary.Operand, out int operand):
+                value = unary.Op switch { "-" => -operand, "~" => ~operand, _ => operand == 0 ? 1 : 0 } & 0xFFFF;
+                return true;
+            case Ast.Ternary ternary when TryConst(ternary.Cond, out int cond) && TryConst(ternary.Then, out int then) && TryConst(ternary.Else, out int otherwise):
+                value = cond != 0 ? then : otherwise;
+                return true;
+            case Ast.Binary binary when TryConst(binary.Left, out int a) && TryConst(binary.Right, out int b):
+                short sa = (short)a;
+                short sb = (short)b;
+                int? result = binary.Op switch
+                {
+                    "+" => a + b,
+                    "-" => a - b,
+                    "*" => a * b,
+                    "/" when sb != 0 => sa / sb,
+                    "%" when sb != 0 => sa % sb,
+                    "<<" when b < 16 => a << b,
+                    ">>" when b < 16 => sa >> b,
+                    "&" => a & b,
+                    "|" => a | b,
+                    "^" => a ^ b,
+                    "==" => a == b ? 1 : 0,
+                    "!=" => a != b ? 1 : 0,
+                    "<" => sa < sb ? 1 : 0,
+                    "<=" => sa <= sb ? 1 : 0,
+                    ">" => sa > sb ? 1 : 0,
+                    ">=" => sa >= sb ? 1 : 0,
+                    "&&" => a != 0 && b != 0 ? 1 : 0,
+                    "||" => a != 0 || b != 0 ? 1 : 0,
+                    _ => null,
+                };
+                value = (result ?? 0) & 0xFFFF;
+                return result is not null;
+            default:
+                return false;
+        }
+    }
+
+    /// <summary>Typ operandu <c>sizeof</c> bez rozpadu tablicy.</summary>
+    private CType RawType(Ast.Expr operand) => operand switch
+    {
+        Ast.Member member => MemberType(member),
+        Ast.Var variable => Lookup(variable.Name),
+        _ => TypeOf(operand),
+    };
+
+    /// <summary>Stała całkowita (liczba lub wyrażenie stałe) albo błąd.</summary>
+    private int ConstantOf(Ast.Expr expr, string what)
+    {
+        _ = TypeOf(expr);
+        return expr is Ast.Number number
+            ? NumberValue(number.Text) & 0xFFFF
+            : _constants.TryGetValue(expr, out int value) ? value : throw new CTypeException($"{what} needs a constant.");
+    }
+
+    private int LengthOf(Ast.Decl decl) =>
+        decl.LengthExpr is null
+            ? decl.ArrayLength
+            : ConstantOf(decl.LengthExpr, "array length") is var length and > 0 ? length : throw new CTypeException($"array '{decl.Name}' needs a positive length.");
 
     private CType TypeOfInner(Ast.Expr expr)
     {
@@ -604,6 +691,12 @@ public sealed class TypeChecker
             case Ast.SizeOfType sizeOfType:
             {
                 int size = Declared(sizeOfType.Type, sizeOfType.Stars).Size;
+                return size <= byte.MaxValue ? CType.UChar : CType.Int;
+            }
+
+            case Ast.SizeOfExpr sizeOfExpr:
+            {
+                int size = RawType(sizeOfExpr.Operand).Size;
                 return size <= byte.MaxValue ? CType.UChar : CType.Int;
             }
 
@@ -720,6 +813,11 @@ public sealed class TypeChecker
             }
 
             return CType.UChar;
+        }
+
+        if (binary.Op == "-" && left.Kind == "ptr" && right.Kind == "ptr")
+        {
+            return left.Base == right.Base ? CType.Int : throw new CTypeException("pointer difference needs pointers to the same type.");
         }
 
         if (binary.Op is "+" or "-")

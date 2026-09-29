@@ -57,7 +57,8 @@ public static class Ast
     /// <param name="Init">Inicjalizator lub <see langword="null"/>.</param>
     /// <param name="PointerDepth">Liczba <c>*</c> (wskaźnik).</param>
     /// <param name="ArrayLength">Długość tablicy (0 = skalar).</param>
-    public sealed record Decl(string Type, string Name, Expr? Init, int PointerDepth = 0, int ArrayLength = 0) : Stmt;
+    /// <param name="LengthExpr">Długość jako stałe wyrażenie liczone przez checker (np. <c>sizeof(struct S)</c>).</param>
+    public sealed record Decl(string Type, string Name, Expr? Init, int PointerDepth = 0, int ArrayLength = 0, Expr? LengthExpr = null) : Stmt;
 
     /// <summary>Warunek z gałęzią else.</summary>
     /// <param name="Cond">Warunek.</param>
@@ -192,6 +193,10 @@ public static class Ast
     /// <summary>Adres lwartości innej niż zmienna: <c>&amp;s.f</c>, <c>&amp;a[i]</c>, <c>&amp;*p</c>.</summary>
     /// <param name="Target">Lwartość.</param>
     public sealed record AddressOfExpr(Expr Target) : Expr;
+
+    /// <summary>Rozmiar wyrażenia (<c>sizeof(*p)</c>, <c>sizeof(a[0])</c>, <c>sizeof s.f</c>); nie jest wykonywane.</summary>
+    /// <param name="Operand">Operand.</param>
+    public sealed record SizeOfExpr(Expr Operand) : Expr;
 
     /// <summary>Rozmiar typu strukturalnego (<c>sizeof(struct S)</c>).</summary>
     /// <param name="Type">Nazwa typu (<c>struct S</c>).</param>

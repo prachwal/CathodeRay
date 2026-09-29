@@ -13,6 +13,12 @@ public sealed partial class Codegen
             return;
         }
 
+        if (expr is not Ast.Number && _constants.TryGetValue(expr, out int folded))
+        {
+            _code.AppendLine($"LDI {folded & 0xFF}");
+            return;
+        }
+
         switch (expr)
         {
             case Ast.Number number:
@@ -24,12 +30,6 @@ public sealed partial class Codegen
                 break;
             case Ast.Call call:
                 EmitCall(call, depth);
-                break;
-            case Ast.SizeOf sizeOf:
-                _code.AppendLine($"LDI {CellOf(sizeOf.Name).Type.Size}");
-                break;
-            case Ast.SizeOfType sizeOfType:
-                _code.AppendLine($"LDI {_structTypes[sizeOfType.Type].Size}");
                 break;
             case Ast.Unary unary:
                 EmitUnary(unary, depth);
@@ -64,6 +64,13 @@ public sealed partial class Codegen
         hi = Temp(depth, hi: true);
         switch (expr)
         {
+            case not Ast.Number when _constants.TryGetValue(expr, out int constant):
+                _code.AppendLine($"LDX {(constant >> 8) & 0xFF}");
+                _code.AppendLine($"LDI {constant & 0xFF}");
+                _code.AppendLine($"STA {lo}");
+                _code.AppendLine("TXA");
+                _code.AppendLine($"STA {hi}");
+                break;
             case Ast.Number number when TryNumber(number.Text, out int value):
                 _code.AppendLine($"LDX {(value >> 8) & 0xFF}");
                 _code.AppendLine($"LDI {value & 0xFF}");
@@ -110,6 +117,9 @@ public sealed partial class Codegen
                 _code.AppendLine("LDX 0");
                 _code.AppendLine("TXA");
                 _code.AppendLine($"STA {hi}");
+                break;
+            case Ast.Binary { Op: "-" } binary when KindOf(binary.Left) == "ptr" && KindOf(binary.Right) == "ptr":
+                EmitPtrDiff(binary, depth, lo, hi);
                 break;
             case Ast.Binary binary when binary.Op is "+" or "-"
                 && (KindOf(binary.Left) == "ptr" || KindOf(binary.Right) == "ptr"):
@@ -161,14 +171,6 @@ public sealed partial class Codegen
 
             case Ast.AddressOfExpr addressOf:
                 EvalPtrAddr(addressOf.Target, depth, out _, out _);
-                break;
-            case Ast.SizeOf or Ast.SizeOfType:
-                int sizeValue = expr is Ast.SizeOf sizeOf ? CellOf(sizeOf.Name).Type.Size : _structTypes[((Ast.SizeOfType)expr).Type].Size;
-                _code.AppendLine($"LDX {(sizeValue >> 8) & 0xFF}");
-                _code.AppendLine($"LDI {sizeValue & 0xFF}");
-                _code.AppendLine($"STA {lo}");
-                _code.AppendLine("TXA");
-                _code.AppendLine($"STA {hi}");
                 break;
             case Ast.Binary binary when !IsWideKind(binary):
                 // dwa uchary: wynik 8-bit, rozszerzony zerem

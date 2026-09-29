@@ -106,10 +106,10 @@ public sealed class Parser
             (string type, int baseStars) = TypeSpec();
             int stars = baseStars + Stars();
             string field = ExpectKind(TokenKind.Ident, "field name").Text;
-            int length = ArrayLength(out bool unsized);
-            if (unsized)
+            int length = ArrayLength(out bool unsized, out Ast.Expr? fieldLength);
+            if (unsized || fieldLength is not null)
             {
-                throw new CParseException(at.Line, at.Column, "field array needs a length.");
+                throw new CParseException(at.Line, at.Column, "field array needs a literal length.");
             }
 
             Expect(";");
@@ -574,7 +574,7 @@ public sealed class Parser
     private Ast.Decl DeclTail(string type, string name, int stars, int line)
     {
         Token open = Peek();
-        int length = ArrayLength(out bool unsized);
+        int length = ArrayLength(out bool unsized, out Ast.Expr? lengthExpr);
         Ast.Expr? init = null;
         if (Take("="))
         {
@@ -591,7 +591,7 @@ public sealed class Parser
             };
         }
 
-        return At(line, new Ast.Decl(type, name, init, stars, length));
+        return At(line, new Ast.Decl(type, name, init, stars, length, lengthExpr));
     }
 
     private Ast.Expr ArrayInit()
@@ -615,9 +615,10 @@ public sealed class Parser
         return new Ast.InitList(items);
     }
 
-    private int ArrayLength(out bool unsized)
+    private int ArrayLength(out bool unsized, out Ast.Expr? lengthExpr)
     {
         unsized = false;
+        lengthExpr = null;
         if (!Take("["))
         {
             return 0;
@@ -629,14 +630,15 @@ public sealed class Parser
             return 0;
         }
 
-        Token at = Peek();
-        if (!TryValue(Conditional(), out int length) || length <= 0)
+        Ast.Expr lengthValue = Conditional();
+        Expect("]");
+        if (TryValue(lengthValue, out int length))
         {
-            throw new CParseException(at.Line, at.Column, "array length must be a positive constant.");
+            return length > 0 ? length : throw new CParseException(Peek().Line, Peek().Column, "array length must be positive.");
         }
 
-        Expect("]");
-        return length;
+        lengthExpr = lengthValue;
+        return 1;
     }
 
     private Ast.Expr Expression() => Assignment();
@@ -845,7 +847,7 @@ public sealed class Parser
             bool paren = Take("(");
             Token operand = Peek();
             Ast.Expr size;
-            if (IsType(operand))
+            if (paren && IsType(operand))
             {
                 (string sizeType, int sizeBase) = TypeSpec();
                 int stars = sizeBase + Stars();
@@ -855,7 +857,8 @@ public sealed class Parser
             }
             else
             {
-                size = new Ast.SizeOf(ExpectKind(TokenKind.Ident, "variable name").Text);
+                Ast.Expr target = paren ? Expression() : Unary();
+                size = target is Ast.Var variable ? new Ast.SizeOf(variable.Name) : new Ast.SizeOfExpr(target);
             }
 
             if (paren)

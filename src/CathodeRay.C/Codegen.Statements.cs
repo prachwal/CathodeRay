@@ -176,13 +176,13 @@ public sealed partial class Codegen
         {
             string label = Label("case");
             labels.Add(label);
-            if (item.Value is not Ast.Number number)
+            if (item.Value is null)
             {
                 defaultLabel = label;
                 continue;
             }
 
-            TryNumber(number.Text, out int value);
+            TryConstValue(item.Value, out int value);
             string next = Label("swnext");
             _code.AppendLine($"LDA {cell}");
             _code.AppendLine($"CPA {value & 0xFF}");
