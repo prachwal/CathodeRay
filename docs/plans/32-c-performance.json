@@ -83,7 +83,7 @@
     {
       "id": "12",
       "title": "[S] Porównanie 16-bitowe z stałą 0 i `==`/`!=`: użyj `lda lo ; ora hi` (jest już dla zera na jednym bajcie — rozszerz na 2 bajty, jeśli nie ma). Test na 6502/z80: `if (x == 0)` dla `uint` przy x=0, 0x100, 0x01, 0xFFFF.",
-      "status": "todo",
+      "status": "done",
       "note": "",
       "section": "E. Ścieżka 16-bitowa (`ByteSelector.cs`)"
     },

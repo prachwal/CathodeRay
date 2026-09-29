@@ -115,4 +115,29 @@ public sealed class CUintTests
         result.Value.Should().Be((int)(expected & 0xFFFF), $"for input {input:X4}");
         result.Stderr.Should().BeEmpty(result.Stderr);
     }
+
+    /// <summary>Plan 32, krok 12: porównanie 16-bitowe z zerem przy użyciu `lda lo ; ora hi`.</summary>
+    [Theory]
+    [InlineData("6502")]
+    [InlineData("z80")]
+    public void Uint_Zero_Comparison_Works_On_Multiple_Targets(string cpu)
+    {
+        // Test porównania `x == 0` dla uint z różnymi wartościami
+        // Zwracamy 1 jeśli x == 0, 0 w przeciwnym razie
+        const string Source = """
+            int check_zero(uint x) {
+                return (x == 0) ? 1 : 0;
+            }
+            int main(void) {
+                int result = 0;
+                if (check_zero(0) == 1) result = result + 1;
+                if (check_zero(0x0100) == 0) result = result + 2;
+                if (check_zero(0x0001) == 0) result = result + 4;
+                if (check_zero(0xFFFF) == 0) result = result + 8;
+                return result;
+            }
+            """;
+        var resultValue = CcRun.RunOn(Source, cpu);
+        resultValue.Value.Should().Be(1 + 2 + 4 + 8, $"on {cpu}");
+    }
 }
