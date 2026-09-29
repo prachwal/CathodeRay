@@ -17,7 +17,7 @@ Nie robić: ogólnego alokatora rejestrów (to osobny, duży plan po pomiarze ef
 
 ## A. Pomiar
 
-- [ ] **1.** [S] `tools/hotspots.py`: skrypt liczący najczęstsze pary i trójki instrukcji w listingach 6502 z `samples/bench` (kompilacja: `cathode cc plik.c /tmp/m.c --nostdlib -o x.bin -l x.lst --cpu 6502`, gdzie `m.c` to `int main(){return 0;}`; brać tylko linie z nazwą pliku benchu w kolumnie źródła; operandy normalizować: `#…`→`#I`, `z:…`→`ZP`, reszta→`M`). Wynik `--write` → `docs/hotspots.md` (tabela top 15 par, top 10 trójek, liczba instrukcji). Kryterium: uruchomienie daje liczby zbliżone do bazy z wstępu (sta M;lda M ≈193). Sprawdź: `python3 tools/hotspots.py --write && head -30 docs/hotspots.md`.
+- [x] **1.** [S] `tools/hotspots.py`: skrypt liczący najczęstsze pary i trójki instrukcji w listingach 6502 z `samples/bench` (kompilacja: `cathode cc plik.c /tmp/m.c --nostdlib -o x.bin -l x.lst --cpu 6502`, gdzie `m.c` to `int main(){return 0;}`; brać tylko linie z nazwą pliku benchu w kolumnie źródła; operandy normalizować: `#…`→`#I`, `z:…`→`ZP`, reszta→`M`). Wynik `--write` → `docs/hotspots.md` (tabela top 15 par, top 10 trójek, liczba instrukcji). Kryterium: uruchomienie daje liczby zbliżone do bazy z wstępu (sta M;lda M ≈193). Sprawdź: `python3 tools/hotspots.py --write && head -30 docs/hotspots.md`.
 
 ## B. Kopie przez tymczasowe (IR, `IrPasses.cs`)
 
@@ -43,4 +43,4 @@ Nie robić: ogólnego alokatora rejestrów (to osobny, duży plan po pomiarze ef
 - [ ] **12.** [S] Porównanie 16-bitowe z stałą 0 i `==`/`!=`: użyj `lda lo ; ora hi` (jest już dla zera na jednym bajcie — rozszerz na 2 bajty, jeśli nie ma). Test na 6502/z80: `if (x == 0)` dla `uint` przy x=0, 0x100, 0x01, 0xFFFF.
 - [ ] **13.** [S] Zmierz i opisz: uruchom `python3 tools/hotspots.py --write` i `python3 tools/compare.py --write`, wklej do `docs/stub-calling-conv.md` sekcję „Plan 32: efekt” z liczbami przed/po (baza ze wstępu) i wnioskami; commit. Jeśli spadek sta;lda < 30% bazy, dodaj do planu następne zadania na podstawie nowych top-10 par.
 
-Postęp: 0/13 gotowych.
+Postęp: 1/13 gotowych.

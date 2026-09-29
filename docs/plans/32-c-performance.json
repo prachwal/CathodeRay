@@ -6,7 +6,7 @@
     {
       "id": "1",
       "title": "[S] `tools/hotspots.py`: skrypt liczący najczęstsze pary i trójki instrukcji w listingach 6502 z `samples/bench` (kompilacja: `cathode cc plik.c /tmp/m.c --nostdlib -o x.bin -l x.lst --cpu 6502`, gdzie `m.c` to `int main(){return 0;}`; brać tylko linie z nazwą pliku benchu w kolumnie źródła; operandy normalizować: `#…`→`#I`, `z:…`→`ZP`, reszta→`M`). Wynik `--write` → `docs/hotspots.md` (tabela top 15 par, top 10 trójek, liczba instrukcji). Kryterium: uruchomienie daje liczby zbliżone do bazy z wstępu (sta M;lda M ≈193). Sprawdź: `python3 tools/hotspots.py --write && head -30 docs/hotspots.md`.",
-      "status": "todo",
+      "status": "done",
       "note": "",
       "section": "A. Pomiar"
     },
