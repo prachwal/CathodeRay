@@ -26,8 +26,8 @@ public sealed class MiniCProgramsTests
         var origins = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase)
         {
             ["CODE"] = 0x1000,
-            ["BSS"] = 0x2000,
-            ["DATA"] = 0x3000,
+            ["BSS"] = 0x4000,
+            ["DATA"] = 0x5000,
         };
         AssemblyResult result = new TwoPassAssembler(Repo.LoadTarget(target), target.DefaultSyntax)
             .Assemble(asm, path, _ => null, [], null, origins);

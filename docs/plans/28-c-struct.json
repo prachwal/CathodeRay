@@ -23,7 +23,7 @@
     {
       "id": "4",
       "title": "[M] Złożone przypisanie i ++/-- na celu ze skutkami ubocznymi (a[i++] += 1, *p++ += 1): węzeł AssignOpTo liczący adres raz (EvalPtrAddr -> temp, PatchedLoad, op, PatchedStore); usunąć RequirePure",
-      "status": "todo",
+      "status": "done",
       "note": ""
     },
     {

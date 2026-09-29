@@ -63,25 +63,6 @@ public sealed class Parser
             : binary;
     }
 
-    /// <summary>Cel złożonego przypisania/++ liczymy dwa razy, więc bez skutków ubocznych.</summary>
-    private static void RequirePure(Ast.Expr expr, Token at)
-    {
-        if (!IsPure(expr))
-        {
-            throw new CParseException(at.Line, at.Column, "compound assignment target must not have side effects.");
-        }
-    }
-
-    private static bool IsPure(Ast.Expr expr) => expr switch
-    {
-        Ast.Var or Ast.Number => true,
-        Ast.Unary unary => IsPure(unary.Operand),
-        Ast.Binary binary => IsPure(binary.Left) && IsPure(binary.Right),
-        Ast.Deref deref => IsPure(deref.Pointer),
-        Ast.Index index => IsPure(index.Base) && IsPure(index.Offset),
-        _ => false,
-    };
-
     private static bool IsBuiltinType(Token token) =>
         token is { Kind: TokenKind.Keyword } && token.Text is "uchar" or "int" or "void";
 
@@ -593,8 +574,8 @@ public sealed class Parser
                     return new Ast.AssignTo(left, right);
                 }
 
-                RequirePure(left, token);
-                return new Ast.AssignTo(left, new Ast.Binary(token.Text[..^1], left, right));
+                string op = token.Text[..^1];
+                return new Ast.AssignOpTo(left, op, right, new Ast.Binary(op, left, right));
             }
 
             if (left is not Ast.Var variable)
@@ -742,15 +723,10 @@ public sealed class Parser
     private Ast.Expr Step(Ast.Expr target, Token op, string sign)
     {
         var one = new Ast.Number("1");
-        if (target is Ast.Deref or Ast.Index)
-        {
-            RequirePure(target, op);
-        }
-
         return target switch
         {
             Ast.Var variable => new Ast.Assign(variable.Name, new Ast.Binary(sign, target, one)),
-            Ast.Deref or Ast.Index => new Ast.AssignTo(target, new Ast.Binary(sign, target, one)),
+            Ast.Deref or Ast.Index => new Ast.AssignOpTo(target, sign, one, new Ast.Binary(sign, target, one)),
             _ => throw new CParseException(op.Line, op.Column, $"'{op.Text}' needs a variable."),
         };
     }

@@ -16,6 +16,37 @@ public sealed partial class Codegen
         _code.AppendLine($"STA {hi}");
     }
 
+    /// <summary>Obniża <c>*p op= v</c> do <c>*h = *h op v</c>, gdzie ukryty wskaźnik <c>h</c> dostaje adres
+    /// celu raz (skutki uboczne w celu, np. <c>a[i++] += 1</c>, wykonują się jednokrotnie).</summary>
+    private Ast.AssignTo LowerAssignOp(Ast.AssignOpTo node, int depth)
+    {
+        CType elem = _types.TryGetValue(node.Target, out CType? found) ? found : CType.UChar;
+        string name = $"__ao{_assignOps++}";
+        string cell = $"{_prefix}__{name}";
+        CType pointer = CType.Pointer(elem);
+        DataCell(cell, CType.UChar);
+        DataCell($"{cell}_h", CType.UChar);
+        _extraCells.Add(cell);
+        _extraCells.Add($"{cell}_h");
+        _cells[name] = new Cell(cell, pointer);
+        EvalPtrAddr(node.Target, depth, out string lo, out string hi);
+        _code.AppendLine($"LDA {lo}");
+        _code.AppendLine($"STA {cell}");
+        _code.AppendLine($"LDA {hi}");
+        _code.AppendLine($"STA {cell}_h");
+        var hidden = new Ast.Var(name);
+        _types[hidden] = pointer;
+        var store = new Ast.Deref(hidden);
+        _types[store] = elem;
+        var load = new Ast.Deref(hidden);
+        _types[load] = elem;
+        var combined = new Ast.Binary(node.Op, load, node.Value);
+        _types[combined] = _types.TryGetValue(node.Combined, out CType? result) ? result : elem;
+        var assign = new Ast.AssignTo(store, combined);
+        _types[assign] = elem;
+        return assign;
+    }
+
     /// <summary>Podwaja parę (lo,hi) w miejscu (skala x2 dla int*).</summary>
     private void DoublePair(string lo, string hi)
     {

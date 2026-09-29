@@ -58,13 +58,13 @@ public sealed class CRuntimeTests : IDisposable
             """;
         var (cpu, bus, _) = CCodegenTests.RunC(Source, poke: (bus, _) =>
         {
-            bus.Write(0x2000 + 400, 0x55);
-            bus.Write(0x2000 + 550, 0x66);
+            bus.Write(0x4000 + 400, 0x55);
+            bus.Write(0x4000 + 550, 0x66);
         });
 
         cpu.State.A.Should().Be(12);
-        bus.Read(0x2000 + 400).Should().Be(0);
-        bus.Read(0x2000 + 550).Should().Be(0);
+        bus.Read(0x4000 + 400).Should().Be(0);
+        bus.Read(0x4000 + 550).Should().Be(0);
     }
 
     [Fact]

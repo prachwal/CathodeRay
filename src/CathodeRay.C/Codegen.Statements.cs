@@ -153,8 +153,8 @@ public sealed partial class Codegen
         string cell = $"{_prefix}__sw{_switches++}";
         DataCell(cell, CType.UChar);
         DataCell($"{cell}_h", CType.UChar);
-        _switchCells.Add(cell);
-        _switchCells.Add($"{cell}_h");
+        _extraCells.Add(cell);
+        _extraCells.Add($"{cell}_h");
         EvalInt(stmt.Value, 0, out string lo, out string hi);
         _code.AppendLine($"LDA {lo}");
         _code.AppendLine($"STA {cell}");

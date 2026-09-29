@@ -7,7 +7,7 @@ public sealed partial class Codegen
 {
     private void Eval(Ast.Expr expr, int depth)
     {
-        if (expr is Ast.Deref or Ast.Index or Ast.AssignTo || IsWideKind(expr))
+        if (expr is Ast.Deref or Ast.Index or Ast.AssignTo or Ast.AssignOpTo || IsWideKind(expr))
         {
             EvalInt(expr, depth, out _, out _);
             return;
@@ -130,8 +130,8 @@ public sealed partial class Codegen
                 EvalPtrAddr(index, depth, out string ialo, out string iahi);
                 PatchedLoad(ialo, iahi, ElemSize(TypeOfIndex(index)), lo, hi, depth);
                 break;
-            case Ast.AssignTo assignTo:
-                StorePtr(assignTo, depth);
+            case Ast.AssignTo or Ast.AssignOpTo:
+                StorePtr(expr is Ast.AssignOpTo assignOp ? LowerAssignOp(assignOp, depth) : (Ast.AssignTo)expr, depth);
                 _code.AppendLine($"LDA {Temp(depth, hi: false)}");
                 _code.AppendLine($"LDA {Temp(depth, hi: true)}");
                 _code.AppendLine("TAX");

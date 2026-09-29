@@ -35,13 +35,14 @@ public sealed partial class Codegen
 
     private readonly Dictionary<string, CType> _globalsByName = new(StringComparer.Ordinal);
 
-    private readonly List<string> _switchCells = [];
+    private readonly List<string> _extraCells = [];
 
     private readonly Dictionary<string, int> _frames = new(StringComparer.Ordinal);
 
     private readonly Dictionary<string, HashSet<string>> _calls = new(StringComparer.Ordinal);
 
     private int _switches;
+    private int _assignOps;
 
     private IReadOnlyDictionary<Ast.Node, int> _lines = new Dictionary<Ast.Node, int>();
 
@@ -69,8 +70,7 @@ public sealed partial class Codegen
 
     private string _prefix = string.Empty;
 
-    private IReadOnlyDictionary<Ast.Expr, CType> _types =
-        new Dictionary<Ast.Expr, CType>(ReferenceEqualityComparer.Instance);
+    private Dictionary<Ast.Expr, CType> _types = new(ReferenceEqualityComparer.Instance);
 
     private Codegen()
     {
@@ -386,7 +386,7 @@ public sealed partial class Codegen
     private void EmitFunction(CheckedFunction function)
     {
         _prefix = function.Def.Name;
-        _types = function.Types;
+        _types = new Dictionary<Ast.Expr, CType>(function.Types, ReferenceEqualityComparer.Instance);
         _cells.Clear();
         foreach (TypedSymbol global in _globals)
         {
@@ -400,7 +400,7 @@ public sealed partial class Codegen
             _cells[param.Name] = cell;
             DataCell(cell.Lo, param.Type);
             owned.Add(cell.Lo);
-            if (param.Type.Size == 2)
+            if (param.Type.Size == 2 && param.Type.Kind != "array")
             {
                 owned.Add($"{cell.Lo}_h");
             }
@@ -412,7 +412,7 @@ public sealed partial class Codegen
             _cells[local.Name] = cell;
             DataCell(cell.Lo, local.Type);
             owned.Add(cell.Lo);
-            if (local.Type.Size == 2)
+            if (local.Type.Size == 2 && local.Type.Kind != "array")
             {
                 owned.Add($"{cell.Lo}_h");
             }
@@ -420,7 +420,7 @@ public sealed partial class Codegen
 
         _maxTemp = -1;
         _addrs = -1;
-        _switchCells.Clear();
+        _extraCells.Clear();
         Comment(function.Def);
         _code.AppendLine($".proc {function.Def.Name}");
         _code.AppendLine($".global {function.Def.Name}");
@@ -444,7 +444,7 @@ public sealed partial class Codegen
             _code = outer;
         }
 
-        owned.AddRange(_switchCells);
+        owned.AddRange(_extraCells);
         for (int temp = 0; temp <= _maxTemp; temp++)
         {
             DataCell($"{_prefix}__t{temp}", CType.UChar);

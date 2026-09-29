@@ -10,7 +10,7 @@ Rozmiar: S = <1 h, M = kilka h, L = dzień. Kolejność: A → B → C → D →
 ## B. Wskaźniki i przypisania
 
 - [x] **3.** [M] Funkcje zwracające wskaźnik: Ast.Function z PointerDepth zwrotu, CType zwrotu w checkerze (return, wywołanie, prototyp), ReturnsInt -> szerokie (int lub ptr), test T* f() + linkowanie z prototypem
-- [ ] **4.** [M] Złożone przypisanie i ++/-- na celu ze skutkami ubocznymi (a[i++] += 1, *p++ += 1): węzeł AssignOpTo liczący adres raz (EvalPtrAddr -> temp, PatchedLoad, op, PatchedStore); usunąć RequirePure
+- [x] **4.** [M] Złożone przypisanie i ++/-- na celu ze skutkami ubocznymi (a[i++] += 1, *p++ += 1): węzeł AssignOpTo liczący adres raz (EvalPtrAddr -> temp, PatchedLoad, op, PatchedStore); usunąć RequirePure
 
 ## C. Inicjalizatory globalne
 
@@ -28,4 +28,4 @@ Rozmiar: S = <1 h, M = kilka h, L = dzień. Kolejność: A → B → C → D →
 
 - [ ] **11.** [S] Testy e2e per pozycja, samples/minic/10_struct.c, 11_goto_typedef.c, 12_globals_init.c, docs/stub-calling-conv.md, hygiene
 
-Postęp: 3/11 gotowych.
+Postęp: 4/11 gotowych.

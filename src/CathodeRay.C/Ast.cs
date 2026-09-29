@@ -162,6 +162,13 @@ public static class Ast
     /// <param name="Value">Wartość.</param>
     public sealed record AssignTo(Expr Target, Expr Value) : Expr;
 
+    /// <summary>Złożone przypisanie przez wskaźnik: <c>*p += v</c>, <c>p[i]++</c> (adres celu liczony raz).</summary>
+    /// <param name="Target">Cel: <c>*p</c> lub <c>p[i]</c>.</param>
+    /// <param name="Op">Operator bez <c>=</c>.</param>
+    /// <param name="Value">Prawa strona.</param>
+    /// <param name="Combined">Wyrażenie <c>Target Op Value</c> do kontroli typów.</param>
+    public sealed record AssignOpTo(Expr Target, string Op, Expr Value, Expr Combined) : Expr;
+
     /// <summary>Adres zmiennej (<c>&amp;x</c>).</summary>
     /// <param name="Name">Nazwa zmiennej.</param>
     public sealed record AddressOf(string Name) : Expr;

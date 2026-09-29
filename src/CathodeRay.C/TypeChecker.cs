@@ -488,6 +488,13 @@ public sealed class TypeChecker
                 return TernaryType(ternary);
             case Ast.AssignTo assignTo:
                 return AssignToType(assignTo);
+            case Ast.AssignOpTo assignOp:
+            {
+                CType target = TypeOf(assignOp.Target);
+                Assignable(target, TypeOf(assignOp.Combined), "compound assignment through pointer");
+                return target;
+            }
+
             case Ast.Deref deref:
                 return DerefType(deref);
             case Ast.AddressOf addressOf:

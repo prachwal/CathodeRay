@@ -152,10 +152,41 @@ public sealed class CSyntaxTests
     }
 
     [Fact]
-    public void Compound_Assign_Rejects_Side_Effects_In_Target()
+    public void Compound_Assign_Evaluates_Side_Effects_Once()
     {
-        FluentActions.Invoking(() => Run("int main() { uchar a[4]; int i = 0; a[i++] += 1; return 0; }"))
-            .Should().Throw<CParseException>().WithMessage("*side effects*");
+        const string Source = """
+            int calls;
+            int idx() { calls++; return 1; }
+            int main() {
+                uchar a[4] = {10, 20, 30, 40};
+                int w[3] = {100, 200, 300};
+                int i = 0;
+                a[i++] += 5;
+                a[i++] *= 2;
+                uchar *p = a;
+                *p++ += 1;
+                *p++ -= 1;
+                w[idx()] += 7;
+                w[i--]++;
+                return a[0] + a[1] + a[2] + a[3] + w[0] + w[1] + w[2] + i * 1000 + calls * 100;
+            }
+            """;
+        Run(Source).Should().Be(16 + 39 + 30 + 40 + 100 + 207 + 301 + 1000 + 100);
+    }
+
+    [Fact]
+    public void Postfix_On_Pointer_Target_Returns_Old_Value()
+    {
+        const string Source = """
+            int main() {
+                uchar a[2] = {7, 9};
+                uchar *p = a;
+                uchar old = (*p)++;
+                uchar cur = (*p)--;
+                return old * 10 + cur + a[0];
+            }
+            """;
+        Run(Source).Should().Be(70 + 8 + 7);
     }
 
     [Fact]
