@@ -732,23 +732,59 @@ public sealed class Codegen
 
     private void BranchOn(string op, bool jumpWhenTrue, string label)
     {
-        string jump = (op, jumpWhenTrue) switch
+        // Ostre: jeden skok od C. Nieostre: dwa (osobno ==), bo C nie
+        // rozróżnia == od ostrej po tej samej stronie.
+        switch (op, jumpWhenTrue)
         {
-            ("==", false) => "BNE",
-            ("==", true) => "BEQ",
-            ("!=", false) => "BEQ",
-            ("!=", true) => "BNE",
-            ("<", false) => "BCS",
-            ("<", true) => "BCC",
-            ("<=", false) => "BCS",
-            ("<=", true) => "BCC",
-            (">", false) => "BCC",
-            (">", true) => "BCS",
-            (">=", false) => "BCC",
-            (">=", true) => "BCS",
-            _ => throw new CCodegenException($"unknown comparison '{op}'."),
-        };
-        _code.AppendLine($"{jump} {label}");
+            case ("==", false):
+                _code.AppendLine($"BNE {label}");
+                break;
+            case ("==", true):
+                _code.AppendLine($"BEQ {label}");
+                break;
+            case ("!=", false):
+                _code.AppendLine($"BEQ {label}");
+                break;
+            case ("!=", true):
+                _code.AppendLine($"BNE {label}");
+                break;
+            case ("<", false):
+            case (">=", true):
+                _code.AppendLine($"BCS {label}");
+                break;
+            case ("<", true):
+            case (">=", false):
+                _code.AppendLine($"BCC {label}");
+                break;
+            case ("<=", false):
+            {
+                string skip = Label("nle");
+                _code.AppendLine($"BEQ {skip}");
+                _code.AppendLine($"BCS {label}");
+                _code.AppendLine($"{skip}:");
+                break;
+            }
+
+            case ("<=", true):
+                _code.AppendLine($"BEQ {label}");
+                _code.AppendLine($"BCC {label}");
+                break;
+            case (">", false):
+                _code.AppendLine($"BEQ {label}");
+                _code.AppendLine($"BCC {label}");
+                break;
+            case (">", true):
+            {
+                string skip = Label("ngt");
+                _code.AppendLine($"BEQ {skip}");
+                _code.AppendLine($"BCS {label}");
+                _code.AppendLine($"{skip}:");
+                break;
+            }
+
+            default:
+                throw new CCodegenException($"unknown comparison '{op}'.");
+        }
     }
 
     private void Eval(Ast.Expr expr, int depth)
@@ -899,6 +935,7 @@ public sealed class Codegen
             _code.AppendLine($"LDA {leftHi}");
             _code.AppendLine($"ADC {rightHi},X");
             _code.AppendLine($"STA {hi}");
+            MaskUchar(binary, hi);
             return;
         }
 
@@ -920,6 +957,19 @@ public sealed class Codegen
         _code.AppendLine($"LDA {leftHi}");
         _code.AppendLine($"{patchHi}: SUB 0");
         _code.AppendLine($"STA {hi}");
+        MaskUchar(binary, hi);
+    }
+
+    /// <summary>Maska uchar: operacja na dwóch ucharach daje uchar (jak w checkerze),
+    /// więc hi zerujemy (bez propagacji carry/pożyczki).</summary>
+    private void MaskUchar(Ast.Binary binary, string hi)
+    {
+        if (KindOf(binary.Left) != "int" && KindOf(binary.Right) != "int")
+        {
+            _code.AppendLine("LDX 0");
+            _code.AppendLine("TXA");
+            _code.AppendLine($"STA {hi}");
+        }
     }
 
     private bool ReturnsInt(Ast.Call call) =>
@@ -948,6 +998,22 @@ public sealed class Codegen
         if (unary.Op != "-" && unary.Op != "~")
         {
             throw new CCodegenException($"operator '{unary.Op}' needs int operands.");
+        }
+
+        if (KindOf(unary.Operand) != "int")
+        {
+            Eval(unary.Operand, depth);
+            _code.AppendLine("NOT");
+            if (unary.Op == "-")
+            {
+                _code.AppendLine("INC");
+            }
+
+            _code.AppendLine($"STA {lo}");
+            _code.AppendLine("LDX 0");
+            _code.AppendLine("TXA");
+            _code.AppendLine($"STA {hi}");
+            return;
         }
 
         EvalInt(unary.Operand, depth + 1, out string olo, out string ohi);
