@@ -42,4 +42,27 @@ public static partial class StubOps
     /// <param name="state">Stan CPU.</param>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static void Dex(StubState state) => Ldx(state, (byte)(state.X - 1));
+
+    /// <summary>SHL: A = A &lt;&lt; 1; C = stary bit 7, Z; V bez zmian.</summary>
+    /// <param name="state">Stan CPU.</param>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static void Shl(StubState state)
+    {
+        state.Carry = (state.A & 0x80) != 0;
+        SetA(state, (byte)(state.A << 1));
+    }
+
+    /// <summary>SHR: A = A &gt;&gt; 1; C = stary bit 0, Z; V bez zmian.</summary>
+    /// <param name="state">Stan CPU.</param>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static void Shr(StubState state)
+    {
+        state.Carry = (state.A & 0x01) != 0;
+        SetA(state, (byte)(state.A >> 1));
+    }
+
+    /// <summary>NOT: A = ~A; ustawia Z, C i V bez zmian.</summary>
+    /// <param name="state">Stan CPU.</param>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static void Not(StubState state) => SetA(state, (byte)~state.A);
 }

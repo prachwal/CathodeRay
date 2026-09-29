@@ -276,7 +276,16 @@ public sealed class TwoPassAssembler(InstructionSet isa, SyntaxDialect dialect)
                     }
                 }
 
-                segments.Add(new ObjectSegment(name, !segment.Emit, segment.Emit ? data : [], segment.Emit ? data.Length : end - start));
+                var rows = new List<ObjectLine>();
+                foreach (ListingLine row in _listing)
+                {
+                    if (string.Equals(row.Segment, name, StringComparison.OrdinalIgnoreCase))
+                    {
+                        rows.Add(new ObjectLine(row.Address - origin, [.. row.Bytes], row.Source, row.File, row.Line));
+                    }
+                }
+
+                segments.Add(new ObjectSegment(name, !segment.Emit, segment.Emit ? data : [], segment.Emit ? data.Length : end - start, rows));
             }
 
             var symbolsOut = new List<ObjectSymbol>();
@@ -446,6 +455,28 @@ public sealed class TwoPassAssembler(InstructionSet isa, SyntaxDialect dialect)
 
         public int EvaluateEmission(string expression, FieldKind kind, out bool relocated)
         {
+            if (final && objectMode && kind == FieldKind.Byte && owner.Dialect.LowHighPrefixes && HalfPrefix(expression) is { } half)
+            {
+                string inner = expression.Trim()[1..];
+                bool hasSymbol = TryEvaluate(inner) is null || SingleSymbol(inner) is not null;
+                if (hasSymbol)
+                {
+                    return EvaluateEmissionCore(inner, kind, half, out relocated);
+                }
+            }
+
+            return EvaluateEmissionCore(expression, kind, '\0', out relocated);
+        }
+
+        /// <summary>Znak <c>&lt;</c> albo <c>&gt;</c> na początku wyrażenia (młodszy / starszy bajt adresu).</summary>
+        private static char? HalfPrefix(string expression)
+        {
+            string trimmed = expression.Trim();
+            return trimmed.Length > 1 && trimmed[0] is '<' or '>' ? trimmed[0] : null;
+        }
+
+        private int EvaluateEmissionCore(string expression, FieldKind kind, char half, out bool relocated)
+        {
             relocated = false;
             int? value = TryEvaluate(expression);
             if (value is not null)
@@ -463,7 +494,7 @@ public sealed class TwoPassAssembler(InstructionSet isa, SyntaxDialect dialect)
 
                 relocated = true;
                 int bas = EvalWith(expression, defined, 0);
-                Relocate(kind, defined, bas);
+                Relocate(kind, defined, bas, half);
                 return bas;
             }
 
@@ -484,20 +515,25 @@ public sealed class TwoPassAssembler(InstructionSet isa, SyntaxDialect dialect)
             }
 
             relocated = true;
-            Relocate(kind, symbol, addend);
+            Relocate(kind, symbol, addend, half);
             return addend;
         }
 
-        private void Relocate(FieldKind kind, string symbol, int addend)
+        private void Relocate(FieldKind kind, string symbol, int addend, char half = '\0')
         {
             SegmentState segment = EnsureSegment(_segment);
             int origin = segmentOrigins.GetValueOrDefault(_segment, 0);
-            RelocKind reloc = kind switch
+            RelocKind reloc = half switch
             {
-                FieldKind.Word => RelocKind.Abs16,
-                FieldKind.Relative8 => RelocKind.Rel8,
-                FieldKind.Displacement8 => RelocKind.Disp8,
-                _ => RelocKind.Abs8,
+                '<' => RelocKind.Lo8,
+                '>' => RelocKind.Hi8,
+                _ => kind switch
+                {
+                    FieldKind.Word => RelocKind.Abs16,
+                    FieldKind.Relative8 => RelocKind.Rel8,
+                    FieldKind.Displacement8 => RelocKind.Disp8,
+                    _ => RelocKind.Abs8,
+                },
             };
             Relocations.Add(
                 new Relocation(
@@ -513,10 +549,10 @@ public sealed class TwoPassAssembler(InstructionSet isa, SyntaxDialect dialect)
             var used = new HashSet<string>(owner.Dialect.SymbolComparer);
             Expression.Evaluate(expression, owner.Dialect, _lineStart, name =>
             {
-                string key = IsLocal(name) ? ScopeKey(name) : name;
+                string key = IsLocal(name) ? ScopeKey(name) : Qualify(name);
                 if (symbols.ContainsKey(key) || links.Externals.Contains(name))
                 {
-                    used.Add(name);
+                    used.Add(key);
                 }
 
                 return Lookup(name);
@@ -533,9 +569,12 @@ public sealed class TwoPassAssembler(InstructionSet isa, SyntaxDialect dialect)
         private int EvalWith(string expression, string symbol, int probe)
         {
             return Expression.Evaluate(expression, owner.Dialect, _lineStart, name =>
-                links.Externals.Contains(name)
-                    ? owner.Dialect.SymbolComparer.Equals(name, symbol) ? probe : 0
-                    : Lookup(name)) ?? 0;
+            {
+                string key = IsLocal(name) ? ScopeKey(name) : Qualify(name);
+                return owner.Dialect.SymbolComparer.Equals(key, symbol) ? probe
+                    : links.Externals.Contains(name) ? 0
+                    : Lookup(name);
+            }) ?? 0;
         }
 
         private string FormatMessage(string message)
@@ -823,7 +862,7 @@ public sealed class TwoPassAssembler(InstructionSet isa, SyntaxDialect dialect)
             string display = name;
             if (!IsLocal(name))
             {
-                if (links.Externals.Contains(name))
+                if (links.Externals.Contains(name) && objectMode)
                 {
                     throw Error($"'{name}' is declared external.");
                 }

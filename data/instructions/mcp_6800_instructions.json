@@ -214,6 +214,28 @@
       "variants": null
     },
     {
+      "opcode": "32",
+      "mnemonic": "PULA",
+      "cycles": 4,
+      "words": 1,
+      "semantics": "A = pull",
+      "group": "stack",
+      "encoding": "32",
+      "operands": null,
+      "variants": null
+    },
+    {
+      "opcode": "33",
+      "mnemonic": "PULB",
+      "cycles": 4,
+      "words": 1,
+      "semantics": "B = pull",
+      "group": "stack",
+      "encoding": "33",
+      "operands": null,
+      "variants": null
+    },
+    {
       "opcode": "34",
       "mnemonic": "DES",
       "cycles": 4,
@@ -232,6 +254,28 @@
       "semantics": null,
       "group": "system",
       "encoding": "35",
+      "operands": null,
+      "variants": null
+    },
+    {
+      "opcode": "36",
+      "mnemonic": "PSHA",
+      "cycles": 4,
+      "words": 1,
+      "semantics": "push A",
+      "group": "stack",
+      "encoding": "36",
+      "operands": null,
+      "variants": null
+    },
+    {
+      "opcode": "37",
+      "mnemonic": "PSHB",
+      "cycles": 4,
+      "words": 1,
+      "semantics": "push B",
+      "group": "stack",
+      "encoding": "37",
       "operands": null,
       "variants": null
     },

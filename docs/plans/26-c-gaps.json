@@ -1,0 +1,42 @@
+{
+  "title": "Mini-C: luki (literały, ++/--, break/continue, int 16-bit, >2 arg)",
+  "status": "closed",
+  "items": [
+    {
+      "id": "1",
+      "title": "Literały znakowe i napisowe ('a', \"abc\" jako uchar* w DATA)",
+      "status": "done",
+      "note": ""
+    },
+    {
+      "id": "2",
+      "title": "++/-- (prefiks i postfiks) oraz for (int i = ...) w init",
+      "status": "done",
+      "note": ""
+    },
+    {
+      "id": "3",
+      "title": "break/continue (typecheck poza pętlą, continue w for do kroku)",
+      "status": "done",
+      "note": ""
+    },
+    {
+      "id": "4",
+      "title": "Operatory int 16-bit: & | ^ << >> * / % (cc_mul16, cc_div16)",
+      "status": "done",
+      "note": ""
+    },
+    {
+      "id": "5",
+      "title": "Argumenty 3-6 przez cc_arg3..cc_arg6 + fix (int, uchar)",
+      "status": "done",
+      "note": ""
+    },
+    {
+      "id": "6",
+      "title": "Testy CGapsTests + build/test/hygiene",
+      "status": "done",
+      "note": ""
+    }
+  ]
+}

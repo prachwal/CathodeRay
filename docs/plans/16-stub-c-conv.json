@@ -1,0 +1,30 @@
+{
+  "title": "Stub: konwencja wołań i wzorce mini-C",
+  "status": "closed",
+  "items": [
+    {
+      "id": "1",
+      "title": "Spec konwencji: rejestry, argumenty, wynik, zmienne, stos, calle-saved",
+      "status": "done",
+      "note": "Gotowe gdy: spisane w docs/stub-calling-conv.md: A=wartość/arg1/wynik, X=licznik/arg2, zmienne jako absolutne (brak SP+n), caller czyści, calle zachowuje X? decyzja + stos: PUSH/POP tylko A, SP start FF"
+    },
+    {
+      "id": "2",
+      "title": "Wzorce codegen: if/while/for, operatory, wywołania zagnieżdżone",
+      "status": "done",
+      "note": "Gotowe gdy: wzorce w docs: if (CPA/BEQ), while (DEX/BNE), for, ==/!=/</> (CPA+BCS/BCC), wywołanie f(g(x)) przez komórki tmp, tablice przez ,X, 16-bit przez ADC"
+    },
+    {
+      "id": "3",
+      "title": "Demo mini-C: program łamiący wszystkie konwencje + test runtime",
+      "status": "done",
+      "note": "Gotowe gdy: samples/stub/features/minic.s używa każdej konwencji (min. 2 poziomy zagnieżdżenia, pętla, warunek <, wywołanie z arg) + test runtime z oczekiwanymi"
+    },
+    {
+      "id": "4",
+      "title": "Docs + build/test/hygiene",
+      "status": "done",
+      "note": "Gotowe gdy: docs spójne z kodem (adresy z symboli, nie na sztywno) + build -warnaserror + test + hygiene OK"
+    }
+  ]
+}

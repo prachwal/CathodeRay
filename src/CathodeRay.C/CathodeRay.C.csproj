@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- TargetFramework i wspólne ustawienia: Directory.Build.props. Frontend C nie zależy od asemblera. -->
+  <ItemGroup>
+    <PackageReference Include="StyleCop.Analyzers" PrivateAssets="all" />
+    <PackageReference Include="Roslynator.Analyzers" PrivateAssets="all" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <AdditionalFiles Include="..\..\stylecop.json" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="crt0.s" />
+    <EmbeddedResource Include="stdlib\include\*.h" LogicalName="stdlib/include/%(Filename)%(Extension)" />
+    <EmbeddedResource Include="stdlib\lib\*.c" LogicalName="stdlib/lib/%(Filename)%(Extension)" />
+    <EmbeddedResource Include="..\..\samples\stub\lib\io.s" LogicalName="stdlib/lib/io.s" />
+    <EmbeddedResource Include="stdlib\portable\*.c" LogicalName="stdlib/portable/%(Filename)%(Extension)" />
+    <EmbeddedResource Include="stdlib\stub\*.s" LogicalName="stdlib/lib/%(Filename)%(Extension)" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="CathodeRay.Tests" />
+  </ItemGroup>
+
+</Project>

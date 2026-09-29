@@ -1,0 +1,24 @@
+{
+  "title": "Mini-C: crt0 i preprocesor",
+  "status": "closed",
+  "items": [
+    {
+      "id": "1",
+      "title": "crt0: zerowanie .bss, SP=FF, skok do main, HLT po powrocie",
+      "status": "done",
+      "note": "Gotowe gdy: crt0.s: zerowanie .bss (pętla), SP=FF, CALL main, HLT; linkowany zawsze pierwszy"
+    },
+    {
+      "id": "2",
+      "title": "Preprocesor: #include→.include, #define→.define (mapowanie 1:1)",
+      "status": "done",
+      "note": "Gotowe gdy: #include \"f\" → .include, #define X v → .define (proste, funkcyjne odrzucone z błędem jak w ca65-doc)"
+    },
+    {
+      "id": "3",
+      "title": "Testy runtime + build/test/hygiene",
+      "status": "done",
+      "note": "Gotowe gdy: program C startuje od crt0 w teście runtime + build -warnaserror + test + hygiene OK"
+    }
+  ]
+}

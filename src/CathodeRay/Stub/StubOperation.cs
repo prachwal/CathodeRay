@@ -32,6 +32,18 @@ public enum StubOperation
     /// <summary>Porównanie X z wartością.</summary>
     Cpx,
 
+    /// <summary>Porównanie A z wartością (bez zapisu).</summary>
+    Cpa,
+
+    /// <summary>A = A &lt;&lt; 1; C = stary bit 7.</summary>
+    Shl,
+
+    /// <summary>A = A &gt;&gt; 1; C = stary bit 0.</summary>
+    Shr,
+
+    /// <summary>A = bitowa negacja A; ustawia Z.</summary>
+    Not,
+
     /// <summary>A = A + 1.</summary>
     Inc,
 
@@ -71,6 +83,12 @@ public enum StubOperation
     /// <summary>PC = adres, gdy Z = 1.</summary>
     Beq,
 
+    /// <summary>PC = adres, gdy C = 1.</summary>
+    Bcs,
+
+    /// <summary>PC = adres, gdy C = 0.</summary>
+    Bcc,
+
     /// <summary>C = false.</summary>
     Clc,
 
@@ -91,4 +109,7 @@ public enum StubOperation
 
     /// <summary>Zatrzymanie CPU.</summary>
     Hlt,
+
+    /// <summary>SP = wartość (inicjalizacja stosu przez crt0).</summary>
+    Ldsp,
 }

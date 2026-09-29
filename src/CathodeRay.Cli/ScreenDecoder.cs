@@ -1,0 +1,93 @@
+namespace CathodeRay.Cli;
+
+/// <summary>Dekoder ekranu tekstowego: obszar pamięci (wierszami) na tekst o danej szerokości i wysokości.</summary>
+internal sealed class ScreenDecoder
+{
+    /// <summary>Tworzy dekoder.</summary>
+    /// <param name="width">Szerokość w znakach (domyślnie 40).</param>
+    /// <param name="height">Wysokość w wierszach (domyślnie 25).</param>
+    public ScreenDecoder(int width = 40, int height = 25)
+    {
+        if (width < 1)
+        {
+            throw new ArgumentOutOfRangeException(nameof(width), "Width must be positive.");
+        }
+
+        if (height < 1)
+        {
+            throw new ArgumentOutOfRangeException(nameof(height), "Height must be positive.");
+        }
+
+        Width = width;
+        Height = height;
+    }
+
+    /// <summary>Szerokość ekranu w znakach.</summary>
+    public int Width { get; }
+
+    /// <summary>Wysokość ekranu w wierszach.</summary>
+    public int Height { get; }
+
+    /// <summary>Rozmiar bufora ekranu w bajtach.</summary>
+    public int Size => Width * Height;
+
+    /// <summary>Parsuje rozmiar "SxW" (np. "40x25").</summary>
+    /// <param name="text">Tekst do sparsowania.</param>
+    /// <param name="width">Szerokość.</param>
+    /// <param name="height">Wysokość.</param>
+    /// <returns>Czy parsowanie się udało (wymiary dodatnie).</returns>
+    public static bool TryParseSize(string text, out int width, out int height)
+    {
+        width = 0;
+        height = 0;
+        string[] parts = text.Split('x');
+        return parts.Length == 2
+            && int.TryParse(parts[0], out width) && width >= 1
+            && int.TryParse(parts[1], out height) && height >= 1;
+    }
+
+    /// <summary>Dekoduje bufor na wiersze tekstu (0/niedrukowalne to spacja, końcowe spacje cięte).</summary>
+    /// <param name="memory">Odczyt bajtu spod adresu.</param>
+    /// <param name="address">Adres bufora.</param>
+    /// <returns>Wiersze tekstu (dokładnie <see cref="Height"/>).</returns>
+    public IReadOnlyList<string> Render(Func<ushort, byte> memory, int address)
+    {
+        var rows = new List<string>(Height);
+        for (int row = 0; row < Height; row++)
+        {
+            char[] line = new char[Width];
+            for (int col = 0; col < Width; col++)
+            {
+                byte value = memory((ushort)(address + (row * Width) + col));
+                line[col] = value is >= 32 and <= 126 ? (char)value : ' ';
+            }
+
+            rows.Add(new string(line).TrimEnd());
+        }
+
+        return rows;
+    }
+
+    /// <summary>Zapisuje wiersze jako dokument Markdown: ramka jak ekran
+    /// (kazdy wiersz dopelniony do <see cref="Width"/>, wiec puste tez widac).</summary>
+    /// <param name="rows">Wiersze z <see cref="Render"/>.</param>
+    /// <param name="address">Adres bufora (do nagłówka).</param>
+    /// <returns>Tekst Markdown.</returns>
+    public string ToMarkdown(IReadOnlyList<string> rows, int address)
+    {
+        var output = new System.Text.StringBuilder();
+        output.AppendLine($"# Screen dump ({Width}x{Height} @ ${address:X4})");
+        output.AppendLine();
+        output.AppendLine("```text");
+        string border = "+" + new string('-', Width) + "+";
+        output.AppendLine(border);
+        foreach (string row in rows)
+        {
+            output.AppendLine("|" + row.PadRight(Width) + "|");
+        }
+
+        output.AppendLine(border);
+        output.Append("```\n");
+        return output.ToString();
+    }
+}

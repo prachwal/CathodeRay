@@ -1,4 +1,5 @@
 using CathodeRay.Assembler;
+using CathodeRay.Assembler.Link;
 using CathodeRay.Stub;
 using FluentAssertions;
 
@@ -26,6 +27,32 @@ public sealed class SampleProgramsTests
         }
 
         return (cpu, bus);
+    }
+
+    private static (StubCpu Cpu, StubBus Bus, AssemblyResult Result) RunFile(string sample)
+    {
+        StubIsa isa = StubIsa.FromJsonFile(Repo.IsaFile("mcp_stub_instructions.json"));
+        string path = Repo.Path("samples", "stub", sample);
+        AssemblerTarget target = AssemblerTargets.Find("stub")!;
+        static string? ReadText(string p) => File.Exists(p) ? File.ReadAllText(p) : null;
+        static byte[]? ReadBinary(string p) => File.Exists(p) ? File.ReadAllBytes(p) : null;
+        AssemblyResult result = new TwoPassAssembler(Repo.LoadTarget(target), target.DefaultSyntax)
+            .Assemble(File.ReadAllText(path), path, ReadText, [], ReadBinary);
+        result.Origin.Should().Be(0, "stub ładuje program od adresu 0");
+        var bus = new StubBus();
+        for (int i = 0; i < result.Image.Length; i++)
+        {
+            bus.Write((ushort)(result.Origin + i), result.Image[i]);
+        }
+
+        var cpu = new StubCpu(isa, bus);
+        for (int steps = 0; !cpu.State.Halted; steps++)
+        {
+            steps.Should().BeLessThan(10_000, "program ma się zatrzymać");
+            cpu.Step();
+        }
+
+        return (cpu, bus, result);
     }
 
     private static byte[] Memory(StubBus bus, int start, int length) =>
@@ -68,6 +95,141 @@ public sealed class SampleProgramsTests
 
         bus.Read(0x20).Should().Be(42);
         cpu.State.A.Should().Be(42);
+        cpu.State.StackPointer.Should().Be(0xFF);
+    }
+
+    [Fact]
+    public void Features_Showcase_Uses_Every_Assembler_Mechanism()
+    {
+        var (cpu, bus, result) = RunFile(Path.Combine("features", "main.asm"));
+
+        int At(string symbol) => result.Symbols[symbol];
+        bus.Read((ushort)At("data::total")).Should().Be(20);
+        bus.Read((ushort)At("data::variant")).Should().Be(1);
+        bus.Read((ushort)At("data::doubled")).Should().Be(4);
+        bus.Read((ushort)At("data::z1")).Should().Be(0);
+        bus.Read((ushort)At("data::z2")).Should().Be(5);
+        bus.Read((ushort)At("data::pcc")).Should().Be(2);
+        cpu.State.X.Should().Be(0);
+        cpu.State.StackPointer.Should().Be(0xFF);
+        result.Messages.Should().Contain(m => !m.Warning && m.Text == "assembling features");
+        result.Messages.Should().Contain(m => m.Warning && m.Text == "demo build");
+    }
+
+    [Fact]
+    public void Linked_Showcase_Joins_Two_Modules()
+    {
+        string dir = Repo.Path("samples", "stub", "features", "link");
+        AssemblerTarget target = AssemblerTargets.Find("stub")!;
+        var assembler = new TwoPassAssembler(Repo.LoadTarget(target), target.DefaultSyntax);
+        static string? Read(string path) => File.Exists(path) ? File.ReadAllText(path) : null;
+        var modules = new List<(string File, ObjectModule Module)>();
+        foreach (string name in new[] { "main.s", "lib.s" })
+        {
+            string path = Path.Combine(dir, name);
+            modules.Add((name, assembler.AssembleObject("stub", File.ReadAllText(path), path, Read)));
+        }
+
+        AssemblyResult result = Linker.Link(
+            modules, LinkerConfig.Parse(File.ReadAllText(Path.Combine(dir, "map.cfg"))));
+        result.Origin.Should().Be(0);
+
+        StubIsa isa = StubIsa.FromJsonFile(Repo.IsaFile("mcp_stub_instructions.json"));
+        var bus = new StubBus();
+        for (int i = 0; i < result.Image.Length; i++)
+        {
+            bus.Write((ushort)i, result.Image[i]);
+        }
+
+        var cpu = new StubCpu(isa, bus);
+        for (int steps = 0; !cpu.State.Halted; steps++)
+        {
+            steps.Should().BeLessThan(10_000, "program ma się zatrzymać");
+            cpu.Step();
+        }
+
+        result.Symbols["main"].Should().Be(0);
+        bus.Read((ushort)result.Symbols["result"]).Should().Be(15);
+        cpu.State.A.Should().Be(15);
+        cpu.State.StackPointer.Should().Be(0xFF);
+    }
+
+    [Fact]
+    public void Mul8_Multiplies_With_Zero_Case()
+    {
+        string dir = Repo.Path("samples", "stub", "features");
+        string entry = Path.Combine(dir, "multest.asm");
+        string source = "LDI 6\nLDX 7\nCALL mul8\nSTA r1\nLDI 0\nLDX 5\nCALL mul8\nSTA r2\nHLT\nr1: .byte 0\nr2: .byte 0\n.include \"mathlib.s\"\n";
+        AssemblerTarget target = AssemblerTargets.Find("stub")!;
+        static string? Read(string path) => File.Exists(path) ? File.ReadAllText(path) : null;
+        AssemblyResult result = new TwoPassAssembler(Repo.LoadTarget(target), target.DefaultSyntax)
+            .Assemble(source, entry, Read);
+
+        StubIsa isa = StubIsa.FromJsonFile(Repo.IsaFile("mcp_stub_instructions.json"));
+        var bus = new StubBus();
+        for (int i = 0; i < result.Image.Length; i++)
+        {
+            bus.Write((ushort)i, result.Image[i]);
+        }
+
+        var cpu = new StubCpu(isa, bus);
+        for (int steps = 0; !cpu.State.Halted; steps++)
+        {
+            steps.Should().BeLessThan(10_000, "program ma się zatrzymać");
+            cpu.Step();
+        }
+
+        bus.Read((ushort)result.Symbols["r1"]).Should().Be(42);
+        bus.Read((ushort)result.Symbols["r2"]).Should().Be(0);
+        cpu.State.StackPointer.Should().Be(0xFF);
+    }
+
+    [Fact]
+    public void Minic_Uses_Every_C_Convention()
+    {
+        var (cpu, bus, result) = RunFile(Path.Combine("features", "minic.s"));
+
+        int At(string symbol) => result.Symbols[symbol];
+        bus.Read((ushort)At("s1")).Should().Be(16);
+        bus.Read((ushort)At("s2")).Should().Be(25);
+        bus.Read((ushort)At("flag")).Should().Be(0);
+        bus.Read((ushort)At("flag2")).Should().Be(7);
+        cpu.State.A.Should().Be(7);
+        cpu.State.X.Should().Be(5);
+        cpu.State.StackPointer.Should().Be(0xFF);
+    }
+
+    [Fact]
+    public void Divmod_Divides_With_Remainder_And_Zero_Cases()
+    {
+        string dir = Repo.Path("samples", "stub", "features");
+        string entry = Path.Combine(dir, "divtest.asm");
+        string source = "LDI 42\nLDX 5\nCALL divmod\nSTA q1\nTXA\nSTA r1\nLDI 0\nLDX 7\nCALL divmod\nSTA q2\nTXA\nSTA r2\nLDI 7\nLDX 0\nCALL divmod\nSTA q3\nTXA\nSTA r3\nHLT\nq1: .byte 0\nr1: .byte 0\nq2: .byte 0\nr2: .byte 0\nq3: .byte 0\nr3: .byte 0\n.include \"mathlib.s\"\n";
+        AssemblerTarget target = AssemblerTargets.Find("stub")!;
+        static string? Read(string path) => File.Exists(path) ? File.ReadAllText(path) : null;
+        AssemblyResult result = new TwoPassAssembler(Repo.LoadTarget(target), target.DefaultSyntax)
+            .Assemble(source, entry, Read);
+
+        StubIsa isa = StubIsa.FromJsonFile(Repo.IsaFile("mcp_stub_instructions.json"));
+        var bus = new StubBus();
+        for (int i = 0; i < result.Image.Length; i++)
+        {
+            bus.Write((ushort)i, result.Image[i]);
+        }
+
+        var cpu = new StubCpu(isa, bus);
+        for (int steps = 0; !cpu.State.Halted; steps++)
+        {
+            steps.Should().BeLessThan(10_000, "program ma się zatrzymać");
+            cpu.Step();
+        }
+
+        bus.Read((ushort)result.Symbols["q1"]).Should().Be(8);
+        bus.Read((ushort)result.Symbols["r1"]).Should().Be(2);
+        bus.Read((ushort)result.Symbols["q2"]).Should().Be(0);
+        bus.Read((ushort)result.Symbols["r2"]).Should().Be(0);
+        bus.Read((ushort)result.Symbols["q3"]).Should().Be(0);
+        bus.Read((ushort)result.Symbols["r3"]).Should().Be(0);
         cpu.State.StackPointer.Should().Be(0xFF);
     }
 

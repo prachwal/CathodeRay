@@ -27,6 +27,15 @@ public sealed class StubAssemblerTests
             """).Should().Equal(0x00, 0x01, 0x05, 0x05, 0x34, 0x12, 0xFF);
     }
 
+    [Fact]
+    public void Word_Emits_Little_Endian_Address()
+    {
+        Asm("""
+            ptr: .word target
+            target: NOP
+            """).Should().Equal(0x02, 0x00, 0x00);
+    }
+
     [Theory]
     [InlineData("LDI 42", 42)]
     [InlineData("LDI $2A", 42)]
@@ -66,7 +75,7 @@ public sealed class StubAssemblerTests
     [InlineData("NOP\nNOP\n.org 1\nNOP", 4, "overlapping output at $0001")]
     [InlineData(".org $10000", 1, "address 65536 outside $0000..$FFFF")]
     [InlineData(".org later\nlater: NOP", 1, "'later' must be known at this point")]
-    [InlineData(".word 1", 1, "unknown mnemonic or directive '.word'")]
+    [InlineData(".wordd 1", 1, "unknown mnemonic or directive '.wordd'")]
     [InlineData("JMP $10000", 1, "value 65536 out of range 0..65535")]
     [InlineData("JMP nowhere", 1, "undefined symbol 'nowhere'")]
     [InlineData("LDI 1x", 1, "invalid base-10 number '1x'")]

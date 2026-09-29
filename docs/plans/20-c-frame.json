@@ -1,0 +1,24 @@
+{
+  "title": "Mini-C: ramka stosowa i rekurencja",
+  "status": "closed",
+  "items": [
+    {
+      "id": "1",
+      "title": "Decyzja: absolutne+spill vs wirtualny stos w X",
+      "status": "done",
+      "note": "Gotowe gdy: jawna decyzja w docs: absolutne+spill (proste, bez rekurencji) vs wirtualny stos w X (rekurencja kosztem RAM); decyzja zapisana"
+    },
+    {
+      "id": "2",
+      "title": "Rekurencja: odkładanie stanu, głębokość, test silni",
+      "status": "done",
+      "note": "Gotowe gdy: silnia rekurencyjna działa (stan na stosie, głębokość ≥ 8), test runtime"
+    },
+    {
+      "id": "3",
+      "title": "Testy + build/test/hygiene",
+      "status": "done",
+      "note": "Gotowe gdy: testy ramki + build -warnaserror + test + hygiene OK"
+    }
+  ]
+}

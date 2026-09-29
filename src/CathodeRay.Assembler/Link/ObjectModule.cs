@@ -21,7 +21,17 @@ public sealed record ObjectModule(string Cpu, IReadOnlyList<ObjectSegment> Segme
         new Dto(
             Format,
             Cpu,
-            [.. Segments.Select(static s => new ObjectSegmentDto(s.Name, s.Bss, Convert.ToBase64String(s.Data), s.Length))],
+            [.. Segments.Select(static s => new ObjectSegmentDto(
+                s.Name,
+                s.Bss,
+                Convert.ToBase64String(s.Data),
+                s.Length,
+                [.. (s.Lines ?? []).Select(static l => new ObjectLineDto(
+                    l.Offset,
+                    Convert.ToBase64String(l.Bytes),
+                    l.Text,
+                    l.File,
+                    l.Line))]))],
             [.. Symbols],
             [.. Relocations]),
         Json);
@@ -49,12 +59,24 @@ public sealed record ObjectModule(string Cpu, IReadOnlyList<ObjectSegment> Segme
 
         return new ObjectModule(
             dto.Cpu,
-            [.. dto.Segments.Select(static s => new ObjectSegment(s.Name, s.Bss, Convert.FromBase64String(s.Data), s.Length))],
+            [.. dto.Segments.Select(static s => new ObjectSegment(
+                s.Name,
+                s.Bss,
+                Convert.FromBase64String(s.Data),
+                s.Length,
+                [.. (s.Lines ?? []).Select(static l => new ObjectLine(
+                    l.Offset,
+                    Convert.FromBase64String(l.Bytes),
+                    l.Text,
+                    l.File,
+                    l.Line))]))],
             dto.Symbols,
             dto.Relocations);
     }
 
     private sealed record Dto(string Format, string Cpu, List<ObjectSegmentDto> Segments, List<ObjectSymbol> Symbols, List<Relocation> Relocations);
 
-    private sealed record ObjectSegmentDto(string Name, bool Bss, string Data, int Length);
+    private sealed record ObjectSegmentDto(string Name, bool Bss, string Data, int Length, List<ObjectLineDto>? Lines = null);
+
+    private sealed record ObjectLineDto(int Offset, string Bytes, string Text, string? File, int Line);
 }

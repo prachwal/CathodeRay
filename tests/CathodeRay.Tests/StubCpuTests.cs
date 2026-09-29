@@ -37,11 +37,12 @@ public sealed class StubCpuTests
     public void Isa_Loads_All_Opcodes()
     {
         StubIsa isa = LoadIsa();
-        isa.Opcodes.Should().HaveCount(35);
+        isa.Opcodes.Should().HaveCount(42);
         isa.Opcodes[0x0C].Should().Be(new StubOpcode("LDA", 4, 3, OperandMode.Address16X));
         isa.Opcodes[0x01].Mnemonic.Should().Be("LDI");
         isa.Opcodes[0x01].Words.Should().Be(2);
         isa.Opcodes[0x07].Mnemonic.Should().Be("SUB");
+        isa.Opcodes[0x28].Mnemonic.Should().Be("LDSP");
         isa.Opcodes[0xFF].Mnemonic.Should().Be("HLT");
     }
 

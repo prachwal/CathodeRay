@@ -193,8 +193,10 @@ public class StubCpu : ICpu<StubState>
     {
         StubOperation.Nop or StubOperation.Inc or StubOperation.Inx or StubOperation.Dec or StubOperation.Dex
             or StubOperation.Tax or StubOperation.Txa or StubOperation.Clc or StubOperation.Sec
-            or StubOperation.Push or StubOperation.Pop or StubOperation.Ret or StubOperation.Hlt => mode == OperandMode.None,
-        StubOperation.Sta or StubOperation.Jmp or StubOperation.Bne or StubOperation.Beq or StubOperation.Call => IsAddress(mode),
+            or StubOperation.Push or StubOperation.Pop or StubOperation.Ret or StubOperation.Hlt
+            or StubOperation.Shl or StubOperation.Shr or StubOperation.Not => mode == OperandMode.None,
+        StubOperation.Sta or StubOperation.Jmp or StubOperation.Bne or StubOperation.Beq or StubOperation.Bcs or StubOperation.Bcc or StubOperation.Call => IsAddress(mode),
+        StubOperation.Ldsp => mode == OperandMode.Immediate8,
         _ => mode == OperandMode.Immediate8 || IsAddress(mode),
     };
 
@@ -243,6 +245,18 @@ public class StubCpu : ICpu<StubState>
                 break;
             case StubOperation.Cpx:
                 StubOps.Cpx(state, Value(mode, operand, address));
+                break;
+            case StubOperation.Cpa:
+                StubOps.Cpa(state, Value(mode, operand, address));
+                break;
+            case StubOperation.Shl:
+                StubOps.Shl(state);
+                break;
+            case StubOperation.Shr:
+                StubOps.Shr(state);
+                break;
+            case StubOperation.Not:
+                StubOps.Not(state);
                 break;
             case StubOperation.Inc:
                 StubOps.Inc(state);
@@ -297,8 +311,17 @@ public class StubCpu : ICpu<StubState>
             case StubOperation.Beq:
                 StubOps.Beq(state, address);
                 break;
+            case StubOperation.Bcs:
+                StubOps.Bcs(state, address);
+                break;
+            case StubOperation.Bcc:
+                StubOps.Bcc(state, address);
+                break;
             case StubOperation.Hlt:
                 StubOps.Hlt(state);
+                break;
+            case StubOperation.Ldsp:
+                StubOps.Ldsp(state, Value(mode, operand, address));
                 break;
             default:
                 ThrowUnhandled(operation);

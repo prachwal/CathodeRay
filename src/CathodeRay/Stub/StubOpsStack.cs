@@ -22,6 +22,10 @@ public static partial class StubOps
         Lda(state, read((ushort)(0x100 + state.StackPointer)));
     }
 
+    /// <summary>LDSP: SP = wartość (inicjalizacja stosu; flagi bez zmian).</summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static void Ldsp(StubState state, byte value) => state.StackPointer = value;
+
     /// <summary>CALL: odkłada PC (starszy, młodszy), PC = adres.</summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static void Call(StubState state, Action<ushort, byte> write, ushort returnAddress, ushort target)

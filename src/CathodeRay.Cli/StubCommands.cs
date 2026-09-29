@@ -30,8 +30,12 @@ internal static class StubCommands
 
     private static Command CreateRun(Option<FileInfo> isa)
     {
-        var binary = new Argument<FileInfo>("binary") { Description = "Plik binarny ładowany od adresu 0." };
+        var binary = new Argument<FileInfo>("binary") { Description = "Plik binarny (ładowany pod --load)." };
         binary.AcceptExistingOnly();
+        var load = new Option<string>("--load")
+        {
+            Description = "Bazowy adres ładowania i startu PC ($hex/0xhex/dec, domyślnie 0).",
+        };
         var maxSteps = new Option<int>("--max-steps")
         {
             Description = "Limit kroków (ochrona przed pętlą bez HLT).",
@@ -43,25 +47,53 @@ internal static class StubCommands
             Description = "Zrzut pamięci po zakończeniu, start:długość (np. 0x2000:16; w powłoce unikaj $, bo rozwinie np. $0); można powtórzyć.",
             CustomParser = ParseRanges,
         };
+        var screenAt = new Option<string?>("--screen-at")
+        {
+            Description = "Dekoduje bufor ekranu spod adresu ($hex/0xhex/dec) po zakończeniu.",
+        };
+        var screenSize = new Option<string?>("--screen-size")
+        {
+            Description = "Rozmiar ekranu SxW do --screen-at (np. 40x25, domyślnie 40x25).",
+        };
+        var screenOut = new Option<FileInfo?>("--screen-out")
+        {
+            Description = "Zapisuje zdekodowany ekran do pliku Markdown (bez: wypisuje na stdout).",
+        };
 
-        var command = new Command("run", "Uruchamia program do HLT lub limitu kroków.") { binary, maxSteps, trace, dump };
+        var command = new Command("run", "Uruchamia program do HLT lub limitu kroków.") { binary, maxSteps, trace, dump, load, screenAt, screenSize, screenOut };
         command.SetAction(parse =>
         {
             TextWriter output = parse.InvocationConfiguration.Output;
+            TextWriter error = parse.InvocationConfiguration.Error;
             byte[] image = File.ReadAllBytes(parse.GetRequiredValue(binary).FullName);
             if (image.Length > 0x10000)
             {
-                parse.InvocationConfiguration.Error.WriteLine($"Binary too large: {image.Length} B (max 65536).");
+                error.WriteLine($"Binary too large: {image.Length} B (max 65536).");
+                return 1;
+            }
+
+            int loadAddress = 0;
+            if (parse.GetValue(load) is { } loadText
+                && (!CathodeRay.NumberLiteral.TryParse(loadText, out loadAddress) || loadAddress is < 0 or > ushort.MaxValue))
+            {
+                error.WriteLine($"Invalid --load '{loadText}' (expected $0000..$FFFF).");
+                return 1;
+            }
+
+            if (loadAddress + image.Length > 0x10000)
+            {
+                error.WriteLine($"Binary does not fit: load ${loadAddress:X4} + {image.Length} B exceeds 64 KB.");
                 return 1;
             }
 
             var bus = new StubBus();
             for (int i = 0; i < image.Length; i++)
             {
-                bus.Write((ushort)i, image[i]);
+                bus.Write((ushort)(loadAddress + i), image[i]);
             }
 
             var cpu = new StubCpu(LoadIsa(parse, isa), bus);
+            cpu.State.ProgramCounter = (ushort)loadAddress;
             int limit = parse.GetValue(maxSteps);
             int steps;
             long start = Stopwatch.GetTimestamp();
@@ -85,6 +117,38 @@ internal static class StubCommands
             foreach (MemoryRange range in parse.GetValue(dump) ?? [])
             {
                 range.WriteHexDump(output, bus);
+            }
+
+            if (parse.GetValue(screenAt) is { } screenText)
+            {
+                int width = 40;
+                int height = 25;
+                if (parse.GetValue(screenSize) is { } sizeText
+                    && !ScreenDecoder.TryParseSize(sizeText, out width, out height))
+                {
+                    error.WriteLine($"Invalid --screen-size '{sizeText}' (expected WxH, e.g. 40x25).");
+                    return 1;
+                }
+
+                var screen = new ScreenDecoder(width, height);
+                if (!CathodeRay.NumberLiteral.TryParse(screenText, out int screenAddress)
+                    || screenAddress is < 0 or > ushort.MaxValue
+                    || screenAddress + screen.Size > 0x10000)
+                {
+                    error.WriteLine($"Invalid --screen-at '{screenText}' (expected $0000..$FFFF, +{screen.Size} B in range).");
+                    return 1;
+                }
+
+                IReadOnlyList<string> rows = screen.Render(bus.Read, screenAddress);
+                if (parse.GetValue(screenOut) is { } screenFile)
+                {
+                    File.WriteAllText(screenFile.FullName, screen.ToMarkdown(rows, screenAddress));
+                    output.WriteLine($"screen ({screen.Width}x{screen.Height} @ ${screenAddress:X4}) -> {screenFile.Name}");
+                }
+                else
+                {
+                    output.WriteLine(screen.ToMarkdown(rows, screenAddress));
+                }
             }
 
             return cpu.State.Halted ? 0 : NotHalted;
