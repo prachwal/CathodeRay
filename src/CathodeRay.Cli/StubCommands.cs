@@ -47,8 +47,16 @@ internal static class StubCommands
             Description = "Zrzut pamięci po zakończeniu, start:długość (np. 0x2000:16; w powłoce unikaj $, bo rozwinie np. $0); można powtórzyć.",
             CustomParser = ParseRanges,
         };
+        var screenAt = new Option<string?>("--screen-at")
+        {
+            Description = "Dekoduje bufor ekranu 40x25 spod adresu ($hex/0xhex/dec) po zakończeniu.",
+        };
+        var screenOut = new Option<FileInfo?>("--screen-out")
+        {
+            Description = "Zapisuje zdekodowany ekran do pliku Markdown (bez: wypisuje na stdout).",
+        };
 
-        var command = new Command("run", "Uruchamia program do HLT lub limitu kroków.") { binary, maxSteps, trace, dump, load };
+        var command = new Command("run", "Uruchamia program do HLT lub limitu kroków.") { binary, maxSteps, trace, dump, load, screenAt, screenOut };
         command.SetAction(parse =>
         {
             TextWriter output = parse.InvocationConfiguration.Output;
@@ -105,6 +113,28 @@ internal static class StubCommands
             foreach (MemoryRange range in parse.GetValue(dump) ?? [])
             {
                 range.WriteHexDump(output, bus);
+            }
+
+            if (parse.GetValue(screenAt) is { } screenText)
+            {
+                if (!CathodeRay.NumberLiteral.TryParse(screenText, out int screenAddress)
+                    || screenAddress is < 0 or > ushort.MaxValue
+                    || screenAddress + ScreenDecoder.Size > 0x10000)
+                {
+                    error.WriteLine($"Invalid --screen-at '{screenText}' (expected $0000..$FFFF, +1000 B in range).");
+                    return 1;
+                }
+
+                IReadOnlyList<string> rows = ScreenDecoder.Render(bus.Read, screenAddress);
+                if (parse.GetValue(screenOut) is { } screenFile)
+                {
+                    File.WriteAllText(screenFile.FullName, ScreenDecoder.ToMarkdown(rows, screenAddress));
+                    output.WriteLine($"screen ({ScreenDecoder.Width}x{ScreenDecoder.Height} @ ${screenAddress:X4}) -> {screenFile.Name}");
+                }
+                else
+                {
+                    output.WriteLine(ScreenDecoder.ToMarkdown(rows, screenAddress));
+                }
             }
 
             return cpu.State.Halted ? 0 : NotHalted;
