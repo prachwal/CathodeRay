@@ -219,7 +219,7 @@ public sealed partial class Codegen
             return;
         }
 
-        if (KindOf(cmp.Left) == "int" || KindOf(cmp.Right) == "int")
+        if (IsWideKind(cmp.Left) || IsWideKind(cmp.Right))
         {
             EvalInt(cmp.Left, depth, out string leftLo, out string leftHi);
             EvalInt(cmp.Right, depth + 1, out string rightLo, out string rightHi);

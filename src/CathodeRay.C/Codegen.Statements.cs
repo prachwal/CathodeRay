@@ -47,6 +47,12 @@ public sealed partial class Codegen
                 }
 
                 break;
+            case Ast.Label label:
+                _code.AppendLine($"{_prefix}__L_{label.Name}:");
+                break;
+            case Ast.Goto jump:
+                _code.AppendLine($"JMP {_prefix}__L_{jump.Name}");
+                break;
             case Ast.DoWhile doStmt:
                 EmitDoWhile(doStmt);
                 break;
@@ -266,12 +272,12 @@ public sealed partial class Codegen
     {
         if (ret.Value is not null)
         {
-            if (!_functions.TryGetValue(_prefix, out CheckedFunction? current) || current.Def.ReturnType == "void")
+            if (!_functions.TryGetValue(_prefix, out CheckedFunction? current) || (current.Def.ReturnType == "void" && current.Def.ReturnStars == 0))
             {
                 throw new CCodegenException("return with a value needs a function.");
             }
 
-            if (current.Def.ReturnType == "int")
+            if (current.Def.ReturnType == "int" || current.Def.ReturnStars > 0)
             {
                 EvalInt(ret.Value, 0, out string lo, out string hi);
                 _code.AppendLine($"LDA {lo}");

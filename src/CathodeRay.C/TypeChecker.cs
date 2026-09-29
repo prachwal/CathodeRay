@@ -11,10 +11,12 @@ public sealed class TypeChecker
     private readonly Dictionary<string, Ast.Function> _functions = new(StringComparer.Ordinal);
     private readonly Dictionary<string, TypedSymbol> _globals = new(StringComparer.Ordinal);
     private readonly List<string> _warnings = [];
+    private readonly HashSet<string> _labels = new(StringComparer.OrdinalIgnoreCase);
+    private readonly List<Ast.Goto> _gotos = [];
     private readonly Stack<Dictionary<string, CType>> _scopes = new();
     private readonly List<TypedSymbol> _locals = [];
     private readonly Dictionary<Ast.Expr, CType> _types = new(ReferenceEqualityComparer.Instance);
-    private string _returnType = "void";
+    private CType _returnType = CType.Void;
     private int _loops;
     private int _switches;
     private IReadOnlyDictionary<Ast.Node, int> _lineMap = new Dictionary<Ast.Node, int>();
@@ -194,9 +196,11 @@ public sealed class TypeChecker
         _types.Clear();
         _scopes.Clear();
         _scopes.Push(new Dictionary<string, CType>(StringComparer.Ordinal));
-        _returnType = function.ReturnType;
+        _returnType = Declared(function.ReturnType, function.ReturnStars);
         _loops = 0;
         _switches = 0;
+        _labels.Clear();
+        _gotos.Clear();
         if (function.Params.Count > MaxArgs)
         {
             throw new CTypeException($"'{function.Name}' takes at most {MaxArgs} parameters.");
@@ -214,6 +218,11 @@ public sealed class TypeChecker
         }
 
         CheckBlock(function.Body);
+        foreach (Ast.Goto jump in _gotos.Where(j => !_labels.Contains(j.Name)))
+        {
+            throw new CTypeException($"undefined label '{jump.Name}'.") { Line = _lineMap.GetValueOrDefault(jump) };
+        }
+
         return new CheckedFunction(function, parameters, [.. _locals], new Dictionary<Ast.Expr, CType>(_types, ReferenceEqualityComparer.Instance));
     }
 
@@ -277,6 +286,16 @@ public sealed class TypeChecker
                 CheckStmt(whileStmt.Body);
                 _loops--;
                 break;
+            case Ast.Label label:
+                if (!_labels.Add(label.Name))
+                {
+                    throw new CTypeException($"duplicate label '{label.Name}'.");
+                }
+
+                break;
+            case Ast.Goto jump:
+                _gotos.Add(jump);
+                break;
             case Ast.DoWhile doStmt:
                 _loops++;
                 CheckStmt(doStmt.Body);
@@ -316,7 +335,7 @@ public sealed class TypeChecker
                 _scopes.Pop();
                 break;
             case Ast.Return ret:
-                if (_returnType == "void")
+                if (_returnType.Kind == "void")
                 {
                     if (ret.Value is not null)
                     {
@@ -329,7 +348,7 @@ public sealed class TypeChecker
                 }
                 else
                 {
-                    Assignable(CType.FromName(_returnType), TypeOf(ret.Value), "return value");
+                    AssignableOrNull(_returnType, ret.Value, "return value");
                 }
 
                 break;
@@ -510,7 +529,7 @@ public sealed class TypeChecker
                 $"argument {i + 1} of '{call.Name}'");
         }
 
-        return CType.FromName(function.ReturnType);
+        return Declared(function.ReturnType, function.ReturnStars);
     }
 
     private CType UnaryType(Ast.Unary unary)
@@ -539,11 +558,6 @@ public sealed class TypeChecker
 
         if (binary.Op is "==" or "!=" or "<" or "<=" or ">" or ">=")
         {
-            if (left.Kind == "ptr" || right.Kind == "ptr")
-            {
-                throw new CTypeException($"operator '{binary.Op}' needs arithmetic operands.");
-            }
-
             return CType.UChar;
         }
 

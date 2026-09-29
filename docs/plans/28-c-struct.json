@@ -5,19 +5,19 @@
     {
       "id": "1",
       "title": "[S] typedef: alias typu (uchar/int/void, wskaźniki, struct) w parserze; tablica aliasów, bez nowych węzłów AST",
-      "status": "todo",
+      "status": "done",
       "note": ""
     },
     {
       "id": "2",
       "title": "[S] goto i etykiety: label: w funkcji, JMP do etykiety z prefiksem funkcji; checker: brak etykiety / duplikat; goto do przodu i do tyłu",
-      "status": "todo",
+      "status": "done",
       "note": ""
     },
     {
       "id": "3",
       "title": "[M] Funkcje zwracające wskaźnik: Ast.Function z PointerDepth zwrotu, CType zwrotu w checkerze (return, wywołanie, prototyp), ReturnsInt -> szerokie (int lub ptr), test T* f() + linkowanie z prototypem",
-      "status": "todo",
+      "status": "done",
       "note": ""
     },
     {

@@ -518,7 +518,7 @@ public sealed partial class Codegen
 
     private bool ReturnsInt(Ast.Call call) =>
         _functions.TryGetValue(call.Name, out CheckedFunction? target)
-        && target.Def.ReturnType == "int";
+        && (target.Def.ReturnType == "int" || target.Def.ReturnStars > 0);
 
     private sealed record Cell(string Lo, CType Type);
 }

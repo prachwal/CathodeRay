@@ -21,7 +21,8 @@ public static class Ast
     /// <param name="Params">Parametry.</param>
     /// <param name="Body">Ciało (puste dla prototypu).</param>
     /// <param name="IsExtern">Prototyp bez ciała (definicja w .s).</param>
-    public sealed record Function(string ReturnType, string Name, IReadOnlyList<Param> Params, Block Body, bool IsExtern = false) : Node;
+    /// <param name="ReturnStars">Liczba <c>*</c> typu wyniku (wskaźnik).</param>
+    public sealed record Function(string ReturnType, string Name, IReadOnlyList<Param> Params, Block Body, bool IsExtern = false, int ReturnStars = 0) : Node;
 
     /// <summary>Parametr formalny.</summary>
     /// <param name="Type">Typ.</param>
@@ -84,6 +85,14 @@ public static class Ast
     /// <param name="Value">Wyrażenie wybierające.</param>
     /// <param name="Cases">Gałęzie w kolejności źródła.</param>
     public sealed record Switch(Expr Value, IReadOnlyList<SwitchCase> Cases) : Stmt;
+
+    /// <summary>Etykieta <c>nazwa:</c> (cel <c>goto</c>).</summary>
+    /// <param name="Name">Nazwa.</param>
+    public sealed record Label(string Name) : Stmt;
+
+    /// <summary>Skok <c>goto nazwa;</c>.</summary>
+    /// <param name="Name">Nazwa etykiety w tej samej funkcji.</param>
+    public sealed record Goto(string Name) : Stmt;
 
     /// <summary>Instrukcja <c>break</c> (wyjście z najbliższej pętli).</summary>
     public sealed record Break : Stmt;

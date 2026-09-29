@@ -4,12 +4,12 @@ Rozmiar: S = <1 h, M = kilka h, L = dzień. Kolejność: A → B → C → D →
 
 ## A. Małe i szybkie
 
-- [ ] **1.** [S] typedef: alias typu (uchar/int/void, wskaźniki, struct) w parserze; tablica aliasów, bez nowych węzłów AST
-- [ ] **2.** [S] goto i etykiety: label: w funkcji, JMP do etykiety z prefiksem funkcji; checker: brak etykiety / duplikat; goto do przodu i do tyłu
+- [x] **1.** [S] typedef: alias typu (uchar/int/void, wskaźniki, struct) w parserze; tablica aliasów, bez nowych węzłów AST
+- [x] **2.** [S] goto i etykiety: label: w funkcji, JMP do etykiety z prefiksem funkcji; checker: brak etykiety / duplikat; goto do przodu i do tyłu
 
 ## B. Wskaźniki i przypisania
 
-- [ ] **3.** [M] Funkcje zwracające wskaźnik: Ast.Function z PointerDepth zwrotu, CType zwrotu w checkerze (return, wywołanie, prototyp), ReturnsInt -> szerokie (int lub ptr), test T* f() + linkowanie z prototypem
+- [x] **3.** [M] Funkcje zwracające wskaźnik: Ast.Function z PointerDepth zwrotu, CType zwrotu w checkerze (return, wywołanie, prototyp), ReturnsInt -> szerokie (int lub ptr), test T* f() + linkowanie z prototypem
 - [ ] **4.** [M] Złożone przypisanie i ++/-- na celu ze skutkami ubocznymi (a[i++] += 1, *p++ += 1): węzeł AssignOpTo liczący adres raz (EvalPtrAddr -> temp, PatchedLoad, op, PatchedStore); usunąć RequirePure
 
 ## C. Inicjalizatory globalne
@@ -28,4 +28,4 @@ Rozmiar: S = <1 h, M = kilka h, L = dzień. Kolejność: A → B → C → D →
 
 - [ ] **11.** [S] Testy e2e per pozycja, samples/minic/10_struct.c, 11_goto_typedef.c, 12_globals_init.c, docs/stub-calling-conv.md, hygiene
 
-Postęp: 0/11 gotowych.
+Postęp: 3/11 gotowych.

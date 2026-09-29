@@ -8,6 +8,7 @@ public sealed class Parser
     private readonly Dictionary<Ast.Node, int> _lines = new(ReferenceEqualityComparer.Instance);
     private readonly Dictionary<Ast.Expr, Ast.Expr> _postfix = new(ReferenceEqualityComparer.Instance);
     private readonly Dictionary<string, int> _enums = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, (string Type, int Stars)> _typedefs = new(StringComparer.Ordinal);
     private int _pos;
 
     private Parser(IReadOnlyList<Token> tokens) => _tokens = tokens;
@@ -81,8 +82,35 @@ public sealed class Parser
         _ => false,
     };
 
-    private static bool IsType(Token token) =>
+    private static bool IsBuiltinType(Token token) =>
         token is { Kind: TokenKind.Keyword } && token.Text is "uchar" or "int" or "void";
+
+    private bool IsType(Token token) =>
+        IsBuiltinType(token) || (token.Kind == TokenKind.Ident && _typedefs.ContainsKey(token.Text));
+
+    /// <summary>Nazwa typu (słowo kluczowe albo alias <c>typedef</c>) z gwiazdkami aliasu.</summary>
+    private (string Type, int Stars) TypeSpec()
+    {
+        Token token = Next();
+        return token.Kind == TokenKind.Ident && _typedefs.TryGetValue(token.Text, out (string Type, int Stars) alias)
+            ? alias
+            : (token.Text, 0);
+    }
+
+    private void TypedefDecl()
+    {
+        Next();
+        Token at = Peek();
+        if (!IsType(at))
+        {
+            throw new CParseException(at.Line, at.Column, $"expected type, got '{at.Text}'.");
+        }
+
+        (string type, int baseStars) = TypeSpec();
+        int stars = baseStars + Stars();
+        _typedefs[ExpectKind(TokenKind.Ident, "type name").Text] = (type, stars);
+        Expect(";");
+    }
 
     private T At<T>(int line, T node)
         where T : Ast.Node
@@ -141,26 +169,27 @@ public sealed class Parser
                 continue;
             }
 
+            if (type is { Kind: TokenKind.Keyword, Text: "typedef" })
+            {
+                TypedefDecl();
+                continue;
+            }
+
             if (!IsType(type))
             {
                 throw new CParseException(type.Line, type.Column, $"expected type, got '{type.Text}'.");
             }
 
-            Next();
-            int stars = Stars();
+            (string typeName, int baseStars) = TypeSpec();
+            int stars = baseStars + Stars();
             string name = ExpectKind(TokenKind.Ident, "name").Text;
             if (Peek() is { Kind: TokenKind.Punct, Text: "(" })
             {
-                if (stars > 0)
-                {
-                    throw new CParseException(type.Line, type.Column, "pointer return types are not supported.");
-                }
-
-                functions.Add(FunctionRest(type.Text, name, type.Line));
+                functions.Add(FunctionRest(typeName, name, type.Line, stars));
             }
             else
             {
-                globals.Add(GlobalRest(type.Text, name, stars, type.Line));
+                globals.Add(GlobalRest(typeName, name, stars, type.Line));
             }
         }
 
@@ -229,7 +258,7 @@ public sealed class Parser
         return count;
     }
 
-    private Ast.Function FunctionRest(string type, string name, int line)
+    private Ast.Function FunctionRest(string type, string name, int line, int returnStars = 0)
     {
         Expect("(");
         var parameters = new List<Ast.Param>();
@@ -243,9 +272,9 @@ public sealed class Parser
                     throw new CParseException(paramType.Line, paramType.Column, "expected parameter type.");
                 }
 
-                Next();
-                int stars = Stars();
-                parameters.Add(new Ast.Param(paramType.Text, ExpectKind(TokenKind.Ident, "parameter name").Text, stars));
+                (string paramTypeName, int paramBase) = TypeSpec();
+                int stars = paramBase + Stars();
+                parameters.Add(new Ast.Param(paramTypeName, ExpectKind(TokenKind.Ident, "parameter name").Text, stars));
             }
             while (Take(","));
 
@@ -254,10 +283,10 @@ public sealed class Parser
 
         if (Take(";"))
         {
-            return At(line, new Ast.Function(type, name, parameters, new Ast.Block([]), IsExtern: true));
+            return At(line, new Ast.Function(type, name, parameters, new Ast.Block([]), IsExtern: true, ReturnStars: returnStars));
         }
 
-        return At(line, new Ast.Function(type, name, parameters, Block()));
+        return At(line, new Ast.Function(type, name, parameters, Block(), ReturnStars: returnStars));
     }
 
     private Ast.Block Block()
@@ -327,6 +356,27 @@ public sealed class Parser
         {
             EnumDecl();
             return At(token.Line, new Ast.Nop());
+        }
+
+        if (token is { Kind: TokenKind.Keyword, Text: "typedef" })
+        {
+            TypedefDecl();
+            return At(token.Line, new Ast.Nop());
+        }
+
+        if (token is { Kind: TokenKind.Keyword, Text: "goto" })
+        {
+            Next();
+            string target = ExpectKind(TokenKind.Ident, "label").Text;
+            Expect(";");
+            return At(token.Line, new Ast.Goto(target));
+        }
+
+        if (token.Kind == TokenKind.Ident && Peek(1) is { Kind: TokenKind.Punct, Text: ":" } && !IsType(token))
+        {
+            Next();
+            Next();
+            return At(token.Line, new Ast.Label(token.Text));
         }
 
         if (token is { Kind: TokenKind.Keyword, Text: "break" or "continue" })
@@ -447,9 +497,9 @@ public sealed class Parser
 
     private Ast.Decl Decl()
     {
-        Token typeToken = Next();
-        string type = typeToken.Text;
-        int stars = Stars();
+        Token typeToken = Peek();
+        (string type, int baseStars) = TypeSpec();
+        int stars = baseStars + Stars();
         string name = ExpectKind(TokenKind.Ident, "variable name").Text;
         Ast.Decl decl = DeclTail(type, name, stars, typeToken.Line);
         Expect(";");
@@ -722,9 +772,9 @@ public sealed class Parser
             Ast.Expr size;
             if (IsType(operand))
             {
-                Next();
-                int stars = Stars();
-                size = new Ast.Number(stars > 0 || operand.Text == "int" ? "2" : "1");
+                (string sizeType, int sizeBase) = TypeSpec();
+                int stars = sizeBase + Stars();
+                size = new Ast.Number(stars > 0 || sizeType == "int" ? "2" : "1");
             }
             else
             {

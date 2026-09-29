@@ -8,7 +8,7 @@ public static class Lexer
 {
     private static readonly HashSet<string> Keywords = new(StringComparer.Ordinal)
     {
-        "uchar", "int", "void", "if", "else", "while", "for", "return", "break", "continue", "do", "switch", "case", "default", "sizeof", "enum",
+        "uchar", "int", "void", "if", "else", "while", "for", "return", "break", "continue", "do", "switch", "case", "default", "sizeof", "enum", "typedef", "goto",
     };
 
     private static readonly string[] Operators =
