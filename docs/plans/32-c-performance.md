@@ -34,7 +34,7 @@ Nie robić: ogólnego alokatora rejestrów (to osobny, duży plan po pomiarze ef
 
 - [x] **7.** [S] Usuń `ldy #N` gdy poprzedni `ldy #N` tego samego N był w tym samym bloku bez zmiany Y (Y zmieniają: `ldy`, `iny`, `dey`, `tay`, `jsr`, etykieta, `jmp`, gałąź, `rts`). Wzorzec 22× w bazie (`sta M ; ldy #I`). Test w `PeepholeTests` (istniejący plik — sprawdź `ls tests/CathodeRay.Tests | grep -i peep`): dwa kolejne dostępy `(zp),y` z tym samym indeksem mają jedno `ldy`.
 - [x] **8.** [S] Zamień `jmp L` bezpośrednio poprzedzony `jmp`/`rts` (kod martwy do następnej etykiety) — usuń martwe instrukcje do najbliższej etykiety. Test: `jmp a` `lda #1` `a:` → zostaje `jmp a`, a następnie standardowe usunięcie skoku do następnej instrukcji.
-- [ ] **9.** [S] `jmp L1` gdzie w `L1:` stoi wyłącznie `jmp L2` → `jmp L2` (łańcuchy skoków, maks. 4 poziomy, wykryj cykl i przerwij). Test na krótkim asemblerze jak w istniejących testach peephole.
+- [~] **9.** [S] `jmp L1` gdzie w `L1:` stoi wyłącznie `jmp L2` → `jmp L2` (łańcuchy skoków, maks. 4 poziomy, wykryj cykl i przerwij). Test na krótkim asemblerze jak w istniejących testach peephole. — Agent STOP: przekierowanie jmp L1->L2 dalo +3 B na stub (07_control.c 718->721), zmiana wycofana. Prawdopodobnie zwalnia dopiero po usunieciu martwej etykiety L1; wrocic po kroku 10.
 - [ ] **10.** [S] `lda #0` + `sta M` + `lda #0` + `sta N` (zerowanie sąsiednich bajtów) → drugie `lda #0` usuń, bo A nadal 0 (tylko gdy między nimi są wyłącznie `sta`/`stx`/`sty`). Wzorzec z `lda #I ; sta M` 19× w bazie. Test.
 
 ## E. Ścieżka 16-bitowa (`ByteSelector.cs`)

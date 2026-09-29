@@ -62,8 +62,8 @@
     {
       "id": "9",
       "title": "[S] `jmp L1` gdzie w `L1:` stoi wyłącznie `jmp L2` → `jmp L2` (łańcuchy skoków, maks. 4 poziomy, wykryj cykl i przerwij). Test na krótkim asemblerze jak w istniejących testach peephole.",
-      "status": "todo",
-      "note": "",
+      "status": "partial",
+      "note": "Agent STOP: przekierowanie jmp L1->L2 dalo +3 B na stub (07_control.c 718->721), zmiana wycofana. Prawdopodobnie zwalnia dopiero po usunieciu martwej etykiety L1; wrocic po kroku 10.",
       "section": "D. Peephole 6502 (`Peephole.cs`, tekst asemblera po `ByteSelector`)"
     },
     {
