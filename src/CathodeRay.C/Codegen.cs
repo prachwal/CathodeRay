@@ -37,6 +37,7 @@ public sealed partial class Codegen
 
     private readonly List<string> _extraCells = [];
     private readonly List<TypedSymbol> _runtimeInits = [];
+    private readonly Dictionary<string, Dictionary<int, string>> _dataSymbols = new(StringComparer.Ordinal);
 
     private readonly Dictionary<string, int> _frames = new(StringComparer.Ordinal);
 
@@ -157,6 +158,41 @@ public sealed partial class Codegen
         }
     }
 
+    private static string WithOffset(string symbol, int offset) =>
+        offset == 0 ? symbol : $"{symbol}{(offset > 0 ? "+" : "-")}{Math.Abs(offset)}";
+
+    /// <summary>Dane z adresami w środku: <c>.byte</c> dla bajtów i <c>.word symbol</c> dla wskaźników.</summary>
+    private static void AppendPieces(StringBuilder data, string name, byte[] init, Dictionary<int, string> symbols)
+    {
+        string label = $"{name}: ";
+        var run = new List<byte>();
+        void FlushBytes()
+        {
+            if (run.Count > 0)
+            {
+                data.AppendLine($"{label}.byte {string.Join(", ", run)}");
+                label = string.Empty;
+                run.Clear();
+            }
+        }
+
+        for (int i = 0; i < init.Length; i++)
+        {
+            if (symbols.TryGetValue(i, out string? symbol))
+            {
+                FlushBytes();
+                data.AppendLine($"{label}.word {symbol}");
+                label = string.Empty;
+                i++;
+                continue;
+            }
+
+            run.Add(init[i]);
+        }
+
+        FlushBytes();
+    }
+
     /// <summary>Komórki wejściowe parametru <paramref name="i"/>: 1. w <c>cc_arg1</c>(+<c>_h</c>),
     /// 2. bajtowy przy 1. bajtowym w <c>cc_arg1_h</c> (rejestr X), reszta w <c>cc_arg{i+1}</c>.</summary>
     private static (string Lo, string? Hi) ArgCells(IReadOnlyList<TypedSymbol> ps, int i)
@@ -209,10 +245,17 @@ public sealed partial class Codegen
         var bytes = new byte[symbol.Type.Size];
         var entries = new List<(int Offset, CType Type, Ast.Expr Value)>();
         CollectInit(symbol.Type, symbol.Init!, 0, entries);
+        Dictionary<int, string>? symbols = null;
         foreach ((int offset, CType type, Ast.Expr expr) in entries)
         {
             if (!TryConstValue(expr, out int value))
             {
+                if (type.Kind == "ptr" && SymbolInit(expr) is { } address)
+                {
+                    (symbols ??= [])[offset] = address;
+                    continue;
+                }
+
                 throw new CCodegenException($"initializer of '{symbol.Name}' must be constant.");
             }
 
@@ -223,11 +266,16 @@ public sealed partial class Codegen
             }
         }
 
+        if (symbols is not null)
+        {
+            _dataSymbols[$"cc_g_{symbol.Name}"] = symbols;
+        }
+
         return bytes;
     }
 
-    /// <summary>Adres jako inicjalizator globalnego wskaźnika: napis, <c>&amp;g</c>, nazwa tablicy,
-    /// ewentualnie z przesunięciem stałą (<c>tab + 2</c>, skalowaną rozmiarem elementu).</summary>
+    /// <summary>Adres jako inicjalizator globalnego wskaźnika: napis, <c>&amp;g</c>, <c>&amp;g.f</c>, <c>&amp;a[2]</c>,
+    /// nazwa tablicy lub pole-tablica, ewentualnie z przesunięciem stałą (<c>tab + 2</c>, skalowaną rozmiarem elementu).</summary>
     private string? SymbolInit(Ast.Expr? init)
     {
         switch (init)
@@ -236,8 +284,12 @@ public sealed partial class Codegen
                 return StringLabel(str.Value);
             case Ast.AddressOf address:
                 return $"cc_g_{address.Name}";
+            case Ast.AddressOfExpr addressOf when GlobalLvalue(addressOf.Target) is var (symbol, offset):
+                return WithOffset(symbol, offset);
             case Ast.Var variable when _globalsByName.TryGetValue(variable.Name, out CType? type) && type.Kind == "array":
                 return $"cc_g_{variable.Name}";
+            case Ast.Member member when _types.TryGetValue(member.Base, out _) && FieldOf(member).Type.Kind == "array" && GlobalLvalue(member) is var (fieldSymbol, fieldOffset):
+                return WithOffset(fieldSymbol, fieldOffset);
             case Ast.Binary { Op: "+" or "-" } binary when SymbolInit(binary.Left) is { } baseSymbol && TryConstValue(binary.Right, out int offset):
                 int delta = (short)offset * PointeeSize(binary.Left) * (binary.Op == "-" ? -1 : 1);
                 return delta == 0 ? baseSymbol : $"{baseSymbol}{(delta > 0 ? "+" : "-")}{Math.Abs(delta)}";
@@ -246,13 +298,24 @@ public sealed partial class Codegen
         }
     }
 
-    private int PointeeSize(Ast.Expr pointer) => pointer switch
+    /// <summary>Symbol i przesunięcie lwartości opartej o globalną zmienną i stałe indeksy/pola.</summary>
+    private (string Symbol, int Offset)? GlobalLvalue(Ast.Expr expr)
     {
-        Ast.AddressOf address when _globalsByName.TryGetValue(address.Name, out CType? type) => type.Kind == "array" ? type.Base!.Size : type.Size,
-        Ast.Var variable when _globalsByName.TryGetValue(variable.Name, out CType? type) => type.Base?.Size ?? 1,
-        Ast.Binary binary => PointeeSize(binary.Left),
-        _ => 1,
-    };
+        switch (expr)
+        {
+            case Ast.Var variable when _globalsByName.ContainsKey(variable.Name):
+                return ($"cc_g_{variable.Name}", 0);
+            case Ast.Index index when GlobalLvalue(index.Base) is var (symbol, offset) && TryConstValue(index.Offset, out int position) && _types.TryGetValue(index, out CType? elem):
+                return (symbol, offset + ((short)position * elem.Size));
+            case Ast.Member { Arrow: false } member when GlobalLvalue(member.Base) is var (baseSymbol, baseOffset) && _types.ContainsKey(member.Base):
+                return (baseSymbol, baseOffset + FieldOf(member).Offset);
+            default:
+                return null;
+        }
+    }
+
+    private int PointeeSize(Ast.Expr pointer) =>
+        _types.TryGetValue(pointer, out CType? type) && type.Base is not null ? type.Base.Size : 1;
 
     /// <summary>Kod startowy globali z inicjalizatorem niestałym: procedura <c>__cc_init</c> (lokalna w module),
     /// wpisana do tablicy w segmencie INIT; crt0 woła wszystkie po wyzerowaniu BSS.</summary>
@@ -307,6 +370,7 @@ public sealed partial class Codegen
         }
 
         _constants = program.Constants ?? _constants;
+        _types = new Dictionary<Ast.Expr, CType>(program.GlobalTypes ?? new Dictionary<Ast.Expr, CType>(), ReferenceEqualityComparer.Instance);
         _lines = program.Lines;
         _file = fileName;
         foreach (CheckedFunction function in program.Functions)
@@ -426,6 +490,12 @@ public sealed partial class Codegen
             if (name.StartsWith("cc_g_", StringComparison.Ordinal))
             {
                 data.AppendLine($".global {name}");
+            }
+
+            if (_dataSymbols.TryGetValue(name, out Dictionary<int, string>? symbols))
+            {
+                AppendPieces(data, name, init, symbols);
+                continue;
             }
 
             int size = type.Size;

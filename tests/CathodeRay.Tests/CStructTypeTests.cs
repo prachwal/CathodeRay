@@ -246,4 +246,21 @@ public sealed class CStructTypeTests
             Directory.Delete(dir, recursive: true);
         }
     }
+
+    [Fact]
+    public void Global_Aggregates_With_Addresses_Inside()
+    {
+        const string Source = """
+            struct Entry { uchar id; uchar *name; int *slot; };
+            int nums[3] = {11, 22, 33};
+            uchar *names[] = {"ab", "cde", "f"};
+            struct Entry table[2] = { {1, "xy", &nums[1]}, {2, "q", nums + 2} };
+            struct Entry gs;
+            uchar *later[2] = { &table[1].id, &gs.id };
+            int main() {
+                return *table[0].slot + names[1][2] + names[2][0] + table[0].name[1] + *table[1].slot + table[1].id + later[0][0] + sizeof(names);
+            }
+            """;
+        Run(Source).Should().Be('e' + 'f' + 'y' + 22 + 33 + 2 + 2 + 6);
+    }
 }
