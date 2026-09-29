@@ -178,4 +178,48 @@ public sealed class IrPassesTests
         ((Ir.Mov)optimized[0]).Src.Should().Be(x);
         optimized[1].Should().BeOfType<Ir.Mov>();
     }
+
+    [Fact]
+    public void DropUnreachable_Removes_Unreachable_Instructions_After_Unconditional_Return()
+    {
+        // Arrange: manually create IR with Ret followed by unreachable Mov and Label
+        var x = new Ir.Cell("main__x", 1);
+        var body = new List<Ir.Ins>
+        {
+            new Ir.Ret(new Ir.Imm(1, 1), 1),                        // return 1
+            new Ir.Mov(x, new Ir.Imm(2, 1)),                        // x = 2 (unreachable)
+            new Ir.Label("exit"),                                    // label
+        };
+
+        // Act: apply DropUnreachable
+        List<Ir.Ins> result = IrPasses.DropUnreachable(body);
+
+        // Assert: the unreachable write to x should be removed
+        result.Should().HaveCount(2);
+        result[0].Should().BeOfType<Ir.Ret>();
+        result[1].Should().BeOfType<Ir.Label>();
+    }
+
+    [Fact]
+    public void DropUnreachable_Keeps_Source_Markers_In_Unreachable_Code()
+    {
+        // Arrange: Src markers should be kept even in unreachable code
+        var x = new Ir.Cell("main__x", 1);
+        var body = new List<Ir.Ins>
+        {
+            new Ir.Ret(new Ir.Imm(1, 1), 1),                        // return 1
+            new Ir.Src("file.c", 10),                               // source marker (keep this)
+            new Ir.Mov(x, new Ir.Imm(2, 1)),                        // x = 2 (unreachable)
+            new Ir.Label("exit"),                                    // label
+        };
+
+        // Act: apply DropUnreachable
+        List<Ir.Ins> result = IrPasses.DropUnreachable(body);
+
+        // Assert: Src should be kept, but Mov should be removed
+        result.Should().HaveCount(3);
+        result[0].Should().BeOfType<Ir.Ret>();
+        result[1].Should().BeOfType<Ir.Src>();
+        result[2].Should().BeOfType<Ir.Label>();
+    }
 }

@@ -10,7 +10,7 @@ internal static class IrPasses
     /// <param name="inlined">Nazwy funkcji wstawionych do tego ciała: ich komórki też są lokalne (używane tylko w wstawionym kodzie).</param>
     /// <param name="volatiles">Symbole <c>volatile</c>: nie są propagowane ani usuwane.</param>
     public static List<Ir.Ins> Optimize(List<Ir.Ins> body, string function, IReadOnlySet<string>? inlined = null, IReadOnlySet<string>? volatiles = null) =>
-        RemoveDead(Propagate(ForwardTemporaries(body), function, inlined, volatiles), function, inlined, volatiles);
+        RemoveDead(Propagate(DropUnreachable(ForwardTemporaries(body)), function, inlined, volatiles), function, inlined, volatiles);
 
     /// <summary>Zamienia <c>t = op …; v = t</c> na <c>v = op …</c>, gdy <c>t</c> jest tymczasową martwą po kopii, a szerokości się zgadzają.</summary>
     internal static List<Ir.Ins> ForwardTemporaries(List<Ir.Ins> body)
@@ -45,6 +45,38 @@ internal static class IrPasses
             }
 
             result.Add(body[i]);
+        }
+
+        return result;
+    }
+
+    /// <summary>Usuwa instrukcje (poza <see cref="Ir.Src"/>) od bezwarunkowego skoku (<see cref="Ir.Jmp"/> lub powrotu <see cref="Ir.Ret"/>) do najbliższej etykiety (<see cref="Ir.Label"/>),
+    /// ponieważ są nieosiągalne (martwy kod).</summary>
+    internal static List<Ir.Ins> DropUnreachable(List<Ir.Ins> body)
+    {
+        var result = new List<Ir.Ins>(body.Count);
+        for (int i = 0; i < body.Count; i++)
+        {
+            Ir.Ins ins = body[i];
+            result.Add(ins);
+
+            if (ins is Ir.Jmp or Ir.Ret)
+            {
+                // Usuń instrukcje między bezwarunkowym skokiem a nearest Label,
+                // ale zachowaj Src (znaczniki lokalizacji źródła)
+                i++;
+                while (i < body.Count && body[i] is not Ir.Label)
+                {
+                    if (body[i] is Ir.Src)
+                    {
+                        result.Add(body[i]);
+                    }
+
+                    i++;
+                }
+
+                i--; // Kompensuj i++ pętli for
+            }
         }
 
         return result;

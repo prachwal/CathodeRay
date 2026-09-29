@@ -27,7 +27,7 @@
     {
       "id": "4",
       "title": "[S] `IrPasses.RemoveDead`: usuwaj też zapisy do komórek lokalnych, których jedyny odczyt jest w martwej gałęzi po bezwarunkowym `Jmp`/`Ret` (kod nieosiągalny między `Jmp`/`Ret` a następną `Label`): najpierw dodaj przebieg `DropUnreachable(body)` usuwający instrukcje (poza `Src`) od `Jmp`/`Ret` do najbliższej `Label`. Wywołaj go w `Optimize` przed `Propagate`. Test: `return 1; x = 2;` nie zostawia zapisu `x`.",
-      "status": "todo",
+      "status": "done",
       "note": "",
       "section": "B. Kopie przez tymczasowe (IR, `IrPasses.cs`)"
     },
