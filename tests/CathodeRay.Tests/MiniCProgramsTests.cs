@@ -137,6 +137,9 @@ public sealed class MiniCProgramsTests
     [InlineData("07_control.c", 62)]
     [InlineData("08_int_signed.c", 10)]
     [InlineData("09_init.c", 136)]
+    [InlineData("10_struct.c", 97)]
+    [InlineData("11_goto_typedef.c", 62)]
+    [InlineData("12_globals_init.c", 143)]
     public void Plan27_Samples_Return_Expected_Value(string file, int expected)
     {
         var (cpu, _, _) = Run(file);

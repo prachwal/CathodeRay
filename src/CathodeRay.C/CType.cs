@@ -4,7 +4,8 @@ namespace CathodeRay.C;
 /// <param name="Kind">Rodzaj (<c>uchar</c>, <c>int</c>, <c>void</c>, <c>ptr</c>, <c>array</c>).</param>
 /// <param name="Base">Typ bazowy wskaźnika/tablicy.</param>
 /// <param name="Length">Długość tablicy (0 = nie-tablica).</param>
-public sealed record CType(string Kind, CType? Base = null, int Length = 0)
+/// <param name="Info">Układ struktury (tylko <c>struct</c>).</param>
+public sealed record CType(string Kind, CType? Base = null, int Length = 0, StructInfo? Info = null)
 {
     /// <summary>8-bit bez znaku.</summary>
     public static CType UChar { get; } = new("uchar");
@@ -20,6 +21,7 @@ public sealed record CType(string Kind, CType? Base = null, int Length = 0)
     {
         "uchar" => 1,
         "array" => Length * (Base?.Size ?? 0),
+        "struct" => Info?.Size ?? 0,
         _ => 2,
     };
 
@@ -27,6 +29,11 @@ public sealed record CType(string Kind, CType? Base = null, int Length = 0)
     /// <param name="base">Typ bazowy.</param>
     /// <returns>Typ wskaźnikowy.</returns>
     public static CType Pointer(CType @base) => new("ptr", @base);
+
+    /// <summary>Struktura o danym układzie.</summary>
+    /// <param name="info">Układ.</param>
+    /// <returns>Typ strukturalny.</returns>
+    public static CType Struct(StructInfo info) => new("struct", null, 0, info);
 
     /// <summary>Tablica (rozpada się na wskaźnik przy użyciu).</summary>
     /// <param name="base">Typ elementu.</param>
@@ -43,6 +50,7 @@ public sealed record CType(string Kind, CType? Base = null, int Length = 0)
     {
         "ptr" => Base + "*",
         "array" => Base + "[" + Length + "]",
+        "struct" => "struct " + Info?.Name,
         _ => Kind,
     };
 

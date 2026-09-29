@@ -11,6 +11,7 @@ public sealed class TypeChecker
     private readonly Dictionary<string, Ast.Function> _functions = new(StringComparer.Ordinal);
     private readonly Dictionary<string, TypedSymbol> _globals = new(StringComparer.Ordinal);
     private readonly List<string> _warnings = [];
+    private readonly Dictionary<string, StructInfo> _structs = new(StringComparer.Ordinal);
     private readonly HashSet<string> _labels = new(StringComparer.OrdinalIgnoreCase);
     private readonly List<Ast.Goto> _gotos = [];
     private readonly Stack<Dictionary<string, CType>> _scopes = new();
@@ -36,15 +37,12 @@ public sealed class TypeChecker
         return checker.CheckProgram(program);
     }
 
-    private static CType Declared(string type, int stars, int length = 0)
+    private static void RejectStructByValue(CType type, string what)
     {
-        CType result = CType.FromName(type);
-        for (int i = 0; i < stars; i++)
+        if (type.Kind == "struct")
         {
-            result = CType.Pointer(result);
+            throw new CTypeException($"{what}: a struct cannot be passed or returned by value (use a pointer).");
         }
-
-        return length > 0 ? CType.Array(result, length) : result;
     }
 
     private static int NumberValue(string text) =>
@@ -81,46 +79,166 @@ public sealed class TypeChecker
             return;
         }
 
-        if (type.Kind != "array")
+        if (type.Kind is "array" or "struct")
         {
-            if (decl.Init is Ast.InitList)
+            CheckAggregate(type, decl.Init, decl.Name);
+            return;
+        }
+
+        if (decl.Init is Ast.InitList)
+        {
+            throw new CTypeException($"'{decl.Name}' is not an array or struct.");
+        }
+
+        AssignableOrNull(type, decl.Init, $"initializer of '{decl.Name}'");
+    }
+
+    /// <summary>Inicjalizator tablicy/struktury: <c>{…}</c> (zagnieżdżone dla pól-tablic i pól-struktur),
+    /// napis dla tablicy uchar albo (struktura) wyrażenie tego samego typu.</summary>
+    private void CheckAggregate(CType type, Ast.Expr init, string name)
+    {
+        string where = $"initializer of '{name}'";
+        if (type.Kind == "struct")
+        {
+            if (init is not Ast.InitList structList)
             {
-                throw new CTypeException($"'{decl.Name}' is not an array.");
+                Assignable(type, TypeOf(init), where);
+                return;
             }
 
-            AssignableOrNull(type, decl.Init, $"initializer of '{decl.Name}'");
+            IReadOnlyList<StructField> fields = type.Info!.Fields;
+            if (structList.Items.Count > fields.Count)
+            {
+                throw new CTypeException($"too many initializers for struct '{type.Info.Name}'.");
+            }
+
+            for (int i = 0; i < structList.Items.Count; i++)
+            {
+                CheckAggregateItem(fields[i].Type, structList.Items[i], name);
+            }
+
             return;
         }
 
         CType elem = type.Base!;
-        switch (decl.Init)
+        switch (init)
         {
             case Ast.Str str when elem.Kind == "uchar":
                 if (str.Value.Length + 1 > type.Length)
                 {
-                    throw new CTypeException($"string too long for '{decl.Name}[{type.Length}]'.");
+                    throw new CTypeException($"string too long for '{name}[{type.Length}]'.");
                 }
 
                 break;
             case Ast.InitList list:
                 if (list.Items.Count > type.Length)
                 {
-                    throw new CTypeException($"too many initializers for '{decl.Name}[{type.Length}]'.");
+                    throw new CTypeException($"too many initializers for '{name}[{type.Length}]'.");
                 }
 
                 foreach (Ast.Expr item in list.Items)
                 {
-                    AssignableOrNull(elem, item, $"initializer of '{decl.Name}'");
+                    CheckAggregateItem(elem, item, name);
                 }
 
                 break;
             default:
-                throw new CTypeException($"array '{decl.Name}' needs an initializer list or a string.");
+                throw new CTypeException($"array '{name}' needs an initializer list or a string.");
         }
+    }
+
+    private void CheckAggregateItem(CType type, Ast.Expr item, string name)
+    {
+        if (type.Kind is "array" or "struct")
+        {
+            CheckAggregate(type, item, name);
+            return;
+        }
+
+        if (item is Ast.InitList)
+        {
+            throw new CTypeException($"unexpected braces in initializer of '{name}'.");
+        }
+
+        AssignableOrNull(type, item, $"initializer of '{name}'");
+    }
+
+    private CType Declared(string type, int stars, int length = 0)
+    {
+        CType result = type.StartsWith("struct ", StringComparison.Ordinal)
+            ? CType.Struct(_structs.TryGetValue(type[7..], out StructInfo? info) ? info : throw new CTypeException($"unknown {type}."))
+            : CType.FromName(type);
+        for (int i = 0; i < stars; i++)
+        {
+            result = CType.Pointer(result);
+        }
+
+        return length > 0 ? CType.Array(result, length) : result;
+    }
+
+    private void BuildStructs(Ast.Program program)
+    {
+        var defs = new Dictionary<string, Ast.StructDef>(StringComparer.Ordinal);
+        foreach (Ast.StructDef def in program.Structs ?? [])
+        {
+            if (!defs.TryAdd(def.Name, def))
+            {
+                throw new CTypeException($"redefinition of struct '{def.Name}'.");
+            }
+
+            _structs[def.Name] = new StructInfo(def.Name);
+        }
+
+        foreach (string name in defs.Keys)
+        {
+            LayoutStruct(defs, name, []);
+        }
+    }
+
+    private void LayoutStruct(Dictionary<string, Ast.StructDef> defs, string name, HashSet<string> visiting)
+    {
+        StructInfo info = _structs[name];
+        if (info.Complete)
+        {
+            return;
+        }
+
+        if (!visiting.Add(name))
+        {
+            throw new CTypeException($"struct '{name}' contains itself.");
+        }
+
+        int offset = 0;
+        foreach (Ast.FieldDecl field in defs[name].Fields)
+        {
+            if (field.Type.StartsWith("struct ", StringComparison.Ordinal) && field.Stars == 0 && defs.ContainsKey(field.Type[7..]))
+            {
+                LayoutStruct(defs, field.Type[7..], visiting);
+            }
+
+            CType type = Declared(field.Type, field.Stars, field.ArrayLength);
+            if (type.Kind == "void")
+            {
+                throw new CTypeException($"field '{field.Name}' has void type.");
+            }
+
+            if (info.Find(field.Name) is not null)
+            {
+                throw new CTypeException($"duplicate field '{field.Name}' in struct '{name}'.");
+            }
+
+            info.Fields.Add(new StructField(field.Name, type, offset));
+            offset += type.Size;
+        }
+
+        info.Size = offset;
+        info.Complete = true;
+        visiting.Remove(name);
     }
 
     private CheckedProgram CheckProgram(Ast.Program program)
     {
+        BuildStructs(program);
         foreach (Ast.Decl global in program.Globals)
         {
             if (!_globals.TryAdd(global.Name, new TypedSymbol(global.Name, Declared(global.Type, global.PointerDepth, global.ArrayLength), global.Init)))
@@ -172,15 +290,19 @@ public sealed class TypeChecker
             [.. _globals.Values],
             _warnings,
             new Dictionary<Ast.Node, int>(program.Lines ?? new Dictionary<Ast.Node, int>(), ReferenceEqualityComparer.Instance),
-            globalTypes);
+            globalTypes,
+            _structs.ToDictionary(static pair => $"struct {pair.Key}", static pair => CType.Struct(pair.Value), StringComparer.Ordinal));
     }
 
     private CheckedFunction ProtoFunction(Ast.Function function)
     {
+        RejectStructByValue(Declared(function.ReturnType, function.ReturnStars), $"return type of '{function.Name}'");
         var parameters = new List<TypedSymbol>();
         foreach (Ast.Param param in function.Params)
         {
-            parameters.Add(new TypedSymbol(param.Name, Declared(param.Type, param.PointerDepth)));
+            CType paramType = Declared(param.Type, param.PointerDepth);
+            RejectStructByValue(paramType, $"parameter '{param.Name}'");
+            parameters.Add(new TypedSymbol(param.Name, paramType));
         }
 
         return new CheckedFunction(
@@ -197,6 +319,7 @@ public sealed class TypeChecker
         _scopes.Clear();
         _scopes.Push(new Dictionary<string, CType>(StringComparer.Ordinal));
         _returnType = Declared(function.ReturnType, function.ReturnStars);
+        RejectStructByValue(_returnType, $"return type of '{function.Name}'");
         _loops = 0;
         _switches = 0;
         _labels.Clear();
@@ -209,6 +332,7 @@ public sealed class TypeChecker
         var parameters = new List<TypedSymbol>();
         foreach (Ast.Param param in function.Params)
         {
+            RejectStructByValue(Declared(param.Type, param.PointerDepth), $"parameter '{param.Name}'");
             if (!_scopes.Peek().TryAdd(param.Name, Declared(param.Type, param.PointerDepth)))
             {
                 throw new CTypeException($"redefinition of '{param.Name}'.");
@@ -398,7 +522,7 @@ public sealed class TypeChecker
     private void Condition(Ast.Expr cond)
     {
         CType type = TypeOf(cond);
-        if (type.Kind is "void")
+        if (type.Kind is "void" or "struct")
         {
             throw new CTypeException("condition has void type.");
         }
@@ -468,6 +592,21 @@ public sealed class TypeChecker
                 return NumberType(number.Text);
             case Ast.Str:
                 return CType.Pointer(CType.UChar);
+            case Ast.Member member:
+                return MemberType(member).Decay();
+            case Ast.AddressOfExpr addressOf:
+            {
+                CType target = addressOf.Target is Ast.Member m ? MemberType(m) : TypeOf(addressOf.Target);
+                _ = TypeOf(addressOf.Target);
+                return CType.Pointer(target.Kind == "array" && target.Base is not null ? target.Base : target);
+            }
+
+            case Ast.SizeOfType sizeOfType:
+            {
+                int size = Declared(sizeOfType.Type, sizeOfType.Stars).Size;
+                return size <= byte.MaxValue ? CType.UChar : CType.Int;
+            }
+
             case Ast.SizeOf sizeOf:
             {
                 int size = Lookup(sizeOf.Name).Size;
@@ -542,6 +681,11 @@ public sealed class TypeChecker
     private CType UnaryType(Ast.Unary unary)
     {
         CType operand = TypeOf(unary.Operand);
+        if (operand.Kind == "struct")
+        {
+            throw new CTypeException($"operator '{unary.Op}' needs a value, not a struct.");
+        }
+
         return unary.Op switch
         {
             "-" or "~" => operand.Kind is "void" or "ptr" or "array"
@@ -558,7 +702,7 @@ public sealed class TypeChecker
     {
         CType left = TypeOf(binary.Left).Decay();
         CType right = TypeOf(binary.Right).Decay();
-        if (left.Kind == "void" || right.Kind == "void")
+        if (left.Kind is "void" or "struct" || right.Kind is "void" or "struct")
         {
             throw new CTypeException($"operator '{binary.Op}' needs values.");
         }
@@ -601,13 +745,18 @@ public sealed class TypeChecker
 
     private CType AssignToType(Ast.AssignTo assignTo)
     {
-        if (assignTo.Target is not (Ast.Deref or Ast.Index))
+        if (assignTo.Target is not (Ast.Deref or Ast.Index or Ast.Member))
         {
-            throw new CTypeException("assignment target must be *p or p[i].");
+            throw new CTypeException("assignment target must be *p, p[i] or a field.");
         }
 
         CType target = TypeOf(assignTo.Target);
-        Assignable(target, TypeOf(assignTo.Value), "assignment through pointer");
+        if (target.Kind == "ptr" && assignTo.Target is Ast.Member field && MemberType(field).Kind == "array")
+        {
+            throw new CTypeException("array field is not assignable.");
+        }
+
+        AssignableOrNull(target, assignTo.Value, "assignment through pointer");
         return target;
     }
 
@@ -644,6 +793,25 @@ public sealed class TypeChecker
         }
 
         return then.Kind == "int" || els.Kind == "int" ? CType.Int : CType.UChar;
+    }
+
+    /// <summary>Typ pola bez rozpadu tablicy (struct przez <c>.</c> albo wskaźnik przez <c>-&gt;</c>).</summary>
+    private CType MemberType(Ast.Member member)
+    {
+        CType baseType = TypeOf(member.Base);
+        StructInfo info;
+        if (member.Arrow)
+        {
+            info = baseType is { Kind: "ptr", Base: { Kind: "struct" } target }
+                ? target.Info!
+                : throw new CTypeException("'->' needs a pointer to a struct.");
+        }
+        else
+        {
+            info = baseType.Kind == "struct" ? baseType.Info! : throw new CTypeException("'.' needs a struct.");
+        }
+
+        return info.Find(member.Name)?.Type ?? throw new CTypeException($"struct '{info.Name}' has no field '{member.Name}'.");
     }
 
     private CType DerefType(Ast.Deref deref)

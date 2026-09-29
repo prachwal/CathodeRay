@@ -7,7 +7,7 @@ public sealed partial class Codegen
 {
     private void Eval(Ast.Expr expr, int depth)
     {
-        if (expr is Ast.Deref or Ast.Index or Ast.AssignTo or Ast.AssignOpTo || IsWideKind(expr))
+        if (expr is Ast.Deref or Ast.Index or Ast.AssignTo or Ast.AssignOpTo or Ast.Member or Ast.AddressOfExpr || IsWideKind(expr))
         {
             EvalInt(expr, depth, out _, out _);
             return;
@@ -27,6 +27,9 @@ public sealed partial class Codegen
                 break;
             case Ast.SizeOf sizeOf:
                 _code.AppendLine($"LDI {CellOf(sizeOf.Name).Type.Size}");
+                break;
+            case Ast.SizeOfType sizeOfType:
+                _code.AppendLine($"LDI {_structTypes[sizeOfType.Type].Size}");
                 break;
             case Ast.Unary unary:
                 EmitUnary(unary, depth);
@@ -144,8 +147,23 @@ public sealed partial class Codegen
             case Ast.Str str:
                 EmitAddressOf(StringLabel(str.Value), lo, hi);
                 break;
-            case Ast.SizeOf sizeOf:
-                int sizeValue = CellOf(sizeOf.Name).Type.Size;
+            case Ast.Member member:
+            {
+                EvalPtrAddr(member, depth, out string malo, out string mahi);
+                CType fieldType = FieldOf(member).Type;
+                if (fieldType.Kind != "array")
+                {
+                    PatchedLoad(malo, mahi, ElemSize(fieldType), lo, hi, depth);
+                }
+
+                break;
+            }
+
+            case Ast.AddressOfExpr addressOf:
+                EvalPtrAddr(addressOf.Target, depth, out _, out _);
+                break;
+            case Ast.SizeOf or Ast.SizeOfType:
+                int sizeValue = expr is Ast.SizeOf sizeOf ? CellOf(sizeOf.Name).Type.Size : _structTypes[((Ast.SizeOfType)expr).Type].Size;
                 _code.AppendLine($"LDX {(sizeValue >> 8) & 0xFF}");
                 _code.AppendLine($"LDI {sizeValue & 0xFF}");
                 _code.AppendLine($"STA {lo}");

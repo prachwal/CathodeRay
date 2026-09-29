@@ -1,4 +1,4 @@
-# Mini-C: struct, typedef, goto, wskaźniki w zwrocie, inicjalizatory globalne (status: otwarty)
+# Mini-C: struct, typedef, goto, wskaźniki w zwrocie, inicjalizatory globalne (status: zamknięty)
 
 Rozmiar: S = <1 h, M = kilka h, L = dzień. Kolejność: A → B → C → D → E.
 
@@ -19,13 +19,13 @@ Rozmiar: S = <1 h, M = kilka h, L = dzień. Kolejność: A → B → C → D →
 
 ## D. struct (na końcu, największe)
 
-- [ ] **7.** [M] Deklaracje struct S { pola }; i typ struct S: układ pól (offsety, rozmiar, bez wyrównania), CType.Struct, sizeof(struct S), zmienne lokalne/globalne/tablice struktur w BSS
-- [ ] **8.** [M] Dostęp do pól: s.f i p->f jako Index/Deref z przesunięciem (adres bazy + offset stały), odczyt i zapis uchar/int/ptr, pola-tablice, zagnieżdżone struct; ++/+= na polach przez AssignOpTo
-- [ ] **9.** [M] Struktury przez wskaźnik: &s, p->f, wskaźnik do struktury w argumentach i zwrocie (zależy od zwracania wskaźników); kopiowanie s1 = s2 pętlą bajtów; przekazanie i zwrot przez wartość zabronione komunikatem
-- [ ] **10.** [S] Inicjalizatory struct { a, b } (lokalne i globalne w DATA), zerowanie reszty
+- [x] **7.** [M] Deklaracje struct S { pola }; i typ struct S: układ pól (offsety, rozmiar, bez wyrównania), CType.Struct, sizeof(struct S), zmienne lokalne/globalne/tablice struktur w BSS
+- [x] **8.** [M] Dostęp do pól: s.f i p->f jako Index/Deref z przesunięciem (adres bazy + offset stały), odczyt i zapis uchar/int/ptr, pola-tablice, zagnieżdżone struct; ++/+= na polach przez AssignOpTo
+- [x] **9.** [M] Struktury przez wskaźnik: &s, p->f, wskaźnik do struktury w argumentach i zwrocie (zależy od zwracania wskaźników); kopiowanie s1 = s2 pętlą bajtów; przekazanie i zwrot przez wartość zabronione komunikatem
+- [x] **10.** [S] Inicjalizatory struct { a, b } (lokalne i globalne w DATA), zerowanie reszty
 
 ## E. Zamknięcie
 
-- [ ] **11.** [S] Testy e2e per pozycja, samples/minic/10_struct.c, 11_goto_typedef.c, 12_globals_init.c, docs/stub-calling-conv.md, hygiene
+- [x] **11.** [S] Testy e2e per pozycja, samples/minic/10_struct.c, 11_goto_typedef.c, 12_globals_init.c, docs/stub-calling-conv.md, hygiene
 
-Postęp: 6/11 gotowych.
+Postęp: 11/11 gotowych.

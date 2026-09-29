@@ -37,9 +37,9 @@ public sealed partial class Codegen
 
                 break;
             case Ast.Decl decl:
-                if (decl.ArrayLength > 0 && decl.Init is not null)
+                if ((decl.Init is Ast.InitList or Ast.Str) && CellOf(decl.Name).Type.Kind is "array" or "struct")
                 {
-                    EmitArrayInit(decl);
+                    EmitAggregateInit(decl);
                 }
                 else if (decl.Init is not null)
                 {
@@ -88,6 +88,15 @@ public sealed partial class Codegen
     private void Store(string name, Ast.Expr value, int depth)
     {
         (string cell, CType type) = CellOf(name);
+        if (type.Kind == "struct")
+        {
+            string dstLo = Temp(depth, hi: false);
+            string dstHi = Temp(depth, hi: true);
+            EmitAddressOf(cell, dstLo, dstHi);
+            EmitStructCopy(depth, dstLo, dstHi, value, type.Size);
+            return;
+        }
+
         if (IsWide(type))
         {
             EvalInt(value, depth, out string lo, out string hi);
@@ -200,42 +209,44 @@ public sealed partial class Codegen
         _code.AppendLine($"{done}:");
     }
 
-    /// <summary>Lokalna tablica z <c>{…}</c>/napisem: elementy po kolei, reszta zerowana pętlą.</summary>
-    private void EmitArrayInit(Ast.Decl decl)
+    /// <summary>Lokalna tablica/struktura z <c>{…}</c> lub napisem: zerowanie pętlą (gdy inicjalizator
+    /// nie pokrywa całości), potem zapisy skalarów w miejscach (zagnieżdżone pola i elementy).</summary>
+    private void EmitAggregateInit(Ast.Decl decl)
     {
         (string cell, CType type) = CellOf(decl.Name);
-        CType elem = type.Base!;
-        int size = elem.Size;
-        IReadOnlyList<Ast.Expr> items = decl.Init is Ast.InitList list
-            ? list.Items
-            : [.. ((Ast.Str)decl.Init!).Value.Append('\0').Select(static ch => (Ast.Expr)new Ast.Number(((int)ch).ToString(System.Globalization.CultureInfo.InvariantCulture)))];
-        for (int i = 0; i < items.Count; i++)
+        if (type.Size > 256)
         {
-            string at = i * size == 0 ? cell : $"{cell}+{i * size}";
-            if (size == 1)
-            {
-                Eval(items[i], 0);
-                _code.AppendLine($"STA {at}");
-                continue;
-            }
-
-            EvalInt(items[i], 0, out string lo, out string hi);
-            _code.AppendLine($"LDA {lo}");
-            _code.AppendLine($"STA {at}");
-            _code.AppendLine($"LDA {hi}");
-            _code.AppendLine($"STA {cell}+{(i * size) + 1}");
+            throw new CCodegenException($"local initializer of '{decl.Name}' larger than 256 B.");
         }
 
-        int start = items.Count * size;
-        if (start < type.Size)
+        var entries = new List<(int Offset, CType Type, Ast.Expr Value)>();
+        CollectInit(type, decl.Init!, 0, entries);
+        if (entries.Sum(static e => e.Type.Size) < type.Size)
         {
             string loop = Label("zero");
             _code.AppendLine("LDI 0");
-            _code.AppendLine($"LDX {start}");
+            _code.AppendLine("LDX 0");
             _code.AppendLine($"{loop}: STA {cell},X");
             _code.AppendLine("INX");
             _code.AppendLine($"CPX {type.Size & 0xFF}");
             _code.AppendLine($"BNE {loop}");
+        }
+
+        foreach ((int offset, CType entryType, Ast.Expr value) in entries)
+        {
+            string at = offset == 0 ? cell : $"{cell}+{offset}";
+            if (entryType.Size == 1)
+            {
+                Eval(value, 0);
+                _code.AppendLine($"STA {at}");
+                continue;
+            }
+
+            EvalInt(value, 0, out string lo, out string hi);
+            _code.AppendLine($"LDA {lo}");
+            _code.AppendLine($"STA {at}");
+            _code.AppendLine($"LDA {hi}");
+            _code.AppendLine($"STA {cell}+{offset + 1}");
         }
     }
 

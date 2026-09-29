@@ -8,15 +8,15 @@ public static class Lexer
 {
     private static readonly HashSet<string> Keywords = new(StringComparer.Ordinal)
     {
-        "uchar", "int", "void", "if", "else", "while", "for", "return", "break", "continue", "do", "switch", "case", "default", "sizeof", "enum", "typedef", "goto",
+        "uchar", "int", "void", "if", "else", "while", "for", "return", "break", "continue", "do", "switch", "case", "default", "sizeof", "enum", "typedef", "goto", "struct",
     };
 
     private static readonly string[] Operators =
     [
-        "<<=", ">>=", "==", "!=", "<=", ">=", "&&", "||", "<<", ">>", "++", "--",
+        "<<=", ">>=", "==", "!=", "<=", ">=", "&&", "||", "<<", ">>", "++", "--", "->",
         "+=", "-=", "*=", "/=", "%=", "&=", "|=", "^=",
         "+", "-", "*", "/", "%", "<", ">", "=", "!", "~", "&", "|", "^",
-        "(", ")", "{", "}", "[", "]", ";", ",", "?", ":",
+        "(", ")", "{", "}", "[", "]", ";", ",", "?", ":", ".",
     ];
 
     /// <summary>Tokenizuje źródło.</summary>

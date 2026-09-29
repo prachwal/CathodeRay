@@ -9,6 +9,8 @@ public sealed class Parser
     private readonly Dictionary<Ast.Expr, Ast.Expr> _postfix = new(ReferenceEqualityComparer.Instance);
     private readonly Dictionary<string, int> _enums = new(StringComparer.Ordinal);
     private readonly Dictionary<string, (string Type, int Stars)> _typedefs = new(StringComparer.Ordinal);
+    private readonly List<Ast.StructDef> _structs = [];
+    private int _anonymous;
     private int _pos;
 
     private Parser(IReadOnlyList<Token> tokens) => _tokens = tokens;
@@ -64,7 +66,7 @@ public sealed class Parser
     }
 
     private static bool IsBuiltinType(Token token) =>
-        token is { Kind: TokenKind.Keyword } && token.Text is "uchar" or "int" or "void";
+        token is { Kind: TokenKind.Keyword } && token.Text is "uchar" or "int" or "void" or "struct";
 
     private bool IsType(Token token) =>
         IsBuiltinType(token) || (token.Kind == TokenKind.Ident && _typedefs.ContainsKey(token.Text));
@@ -73,9 +75,48 @@ public sealed class Parser
     private (string Type, int Stars) TypeSpec()
     {
         Token token = Next();
+        if (token is { Kind: TokenKind.Keyword, Text: "struct" })
+        {
+            string name = Peek().Kind == TokenKind.Ident ? Next().Text : $"__anon{_anonymous++}";
+            if (Peek() is { Kind: TokenKind.Punct, Text: "{" })
+            {
+                StructBody(name, token.Line);
+            }
+
+            return ($"struct {name}", 0);
+        }
+
         return token.Kind == TokenKind.Ident && _typedefs.TryGetValue(token.Text, out (string Type, int Stars) alias)
             ? alias
             : (token.Text, 0);
+    }
+
+    private void StructBody(string name, int line)
+    {
+        Expect("{");
+        var fields = new List<Ast.FieldDecl>();
+        while (!Take("}"))
+        {
+            Token at = Peek();
+            if (!IsType(at))
+            {
+                throw new CParseException(at.Line, at.Column, $"expected field type, got '{at.Text}'.");
+            }
+
+            (string type, int baseStars) = TypeSpec();
+            int stars = baseStars + Stars();
+            string field = ExpectKind(TokenKind.Ident, "field name").Text;
+            int length = ArrayLength(out bool unsized);
+            if (unsized)
+            {
+                throw new CParseException(at.Line, at.Column, "field array needs a length.");
+            }
+
+            Expect(";");
+            fields.Add(At(at.Line, new Ast.FieldDecl(type, stars, field, length)));
+        }
+
+        _structs.Add(At(line, new Ast.StructDef(name, fields)));
     }
 
     private void TypedefDecl()
@@ -162,6 +203,11 @@ public sealed class Parser
             }
 
             (string typeName, int baseStars) = TypeSpec();
+            if (Take(";"))
+            {
+                continue;
+            }
+
             int stars = baseStars + Stars();
             string name = ExpectKind(TokenKind.Ident, "name").Text;
             if (Peek() is { Kind: TokenKind.Punct, Text: "(" })
@@ -183,7 +229,8 @@ public sealed class Parser
         return new Ast.Program(
             globals,
             functions,
-            new Dictionary<Ast.Node, int>(_lines, ReferenceEqualityComparer.Instance));
+            new Dictionary<Ast.Node, int>(_lines, ReferenceEqualityComparer.Instance),
+            _structs);
     }
 
     private Ast.Decl GlobalRest(string type, string name, int stars, int line)
@@ -388,7 +435,7 @@ public sealed class Parser
 
         if (IsType(token))
         {
-            return Decl();
+            return DeclOrTypeOnly();
         }
 
         Ast.Expr value = Discard(Expression());
@@ -476,6 +523,41 @@ public sealed class Parser
         return IsType(first) ? Decl() : At(first.Line, new Ast.ExprStmt(Discard(Expression())));
     }
 
+    private Ast.Stmt DeclOrTypeOnly()
+    {
+        if (IsStructOnly())
+        {
+            return At(Peek().Line, new Ast.Nop());
+        }
+
+        return Decl();
+    }
+
+    /// <summary>Wygląda na <c>struct X { … };</c> albo <c>struct X;</c> bez deklarowanej zmiennej.</summary>
+    private bool IsStructOnly()
+    {
+        if (Peek() is not { Kind: TokenKind.Keyword, Text: "struct" })
+        {
+            return false;
+        }
+
+        int save = _pos;
+        int structs = _structs.Count;
+        _ = TypeSpec();
+        if (Take(";"))
+        {
+            return true;
+        }
+
+        _pos = save;
+        if (_structs.Count > structs)
+        {
+            _structs.RemoveRange(structs, _structs.Count - structs);
+        }
+
+        return false;
+    }
+
     private Ast.Decl Decl()
     {
         Token typeToken = Peek();
@@ -496,7 +578,7 @@ public sealed class Parser
         Ast.Expr? init = null;
         if (Take("="))
         {
-            init = length > 0 || unsized ? ArrayInit() : Expression();
+            init = length > 0 || unsized || Peek() is { Kind: TokenKind.Punct, Text: "{" } ? ArrayInit() : Expression();
         }
 
         if (unsized)
@@ -522,7 +604,7 @@ public sealed class Parser
         var items = new List<Ast.Expr>();
         while (!Take("}"))
         {
-            items.Add(Conditional());
+            items.Add(Peek() is { Kind: TokenKind.Punct, Text: "{" } ? ArrayInit() : Conditional());
             if (!Take(","))
             {
                 Expect("}");
@@ -567,7 +649,7 @@ public sealed class Parser
         {
             Next();
             Ast.Expr right = Assignment();
-            if (left is Ast.Deref || left is Ast.Index)
+            if (left is Ast.Deref or Ast.Index or Ast.Member)
             {
                 if (token.Text == "=")
                 {
@@ -679,8 +761,13 @@ public sealed class Parser
         if (token is { Kind: TokenKind.Punct, Text: "&" })
         {
             Next();
-            Token name = ExpectKind(TokenKind.Ident, "variable name");
-            return new Ast.AddressOf(name.Text);
+            Ast.Expr target = Unary();
+            return target switch
+            {
+                Ast.Var variable => new Ast.AddressOf(variable.Name),
+                Ast.Deref or Ast.Index or Ast.Member => new Ast.AddressOfExpr(target),
+                _ => throw new CParseException(token.Line, token.Column, "'&' needs a variable, field or element."),
+            };
         }
 
         if (token is { Kind: TokenKind.Punct, Text: "*" })
@@ -695,11 +782,23 @@ public sealed class Parser
     private Ast.Expr Postfix()
     {
         Ast.Expr baseValue = Primary();
-        while (Take("["))
+        while (true)
         {
-            Ast.Expr index = Expression();
-            Expect("]");
-            baseValue = new Ast.Index(baseValue, index);
+            if (Take("["))
+            {
+                Ast.Expr index = Expression();
+                Expect("]");
+                baseValue = new Ast.Index(baseValue, index);
+            }
+            else if (Peek() is { Kind: TokenKind.Punct, Text: "." or "->" } access)
+            {
+                Next();
+                baseValue = new Ast.Member(baseValue, ExpectKind(TokenKind.Ident, "field name").Text, access.Text == "->");
+            }
+            else
+            {
+                break;
+            }
         }
 
         while (Peek() is { Kind: TokenKind.Punct, Text: "++" or "--" } op)
@@ -726,7 +825,7 @@ public sealed class Parser
         return target switch
         {
             Ast.Var variable => new Ast.Assign(variable.Name, new Ast.Binary(sign, target, one)),
-            Ast.Deref or Ast.Index => new Ast.AssignOpTo(target, sign, one, new Ast.Binary(sign, target, one)),
+            Ast.Deref or Ast.Index or Ast.Member => new Ast.AssignOpTo(target, sign, one, new Ast.Binary(sign, target, one)),
             _ => throw new CParseException(op.Line, op.Column, $"'{op.Text}' needs a variable."),
         };
     }
@@ -750,7 +849,9 @@ public sealed class Parser
             {
                 (string sizeType, int sizeBase) = TypeSpec();
                 int stars = sizeBase + Stars();
-                size = new Ast.Number(stars > 0 || sizeType == "int" ? "2" : "1");
+                size = sizeType.StartsWith("struct ", StringComparison.Ordinal) && stars == 0
+                    ? new Ast.SizeOfType(sizeType, stars)
+                    : new Ast.Number(stars > 0 || sizeType == "int" ? "2" : "1");
             }
             else
             {

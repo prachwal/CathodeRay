@@ -78,10 +78,7 @@ public sealed partial class Codegen
         {
             EvalInt(index.Base, depth + 1, out string blo, out string bhi);
             EvalInt(index.Offset, depth + 2, out string ilo, out string ihi);
-            if (ElemSize(TypeOfIndex(index)) == 2)
-            {
-                DoublePair(ilo, ihi);
-            }
+            ScaleIndex(ilo, ihi, TypeOfIndex(index).Size);
 
             _code.AppendLine("LDX 0");
             _code.AppendLine($"LDA {blo}");
@@ -93,7 +90,146 @@ public sealed partial class Codegen
             return;
         }
 
+        if (target is Ast.Member member)
+        {
+            StructField field = FieldOf(member);
+            string blo;
+            string bhi;
+            if (member.Arrow)
+            {
+                EvalInt(member.Base, depth + 1, out blo, out bhi);
+            }
+            else
+            {
+                EvalLvalueAddr(member.Base, depth + 1, out blo, out bhi);
+            }
+
+            if (field.Offset == 0)
+            {
+                _code.AppendLine($"LDA {blo}");
+                _code.AppendLine($"STA {lo}");
+                _code.AppendLine($"LDA {bhi}");
+                _code.AppendLine($"STA {hi}");
+                return;
+            }
+
+            _code.AppendLine($"LDA {blo}");
+            _code.AppendLine($"ADD {field.Offset & 0xFF}");
+            _code.AppendLine($"STA {lo}");
+            _code.AppendLine($"LDA {bhi}");
+            _code.AppendLine($"ADC {(field.Offset >> 8) & 0xFF}");
+            _code.AppendLine($"STA {hi}");
+            return;
+        }
+
         throw new CCodegenException($"pointer target '{target.GetType().Name}' not supported.");
+    }
+
+    /// <summary>Adres lwartości (zmienna, <c>*p</c>, <c>a[i]</c>, <c>s.f</c>) w parze Temp(depth).</summary>
+    private void EvalLvalueAddr(Ast.Expr expr, int depth, out string lo, out string hi)
+    {
+        if (expr is Ast.Var variable)
+        {
+            lo = Temp(depth, hi: false);
+            hi = Temp(depth, hi: true);
+            EmitAddressOf(CellOf(variable.Name).Lo, lo, hi);
+            return;
+        }
+
+        if (expr is Ast.Deref or Ast.Index or Ast.Member)
+        {
+            EvalPtrAddr(expr, depth, out lo, out hi);
+            return;
+        }
+
+        throw new CCodegenException($"'{expr.GetType().Name}' is not an lvalue.");
+    }
+
+    private StructField FieldOf(Ast.Member member)
+    {
+        CType baseType = _types[member.Base];
+        StructInfo info = member.Arrow ? baseType.Base!.Info! : baseType.Info!;
+        return info.Find(member.Name)!;
+    }
+
+    /// <summary>Mnoży indeks (para lo,hi) w miejscu przez rozmiar elementu: 1 nic, 2 podwojenie,
+    /// reszta przez <c>cc_mul16</c>.</summary>
+    private void ScaleIndex(string ilo, string ihi, int size)
+    {
+        if (size == 1)
+        {
+            return;
+        }
+
+        if (size == 2)
+        {
+            DoublePair(ilo, ihi);
+            return;
+        }
+
+        _needMul16 = true;
+        _code.AppendLine($"LDA {ilo}");
+        _code.AppendLine("STA cc_w_a");
+        _code.AppendLine($"LDA {ihi}");
+        _code.AppendLine("STA cc_w_a_h");
+        _code.AppendLine($"LDI {size & 0xFF}");
+        _code.AppendLine("STA cc_w_b");
+        _code.AppendLine($"LDI {(size >> 8) & 0xFF}");
+        _code.AppendLine("STA cc_w_b_h");
+        _code.AppendLine("CALL cc_mul16");
+        _code.AppendLine($"STA {ilo}");
+        _code.AppendLine("TXA");
+        _code.AppendLine($"STA {ihi}");
+    }
+
+    /// <summary>Kopiuje strukturę (adres celu w Temp(depth), źródło liczone z lwartości) bajt po bajcie.</summary>
+    private void EmitStructCopy(int depth, string dstLo, string dstHi, Ast.Expr source, int size)
+    {
+        if (size > 255)
+        {
+            throw new CCodegenException($"struct copy of {size} B is not supported (max 255).");
+        }
+
+        if (size == 0)
+        {
+            return;
+        }
+
+        EvalLvalueAddr(source, depth + 1, out string srcLo, out string srcHi);
+        string count = Temp(depth + 2, hi: false);
+        string bytes = Temp(depth + 2, hi: true);
+        string loop = Label("copy");
+        string load = Label("cld");
+        string store = Label("cst");
+        _code.AppendLine($"LDI {size}");
+        _code.AppendLine($"STA {count}");
+        _code.AppendLine($"{loop}:");
+        _code.AppendLine($"LDA {srcLo}");
+        _code.AppendLine($"STA {load}+1");
+        _code.AppendLine($"LDA {srcHi}");
+        _code.AppendLine($"STA {load}+2");
+        _code.AppendLine($"{load}: LDA 0");
+        _code.AppendLine($"STA {bytes}");
+        _code.AppendLine($"LDA {dstLo}");
+        _code.AppendLine($"STA {store}+1");
+        _code.AppendLine($"LDA {dstHi}");
+        _code.AppendLine($"STA {store}+2");
+        _code.AppendLine($"LDA {bytes}");
+        _code.AppendLine($"{store}: STA 0");
+        foreach ((string pl, string ph) in new[] { (srcLo, srcHi), (dstLo, dstHi) })
+        {
+            _code.AppendLine($"LDA {pl}");
+            _code.AppendLine("ADD 1");
+            _code.AppendLine($"STA {pl}");
+            _code.AppendLine($"LDA {ph}");
+            _code.AppendLine("ADC 0");
+            _code.AppendLine($"STA {ph}");
+        }
+
+        _code.AppendLine($"LDA {count}");
+        _code.AppendLine("SUB 1");
+        _code.AppendLine($"STA {count}");
+        _code.AppendLine($"BNE {loop}");
     }
 
     /// <summary>Czyta spod adresu (łatany operand, wzorzec divmod); nadpisuje parę.</summary>
@@ -167,6 +303,13 @@ public sealed partial class Codegen
     private void StorePtr(Ast.AssignTo assignTo, int depth)
     {
         CType elem = assignTo.Target is Ast.Index index ? TypeOfIndex(index) : TypeOfDeref(assignTo.Target);
+        if (elem.Kind == "struct")
+        {
+            EvalPtrAddr(assignTo.Target, depth, out string dlo, out string dhi);
+            EmitStructCopy(depth, dlo, dhi, assignTo.Value, elem.Size);
+            return;
+        }
+
         int size = ElemSize(elem);
         string vlo;
         string vhi;
@@ -215,46 +358,10 @@ public sealed partial class Codegen
         }
 
         CType? @base = _types.TryGetValue(ptrSide, out CType? ptrType) ? ptrType.Base : null;
-        int scale = @base is not null && @base.Kind == "uchar" ? 1 : 2;
+        int scale = @base?.Size ?? 1;
         EvalInt(ptrSide, depth + 1, out string plo, out string phi);
         EvalInt(intSide, depth + 2, out string ilo, out string ihi);
-        if (scale == 2)
-        {
-            DoublePair(ilo, ihi);
-            _code.AppendLine("LDX 0");
-            _code.AppendLine($"LDA {plo}");
-            if (binary.Op == "+")
-            {
-                _code.AppendLine($"ADD {ilo},X");
-            }
-            else
-            {
-                string site = Label("psub");
-                _code.AppendLine($"LDA {ilo}");
-                _code.AppendLine($"STA {site}+1");
-                _code.AppendLine($"LDA {plo}");
-                _code.AppendLine($"{site}: SUB 0");
-            }
-
-            _code.AppendLine($"STA {lo}");
-            _code.AppendLine($"LDA {phi}");
-            if (binary.Op == "+")
-            {
-                _code.AppendLine($"ADC {ihi},X");
-            }
-            else
-            {
-                string siteHi = Label("psub");
-                _code.AppendLine($"LDA {ihi}");
-                _code.AppendLine($"STA {siteHi}+1");
-                _code.AppendLine($"LDA {phi}");
-                _code.AppendLine($"{siteHi}: SUB 0");
-            }
-
-            _code.AppendLine($"STA {hi}");
-            return;
-        }
-
+        ScaleIndex(ilo, ihi, scale);
         _code.AppendLine("LDX 0");
         _code.AppendLine($"LDA {plo}");
         if (binary.Op == "+")

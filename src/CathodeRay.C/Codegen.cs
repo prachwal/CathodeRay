@@ -44,6 +44,7 @@ public sealed partial class Codegen
 
     private int _switches;
     private int _assignOps;
+    private IReadOnlyDictionary<string, CType> _structTypes = new Dictionary<string, CType>();
 
     private IReadOnlyDictionary<Ast.Node, int> _lines = new Dictionary<Ast.Node, int>();
 
@@ -120,6 +121,42 @@ public sealed partial class Codegen
 
     private static int ElemSize(CType type) => type.Kind == "uchar" ? 1 : 2;
 
+    /// <summary>Spłaszcza inicjalizator tablicy/struktury do zapisów skalarów (przesunięcie, typ, wartość).</summary>
+    private static void CollectInit(CType type, Ast.Expr init, int offset, List<(int Offset, CType Type, Ast.Expr Value)> entries)
+    {
+        switch (type.Kind)
+        {
+            case "array" when init is Ast.Str str:
+                string text = str.Value + '\0';
+                for (int i = 0; i < text.Length; i++)
+                {
+                    entries.Add((offset + i, CType.UChar, new Ast.Number(((int)text[i]).ToString(System.Globalization.CultureInfo.InvariantCulture))));
+                }
+
+                break;
+            case "array":
+                var items = ((Ast.InitList)init).Items;
+                for (int i = 0; i < items.Count; i++)
+                {
+                    CollectInit(type.Base!, items[i], offset + (i * type.Base!.Size), entries);
+                }
+
+                break;
+            case "struct":
+                var values = ((Ast.InitList)init).Items;
+                for (int i = 0; i < values.Count; i++)
+                {
+                    StructField field = type.Info!.Fields[i];
+                    CollectInit(field.Type, values[i], offset + field.Offset, entries);
+                }
+
+                break;
+            default:
+                entries.Add((offset, type, init));
+                break;
+        }
+    }
+
     /// <summary>Komórki wejściowe parametru <paramref name="i"/>: 1. w <c>cc_arg1</c>(+<c>_h</c>),
     /// 2. bajtowy przy 1. bajtowym w <c>cc_arg1_h</c> (rejestr X), reszta w <c>cc_arg{i+1}</c>.</summary>
     private static (string Lo, string? Hi) ArgCells(IReadOnlyList<TypedSymbol> ps, int i)
@@ -145,6 +182,9 @@ public sealed partial class Codegen
                 return true;
             case Ast.SizeOf sizeOf when _globalsByName.TryGetValue(sizeOf.Name, out CType? type):
                 value = type.Size;
+                return true;
+            case Ast.SizeOfType sizeOfType when _structTypes.TryGetValue(sizeOfType.Type, out CType? structType):
+                value = structType.Size;
                 return true;
             case Ast.Unary { Op: "-" or "~" } unary when TryConstValue(unary.Operand, out int operand):
                 value = (unary.Op == "-" ? -operand : ~operand) & 0xFFFF;
@@ -178,9 +218,9 @@ public sealed partial class Codegen
             return null;
         }
 
-        if (symbol.Type.Kind == "array")
+        if (symbol.Type.Kind is "array" or "struct")
         {
-            return ArrayBytes(symbol);
+            return AggregateBytes(symbol);
         }
 
         if (TryConstValue(symbol.Init, out int value))
@@ -191,36 +231,22 @@ public sealed partial class Codegen
         throw new CCodegenException($"initializer of '{symbol.Name}' must be a constant.");
     }
 
-    private byte[] ArrayBytes(TypedSymbol symbol)
+    private byte[] AggregateBytes(TypedSymbol symbol)
     {
-        CType elem = symbol.Type.Base!;
         var bytes = new byte[symbol.Type.Size];
-        if (symbol.Init is Ast.Str str)
+        var entries = new List<(int Offset, CType Type, Ast.Expr Value)>();
+        CollectInit(symbol.Type, symbol.Init!, 0, entries);
+        foreach ((int offset, CType type, Ast.Expr expr) in entries)
         {
-            for (int i = 0; i < str.Value.Length; i++)
-            {
-                bytes[i] = str.Value[i] <= byte.MaxValue ? (byte)str.Value[i] : throw new CCodegenException("string char above 255.");
-            }
-
-            return bytes;
-        }
-
-        var items = ((Ast.InitList)symbol.Init!).Items;
-        for (int i = 0; i < items.Count; i++)
-        {
-            if (!TryConstValue(items[i], out int value))
+            if (!TryConstValue(expr, out int value))
             {
                 throw new CCodegenException($"initializer of '{symbol.Name}' must be constant.");
             }
 
-            if (elem.Size == 1)
+            bytes[offset] = (byte)(value & 0xFF);
+            if (type.Size == 2)
             {
-                bytes[i] = (byte)(value & 0xFF);
-            }
-            else
-            {
-                bytes[2 * i] = (byte)(value & 0xFF);
-                bytes[(2 * i) + 1] = (byte)((value >> 8) & 0xFF);
+                bytes[offset + 1] = (byte)((value >> 8) & 0xFF);
             }
         }
 
@@ -307,6 +333,7 @@ public sealed partial class Codegen
             _globalsByName[g.Name] = g.Type;
         }
 
+        _structTypes = program.StructTypes ?? _structTypes;
         _lines = program.Lines;
         _file = fileName;
         foreach (CheckedFunction function in program.Functions)
@@ -316,7 +343,9 @@ public sealed partial class Codegen
 
         foreach (TypedSymbol global in program.Globals)
         {
-            if (global.Type.Kind != "array" && global.Init is not null && !TryConstValue(global.Init, out _))
+            bool aggregate = global.Type.Kind is "array" or "struct";
+            bool tableInit = global.Init is Ast.InitList or Ast.Str && aggregate;
+            if (global.Init is not null && !tableInit && !TryConstValue(global.Init, out _))
             {
                 if (global.Type.Kind == "ptr" && SymbolInit(global.Init) is { } symbol)
                 {
@@ -427,7 +456,7 @@ public sealed partial class Codegen
             }
 
             int size = type.Size;
-            if (size == 2 && init.Length == 2 && type.Kind != "array")
+            if (IsWide(type) && init.Length == 2)
             {
                 data.AppendLine($"{name}: .byte {init[0]}");
                 data.AppendLine($"{name}_h: .byte {init[1]}");
@@ -470,7 +499,7 @@ public sealed partial class Codegen
                 bss.AppendLine($".global {name}");
             }
 
-            if (type.Kind == "array")
+            if (type.Kind is "array" or "struct")
             {
                 for (int i = 0; i < size; i++)
                 {
@@ -533,7 +562,7 @@ public sealed partial class Codegen
             _cells[param.Name] = cell;
             DataCell(cell.Lo, param.Type);
             owned.Add(cell.Lo);
-            if (param.Type.Size == 2 && param.Type.Kind != "array")
+            if (IsWide(param.Type))
             {
                 owned.Add($"{cell.Lo}_h");
             }
@@ -545,7 +574,7 @@ public sealed partial class Codegen
             _cells[local.Name] = cell;
             DataCell(cell.Lo, local.Type);
             owned.Add(cell.Lo);
-            if (local.Type.Size == 2 && local.Type.Kind != "array")
+            if (IsWide(local.Type))
             {
                 owned.Add($"{cell.Lo}_h");
             }

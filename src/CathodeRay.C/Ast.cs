@@ -10,10 +10,24 @@ public static class Ast
     /// <param name="Globals">Zmienne globalne.</param>
     /// <param name="Functions">Funkcje w kolejności źródła.</param>
     /// <param name="Lines">Linie węzłów (funkcje, instrukcje) do mapy debug.</param>
+    /// <param name="Structs">Definicje struktur.</param>
     public sealed record Program(
         IReadOnlyList<Decl> Globals,
         IReadOnlyList<Function> Functions,
-        IReadOnlyDictionary<Node, int>? Lines = null) : Node;
+        IReadOnlyDictionary<Node, int>? Lines = null,
+        IReadOnlyList<StructDef>? Structs = null) : Node;
+
+    /// <summary>Pole definicji struktury.</summary>
+    /// <param name="Type">Nazwa typu (<c>uchar</c>, <c>int</c>, <c>struct S</c>).</param>
+    /// <param name="Stars">Liczba <c>*</c>.</param>
+    /// <param name="Name">Nazwa pola.</param>
+    /// <param name="ArrayLength">Długość tablicy (0 = skalar).</param>
+    public sealed record FieldDecl(string Type, int Stars, string Name, int ArrayLength) : Node;
+
+    /// <summary>Definicja <c>struct Nazwa { pola };</c>.</summary>
+    /// <param name="Name">Nazwa struktury (anonimowe dostają nazwę syntetyczną).</param>
+    /// <param name="Fields">Pola w kolejności deklaracji.</param>
+    public sealed record StructDef(string Name, IReadOnlyList<FieldDecl> Fields) : Node;
 
     /// <summary>Definicja funkcji.</summary>
     /// <param name="ReturnType">Typ wyniku.</param>
@@ -168,6 +182,21 @@ public static class Ast
     /// <param name="Value">Prawa strona.</param>
     /// <param name="Combined">Wyrażenie <c>Target Op Value</c> do kontroli typów.</param>
     public sealed record AssignOpTo(Expr Target, string Op, Expr Value, Expr Combined) : Expr;
+
+    /// <summary>Dostęp do pola: <c>s.f</c> albo <c>p-&gt;f</c>.</summary>
+    /// <param name="Base">Struktura (lwartość) albo wskaźnik do niej.</param>
+    /// <param name="Name">Nazwa pola.</param>
+    /// <param name="Arrow"><see langword="true"/> dla <c>-&gt;</c>.</param>
+    public sealed record Member(Expr Base, string Name, bool Arrow) : Expr;
+
+    /// <summary>Adres lwartości innej niż zmienna: <c>&amp;s.f</c>, <c>&amp;a[i]</c>, <c>&amp;*p</c>.</summary>
+    /// <param name="Target">Lwartość.</param>
+    public sealed record AddressOfExpr(Expr Target) : Expr;
+
+    /// <summary>Rozmiar typu strukturalnego (<c>sizeof(struct S)</c>).</summary>
+    /// <param name="Type">Nazwa typu (<c>struct S</c>).</param>
+    /// <param name="Stars">Liczba <c>*</c>.</param>
+    public sealed record SizeOfType(string Type, int Stars) : Expr;
 
     /// <summary>Adres zmiennej (<c>&amp;x</c>).</summary>
     /// <param name="Name">Nazwa zmiennej.</param>

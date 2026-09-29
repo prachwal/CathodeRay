@@ -130,3 +130,16 @@ brak `ADD`/`SUB` z pamięci absolutnej (tryb `,X` z `X = 0`).
   w `__cc_init` modułu, wpisanym do tablicy segmentu INIT (`.word`). Crt0 po zerowaniu BSS woła
   każdy wpis tablicy (`__init_start`..`__init_end`, symbole linkera `__<segment>_start/_end`).
 - Układ `cc`: CODE `$1000` (do `$3EFF`), INIT `$3F00` (256 B = 128 modułów), BSS `$4000`, DATA `$5000`.
+
+## struct (plan 28 D)
+
+- `struct S { pola };`, `struct S x;`, `typedef struct [S] { … } T;`, `struct S *p`, tablice struktur,
+  zagnieżdżone struktury i pola-tablice, `sizeof(struct S)`/`sizeof x`. Pola leżą kolejno, bez wyrównania.
+- Dostęp `s.f`, `p->f`, `a[i].f`, `&s.f`, `&a[i]`; `++`, `+=` itd. na polach (adres liczony raz).
+  Arytmetyka wskaźników skaluje rozmiarem struktury (`cc_mul16` dla rozmiarów innych niż 1 i 2).
+- Kopiowanie `a = b`, `*p = a`, `arr[i] = a`, `struct S t = s;` pętlą bajtów (do 255 B).
+  Przekazywanie i zwrot struktury **przez wartość** jest błędem typów (użyj wskaźnika).
+- Inicjalizatory `{a, b}` z zagnieżdżeniem (`{ {1,2}, "ab", 0 }`), brakujące pola zerowane;
+  globalne muszą być stałe (bajty w DATA), lokalne mogą być wyrażeniami.
+- Ograniczenia: lokalne struktury i tablice nie są zapisywane na stosie przy rekurencji (jak tablice);
+  brak porównania i różnicy wskaźników (`p - q`); `sizeof(struct S)` nie działa jako długość tablicy.
