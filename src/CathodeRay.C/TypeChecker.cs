@@ -73,7 +73,7 @@ public sealed class TypeChecker
         return value <= byte.MaxValue ? CType.UChar : CType.Int;
     }
 
-    private void CheckInit(Ast.Decl decl, bool global)
+    private void CheckInit(Ast.Decl decl)
     {
         CType type = Declared(decl.Type, decl.PointerDepth, decl.ArrayLength);
         if (decl.Init is null)
@@ -110,11 +110,6 @@ public sealed class TypeChecker
 
                 foreach (Ast.Expr item in list.Items)
                 {
-                    if (global && item is not Ast.Number)
-                    {
-                        throw new CTypeException($"initializer of global '{decl.Name}' must be constant.");
-                    }
-
                     AssignableOrNull(elem, item, $"initializer of '{decl.Name}'");
                 }
 
@@ -132,8 +127,6 @@ public sealed class TypeChecker
             {
                 throw new CTypeException($"redefinition of '{global.Name}'.");
             }
-
-            CheckInit(global, global: true);
         }
 
         foreach (Ast.Function function in program.Functions)
@@ -162,6 +155,12 @@ public sealed class TypeChecker
         }
 
         _lineMap = program.Lines ?? _lineMap;
+        foreach (Ast.Decl global in program.Globals)
+        {
+            CheckInit(global);
+        }
+
+        var globalTypes = new Dictionary<Ast.Expr, CType>(_types, ReferenceEqualityComparer.Instance);
         var checkedFunctions = new List<CheckedFunction>();
         foreach (Ast.Function function in program.Functions)
         {
@@ -172,7 +171,8 @@ public sealed class TypeChecker
             checkedFunctions,
             [.. _globals.Values],
             _warnings,
-            new Dictionary<Ast.Node, int>(program.Lines ?? new Dictionary<Ast.Node, int>(), ReferenceEqualityComparer.Instance));
+            new Dictionary<Ast.Node, int>(program.Lines ?? new Dictionary<Ast.Node, int>(), ReferenceEqualityComparer.Instance),
+            globalTypes);
     }
 
     private CheckedFunction ProtoFunction(Ast.Function function)
@@ -269,7 +269,7 @@ public sealed class TypeChecker
                 }
 
                 _locals.Add(new TypedSymbol(decl.Name, Declared(decl.Type, decl.PointerDepth, decl.ArrayLength)));
-                CheckInit(decl, global: false);
+                CheckInit(decl);
                 break;
             case Ast.If ifStmt:
                 Condition(ifStmt.Cond);

@@ -29,13 +29,13 @@
     {
       "id": "5",
       "title": "[S] Składanie stałych w checkerze: sizeof(zmienna/typ), stałe enum, &g + stała, stała arytmetyka na globalnych const-init; wynik jako Number w init (bez kodu startowego)",
-      "status": "todo",
+      "status": "done",
       "note": ""
     },
     {
       "id": "6",
       "title": "[L] Inicjalizator niestały (int x = f(); int y = x + 1;): segment INIT z tablicą .word procedur __cc_init_<moduł>, crt0 woła je po zerowaniu BSS pętlą do __init_end (symbol linkera z planu 27), kolejność = kolejność modułów; mapa .cfg i origins testów dostają INIT",
-      "status": "todo",
+      "status": "done",
       "note": ""
     },
     {

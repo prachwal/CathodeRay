@@ -1,5 +1,6 @@
 ; crt0.s — start runtime mini-C. Linkowany ZAWSZE pierwszy (przed wyjściem
-; codegenu): inicjalizuje SP, zeruje BSS od __bss_start do __bss_end, woła main, HLT.
+; codegenu): inicjalizuje SP, zeruje BSS od __bss_start do __bss_end, woła procedury z tablicy INIT
+; (inicjalizatory globali niestałe), woła main, HLT.
 ; __bss_start definiuje crt0 (1-bajtowy chunk BSS): linker układa chunki BSS
 ; segment-major (crt0, moduły); __bss_end to koniec ostatniego chunku (linker
 ; dodaje symbol __<segment>_end; bez linkera daje go codegen na końcu BSS).
@@ -9,6 +10,8 @@
 .global __bss_start
 .extern main
 .extern __bss_end
+.extern __init_start
+.extern __init_end
 .global cc_arg1
 .global cc_arg1_h
 .global cc_arg2
@@ -52,8 +55,49 @@ STA __bss_cmp2+1
 LDA cc_bp+1
 __bss_cmp2: SUB 0
 BNE __bss_next
-CALL main
+LDA cc_is
+STA cc_ip
+LDA cc_is+1
+STA cc_ip+1
+__init_next: LDA cc_ie
+STA __init_c1+1
+LDA cc_ip
+__init_c1: SUB 0
+BNE __init_go
+LDA cc_ie+1
+STA __init_c2+1
+LDA cc_ip+1
+__init_c2: SUB 0
+BEQ __init_done
+__init_go: LDA cc_ip
+STA __init_l1+1
+LDA cc_ip+1
+STA __init_l1+2
+__init_l1: LDA 0
+STA __init_call+1
+LDA cc_ip
+ADD 1
+STA cc_it
+LDA cc_ip+1
+ADC 0
+STA cc_it+1
+LDA cc_it
+STA __init_l2+1
+LDA cc_it+1
+STA __init_l2+2
+__init_l2: LDA 0
+STA __init_call+2
+__init_call: CALL 0
+LDA cc_ip
+ADD 2
+STA cc_ip
+LDA cc_ip+1
+ADC 0
+STA cc_ip+1
+JMP __init_next
+__init_done: CALL main
 HLT
+
 .segment "BSS"
 __bss_start: .res 1
 .segment "DATA"
@@ -74,3 +118,7 @@ cc_ret_h: .byte 0
 cc_bs: .word __bss_start
 cc_be: .word __bss_end
 cc_bp: .word 0
+cc_is: .word __init_start
+cc_ie: .word __init_end
+cc_ip: .word 0
+cc_it: .word 0

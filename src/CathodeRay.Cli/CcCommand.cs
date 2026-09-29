@@ -159,12 +159,14 @@ internal static partial class CcCommand
     /// <returns>Konfiguracja linkera.</returns>
     internal static LinkerConfig DefaultConfig() => new(
         [
-            new MemoryArea("C_CODE", 0x1000, 0x3000),
+            new MemoryArea("C_CODE", 0x1000, 0x2F00),
+            new MemoryArea("C_INIT", 0x3F00, 0x100),
             new MemoryArea("C_BSS", 0x4000, 0x1000),
             new MemoryArea("C_DATA", 0x5000, 0xB000),
         ],
         [
             new SegmentMapping("CODE", "C_CODE"),
+            new SegmentMapping("INIT", "C_INIT"),
             new SegmentMapping("BSS", "C_BSS"),
             new SegmentMapping("DATA", "C_DATA"),
         ]);

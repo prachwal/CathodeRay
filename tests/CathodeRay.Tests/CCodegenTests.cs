@@ -18,6 +18,7 @@ public sealed class CCodegenTests
         var origins = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase)
         {
             ["CODE"] = 0x1000,
+            ["INIT"] = 0x3F00,
             ["BSS"] = 0x4000,
             ["DATA"] = 0x5000,
         };

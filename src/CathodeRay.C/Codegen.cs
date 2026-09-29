@@ -36,6 +36,7 @@ public sealed partial class Codegen
     private readonly Dictionary<string, CType> _globalsByName = new(StringComparer.Ordinal);
 
     private readonly List<string> _extraCells = [];
+    private readonly List<TypedSymbol> _runtimeInits = [];
 
     private readonly Dictionary<string, int> _frames = new(StringComparer.Ordinal);
 
@@ -133,7 +134,44 @@ public sealed partial class Codegen
         return (lo, wide ? $"{lo}_h" : null);
     }
 
-    private static byte[]? InitBytes(TypedSymbol symbol)
+    /// <summary>Wartość stałej całkowitej (16-bit z zawijaniem): liczby, <c>sizeof</c>, działania i <c>-</c>/<c>~</c>.</summary>
+    private bool TryConstValue(Ast.Expr? expr, out int value)
+    {
+        value = 0;
+        switch (expr)
+        {
+            case Ast.Number number when TryNumber(number.Text, out int parsed):
+                value = parsed & 0xFFFF;
+                return true;
+            case Ast.SizeOf sizeOf when _globalsByName.TryGetValue(sizeOf.Name, out CType? type):
+                value = type.Size;
+                return true;
+            case Ast.Unary { Op: "-" or "~" } unary when TryConstValue(unary.Operand, out int operand):
+                value = (unary.Op == "-" ? -operand : ~operand) & 0xFFFF;
+                return true;
+            case Ast.Binary binary when TryConstValue(binary.Left, out int a) && TryConstValue(binary.Right, out int b):
+                int? folded = binary.Op switch
+                {
+                    "+" => a + b,
+                    "-" => a - b,
+                    "*" => a * b,
+                    "/" when b != 0 => (short)a / (short)b,
+                    "%" when b != 0 => (short)a % (short)b,
+                    "<<" when b < 16 => a << b,
+                    ">>" when b < 16 => (short)a >> b,
+                    "&" => a & b,
+                    "|" => a | b,
+                    "^" => a ^ b,
+                    _ => null,
+                };
+                value = (folded ?? 0) & 0xFFFF;
+                return folded is not null;
+            default:
+                return false;
+        }
+    }
+
+    private byte[]? InitBytes(TypedSymbol symbol)
     {
         if (symbol.Init is null)
         {
@@ -145,7 +183,7 @@ public sealed partial class Codegen
             return ArrayBytes(symbol);
         }
 
-        if (symbol.Init is Ast.Number number && TryNumber(number.Text, out int value))
+        if (TryConstValue(symbol.Init, out int value))
         {
             return symbol.Type.Size == 1 ? [(byte)(value & 0xFF)] : [(byte)(value & 0xFF), (byte)((value >> 8) & 0xFF)];
         }
@@ -153,7 +191,7 @@ public sealed partial class Codegen
         throw new CCodegenException($"initializer of '{symbol.Name}' must be a constant.");
     }
 
-    private static byte[] ArrayBytes(TypedSymbol symbol)
+    private byte[] ArrayBytes(TypedSymbol symbol)
     {
         CType elem = symbol.Type.Base!;
         var bytes = new byte[symbol.Type.Size];
@@ -170,7 +208,7 @@ public sealed partial class Codegen
         var items = ((Ast.InitList)symbol.Init!).Items;
         for (int i = 0; i < items.Count; i++)
         {
-            if (items[i] is not Ast.Number number || !TryNumber(number.Text, out int value))
+            if (!TryConstValue(items[i], out int value))
             {
                 throw new CCodegenException($"initializer of '{symbol.Name}' must be constant.");
             }
@@ -189,14 +227,75 @@ public sealed partial class Codegen
         return bytes;
     }
 
-    /// <summary>Adres jako inicjalizator globalnego wskaźnika: napis, <c>&amp;g</c> albo nazwa tablicy.</summary>
-    private string? SymbolInit(Ast.Expr? init) => init switch
+    /// <summary>Adres jako inicjalizator globalnego wskaźnika: napis, <c>&amp;g</c>, nazwa tablicy,
+    /// ewentualnie z przesunięciem stałą (<c>tab + 2</c>, skalowaną rozmiarem elementu).</summary>
+    private string? SymbolInit(Ast.Expr? init)
     {
-        Ast.Str str => StringLabel(str.Value),
-        Ast.AddressOf address => $"cc_g_{address.Name}",
-        Ast.Var variable when _globalsByName.TryGetValue(variable.Name, out CType? type) && type.Kind == "array" => $"cc_g_{variable.Name}",
-        _ => null,
+        switch (init)
+        {
+            case Ast.Str str:
+                return StringLabel(str.Value);
+            case Ast.AddressOf address:
+                return $"cc_g_{address.Name}";
+            case Ast.Var variable when _globalsByName.TryGetValue(variable.Name, out CType? type) && type.Kind == "array":
+                return $"cc_g_{variable.Name}";
+            case Ast.Binary { Op: "+" or "-" } binary when SymbolInit(binary.Left) is { } baseSymbol && TryConstValue(binary.Right, out int offset):
+                int delta = (short)offset * PointeeSize(binary.Left) * (binary.Op == "-" ? -1 : 1);
+                return delta == 0 ? baseSymbol : $"{baseSymbol}{(delta > 0 ? "+" : "-")}{Math.Abs(delta)}";
+            default:
+                return null;
+        }
+    }
+
+    private int PointeeSize(Ast.Expr pointer) => pointer switch
+    {
+        Ast.AddressOf address when _globalsByName.TryGetValue(address.Name, out CType? type) => type.Kind == "array" ? type.Base!.Size : type.Size,
+        Ast.Var variable when _globalsByName.TryGetValue(variable.Name, out CType? type) => type.Base?.Size ?? 1,
+        Ast.Binary binary => PointeeSize(binary.Left),
+        _ => 1,
     };
+
+    /// <summary>Kod startowy globali z inicjalizatorem niestałym: procedura <c>__cc_init</c> (lokalna w module),
+    /// wpisana do tablicy w segmencie INIT; crt0 woła wszystkie po wyzerowaniu BSS.</summary>
+    private void EmitGlobalInit(CheckedProgram program)
+    {
+        _prefix = "__cc_init";
+        _types = new Dictionary<Ast.Expr, CType>(program.GlobalTypes ?? new Dictionary<Ast.Expr, CType>(), ReferenceEqualityComparer.Instance);
+        _cells.Clear();
+        foreach (TypedSymbol global in _globals)
+        {
+            _cells[global.Name] = new Cell($"cc_g_{global.Name}", global.Type);
+        }
+
+        _maxTemp = -1;
+        _addrs = -1;
+        _extraCells.Clear();
+        StringBuilder outer = _code;
+        var body = new StringBuilder();
+        _code = body;
+        try
+        {
+            foreach (TypedSymbol global in _runtimeInits)
+            {
+                Store(global.Name, global.Init!, 0);
+            }
+        }
+        finally
+        {
+            _code = outer;
+        }
+
+        for (int temp = 0; temp <= _maxTemp; temp++)
+        {
+            DataCell($"{_prefix}__t{temp}", CType.UChar);
+            DataCell($"{_prefix}__t{temp}_h", CType.UChar);
+        }
+
+        _code.AppendLine(".proc __cc_init");
+        _code.Append(body.ToString());
+        _code.AppendLine("RET");
+        _code.AppendLine(".endproc");
+    }
 
     private string Hi(string lo) => _wordGlobals.Contains(lo) ? $"{lo}+1" : $"{lo}_h";
 
@@ -217,10 +316,19 @@ public sealed partial class Codegen
 
         foreach (TypedSymbol global in program.Globals)
         {
-            if (global.Type.Kind == "ptr" && SymbolInit(global.Init) is { } symbol)
+            if (global.Type.Kind != "array" && global.Init is not null && !TryConstValue(global.Init, out _))
             {
-                _words.Add(($"cc_g_{global.Name}", symbol));
-                _wordGlobals.Add($"cc_g_{global.Name}");
+                if (global.Type.Kind == "ptr" && SymbolInit(global.Init) is { } symbol)
+                {
+                    _words.Add(($"cc_g_{global.Name}", symbol));
+                    _wordGlobals.Add($"cc_g_{global.Name}");
+                }
+                else
+                {
+                    DataCell($"cc_g_{global.Name}", global.Type);
+                    _runtimeInits.Add(global);
+                }
+
                 continue;
             }
 
@@ -258,6 +366,11 @@ public sealed partial class Codegen
             }
         }
 
+        if (_runtimeInits.Count > 0)
+        {
+            EmitGlobalInit(program);
+        }
+
         if (_needMul)
         {
             EmitMul();
@@ -277,6 +390,26 @@ public sealed partial class Codegen
         {
             EmitDiv16();
             EmitSDiv16();
+        }
+
+        var initSegment = new StringBuilder();
+        if (_runtimeInits.Count > 0 || !objectMode)
+        {
+            initSegment.AppendLine(".segment \"INIT\"");
+            if (!objectMode)
+            {
+                initSegment.AppendLine("__init_start:");
+            }
+
+            if (_runtimeInits.Count > 0)
+            {
+                initSegment.AppendLine(".word __cc_init");
+            }
+
+            if (!objectMode)
+            {
+                initSegment.AppendLine("__init_end:");
+            }
         }
 
         var data = new StringBuilder();
@@ -361,7 +494,7 @@ public sealed partial class Codegen
         }
 
         CheckStack(program.Warnings);
-        return _code.ToString() + data.ToString() + bss.ToString();
+        return _code.ToString() + initSegment.ToString() + data.ToString() + bss.ToString();
     }
 
     private string Label(string hint) => $"L{++_labels}_{hint}";

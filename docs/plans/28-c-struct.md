@@ -14,8 +14,8 @@ Rozmiar: S = <1 h, M = kilka h, L = dzień. Kolejność: A → B → C → D →
 
 ## C. Inicjalizatory globalne
 
-- [ ] **5.** [S] Składanie stałych w checkerze: sizeof(zmienna/typ), stałe enum, &g + stała, stała arytmetyka na globalnych const-init; wynik jako Number w init (bez kodu startowego)
-- [ ] **6.** [L] Inicjalizator niestały (int x = f(); int y = x + 1;): segment INIT z tablicą .word procedur __cc_init_<moduł>, crt0 woła je po zerowaniu BSS pętlą do __init_end (symbol linkera z planu 27), kolejność = kolejność modułów; mapa .cfg i origins testów dostają INIT
+- [x] **5.** [S] Składanie stałych w checkerze: sizeof(zmienna/typ), stałe enum, &g + stała, stała arytmetyka na globalnych const-init; wynik jako Number w init (bez kodu startowego)
+- [x] **6.** [L] Inicjalizator niestały (int x = f(); int y = x + 1;): segment INIT z tablicą .word procedur __cc_init_<moduł>, crt0 woła je po zerowaniu BSS pętlą do __init_end (symbol linkera z planu 27), kolejność = kolejność modułów; mapa .cfg i origins testów dostają INIT
 
 ## D. struct (na końcu, największe)
 
@@ -28,4 +28,4 @@ Rozmiar: S = <1 h, M = kilka h, L = dzień. Kolejność: A → B → C → D →
 
 - [ ] **11.** [S] Testy e2e per pozycja, samples/minic/10_struct.c, 11_goto_typedef.c, 12_globals_init.c, docs/stub-calling-conv.md, hygiene
 
-Postęp: 4/11 gotowych.
+Postęp: 6/11 gotowych.

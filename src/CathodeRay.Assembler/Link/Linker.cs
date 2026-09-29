@@ -29,6 +29,7 @@ public static class Linker
         var cursors = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
         var chunks = new Dictionary<(int Module, string Segment), int>();
         var spans = new List<SegmentSpan>();
+        var synthetic = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
         foreach (SegmentMapping mapping in config.Segments)
         {
             if (!areas.TryGetValue(mapping.Load, out MemoryArea? area))
@@ -37,6 +38,8 @@ public static class Linker
             }
 
             cursors.TryAdd(area.Name, area.Start);
+            string lower = mapping.Name.ToLowerInvariant();
+            synthetic[$"__{lower}_start"] = cursors[area.Name];
             for (int m = 0; m < modules.Count; m++)
             {
                 foreach (ObjectSegment segment in modules[m].Module.Segments)
@@ -57,6 +60,8 @@ public static class Linker
                     spans.Add(new SegmentSpan(segment.Name, address, address + segment.Length, segment.Bss));
                 }
             }
+
+            synthetic[$"__{lower}_end"] = cursors[area.Name];
         }
 
         for (int m = 0; m < modules.Count; m++)
@@ -99,10 +104,11 @@ public static class Linker
             locals.Add(own);
         }
 
-        // Symbole syntetyczne __<segment>_end (koniec ostatniego chunku), np. __bss_end dla crt0.
-        foreach (IGrouping<string, SegmentSpan> group in spans.GroupBy(static s => s.Name, StringComparer.OrdinalIgnoreCase))
+        // Symbole syntetyczne __<segment>_start/_end każdego segmentu z konfiguracji (także pustego),
+        // np. __bss_end i __init_start dla crt0; symbol zdefiniowany w module ma pierwszeństwo.
+        foreach ((string name, int address) in synthetic)
         {
-            globals.TryAdd($"__{group.Key.ToLowerInvariant()}_end", group.Max(static s => s.End));
+            globals.TryAdd(name, address);
         }
 
         var image = new Dictionary<int, byte>();

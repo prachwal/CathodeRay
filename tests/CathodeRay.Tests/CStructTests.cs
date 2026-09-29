@@ -115,4 +115,80 @@ public sealed class CStructTests
             """;
         Run(Source).Should().Be(1 + 2 + 4 + 8 + 32);
     }
+
+    [Fact]
+    public void Global_Constant_Expressions_Sizeof_And_Address_Offsets()
+    {
+        const string Source = """
+            enum { K = 3 };
+            int tab[4] = {10, 20, 30, 40};
+            uchar bytes[5] = {1, 2, 3, 4, 5};
+            int n = sizeof(tab) + K * 2;
+            int m = (sizeof bytes << 1) - 1;
+            int *second = tab + 1;
+            uchar *last = bytes + 4;
+            uchar *back = last - 2;
+            int *addr = &n;
+            int main() {
+                return n * 100 + m + *second + *last + *back + *addr;
+            }
+            """;
+        Run(Source).Should().Be((14 * 100) + 9 + 20 + 5 + 3 + 14);
+    }
+
+    [Fact]
+    public void Global_Runtime_Initializers_Run_Before_Main_In_Order()
+    {
+        const string Source = """
+            int base = 5;
+            int calls;
+            int next() { calls++; return calls * 10; }
+            int a = next();
+            int b = a + base * 2;
+            uchar c = a + b;
+            int *pa = &a;
+            int main() {
+                return calls * 1000 + a + b + c + *pa;
+            }
+            """;
+        Run(Source).Should().Be((1 * 1000) + 10 + 20 + 30 + 10);
+    }
+
+    [Fact]
+    public void Global_Runtime_Initializers_Work_Across_Modules()
+    {
+        string dir = Directory.CreateTempSubdirectory("cathode-init-").FullName;
+        try
+        {
+            string a = Path.Combine(dir, "a.c");
+            string b = Path.Combine(dir, "b.c");
+            string bin = Path.Combine(dir, "p.bin");
+            File.WriteAllText(a, "int seed() { return 21; }\nint twice = seed() * 2;\nint get() { return twice; }\n");
+            File.WriteAllText(b, "int get();\nint five() { return 5; }\nint k = five() + 1;\nint main() { return get() + k; }\n");
+            var err = new StringWriter();
+            int exit = CathodeRay.Cli.CliApp.CreateRoot().Parse(["cc", a, b, "-o", bin])
+                .Invoke(new System.CommandLine.InvocationConfiguration { Output = new StringWriter(), Error = err });
+            exit.Should().Be(0, err.ToString());
+            byte[] image = File.ReadAllBytes(bin);
+            var bus = new CathodeRay.Stub.StubBus();
+            for (int i = 0; i < image.Length; i++)
+            {
+                bus.Write((ushort)(0x1000 + i), image[i]);
+            }
+
+            var cpu = new CathodeRay.Stub.StubCpu(CathodeRay.Stub.StubIsa.FromJsonFile(Repo.IsaFile("mcp_stub_instructions.json")), bus);
+            cpu.State.ProgramCounter = 0x1000;
+            for (int steps = 0; !cpu.State.Halted; steps++)
+            {
+                steps.Should().BeLessThan(500_000);
+                cpu.Step();
+            }
+
+            cpu.State.A.Should().Be(42 + 6);
+        }
+        finally
+        {
+            Directory.Delete(dir, recursive: true);
+        }
+    }
 }

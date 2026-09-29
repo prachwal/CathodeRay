@@ -118,3 +118,15 @@ brak `ADD`/`SUB` z pamięci absolutnej (tryb `,X` z `X = 0`).
 - `cc_mul8`/`cc_divmod` (uchar) to shift-add / dzielenie pisemne w 8 krokach, lokalne w module (bez `.global`).
 - Stos to strona `$01xx` (256 B): łańcuch wołań głębszy niż 256 B (ramka = PUSHe + 2 B adresu) to błąd
   kompilacji; rekurencja daje ostrzeżenie z szacunkiem głębokości (`cc` drukuje ostrzeżenia na stderr).
+
+## Rozszerzenia mini-C (plan 28)
+
+- `typedef` (aliasy typów i wskaźników), `goto` + etykiety (w obrębie funkcji), funkcje zwracające
+  wskaźnik (`uchar *f()`, wynik jak `int`: A=lo, X=hi), porównania wskaźników (bez znaku) i `p == 0`.
+- Złożone przypisania i `++`/`--` przez wskaźnik liczą adres celu raz (`a[i++] += 1`, `*p++ -= 1`):
+  ukryty wskaźnik `__aoN` (chroniony ramką).
+- Globalne inicjalizatory: stałe (liczby, `sizeof`, działania, `enum`) trafiają do DATA; adresy
+  (`&g`, napis, tablica, `tab + 2`) do komórki `.word`; reszta (np. `int a = f();`) jest liczona
+  w `__cc_init` modułu, wpisanym do tablicy segmentu INIT (`.word`). Crt0 po zerowaniu BSS woła
+  każdy wpis tablicy (`__init_start`..`__init_end`, symbole linkera `__<segment>_start/_end`).
+- Układ `cc`: CODE `$1000` (do `$3EFF`), INIT `$3F00` (256 B = 128 modułów), BSS `$4000`, DATA `$5000`.
