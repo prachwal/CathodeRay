@@ -8,7 +8,10 @@ internal sealed partial class Lowering
 
     private const string ReturnBuffer = "cc_retbuf";
 
-    private static int RetWidth(CType type) => type.Kind == "void" ? 0 : Width(type);
+    private static int RetWidth(CType type) => type.Kind == "void" || IsLL(type) ? 0 : Width(type);
+
+    /// <summary>Szerokość argumentu w rejestrach: <c>long long</c> jedzie przez adres kopii.</summary>
+    private static int ArgWidth(CType type) => IsLL(type) ? 2 : Width(type);
 
     /// <summary>Wołanie: argumenty od ostatniego (każdy w swojej tymczasowej głębiej niż poprzedni, żeby zagnieżdżone
     /// wywołania nie nadpisały wyników), potem adres funkcji (wołanie pośrednie), potem <see cref="Ir.Call"/>.</summary>
@@ -26,7 +29,7 @@ internal sealed partial class Lowering
                 calleeExpr = new Ast.Var(call.Name);
                 _types[calleeExpr] = variable.Type;
                 paramTypes = variable.Type.Sig!.Params;
-                widths = [.. paramTypes.Select(static t => Width(t))];
+                widths = [.. paramTypes.Select(static t => ArgWidth(t))];
                 break;
             case Ast.Call call:
                 if (!_functions.TryGetValue(call.Name, out CheckedFunction? target))
@@ -37,7 +40,7 @@ internal sealed partial class Lowering
                 args = call.Args;
                 direct = call.Name;
                 paramTypes = [.. target.Params.Select(static p => p.Type)];
-                widths = [.. paramTypes.Select(static t => Width(t))];
+                widths = [.. paramTypes.Select(static t => ArgWidth(t))];
                 while (target.Def.IsVariadic && widths.Count < args.Count)
                 {
                     widths.Add(Math.Max(Width(TypeOf(args[widths.Count]).Decay()), 2));
@@ -48,7 +51,7 @@ internal sealed partial class Lowering
                 args = callExpr.Args;
                 calleeExpr = callExpr.Callee;
                 paramTypes = TypeOf(callExpr.Callee).Sig!.Params;
-                widths = [.. paramTypes.Select(static t => Width(t))];
+                widths = [.. paramTypes.Select(static t => ArgWidth(t))];
                 break;
             default:
                 throw new CCodegenException($"'{expr.GetType().Name}' is not a call.");
@@ -64,7 +67,14 @@ internal sealed partial class Lowering
         for (int i = count - 1; i >= 0; i--)
         {
             int at = depth + 1 + (count - 1 - i);
-            if (i < paramTypes.Count && paramTypes[i].Kind == "struct")
+            if (i < paramTypes.Count && IsLL(paramTypes[i]))
+            {
+                Ir.Op copyValue = Convert(Value(args[i], at), TypeOf(args[i]), paramTypes[i], at + count + 2);
+                var copyAddress = new Ir.AddrOf(NewAggregate(8), 0);
+                Emit(new Ir.Store(copyAddress, 0, copyValue, 8));
+                values[i] = copyAddress;
+            }
+            else if (i < paramTypes.Count && paramTypes[i].Kind == "struct")
             {
                 (Ir.Op pointer, int offset) = LValueAddr(args[i], at);
                 values[i] = AddressValue(pointer, offset, at);
@@ -108,6 +118,15 @@ internal sealed partial class Lowering
         int retW = expr is Ast.Call or Ast.CallExpr && returned.Kind != "struct" ? RetWidth(returned) : 0;
         Ir.Cell? result = retW == 0 ? null : into is not null && into.W == retW ? into : Temp(depth, retW);
         Emit(new Ir.Call(direct, indirect, values, widths, result));
+        if (IsLL(returned) && expr is Ast.Call or Ast.CallExpr)
+        {
+            // long long wraca we wspólnym buforze cc_retbuf: kopiujemy od razu do własnej tymczasowej
+            _usesReturnBuffer = true;
+            Ir.Cell wide = into is not null && into.W == 8 ? into : Temp(depth, 8);
+            Emit(new Ir.Load(wide, new Ir.AddrOf(ReturnBuffer, 0), 0, 8));
+            result = wide;
+        }
+
         if (aggregate is not null)
         {
             // wynik struktury wraca we wspólnym buforze, który wołający kopiuje od razu do własnej tymczasowej

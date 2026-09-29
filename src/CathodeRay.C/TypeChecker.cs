@@ -62,7 +62,7 @@ public sealed partial class TypeChecker
     private static CType NumberType(string text) => ParseLiteral(text).Type;
 
     private static Literal ParseLiteral(string text) =>
-        Literal.TryParse(text, out Literal literal) ? literal : throw new CTypeException($"invalid number '{text}' (0..4294967295).");
+        Literal.TryParse(text, out Literal literal) ? literal : throw new CTypeException($"invalid number '{text}' (0..18446744073709551615).");
 
     private void CheckInit(Ast.Decl decl)
     {
@@ -786,6 +786,11 @@ public sealed partial class TypeChecker
             return;
         }
 
+        if ((target.IsFloat && value.Kind is "llong" or "ullong") || (value.IsFloat && target.Kind is "llong" or "ullong"))
+        {
+            throw new CTypeException($"{where}: conversion between float and long long is not supported.");
+        }
+
         if (target.IsFloat && value.IsInteger)
         {
             return;
@@ -845,7 +850,7 @@ public sealed partial class TypeChecker
             case Ast.OffsetOf offset:
                 value = OffsetOfField(offset);
                 return true;
-            case Ast.Cast cast when Declared(cast.Type, cast.Stars).Size != 4 && TypeOf(cast.Value).Size != 4 && TryConst(cast.Value, out int cast0):
+            case Ast.Cast cast when Declared(cast.Type, cast.Stars).Size < 4 && TypeOf(cast.Value).Size < 4 && TryConst(cast.Value, out int cast0):
                 value = Declared(cast.Type, cast.Stars).Size == 1 ? cast0 & 0xFF : cast0 & 0xFFFF;
                 return true;
             case Ast.Unary unary when TryConst(unary.Operand, out int operand):
@@ -1021,7 +1026,7 @@ public sealed partial class TypeChecker
             return target;
         }
 
-        if (target.Kind is "struct" or "array" || source.Kind is "struct" or "void" || (target.IsFloat && source.Kind is "ptr" or "fptr") || (source.IsFloat && target.Kind is "ptr" or "fptr"))
+        if (target.Kind is "struct" or "array" || source.Kind is "struct" or "void" || (target.IsFloat && source.Kind is "ptr" or "fptr" or "llong" or "ullong") || (source.IsFloat && target.Kind is "ptr" or "fptr" or "llong" or "ullong"))
         {
             throw new CTypeException($"cannot cast {source} to {target}.");
         }
@@ -1080,7 +1085,7 @@ public sealed partial class TypeChecker
         for (int i = function.Params.Count; i < call.Args.Count; i++)
         {
             CType extra = TypeOf(call.Args[i]).Decay();
-            if (extra.Kind is "void" or "struct")
+            if (extra.Kind is "void" or "struct" or "llong" or "ullong")
             {
                 throw new CTypeException($"argument {i + 1} of '{call.Name}' must be a value.");
             }

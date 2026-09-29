@@ -147,14 +147,16 @@ internal sealed partial class Lowering
             return false;
         }
 
-        value = target.Size == 4 && constant >= 0x8000 ? constant | 0xFFFF0000L : constant;
+        value = target.Size == 8 && constant >= 0x8000 ? (short)constant : target.Size == 4 && constant >= 0x8000 ? constant | 0xFFFF0000L : constant;
         return true;
     }
 
     /// <summary>Liczba w kolejności bajtów celu.</summary>
     private byte[] NumberBytes(long value, int size)
     {
-        byte[] bytes = size == 1 ? [(byte)value] : size == 2 ? [(byte)value, (byte)(value >> 8)] : [(byte)value, (byte)(value >> 8), (byte)(value >> 16), (byte)(value >> 24)];
+        byte[] bytes = size == 1 ? [(byte)value] : size == 2 ? [(byte)value, (byte)(value >> 8)]
+            : size == 4 ? [(byte)value, (byte)(value >> 8), (byte)(value >> 16), (byte)(value >> 24)]
+            : [(byte)value, (byte)(value >> 8), (byte)(value >> 16), (byte)(value >> 24), (byte)(value >> 32), (byte)(value >> 40), (byte)(value >> 48), (byte)(value >> 56)];
         if (_byteOrder == TargetByteOrder.Big)
         {
             Array.Reverse(bytes);

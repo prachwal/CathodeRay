@@ -382,3 +382,15 @@ argumentach, `return`, `?:`; całkowite z `float` daje ostrzeżenie. Działania 
 Uproszczenia: wynik obcinany (bez zaokrąglania), liczby zdenormalizowane to zero, brak obsługi NaN/Inf w działaniach.
 Tekst: `ftoa(float, uchar *buf)` z `<stdlib.h>` (6 cyfr ułamka); `printf` celowo nie ma `%f` — wciągnęłoby do każdego programu
 ok. 3 KB arytmetyki 32-bitowej.
+
+## long long (plan 31, krok 16)
+
+`long long` i `unsigned long long` (64 bity). Komórki 8-bajtowe istnieją tylko tuż po obniżeniu funkcji: `Wide8Legalizer` rozbija je
+na połówki 32-bitowe (`sym`, `sym+4`; w BE odwrotnie), zanim ruszą przebiegi IR, więc reszta potoku (interpreter, `WideLegalizer`,
+selektory) nie zna szerokości 8. Dodawanie i odejmowanie: przeniesienie z porównania połówek; przesunięcia o stałą składane
+z przesunięć połówek; porównania decyduje starsza połówka, przy równych młodsza bez znaku. Mnożenie, dzielenie, modulo i
+przesunięcia o zmienną liczbę pozycji to wołania `__cc_mul64/divu64/modu64/divs64/mods64/shl64/shr64/sar64` z `rt_ll64.c` z adresami
+obiektów (`Materialize` kopiuje stałe do komórek `__w8x*`). Argument `long long` jedzie jak struktura: przez adres kopii
+(1 slot), wynik wraca przez `cc_retbuf`. Literały: `123LL`, `5ULL` oraz każda liczba powyżej 32 bitów (`Ir.Imm.High` to starsza połowa).
+Konwersja `float` <-> `long long` nie jest obsługiwana (błąd typów). Tekst: `lltoa`/`ulltoa` z `<stdlib.h>`; `printf` nie ma
+`%lld` (koszt dzielenia 64-bitowego w każdym programie).

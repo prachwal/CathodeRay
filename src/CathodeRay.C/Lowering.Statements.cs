@@ -186,6 +186,18 @@ internal sealed partial class Lowering
             return;
         }
 
+        if (ReturnsLL(def))
+        {
+            if (ret.Value is not null)
+            {
+                _usesReturnBuffer = true;
+                Emit(new Ir.Store(new Ir.AddrOf(ReturnBuffer, 0), 0, Convert(Value(ret.Value, 0), TypeOf(ret.Value), ReturnCType(def), 1), 8));
+            }
+
+            Emit(new Ir.Ret(null, 0));
+            return;
+        }
+
         int retW = ReturnWidth(def);
         if (ret.Value is null)
         {

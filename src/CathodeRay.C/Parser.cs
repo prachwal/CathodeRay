@@ -191,6 +191,11 @@ public sealed class Parser
             return signed ? "schar" : "uchar";
         }
 
+        if (longs > 1)
+        {
+            return unsigned ? "ullong" : "llong";
+        }
+
         if (longs > 0)
         {
             return unsigned ? "ulong" : "long";
@@ -1285,7 +1290,7 @@ public sealed class Parser
                 string bareType = TypeQualifiers.Split(sizeType, out _, out _);
                 size = bareType.StartsWith("struct ", StringComparison.Ordinal) && stars == 0
                     ? new Ast.SizeOfType(bareType, stars)
-                    : new Ast.Number(stars > 0 || bareType is "int" or "uint" ? "2" : bareType is "long" or "ulong" or "float" ? "4" : "1");
+                    : new Ast.Number(stars > 0 || bareType is "int" or "uint" ? "2" : bareType is "long" or "ulong" or "float" ? "4" : bareType is "llong" or "ullong" ? "8" : "1");
             }
             else
             {

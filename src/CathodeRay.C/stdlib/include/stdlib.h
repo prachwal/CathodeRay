@@ -9,6 +9,8 @@ int max(int a, int b);
 int atoi(const uchar *s);
 uchar *itoa(int value, uchar *buf, uchar base);
 uchar *ftoa(float value, uchar *buf);
+uchar *lltoa(long long value, uchar *buf, uchar base);
+uchar *ulltoa(unsigned long long value, uchar *buf, uchar base);
 void srand(uint seed);
 uint rand();
 #endif

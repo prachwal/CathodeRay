@@ -101,9 +101,10 @@ public static class Ir
     public sealed record Cell(string Sym, int W) : Op;
 
     /// <summary>Stała.</summary>
-    /// <param name="Value">Wartość (młodsze <paramref name="W"/> bajtów).</param>
+    /// <param name="Value">Wartość (młodsze <paramref name="W"/> bajtów; dla szerokości 8 młodsze 32 bity).</param>
     /// <param name="W">Szerokość w bajtach.</param>
-    public sealed record Imm(int Value, int W) : Op;
+    /// <param name="High">Starsze 32 bity stałej 8-bajtowej (dla pozostałych szerokości 0).</param>
+    public sealed record Imm(int Value, int W, int High = 0) : Op;
 
     /// <summary>Adres symbolu z przesunięciem (wartość 16-bitowa; bez ukrytych komórek w generatorze).</summary>
     /// <param name="Sym">Symbol (zmienna, funkcja, napis).</param>

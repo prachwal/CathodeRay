@@ -22,7 +22,7 @@ internal sealed partial class Lowering
     {
         bool signedBytes = KindOf(left) == "schar" || KindOf(right) == "schar";
         bool unsignedCompare = (WidthOf(left) == 1 && WidthOf(right) == 1 && !signedBytes)
-            || KindOf(left) is "uint" or "ulong" or "ptr" or "fptr" || KindOf(right) is "uint" or "ulong" or "ptr" or "fptr";
+            || KindOf(left) is "uint" or "ulong" or "ullong" or "ptr" or "fptr" || KindOf(right) is "uint" or "ulong" or "ullong" or "ptr" or "fptr";
         return op switch
         {
             "==" => Ir.Cond.Eq,

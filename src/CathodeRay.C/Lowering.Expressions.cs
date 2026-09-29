@@ -88,7 +88,7 @@ internal sealed partial class Lowering
             Ir.Imm imm => imm.W,
             _ => 2,
         };
-        bool signedSource = from.Kind == "schar" || from.Kind == "int";
+        bool signedSource = from.Kind is "schar" or "int" or "long";
         if (toWidth <= source || !signedSource || value is Ir.AddrOf)
         {
             return value;
@@ -96,15 +96,16 @@ internal sealed partial class Lowering
 
         if (value is Ir.Imm constant)
         {
-            return new Ir.Imm(source == 1 ? (sbyte)constant.Value : source == 2 ? (short)constant.Value : constant.Value, toWidth);
+            long extended = source == 1 ? (sbyte)constant.Value : source == 2 ? (short)constant.Value : constant.Value;
+            return new Ir.Imm((int)extended, toWidth, toWidth == 8 ? (int)(extended >> 32) : 0);
         }
 
         Ir.Cell wide = Temp(depth, toWidth);
         string done = Label("sext");
-        uint high = source == 1 ? (toWidth == 2 ? 0xFF00u : 0xFFFFFF00u) : 0xFFFF0000u;
+        uint high = source == 1 ? (toWidth == 2 ? 0xFF00u : 0xFFFFFF00u) : source == 2 ? 0xFFFF0000u : 0u;
         Emit(new Ir.Mov(wide, value));
-        Emit(new Ir.BrCmp(Ir.Cond.Ltu, value, new Ir.Imm(source == 1 ? 0x80 : 0x8000, source), done));
-        Emit(new Ir.Bin(Ir.BinOp.Or, wide, wide, new Ir.Imm(unchecked((int)high), toWidth)));
+        Emit(new Ir.BrCmp(Ir.Cond.Ltu, value, new Ir.Imm(source == 1 ? 0x80 : source == 2 ? 0x8000 : int.MinValue, source), done));
+        Emit(new Ir.Bin(Ir.BinOp.Or, wide, wide, new Ir.Imm(unchecked((int)high), toWidth, toWidth == 8 ? -1 : 0)));
         Emit(new Ir.Label(done));
         return wide;
     }
@@ -144,7 +145,9 @@ internal sealed partial class Lowering
             {
                 if (Literal.TryParse(number.Text, out Literal literal) && literal.IsLong)
                 {
-                    return new Ir.Imm((int)literal.Value, 4);
+                    return literal.Type.Size == 8
+                        ? new Ir.Imm((int)literal.Value, 8, (int)(literal.Value >> 32))
+                        : new Ir.Imm((int)literal.Value, 4);
                 }
 
                 TryNumber(number.Text, out int value);
@@ -366,7 +369,7 @@ internal sealed partial class Lowering
             }
         }
 
-        bool unsignedOperands = leftType.Kind is "uint" or "ulong" || rightType.Kind is "uint" or "ulong" || (width == 1 && !signedByte);
+        bool unsignedOperands = leftType.Kind is "uint" or "ulong" or "ullong" || rightType.Kind is "uint" or "ulong" or "ullong" || (width == 1 && !signedByte);
         Ir.BinOp kind = op switch
         {
             "+" => Ir.BinOp.Add,
@@ -378,10 +381,10 @@ internal sealed partial class Lowering
             "|" => Ir.BinOp.Or,
             "^" => Ir.BinOp.Xor,
             "<<" => Ir.BinOp.Shl,
-            ">>" => width >= 2 && leftType.Kind is "int" or "long" ? Ir.BinOp.Sar : Ir.BinOp.Shr,
+            ">>" => width >= 2 && leftType.Kind is "int" or "long" or "llong" ? Ir.BinOp.Sar : Ir.BinOp.Shr,
             _ => throw new CCodegenException($"unknown operator '{op}'."),
         };
-        if (ReduceStrength(kind, width, left, right, depth) is { } reduced)
+        if (width < 8 && ReduceStrength(kind, width, left, right, depth) is { } reduced)
         {
             return reduced;
         }

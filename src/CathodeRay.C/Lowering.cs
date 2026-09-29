@@ -31,6 +31,8 @@ internal sealed partial class Lowering
 
     private readonly HashSet<int> _wideTemps = [];
 
+    private readonly HashSet<int> _wide8Temps = [];
+
     private readonly HashSet<string> _volatileSyms = new(StringComparer.Ordinal);
 
     private readonly TargetByteOrder _byteOrder;
@@ -72,6 +74,8 @@ internal sealed partial class Lowering
     private bool _returnsStruct;
 
     private bool _usesReturnBuffer;
+
+    private bool _wide8Scratch;
 
     private int _switches;
 
@@ -153,7 +157,9 @@ internal sealed partial class Lowering
 
     private static string GlobalLabel(string name) => $"cc_g_{name}";
 
-    private static int Width(CType type) => type.Kind is "uchar" or "schar" ? 1 : type.Kind is "long" or "ulong" or "float" ? 4 : 2;
+    private static int Width(CType type) => type.Kind is "uchar" or "schar" ? 1 : type.Kind is "long" or "ulong" or "float" ? 4 : type.Kind is "llong" or "ullong" ? 8 : 2;
+
+    private static bool IsLL(CType type) => type.Kind is "llong" or "ullong";
 
     private static bool IsWide(CType type) => type.Kind is "int" or "uint" or "long" or "ulong" or "ptr" or "fptr";
 
@@ -176,6 +182,7 @@ internal sealed partial class Lowering
         return def.ReturnStars > 0 ? 2
             : bare == "void" || bare.StartsWith("struct ", StringComparison.Ordinal) ? 0
             : bare is "uchar" or "schar" ? 1
+            : bare is "llong" or "ullong" ? 0
             : bare is "long" or "ulong" or "float" ? 4
             : 2;
     }
@@ -205,6 +212,9 @@ internal sealed partial class Lowering
 
         return result;
     }
+
+    private static bool ReturnsLL(Ast.Function def) =>
+        def.ReturnStars == 0 && TypeQualifiers.Split(def.ReturnType, out _, out _) is "llong" or "ullong";
 
     private static bool ReturnsStruct(Ast.Function def) =>
         def.ReturnStars == 0 && TypeQualifiers.Split(def.ReturnType, out _, out _).StartsWith("struct ", StringComparison.Ordinal);
@@ -273,6 +283,10 @@ internal sealed partial class Lowering
         {
             _wideTemps.Add(depth);
         }
+        else if (width == 8)
+        {
+            _wide8Temps.Add(depth);
+        }
 
         return new Ir.Cell(TempSym(depth), width);
     }
@@ -311,9 +325,25 @@ internal sealed partial class Lowering
         var prologue = new List<Ir.Ins>();
         bool structReturn = ReturnsStruct(function.Def);
         _returnsStruct = structReturn;
-        _usesReturnBuffer |= structReturn;
+        _usesReturnBuffer |= structReturn || ReturnsLL(function.Def);
         foreach (TypedSymbol param in function.Params)
         {
+            if (IsLL(param.Type))
+            {
+                // long long przez wartość: wołający podaje adres kopii, callee ładuje ją do własnej komórki
+                var address = new Ir.Cell($"{_prefix}__{param.Name}__p", 2);
+                AddBss(address.Sym, 2);
+                saved.Add(new Ir.Owned(address.Sym, 2, false));
+                parameters.Add(address);
+                var value = new VarCell($"{_prefix}__{param.Name}", param.Type);
+                _cells[param.Name] = value;
+                MarkVolatile(value);
+                AddBss(value.Sym, 8);
+                saved.Add(new Ir.Owned(value.Sym, 8, false));
+                prologue.Add(new Ir.Load(new Ir.Cell(value.Sym, 8), address, 0, 8));
+                continue;
+            }
+
             if (param.Type.Kind == "struct")
             {
                 // struktura przez wartość: wołający podaje adres, callee kopiuje ją do własnej lokalnej struktury
@@ -362,6 +392,7 @@ internal sealed partial class Lowering
 
         _maxTemp = -1;
         _wideTemps.Clear();
+        _wide8Temps.Clear();
         _extraOwned.Clear();
         _body = [];
         Comment(function.Def);
@@ -378,14 +409,14 @@ internal sealed partial class Lowering
         for (int temp = 0; temp <= _maxTemp; temp++)
         {
             string sym = TempSym(temp);
-            int tempSize = _wideTemps.Contains(temp) ? 4 : 2;
+            int tempSize = _wide8Temps.Contains(temp) ? 8 : _wideTemps.Contains(temp) ? 4 : 2;
             AddBss(sym, tempSize);
             saved.Add(new Ir.Owned(sym, tempSize, false));
         }
 
         saved.AddRange(_extraOwned);
         int retW = ReturnWidth(function.Def);
-        _pending.Add(new Pending(new Ir.Function(function.Def.Name, function.Def.IsStatic, parameters, retW, [], IrPasses.Optimize(DropJumpsToNext(_body), function.Def.Name, null, _volatileSyms)), saved, aggregates));
+        _pending.Add(new Pending(new Ir.Function(function.Def.Name, function.Def.IsStatic, parameters, retW, [], IrPasses.Optimize(SplitWide8(DropJumpsToNext(_body)), function.Def.Name, null, _volatileSyms)), saved, aggregates));
         _current = null;
     }
 
@@ -403,6 +434,7 @@ internal sealed partial class Lowering
 
         _maxTemp = -1;
         _wideTemps.Clear();
+        _wide8Temps.Clear();
         _extraOwned.Clear();
         _body = [];
         foreach (TypedSymbol global in _runtimeInits)
@@ -412,10 +444,30 @@ internal sealed partial class Lowering
 
         for (int temp = 0; temp <= _maxTemp; temp++)
         {
-            AddBss(TempSym(temp), _wideTemps.Contains(temp) ? 4 : 2);
+            AddBss(TempSym(temp), _wide8Temps.Contains(temp) ? 8 : _wideTemps.Contains(temp) ? 4 : 2);
         }
 
-        _initFunction = new Ir.Function("__cc_init", true, [], 0, [], IrPasses.Optimize(DropJumpsToNext(_body), "__cc_init"));
+        _initFunction = new Ir.Function("__cc_init", true, [], 0, [], IrPasses.Optimize(SplitWide8(DropJumpsToNext(_body)), "__cc_init"));
+    }
+
+    /// <summary>Rozbija operacje 64-bitowe na połówki 32-bitowe (<see cref="Wide8Legalizer"/>) i raz na moduł tworzy komórki pomocnicze.</summary>
+    private List<Ir.Ins> SplitWide8(List<Ir.Ins> body)
+    {
+        if (!body.Any(Wide8Legalizer.Touches))
+        {
+            return body;
+        }
+
+        if (!_wide8Scratch)
+        {
+            _wide8Scratch = true;
+            foreach ((string name, int size) in Wide8Legalizer.Scratch)
+            {
+                AddBss(name, size);
+            }
+        }
+
+        return Wide8Legalizer.Run(body, _byteOrder == TargetByteOrder.Big, () => Label("w8"));
     }
 
     private sealed record VarCell(string Sym, CType Type);

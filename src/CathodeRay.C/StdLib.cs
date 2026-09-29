@@ -12,7 +12,7 @@ public static partial class StdLib
 
     private static readonly Lazy<IReadOnlyList<StdModule>> LazyRuntime = new(() =>
     [
-        .. new[] { "rt_mul.c", "rt_mul8.c", "rt_div.c", "rt_divs.c", "rt_div8.c", "rt_shift.c", "rt_mem.c", "rt_mul32.c", "rt_div32.c", "rt_shift32.c", "rt_float.c" }.Select(static name =>
+        .. new[] { "rt_mul.c", "rt_mul8.c", "rt_div.c", "rt_divs.c", "rt_div8.c", "rt_shift.c", "rt_mem.c", "rt_mul32.c", "rt_div32.c", "rt_shift32.c", "rt_float.c", "rt_ll64.c" }.Select(static name =>
         {
             string source = Portable(name);
             HashSet<string> defines = [.. Parser.Parse(source, HeaderReader).Functions.Where(static f => !f.IsExtern && !f.IsStatic).Select(static f => f.Name)];

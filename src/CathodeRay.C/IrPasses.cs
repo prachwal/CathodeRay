@@ -113,6 +113,13 @@ internal static class IrPasses
 
     private static long Mask(int width) => width == 1 ? 0xFF : width == 2 ? 0xFFFF : 0xFFFFFFFFL;
 
+    /// <summary>Symbol obiektu bez przesunięcia połówki (<c>x+4</c> to część obiektu <c>x</c>).</summary>
+    private static string BaseSymbol(string symbol)
+    {
+        int plus = symbol.IndexOf('+', StringComparison.Ordinal);
+        return plus < 0 ? symbol : symbol[..plus];
+    }
+
     private static HashSet<string> AddressTaken(List<Ir.Ins> body)
     {
         var taken = new HashSet<string>(StringComparer.Ordinal);
@@ -135,7 +142,7 @@ internal static class IrPasses
     private static List<Ir.Ins> Propagate(List<Ir.Ins> body, string function, IReadOnlySet<string>? inlined, IReadOnlySet<string>? volatiles)
     {
         HashSet<string> taken = AddressTaken(body);
-        bool Tracked(string sym) => IsLocal(sym, function, inlined) && !taken.Contains(sym) && volatiles?.Contains(sym) != true;
+        bool Tracked(string sym) => IsLocal(sym, function, inlined) && !taken.Contains(BaseSymbol(sym)) && volatiles?.Contains(BaseSymbol(sym)) != true;
         var known = new Dictionary<string, Ir.Op>(StringComparer.Ordinal);
         var result = new List<Ir.Ins>(body.Count);
 
@@ -321,7 +328,7 @@ internal static class IrPasses
             }
 
             int before = body.Count;
-            body = [.. body.Where(ins => ins is Ir.Call or Ir.Load { Volatile: true } || Defined(ins) is not { } d || !IsLocal(d.Sym, function, inlined) || taken.Contains(d.Sym) || reads.Contains(d.Sym) || volatiles?.Contains(d.Sym) == true)];
+            body = [.. body.Where(ins => ins is Ir.Call or Ir.Load { Volatile: true } || Defined(ins) is not { } d || !IsLocal(d.Sym, function, inlined) || taken.Contains(BaseSymbol(d.Sym)) || reads.Contains(d.Sym) || volatiles?.Contains(BaseSymbol(d.Sym)) == true)];
             if (body.Count == before)
             {
                 return body;

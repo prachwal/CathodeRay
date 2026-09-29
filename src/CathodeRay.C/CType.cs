@@ -28,6 +28,12 @@ public sealed record CType(string Kind, CType? Base = null, int Length = 0, Stru
     /// <summary>32-bit bez znaku.</summary>
     public static CType ULong { get; } = new("ulong");
 
+    /// <summary>64-bit ze znakiem (<c>long long</c>).</summary>
+    public static CType LLong { get; } = new("llong");
+
+    /// <summary>64-bit bez znaku (<c>unsigned long long</c>).</summary>
+    public static CType ULLong { get; } = new("ullong");
+
     /// <summary>32-bitowa liczba zmiennoprzecinkowa IEEE-754 (<c>float</c>; <c>double</c> to ten sam typ).</summary>
     public static CType Float { get; } = new("float");
 
@@ -39,13 +45,14 @@ public sealed record CType(string Kind, CType? Base = null, int Length = 0, Stru
     {
         "uchar" or "schar" => 1,
         "long" or "ulong" or "float" => 4,
+        "llong" or "ullong" => 8,
         "array" => Length * (Base?.Size ?? 0),
         "struct" => Info?.Size ?? 0,
         _ => 2,
     };
 
     /// <summary>Typ całkowity (uchar, int, uint, long, ulong).</summary>
-    public bool IsInteger => Kind is "uchar" or "schar" or "int" or "uint" or "long" or "ulong";
+    public bool IsInteger => Kind is "uchar" or "schar" or "int" or "uint" or "long" or "ulong" or "llong" or "ullong";
 
     /// <summary>Typ zmiennoprzecinkowy.</summary>
     public bool IsFloat => Kind == "float";
@@ -79,6 +86,8 @@ public sealed record CType(string Kind, CType? Base = null, int Length = 0, Stru
     public static CType Promote(CType a, CType b) =>
         a.Kind == "float" || b.Kind == "float" ? Float
         : (a.Kind == "schar" && b.Kind is "schar" or "uchar") || (b.Kind == "schar" && a.Kind == "uchar") ? SChar
+        : a.Kind == "ullong" || b.Kind == "ullong" ? ULLong
+        : a.Kind == "llong" || b.Kind == "llong" ? LLong
         : a.Kind == "ulong" || b.Kind == "ulong" ? ULong
         : a.Kind == "long" || b.Kind == "long" ? Long
         : a.Kind == "uint" || b.Kind == "uint" ? UInt
@@ -111,6 +120,8 @@ public sealed record CType(string Kind, CType? Base = null, int Length = 0, Stru
         "long" => Long,
         "ulong" => ULong,
         "float" => Float,
+        "llong" => LLong,
+        "ullong" => ULLong,
         "void" => Void,
         _ => throw new ArgumentException($"Unknown type '{name}'.", nameof(name)),
     };

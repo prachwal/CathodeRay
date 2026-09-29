@@ -110,7 +110,7 @@
     {
       "id": "16",
       "title": "[L] long long / unsigned long long (64 bity): WideLegalizer rekurencyjnie (W8 -> dwie połówki 32), rt mul64/div64 w mini-C, literały LL, konwersje, printf %lld/%llu/%llx, sample",
-      "status": "todo",
+      "status": "done",
       "note": "",
       "section": "D. Typy i kwalifikatory"
     },
