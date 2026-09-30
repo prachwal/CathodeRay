@@ -37,6 +37,14 @@ internal sealed class ByteSelector
     /// <returns>Tekst dla asemblera CPU.</returns>
     public string Emit()
     {
+        // komórka w rejestrze nie może być zewnętrzna ani zapisywana w ramce (push/pop jej bajtów)
+        string? misplaced = _module.ExternCells.Concat(_module.Functions.SelectMany(static f => f.Saved).Select(static o => o.Sym))
+            .FirstOrDefault(sym => _isa.IsRegister(_isa.Sym(sym)));
+        if (misplaced is not null)
+        {
+            throw new InvalidOperationException($"cell {misplaced} is assigned to a register but is extern or saved in a frame.");
+        }
+
         foreach (Ir.Function function in _module.Functions)
         {
             EmitFunction(function);
@@ -906,7 +914,7 @@ internal sealed class ByteSelector
         }
 
         text.AppendLine(_isa.Segment(segment));
-        foreach (Ir.Data data in _module.Data.Where(d => d.Segment == segment))
+        foreach (Ir.Data data in _module.Data.Where(d => d.Segment == segment && !_isa.IsRegister(_isa.Sym(d.Sym))))
         {
             if (data.Exported)
             {

@@ -167,6 +167,11 @@ internal abstract class ByteIsa
     /// <returns>Tekst stałej albo null.</returns>
     public virtual string? AddressByte(string expression, int index) => null;
 
+    /// <summary>Bajt komórki leży w rejestrze CPU (mapa rejestrów ISA), nie w pamięci: nie trafia do sekcji danych ani do ramek.</summary>
+    /// <param name="address">Adres bajtu (tekst jak z <see cref="Loc"/>).</param>
+    /// <returns>Domyślnie <see langword="false"/>.</returns>
+    public virtual bool IsRegister(string address) => false;
+
     /// <summary>Zwiększa albo zmniejsza o 1 liczbę zapisaną w kolejnych bajtach pamięci (od najmłodszego) jedną, krótką sekwencją
     /// CPU (np. <c>INC</c> pamięci z pominięciem starszego bajtu, gdy nie ma przeniesienia). Nie musi zachować
     /// flag; może zmienić A i flagi. Wywoływane tylko, gdy liczba ma 1 lub 2 bajty.</summary>

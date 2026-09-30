@@ -90,7 +90,7 @@
     {
       "id": "13",
       "title": "[M] `Z80Isa`: mapa rejestrów (`AssignRegisters`, `Resolve`) we wszystkich prymitywach | wykonawca: mocny model | Pliki: `Z80Isa.cs` i test jednostkowy `tests/CathodeRay.Tests/Z80RegisterIsaTests.cs` (ręczne IR z ręczną mapą `main__x → c`). Akceptacja: listing zawiera `ld a,c`/`add a,c`/`inc c`, wynik zgodny z `IrInterpreter`; bez alokatora tabela bez zmian.",
-      "status": "todo",
+      "status": "done",
       "note": "",
       "section": "C. Rejestry (Z80, potem 8080)"
     },

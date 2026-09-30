@@ -12,6 +12,9 @@ internal sealed partial class Z80Isa : ByteIsa
         ["A", "B", "C", "D", "E", "H", "L", "I", "R", "AF", "BC", "DE", "HL", "SP", "IX", "IY", "IXH", "IXL", "IYH", "IYL", "NZ", "Z", "NC", "PO", "PE", "P", "M", "LOW", "HIGH", "MOD", "SHL", "SHR", "AND", "OR", "XOR", "NOT"],
         StringComparer.OrdinalIgnoreCase);
 
+    /// <summary>Adres bajtu komórki (tekst jak z <see cref="ByteIsa.Loc"/>) → rejestr <c>b</c>, <c>c</c>, <c>d</c> albo <c>e</c>.</summary>
+    private readonly Dictionary<string, string> _registers = new(StringComparer.Ordinal);
+
     private int _position;
 
     public override IEnumerable<string> IndirectSymbols => ["__callhl"];
@@ -32,9 +35,36 @@ internal sealed partial class Z80Isa : ByteIsa
 
     public override string Reserve(int size) => $"DS {size}";
 
-    public override void LoadA(Octet value) => L(value.IsImmediate ? $"ld a,{value.Text}" : $"ld a,({value.Text})");
+    /// <summary>Przypisuje komórkom rejestry; selektor dalej widzi nazwy symboliczne, a ISA tłumaczy operand przy emisji (jak strona
+    /// zerowa w <see cref="Mos6502Isa"/>). Komórka 1-bajtowa dostaje <c>b</c>, <c>c</c>, <c>d</c> albo <c>e</c>, 2-bajtowa dwa rejestry,
+    /// starszy pierwszy: młodszy <c>c</c>/<c>e</c>, starszy <c>b</c>/<c>d</c> (np. <c>bc</c>, <c>de</c>).</summary>
+    /// <param name="cells">Symbol komórki z kodu pośredniego → rejestr(y).</param>
+    public void AssignRegisters(IReadOnlyDictionary<string, string> cells)
+    {
+        ArgumentNullException.ThrowIfNull(cells);
+        foreach ((string sym, string registers) in cells)
+        {
+            bool valid = registers.Length == 1
+                ? registers is "b" or "c" or "d" or "e"
+                : registers.Length == 2 && registers[0] is 'b' or 'd' && registers[1] is 'c' or 'e';
+            if (!valid)
+            {
+                throw new ArgumentException($"niedozwolone rejestry '{registers}' dla {sym}", nameof(cells));
+            }
 
-    public override void StoreA(string address) => L($"ld ({address}),a");
+            _registers[Sym(sym)] = registers[^1..];
+            if (registers.Length == 2)
+            {
+                _registers[At(sym, 1)] = registers[..1];
+            }
+        }
+    }
+
+    public override bool IsRegister(string address) => _registers.ContainsKey(address);
+
+    public override void LoadA(Octet value) => L(value.IsImmediate ? $"ld a,{value.Text}" : $"ld a,{Operand(value.Text)}");
+
+    public override void StoreA(string address) => L($"ld {Operand(address)},a");
 
     public override void Alu(ByteAlu op, Octet value, bool first)
     {
@@ -68,6 +98,18 @@ internal sealed partial class Z80Isa : ByteIsa
     public override bool TryStep(IReadOnlyList<string> bytes, bool increment)
     {
         string op = increment ? "inc" : "dec";
+        if (bytes.Any(IsRegister))
+        {
+            // rejestr: inc c; para: inc bc (bez flag, kontrakt pozwala); inny układ przez łańcuch ADD/SUB w selektorze
+            string? register = bytes.Count == 1 ? Resolve(bytes[0]) : PairOf(new Word(false, bytes[0], bytes[1]));
+            if (register is not null)
+            {
+                L($"{op} {register}");
+            }
+
+            return register is not null;
+        }
+
         L($"ld hl,{bytes[0]}");
         if (bytes.Count == 1)
         {
@@ -96,19 +138,32 @@ internal sealed partial class Z80Isa : ByteIsa
         return true;
     }
 
-    /// <summary>Kopia słowa przez HL (<c>ld hl,(src)</c> albo <c>ld hl,stała</c>; <c>ld (dst),hl</c>), gdy bajty obu stron leżą obok siebie.</summary>
+    /// <summary>Kopia słowa przez HL (<c>ld hl,(src)</c> albo <c>ld hl,stała</c>; <c>ld (dst),hl</c>), gdy bajty obu stron leżą obok siebie;
+    /// cel w parze BC/DE bez HL (<c>ld bc,(src)</c>, <c>ld bc,stała</c>, <c>ld c,e; ld b,d</c>), źródło w parze do pamięci <c>ld (dst),bc</c>.</summary>
     /// <param name="dst">Cel.</param>
     /// <param name="src">Źródło.</param>
     /// <returns><see langword="false"/>, gdy bajty nie są sąsiednie.</returns>
     public override bool TryMoveWord(Word dst, Word src)
     {
-        if (dst.IsImmediate || !Adjacent(dst) || (!src.IsImmediate && !Adjacent(src)))
+        if (dst.IsImmediate || !Usable(dst) || !Usable(src))
         {
             return false;
         }
 
-        L(src.IsImmediate ? $"ld hl,{src.Lo}" : $"ld hl,({src.Lo})");
-        L($"ld ({dst.Lo}),hl");
+        if (PairOf(dst) is { } pair)
+        {
+            LoadPair(pair, src);
+        }
+        else if (PairOf(src) is { } source && !InRegisters(dst))
+        {
+            L($"ld ({dst.Lo}),{source}");
+        }
+        else
+        {
+            LoadPair("hl", src);
+            StorePair("hl", dst);
+        }
+
         return true;
     }
 
@@ -121,7 +176,7 @@ internal sealed partial class Z80Isa : ByteIsa
     /// <returns><see langword="false"/>, gdy bajty nie są sąsiednie albo oba operandy są stałymi.</returns>
     public override bool TryAddWord(Word dst, Word a, Word b, bool subtract)
     {
-        if (dst.IsImmediate || !Adjacent(dst) || (a.IsImmediate && b.IsImmediate) || (!a.IsImmediate && !Adjacent(a)) || (!b.IsImmediate && !Adjacent(b)))
+        if (dst.IsImmediate || (a.IsImmediate && b.IsImmediate) || !Usable(dst) || !Usable(a) || !Usable(b))
         {
             return false;
         }
@@ -138,8 +193,16 @@ internal sealed partial class Z80Isa : ByteIsa
             subtract = false;
         }
 
-        L(a.IsImmediate ? $"ld hl,{a.Lo}" : $"ld hl,({a.Lo})");
-        if (constant is { } k && (k <= 3 || k >= 0xFFFD))
+        // prawy operand: jego własna para BC/DE albo para pomocnicza bez komórek; bez wolnej pary łańcuch przez A w selektorze
+        bool steps = constant is { } c && (c <= 3 || c >= 0xFFFD);
+        string? rhs = (constant is null ? PairOf(b) : null) ?? Scratch();
+        if (rhs is null && !steps)
+        {
+            return false;
+        }
+
+        LoadPair("hl", a);
+        if (constant is { } k && steps)
         {
             string step = k <= 3 ? "inc hl" : "dec hl";
             for (int i = 0; i < (k <= 3 ? k : 0x10000 - k); i++)
@@ -149,19 +212,19 @@ internal sealed partial class Z80Isa : ByteIsa
         }
         else
         {
-            L(constant is { } n ? $"ld de,{n}" : (b.IsImmediate ? $"ld de,{b.Lo}" : $"ld de,({b.Lo})"));
+            LoadPair(rhs!, constant is { } n ? new Word(true, n.ToString(CultureInfo.InvariantCulture), string.Empty) : b);
             if (subtract)
             {
                 L("or a");
-                L("sbc hl,de");
+                L($"sbc hl,{rhs}");
             }
             else
             {
-                L("add hl,de");
+                L($"add hl,{rhs}");
             }
         }
 
-        L($"ld ({dst.Lo}),hl");
+        StorePair("hl", dst);
         return true;
     }
 
@@ -175,7 +238,8 @@ internal sealed partial class Z80Isa : ByteIsa
     public override bool TryAddLong((Word Lo, Word Hi) dst, (Word Lo, Word Hi) a, (Word Lo, Word Hi) b, bool subtract)
     {
         Word[] memory = [dst.Lo, dst.Hi, a.Lo, a.Hi, b.Lo, b.Hi];
-        if (dst.Lo.IsImmediate || dst.Hi.IsImmediate || memory.Any(static w => !w.IsImmediate && !Adjacent(w)))
+        if (dst.Lo.IsImmediate || dst.Hi.IsImmediate || Scratch() != "de"
+            || memory.Any(w => !w.IsImmediate && (!Adjacent(w) || IsRegister(w.Lo) || IsRegister(w.Hi))))
         {
             return false;
         }
@@ -225,7 +289,7 @@ internal sealed partial class Z80Isa : ByteIsa
 
     public override void CallIndirect(string cell)
     {
-        L($"ld hl,({cell})");
+        LoadPair("hl", new Word(false, cell, cell + "+1"));
         L("call __callhl");
     }
 
@@ -233,7 +297,7 @@ internal sealed partial class Z80Isa : ByteIsa
 
     public override void PtrSetup(string cell, int offset, bool mustCopy = false)
     {
-        L($"ld hl,({cell})");
+        LoadPair("hl", new Word(false, cell, cell + "+1"));
         if (offset is > 0 and <= 3)
         {
             for (int i = 0; i < offset; i++)
@@ -417,14 +481,73 @@ internal sealed partial class Z80Isa : ByteIsa
 
     private void Operate(string mnemonic, Octet value)
     {
-        if (value.IsImmediate)
+        if (value.IsImmediate || IsRegister(value.Text))
         {
-            L($"{mnemonic}{value.Text}");
+            L($"{mnemonic}{(value.IsImmediate ? value.Text : Resolve(value.Text))}");
             return;
         }
 
         L($"ld hl,{value.Text}");
         L($"{mnemonic}(hl)");
+    }
+
+    /// <summary>Rejestr przypisany bajtowi komórki albo <see langword="null"/> (pamięć).</summary>
+    private string? Resolve(string address) => _registers.GetValueOrDefault(address);
+
+    /// <summary>Operand bajtu: rejestr albo <c>(adres)</c>.</summary>
+    private string Operand(string address) => Resolve(address) ?? $"({address})";
+
+    /// <summary>Oba bajty słowa w rejestrach.</summary>
+    private bool InRegisters(Word word) => !word.IsImmediate && IsRegister(word.Lo) && IsRegister(word.Hi);
+
+    /// <summary>Słowo, które przeniosą <see cref="LoadPair"/> i <see cref="StorePair"/>: stała, oba bajty w rejestrach albo oba w pamięci obok siebie.</summary>
+    private bool Usable(Word word) => word.IsImmediate || InRegisters(word) || (!IsRegister(word.Lo) && !IsRegister(word.Hi) && Adjacent(word));
+
+    /// <summary>Para <c>bc</c>/<c>de</c>, gdy słowo leży w niej w całości (młodszy bajt w C/E).</summary>
+    private string? PairOf(Word word) => InRegisters(word) && (_registers[word.Hi] + _registers[word.Lo]) is "bc" or "de" ? _registers[word.Hi] + _registers[word.Lo] : null;
+
+    /// <summary>Para pomocnicza bez rejestrów przypisanych komórkom: DE, potem BC; <see langword="null"/>, gdy obie zajęte.</summary>
+    private string? Scratch() => new[] { "de", "bc" }.FirstOrDefault(p => !_registers.ContainsValue(p[..1]) && !_registers.ContainsValue(p[1..]));
+
+    /// <summary>Słowo do pary rejestrów (<c>hl</c>, <c>de</c>, <c>bc</c>); nie zmienia flag. Z rejestrów najpierw młodszy bajt: młodszy
+    /// rejestr celu (C/E/L) nigdy nie jest starszym rejestrem źródła (B/D).</summary>
+    private void LoadPair(string pair, Word word)
+    {
+        if (word.IsImmediate)
+        {
+            L($"ld {pair},{word.Lo}");
+        }
+        else if (InRegisters(word))
+        {
+            Move(pair[1..], _registers[word.Lo]);
+            Move(pair[..1], _registers[word.Hi]);
+        }
+        else
+        {
+            L($"ld {pair},({word.Lo})");
+        }
+    }
+
+    /// <summary>Para rejestrów do słowa (rejestry albo pamięć); nie zmienia flag.</summary>
+    private void StorePair(string pair, Word word)
+    {
+        if (InRegisters(word))
+        {
+            Move(_registers[word.Lo], pair[1..]);
+            Move(_registers[word.Hi], pair[..1]);
+        }
+        else
+        {
+            L($"ld ({word.Lo}),{pair}");
+        }
+    }
+
+    private void Move(string dst, string src)
+    {
+        if (dst != src)
+        {
+            L($"ld {dst},{src}");
+        }
     }
 
     private void Advance(int index)
