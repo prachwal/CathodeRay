@@ -15,6 +15,8 @@ internal sealed class Z80Isa : ByteIsa
 
     public override IEnumerable<string> IndirectSymbols => ["__callhl"];
 
+    public override bool HasOverflowFlag => true;
+
     protected override IReadOnlySet<string> Reserved => ReservedNames;
 
     public override string Segment(string name) => $"SEGMENT \"{name}\"";
@@ -160,6 +162,18 @@ internal sealed class Z80Isa : ByteIsa
 
         L($"ld ({dst.Lo}),hl");
         return true;
+    }
+
+    /// <summary>S xor V po odejmowaniu: przy przepełnieniu (P/V = 1) odwraca bit znaku A, wtedy S niesie wynik.</summary>
+    /// <param name="less">Skok przy <c>x &lt; y</c> (<c>jp m</c>), inaczej przy <c>x &gt;= y</c> (<c>jp p</c>).</param>
+    /// <param name="label">Etykieta.</param>
+    public override void JumpIfSigned(bool less, string label)
+    {
+        string skip = LocalLabel();
+        L($"jp po,{skip}");
+        L("xor 128");
+        L($"{skip}:");
+        L(less ? $"jp m,{label}" : $"jp p,{label}");
     }
 
     public override void PushA() => L("push af");

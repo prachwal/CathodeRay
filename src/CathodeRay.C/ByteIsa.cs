@@ -20,6 +20,10 @@ internal abstract class ByteIsa
     /// <summary>CPU ma adresowanie indeksowane z 8-bitowym rejestrem indeksowym (<see cref="Ir.LoadIdx"/>).</summary>
     public virtual bool SupportsIndexed => false;
 
+    /// <summary>CPU ma flagę przepełnienia po odejmowaniu (wynik ze znakiem to S xor V): selektor nie odwraca najstarszych bajtów
+    /// przy porównaniu ze znakiem (bias <c>xor 80h</c>), tylko odejmuje (SUB/SBC, nie CMP) i woła <see cref="JumpIfSigned"/>.</summary>
+    public virtual bool HasOverflowFlag => false;
+
     /// <summary>Długość dotychczasowego tekstu (znacznik początku funkcji).</summary>
     public int Mark => _out.Length;
 
@@ -185,6 +189,12 @@ internal abstract class ByteIsa
     /// <param name="subtract"><see langword="true"/>: <c>a - b</c>.</param>
     /// <returns><see langword="true"/>, gdy sekwencja została wyemitowana.</returns>
     public virtual bool TryAddWord(Word dst, Word a, Word b, bool subtract) => false;
+
+    /// <summary>Skok po odejmowaniu ze znakiem <c>x - y</c> (A = najstarszy bajt różnicy, flagi S i V po nim); może zmienić A.
+    /// Wołane tylko, gdy <see cref="HasOverflowFlag"/>.</summary>
+    /// <param name="less"><see langword="true"/>: skok, gdy <c>x &lt; y</c>; inaczej, gdy <c>x &gt;= y</c>.</param>
+    /// <param name="label">Etykieta.</param>
+    public virtual void JumpIfSigned(bool less, string label) => throw new NotSupportedException();
 
     /// <summary>Zamienia tekst od znacznika na jego wersję po relaksacji skoków (krótkie skoki warunkowe tam, gdzie cel jest w zasięgu).</summary>
     /// <param name="mark">Znacznik z <see cref="Mark"/>.</param>

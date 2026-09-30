@@ -6,7 +6,8 @@
 
 Domyślny katalog: /tmp/leaf-fuzz. Wymaga gcc. Liście g0..g2 mają 1-3 parametry szerokości 1/2/4 (U8, I16, U16, I32), zmieniają je
 (także w pętlach), a main woła je wielokrotnie ze stałymi i własnymi zmiennymi (które potem też wchodzą do sumy kontrolnej).
-Tylko działania, które dają ten sam wynik mod 2^k w gcc i w naszym C (16-bitowy int): + - & | ^, porównania zmiennej ze stałą,
+Tylko działania, które dają ten sam wynik mod 2^k w gcc i w naszym C (16-bitowy int): + - & | ^, porównania zmiennej ze stałą
+(także graniczną) albo ze zmienną tego samego typu,
 operandy rzutowane na typ wyniku (w mini-C działanie na dwóch uchar jest 8-bitowe, docs/minic.md).
 """
 import os
@@ -67,7 +68,16 @@ def function(r, name, static):
                 lines.append(f"{pad}  {v} = {v} - 1;")
                 lines.append(f"{pad}}}")
             elif k < 0.85 and depth < 2:
-                cond = f"{v} > {r.randint(0, 100)}" if r.random() < 0.5 else f"({v} & 3) == {r.randint(0, 3)}"
+                c = r.random()
+                if c < 0.3:
+                    cond = f"{v} > {r.randint(0, 100)}"
+                elif c < 0.5:
+                    cond = f"({v} & 3) == {r.randint(0, 3)}"
+                else:
+                    # porównanie ze znakiem/bez znaku z inną zmienną tego samego typu albo ze stałą (także graniczną)
+                    same = [n for n, t in vs if t == types[v]]
+                    rhs = r.choice(same) if c < 0.75 else const(r, types[v])
+                    cond = f"{v} {r.choice(['<', '<=', '>', '>='])} {rhs}"
                 lines.append(f"{pad}if ({cond}) {{")
                 block(depth + 1, indent + 2, locked)
                 lines.append(f"{pad}}}")

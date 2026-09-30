@@ -669,12 +669,14 @@ internal sealed class ByteSelector
         bool onBorrow = cond is Ir.Cond.Lt or Ir.Cond.Gt or Ir.Cond.Ltu or Ir.Cond.Gtu;
         Ir.Op x = swap ? branch.B : branch.A;
         Ir.Op y = swap ? branch.A : branch.B;
-        Octet[] xs = Bytes(x, width, signed ? "cc_t0" : null);
-        Octet[] ys = Bytes(y, width, signed ? "cc_t1" : null);
+        bool overflow = signed && _isa.HasOverflowFlag;
+        bool bias = signed && !overflow;
+        Octet[] xs = Bytes(x, width, bias ? "cc_t0" : null);
+        Octet[] ys = Bytes(y, width, bias ? "cc_t1" : null);
         for (int i = 0; i < width; i++)
         {
             LoadA(xs[i]);
-            if (width == 1)
+            if (width == 1 && !overflow)
             {
                 Cmp(ys[i]);
             }
@@ -682,6 +684,12 @@ internal sealed class ByteSelector
             {
                 Alu(ByteAlu.Sub, ys[i], i == 0);
             }
+        }
+
+        if (overflow)
+        {
+            _isa.JumpIfSigned(onBorrow, target);
+            return;
         }
 
         _isa.JumpIf(onBorrow ? ByteFlag.Borrow : ByteFlag.NoBorrow, target);
