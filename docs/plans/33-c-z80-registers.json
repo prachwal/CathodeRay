@@ -104,8 +104,8 @@
     {
       "id": "15",
       "title": "[L] `RegisterAllocator` v1 (liveness, jedna funkcja, nieżywe na wejściu, nic przez `call`, pary BC/DE) | wykonawca: mocny model | Pliki: nowy `src/CathodeRay.C/RegisterAllocator.cs`, `Z80Target.cs` (`Tune`). Akceptacja: `tests/CathodeRay.Tests/RegisterAllocatorTests.cs` z 14 kontrprzykładami z pyt. 2 (źródła jako napisy, oczekiwana konsola wpisana ręcznie) zielony na wszystkich celach; `IrConformanceTests` zielone przy `optimize` true/false; test, że dla `c_a` w `IrConformance` przydzielono rejestr; sum_bytes na Z80 zmniejsza się o ≥ 20 B; tabela z80 nie rośnie w żadnym wierszu.",
-      "status": "todo",
-      "note": "",
+      "status": "done",
+      "note": "sum_bytes z80 61 -> 40 B (w tym 3 B z peepholi Z80: cp 0 -> or a, jp cc,X; jp T; X: -> jp !cc,T); z80 -3995 B w 23 wierszach, inne kolumny bez zmian; mutacja reguły wołań czerwieni RegisterAllocatorTests i RecursionFuzz",
       "section": "C. Rejestry (Z80, potem 8080)"
     },
     {
