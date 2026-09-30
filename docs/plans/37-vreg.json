@@ -17,8 +17,8 @@
     {
       "id": "3",
       "title": "[S] VRegFacts + VRegLiveness (adaptacja IrLiveness) + testy, w tym kopie regresji goto/petla (design §5, §11)",
-      "status": "todo",
-      "note": ""
+      "status": "done",
+      "note": "VRegFacts + VRegLiveness (punkt staly, bloki) + VRegPasses (CSE/CSE-kopii/coalesce/DCE); zbiory across VReg==Cell na k/g/h (regresje goto/petla); Passes_Preserve_Semantics fib=55. 42 testy VReg zielone."
     },
     {
       "id": "4",
