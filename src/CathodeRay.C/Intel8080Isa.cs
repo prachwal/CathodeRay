@@ -150,6 +150,10 @@ internal sealed class Intel8080Isa : ByteIsa
         return true;
     }
 
+    public override void PushPair(string pair) => L($"push {pair[..1]}");
+
+    public override void PopPair(string pair) => L($"pop {pair[..1]}");
+
     public override void PushA() => L("push psw");
 
     public override void PopA() => L("pop psw");

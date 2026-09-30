@@ -53,6 +53,8 @@ internal sealed partial class Lowering
 
     private readonly int? _stackLimit;
 
+    private readonly int _callSave;
+
     private List<Ir.Ins> _body = [];
 
     private Dictionary<Ast.Expr, CType> _types = new(ReferenceEqualityComparer.Instance);
@@ -82,8 +84,9 @@ internal sealed partial class Lowering
     private CheckedFunction? _current;
     private Ir.Function? _initFunction;
 
-    public Lowering(CheckedProgram program, string? fileName, bool objectMode, int? stackLimit, TargetByteOrder byteOrder = TargetByteOrder.Little)
+    public Lowering(CheckedProgram program, string? fileName, bool objectMode, int? stackLimit, TargetByteOrder byteOrder = TargetByteOrder.Little, int callSave = 0)
     {
+        _callSave = callSave;
         _byteOrder = byteOrder;
         _program = program;
         _file = fileName;

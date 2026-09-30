@@ -287,6 +287,10 @@ internal sealed partial class Z80Isa : ByteIsa
         L(less ? $"jp m,{label}" : $"jp p,{label}");
     }
 
+    public override void PushPair(string pair) => L($"push {pair}");
+
+    public override void PopPair(string pair) => L($"pop {pair}");
+
     public override void PushA() => L("push af");
 
     public override void PopA() => L("pop af");

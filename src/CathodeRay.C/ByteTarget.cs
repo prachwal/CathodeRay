@@ -38,6 +38,10 @@ public abstract class ByteTarget : ICTarget
     /// <inheritdoc/>
     public virtual int? StackLimit => 256;
 
+    /// <summary>Dwa bajty na każdą parę rejestrów komórek (<see cref="ByteIsa.CellPairs"/>), bo wokół wołania selektor odkłada
+    /// najwyżej wszystkie pary (<see cref="ByteIsa.SavedAround"/>).</summary>
+    public int CallSaveBytes => 2 * CreateIsa().CellPairs.Count;
+
     /// <inheritdoc/>
     public virtual TargetLayout Layout => FlatLayout;
 

@@ -125,8 +125,8 @@
     {
       "id": "18",
       "title": "[M] Komórki żywe przez `call`: `push`/`pop` wokół wywołania | wykonawca: mocny model | Pliki: `RegisterAllocator.cs` (koszt 2 B + 21 T × waga), `ByteSelector.EmitCall` (zapis par z listy od ISA), `Lowering.Frames` (komórka w rejestrze nie idzie do `Saved`). Akceptacja: kontrprzykłady 5–7 zielone; fib na Z80 ≤ 185 B; tabela z80 nie rośnie.",
-      "status": "todo",
-      "note": "",
+      "status": "done",
+      "note": "push/pop par wokół wołań (ByteIsa.SavedAround, PushPair/PopPair) dla Z80 i 8080; komórki z Saved w rejestrze wypadają z ramki (RegisterAllocator.Tune); zysk netto w B i T; ramka w CheckStack + ICTarget.CallSaveBytes; fib z80 124 -> 95 B, 8080 152 -> 116 B; z80 -667 B w 15 wierszach, 8080 -867 B w 16, nic nie rośnie; mutacja (bez push/pop) czerwieni RandomIr 58/200",
       "section": "C. Rejestry (Z80, potem 8080)"
     },
     {

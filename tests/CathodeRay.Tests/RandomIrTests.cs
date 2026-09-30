@@ -73,17 +73,22 @@ public sealed class RandomIrTests
         var target = (ByteTarget)CTargets.Find(cpu)!;
         int functions = 0;
         int withRegisters = 0;
+        int savingCalls = 0;
         for (int seed = 0; seed < Programs; seed++)
         {
             Ir.Module module = Generator.Create(seed).Build();
             Ir.Module legal = ParamAlias.Run(Legalizer.Run(WideLegalizer.Run(Legalizer.Run(CaseFold.Apply(module), wide: true), TargetByteOrder.Little, keepArithmetic: true)));
-            Dictionary<string, string> map = RegisterAllocator.Run(legal, target.CreateIsa());
+            ByteIsa isa = target.CreateIsa();
+            Dictionary<string, string> map = RegisterAllocator.Run(legal, isa);
+            RegisterAllocator.Tune(legal, isa);
             functions += legal.Functions.Count;
             withRegisters += legal.Functions.Count(f => f.Body.SelectMany(IrFacts.Operands).OfType<Ir.Cell>().Any(c => map.ContainsKey(IrLiveness.BaseSymbol(c.Sym))));
+            savingCalls += legal.Functions.SelectMany(static f => f.Body).OfType<Ir.Call>().Count(c => isa.SavedAround(c).Count > 0);
         }
 
-        _output.WriteLine($"{cpu}: {withRegisters} z {functions} funkcji w {Programs} programach dostało rejestr");
+        _output.WriteLine($"{cpu}: {withRegisters} z {functions} funkcji w {Programs} programach dostało rejestr, {savingCalls} wołań z push/pop par");
         withRegisters.Should().BeGreaterThan(functions / 2, "generator ma ćwiczyć przydział rejestrów, nie tylko pamięć");
+        savingCalls.Should().BePositive("generator ma ćwiczyć rejestry żywe przez wołanie");
     }
 
     /// <summary>Generator jednego programu: <c>main</c> woła funkcje pomocnicze (graf wołań bez cykli: funkcja woła tylko dalsze

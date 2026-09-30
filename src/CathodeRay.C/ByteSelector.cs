@@ -772,6 +772,13 @@ internal sealed class ByteSelector
             }
         }
 
+        // rejestry komórek żywych za wołaniem: na stos po argumentach, ze stosu przed zapisem wyniku (wynik może leżeć w tej parze)
+        IReadOnlyList<string> saved = _isa.SavedAround(call);
+        foreach (string pair in saved)
+        {
+            _isa.PushPair(pair);
+        }
+
         if (call.Indirect is not null)
         {
             _usesIcall = true;
@@ -780,6 +787,11 @@ internal sealed class ByteSelector
         else
         {
             CallDirect(_isa.Sym(call.Direct!));
+        }
+
+        foreach (string pair in saved.Reverse())
+        {
+            _isa.PopPair(pair);
         }
 
         if (call.Result is not null && !(call.Result.W == 2 && TryMoveWord(WordOf(call.Result), Pair(RetSym(0), RetSym(1)))))

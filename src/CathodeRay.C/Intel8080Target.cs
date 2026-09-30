@@ -21,7 +21,6 @@ public sealed class Intel8080Target : ByteTarget
     /// <inheritdoc/>
     internal override Ir.Module Tune(Ir.Module module, ByteIsa isa)
     {
-        isa.AssignRegisters(RegisterAllocator.Run(module, isa));
-        return module;
+        return RegisterAllocator.Tune(module, isa);
     }
 }

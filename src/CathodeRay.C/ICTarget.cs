@@ -20,6 +20,10 @@ public interface ICTarget
     /// <summary>Rozmiar stosu sprzętowego w bajtach do kontroli głębokości wołań (null = nie kontroluj).</summary>
     int? StackLimit { get; }
 
+    /// <summary>Bajty stosu, które cel może odłożyć wokół jednego wołania (rejestry komórek żywych za wołaniem, np. <c>push bc</c>);
+    /// kontrola głębokości stosu dolicza je do ramki każdej funkcji. Domyślnie 0.</summary>
+    int CallSaveBytes => 0;
+
     /// <summary>Domyślny układ pamięci dla linkera.</summary>
     TargetLayout Layout { get; }
 

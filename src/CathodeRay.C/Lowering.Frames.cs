@@ -130,7 +130,8 @@ internal sealed partial class Lowering
                 }
             }
 
-            _frames[name] = saved.Sum(static o => o.Size) + 2;
+            // ramka: zapisane komórki, adres powrotu i pary rejestrów odkładane przez cel wokół wołań (RegisterAllocator)
+            _frames[name] = saved.Sum(static o => o.Size) + 2 + _callSave;
             _functionsOut.Add(pending.Function with { Saved = saved });
         }
 

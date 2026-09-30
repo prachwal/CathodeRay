@@ -12,6 +12,9 @@ internal abstract class ByteIsa
     /// <summary>Adres bajtu komórki (tekst jak z <see cref="Loc"/>) → rejestr z <see cref="CellRegisters"/>.</summary>
     private readonly Dictionary<string, string> _registers = new(StringComparer.Ordinal);
 
+    /// <summary>Wołanie → pary rejestrów komórek żywych za nim, zapisywane na stosie wokół niego (klucz: instancja wołania).</summary>
+    private readonly Dictionary<Ir.Call, IReadOnlyList<string>> _callSaves = new(ReferenceEqualityComparer.Instance);
+
     /// <summary>Rejestry komórek bieżącej funkcji (<see cref="BeginFunction"/>); <see langword="null"/>: wszystkie z mapy.</summary>
     private HashSet<string>? _active;
 
@@ -184,9 +187,15 @@ internal abstract class ByteIsa
     /// zerowa w <see cref="Mos6502Isa"/>). Komórka 1-bajtowa dostaje rejestr z <see cref="CellRegisters"/>, 2-bajtowa parę z
     /// <see cref="CellPairs"/> (starszy rejestr pierwszy).</summary>
     /// <param name="cells">Symbol komórki z kodu pośredniego → rejestr albo para.</param>
-    public void AssignRegisters(IReadOnlyDictionary<string, string> cells)
+    /// <param name="saves">Wołanie (instancja) → pary z <see cref="CellPairs"/> do zapisania wokół niego (<see cref="SavedAround"/>).</param>
+    public void AssignRegisters(IReadOnlyDictionary<string, string> cells, IEnumerable<(Ir.Call Call, IReadOnlyList<string> Pairs)>? saves = null)
     {
         ArgumentNullException.ThrowIfNull(cells);
+        foreach ((Ir.Call call, IReadOnlyList<string> pairs) in saves ?? [])
+        {
+            _callSaves[call] = pairs.All(CellPairs.Contains) ? pairs : throw new ArgumentException($"niedozwolone pary '{string.Join(",", pairs)}'", nameof(saves));
+        }
+
         foreach ((string sym, string registers) in cells)
         {
             if (!(registers.Length == 1 ? CellRegisters : CellPairs).Contains(registers))
@@ -201,6 +210,12 @@ internal abstract class ByteIsa
             }
         }
     }
+
+    /// <summary>Pary rejestrów komórek żywych za wołaniem: selektor odkłada je na stos przed <c>call</c> (<see cref="PushPair"/>, po
+    /// argumentach) i zdejmuje w odwrotnej kolejności po nim (<see cref="PopPair"/>, przed zapisem wyniku).</summary>
+    /// <param name="call">Wołanie (ta sama instancja co w module).</param>
+    /// <returns>Pary albo pusta lista.</returns>
+    public IReadOnlyList<string> SavedAround(Ir.Call call) => _callSaves.GetValueOrDefault(call) ?? [];
 
     /// <summary>Bajt komórki leży w rejestrze CPU (mapa <see cref="AssignRegisters"/>), nie w pamięci: nie trafia do sekcji danych.</summary>
     /// <param name="address">Adres bajtu (tekst jak z <see cref="Loc"/>).</param>
@@ -217,6 +232,14 @@ internal abstract class ByteIsa
             .SelectMany(c => Enumerable.Range(0, c.W).Select(i => Resolve(Loc(c.Sym, c.W, i))))
             .OfType<string>()];
     }
+
+    /// <summary>Odkłada parę rejestrów z <see cref="CellPairs"/> na stos (bez zmiany A i flag).</summary>
+    /// <param name="pair">Para, np. <c>bc</c>.</param>
+    public virtual void PushPair(string pair) => throw new NotSupportedException();
+
+    /// <summary>Zdejmuje parę rejestrów ze stosu (bez zmiany A i flag).</summary>
+    /// <param name="pair">Para, np. <c>bc</c>.</param>
+    public virtual void PopPair(string pair) => throw new NotSupportedException();
 
     /// <summary>Zwiększa albo zmniejsza o 1 liczbę zapisaną w kolejnych bajtach pamięci (od najmłodszego) jedną, krótką sekwencją
     /// CPU (np. <c>INC</c> pamięci z pominięciem starszego bajtu, gdy nie ma przeniesienia). Nie musi zachować

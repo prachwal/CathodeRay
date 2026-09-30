@@ -263,6 +263,44 @@ public sealed class RegisterAllocatorTests
         CcRun.RunOn(Io + Source, cpu).Console.Should().Be("321");
     }
 
+    // 5–7 na Z80 i 8080 (plan 33, krok 18): komórka żywa przez wołanie dostaje rejestr, a jej para idzie na stos wokół wołania
+    [Theory]
+    [InlineData("z80", "bc|de")]
+    [InlineData("8080", "b|d")]
+    public void Live_Across_Call_Cells_Are_Pushed_Around_The_Call(string cpu, string pairs)
+    {
+        // 5: a żywe przez drugie fib, t przez f(n - 1) (w ramce rekurencji, teraz w rejestrze); fib(10) = 55, f(4) = 9 jak wyżej
+        const string Recursion = """
+            int fib(int n) { int a; if (n < 2) return n; a = fib(n - 1); return a + fib(n - 2); }
+            int f(int n) { int t; int u; if (n == 0) return 1; t = n * 2; u = f(n - 1); if (t > 4) goto big; return t + u; big: return t - u; }
+            int main() { putdec(fib(10)); putchar(' '); putdec(f(4)); return 0; }
+            """;
+
+        // 6: w żywe przez wołanie pośrednie; w = 6, w = 12, twice(5) = 10 → 10 + 12 + 12 = 34; 34 + 5 = 39
+        const string Indirect = """
+            int twice(int v) { return v + v; }
+            int apply(int (*f)(int), int v) { int w; w = v + 1; w = w + w; return f(v) + w + w; }
+            int main() { int k; int r; k = 5; r = apply(twice, k); putdec(r + k); return 0; }
+            """;
+
+        // 7: licznik i żywy przez __cc_mul w pętli; 3 * (1 + 2 + 3 + 4) = 30
+        const string Multiply = """
+            int main() { int a; int i; int s; a = 3; s = 0; for (i = 1; i <= 4; i = i + 1) { s = s + a * i; } putdec(s); return 0; }
+            """;
+
+        // wołanie pośrednie ładuje adres celu do HL między push a call
+        ICTarget target = CTargets.Find(cpu)!;
+        foreach ((string source, string callee, string expected) in new[] { (Recursion, "fib", "55 9"), (Recursion, "f", "55 9"), (Indirect, "__callhl", "39"), (Multiply, "__cc_mul", "30") })
+        {
+            string code = target.Emit(Codegen.Lower(TypeChecker.Check(Parser.Parse(Io + source)), "t.c", objectMode: true), optimize: true);
+            code.Should().MatchRegex($@"push ({pairs})\r?\n(?:(?:ld hl,|lhld )[^\n]*\n)?call {callee}\r?\npop \1\r?\n", $"{cpu}: para żywa przez wołanie {callee}");
+            CcRun.RunOn(Io + source, cpu).Console.Should().Be(expected);
+        }
+
+        target.Emit(Codegen.Lower(TypeChecker.Check(Parser.Parse(Io + Recursion)), "t.c", objectMode: true), optimize: true)
+            .Should().NotContain("fib__a", "komórka w rejestrze nie jest zapisywana w ramce");
+    }
+
     [Fact]
     public void Z80_Puts_Loop_Cells_In_Registers_Only_When_Optimizing()
     {

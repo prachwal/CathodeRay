@@ -24,7 +24,7 @@ public static class Codegen
     public static string Emit(CheckedProgram program, ICTarget target, string? fileName = null, bool objectMode = false, bool optimize = true)
     {
         ArgumentNullException.ThrowIfNull(target);
-        return target.Emit(Lower(program, fileName, objectMode, target.StackLimit, target.ByteOrder), optimize);
+        return target.Emit(Lower(program, fileName, objectMode, target.StackLimit, target.ByteOrder, target.CallSaveBytes), optimize);
     }
 
     /// <summary>Obniża program do kodu pośredniego.</summary>
@@ -33,10 +33,11 @@ public static class Codegen
     /// <param name="objectMode">Tryb obiektowy (linker): moduł deklaruje symbole zewnętrzne.</param>
     /// <param name="stackLimit">Rozmiar stosu sprzętowego do kontroli głębokości wołań (null = bez kontroli).</param>
     /// <param name="byteOrder">Kolejność bajtów słów w danych początkowych.</param>
+    /// <param name="callSaveBytes">Bajty stosu odkładane przez cel wokół wołania (<see cref="ICTarget.CallSaveBytes"/>), doliczane do ramek.</param>
     /// <returns>Moduł IR.</returns>
-    public static Ir.Module Lower(CheckedProgram program, string? fileName = null, bool objectMode = false, int? stackLimit = 256, TargetByteOrder byteOrder = TargetByteOrder.Little)
+    public static Ir.Module Lower(CheckedProgram program, string? fileName = null, bool objectMode = false, int? stackLimit = 256, TargetByteOrder byteOrder = TargetByteOrder.Little, int callSaveBytes = 0)
     {
         ArgumentNullException.ThrowIfNull(program);
-        return IrInliner.Run(new Lowering(program, fileName, objectMode, stackLimit, byteOrder).Run());
+        return IrInliner.Run(new Lowering(program, fileName, objectMode, stackLimit, byteOrder, callSaveBytes).Run());
     }
 }
