@@ -1018,10 +1018,10 @@ L1075:  ldx     #$FF
 
 | kompilator | bajty funkcji | instrukcje | wołane procedury zewnętrzne |
 | --- | ---: | ---: | --- |
-| nasz | 205 | 101 | - |
+| nasz | 181 | 91 | - |
 | cc65 | 115 | 63 | incsp2, jmpvec, negax, pushax, pushwysp |
 
-stosunek nasz / cc65: 1.78
+stosunek nasz / cc65: 1.57
 
 - cc65: sama funkcja 115 B; po zlinkowaniu z runtime cc65 240 B (w tym 4 B startera)
 
@@ -1058,12 +1058,8 @@ L10A6:  lda     $14
     lda     $15
     sta     $23
     lda     $16
-    sta     $7007
-    lda     $17
-    sta     $7008
-    lda     $7007
     sta     $14
-    lda     $7008
+    lda     $17
     sta     $15
     lda     $22
     sta     $8042
@@ -1080,53 +1076,47 @@ L10A6:  lda     $14
     sta     $1B
     rts
     lda     $14
-    sta     $26
-    lda     $16
-    sta     $27
-    lda     $17
-    sta     $28
-    lda     $26
     cmp     #$00
-    bne     L10F5
-    jmp     L111B
-L10F5:  lda     #$7A
+    bne     L10DD
+    jmp     L1103
+L10DD:  lda     #$7A
     sta     $14
     lda     #$10
     sta     $15
-    lda     $27
+    lda     $16
     sta     $16
-    lda     $28
+    lda     $17
     sta     $17
     jsr     L10A6
     lda     $1A
-    sta     $2B
+    sta     $28
     lda     $1B
-    sta     $2C
-    lda     $2B
     sta     $29
-    lda     $2C
-    sta     $2A
-    jmp     L113E
-L111B:  lda     #$90
+    lda     $28
+    sta     $26
+    lda     $29
+    sta     $27
+    jmp     L1126
+L1103:  lda     #$90
     sta     $14
     lda     #$10
     sta     $15
-    lda     $27
+    lda     $16
     sta     $16
-    lda     $28
+    lda     $17
     sta     $17
     jsr     L10A6
     lda     $1A
-    sta     $2B
+    sta     $28
     lda     $1B
-    sta     $2C
-    lda     $2B
     sta     $29
-    lda     $2C
-    sta     $2A
-L113E:  lda     $29
+    lda     $28
+    sta     $26
+    lda     $29
+    sta     $27
+L1126:  lda     $26
     sta     $1A
-    lda     $2A
+    lda     $27
     sta     $1B
     rts
 ```
@@ -1318,41 +1308,33 @@ L1053:  ldy     #$01
 
 | kompilator | bajty funkcji | instrukcje | wołane procedury zewnętrzne |
 | --- | ---: | ---: | --- |
-| nasz | 52 | 27 | - |
+| nasz | 36 | 19 | - |
 | cc65 | 22 | 14 | pushax, pushwysp, tosmulax |
 
-stosunek nasz / cc65: 2.36
+stosunek nasz / cc65: 1.64
 
 - cc65: sama funkcja 22 B; po zlinkowaniu z runtime cc65 262 B (w tym 4 B startera)
 
 ### nasz
 
 ```asm
-    L10B5           := $10B5
+    L10A5           := $10A5
     lda     $14
-    sta     $1E
-    lda     $15
-    sta     $1F
-    lda     $16
-    sta     $20
-    lda     $17
-    sta     $21
-    lda     $1E
     sta     $14
-    lda     $1F
+    lda     $15
     sta     $15
-    lda     $20
+    lda     $16
     sta     $16
-    lda     $21
+    lda     $17
     sta     $17
-    jsr     L10B5
+    jsr     L10A5
     lda     $1A
-    sta     $22
+    sta     $1E
     lda     $1B
-    sta     $23
-    lda     $22
+    sta     $1F
+    lda     $1E
     sta     $1A
-    lda     $23
+    lda     $1F
     sta     $1B
     rts
 ```
@@ -1380,37 +1362,31 @@ stosunek nasz / cc65: 2.36
 
 | kompilator | bajty funkcji | instrukcje | wołane procedury zewnętrzne |
 | --- | ---: | ---: | --- |
-| nasz | 44 | 23 | - |
+| nasz | 32 | 17 | - |
 | cc65 | 28 | 17 | pusha, shlaxy |
 
-stosunek nasz / cc65: 1.57
+stosunek nasz / cc65: 1.14
 
 - cc65: sama funkcja 28 B; po zlinkowaniu z runtime cc65 146 B (w tym 4 B startera)
 
 ### nasz
 
 ```asm
-    L10AD           := $10AD
+    L10A1           := $10A1
     lda     $14
-    sta     $1E
-    lda     $15
-    sta     $1F
-    lda     $16
-    sta     $20
-    lda     $1E
     sta     $14
-    lda     $1F
+    lda     $15
     sta     $15
-    lda     $20
+    lda     $16
     sta     $16
-    jsr     L10AD
+    jsr     L10A1
     lda     $1A
-    sta     $21
+    sta     $1E
     lda     $1B
-    sta     $22
-    lda     $21
+    sta     $1F
+    lda     $1E
     sta     $1A
-    lda     $22
+    lda     $1F
     sta     $1B
     rts
 ```

@@ -4,10 +4,10 @@
 
 | kompilator | bajty funkcji | instrukcje | wołane procedury zewnętrzne |
 | --- | ---: | ---: | --- |
-| nasz | 36 | 13 | - |
+| nasz | 33 | 12 | - |
 | sdcc | 33 | 19 | - |
 
-stosunek nasz / sdcc: 1.09
+stosunek nasz / sdcc: 1.00
 
 - sdcc: adresy wywołań zewnętrznych w .rel są niezrelokowane (widoczne jako 0000)
 
@@ -25,7 +25,6 @@ stosunek nasz / sdcc: 1.09
     ld hl,(07013h)
     ld (08040h),hl
     ld hl,(07011h)
-    ld (0700dh),hl
     ret
 ```
 
@@ -57,10 +56,10 @@ stosunek nasz / sdcc: 1.09
 
 | kompilator | bajty funkcji | instrukcje | wołane procedury zewnętrzne |
 | --- | ---: | ---: | --- |
-| nasz | 270 | 173 | - |
+| nasz | 268 | 172 | - |
 | sdcc | 276 | 111 | - |
 
-stosunek nasz / sdcc: 0.98
+stosunek nasz / sdcc: 0.97
 
 - sdcc: adresy wywołań zewnętrznych w .rel są niezrelokowane (widoczne jako 0000)
 
@@ -77,9 +76,9 @@ stosunek nasz / sdcc: 0.98
     sub c
     ld a,(07012h)
     sbc a,b
-    jp po,01054h
+    jp po,01051h
     xor 080h
-    jp p,01148h
+    jp p,01143h
     ld hl,00000h
     ld (07013h),hl
     ld hl,(07003h)
@@ -99,9 +98,9 @@ stosunek nasz / sdcc: 0.98
     sub c
     ld a,(07014h)
     sbc a,b
-    jp po,0107dh
+    jp po,0107ah
     xor 080h
-    jp p,0113dh
+    jp p,01138h
     ld bc,(07013h)
     ld a,c
     sla a
@@ -145,9 +144,9 @@ stosunek nasz / sdcc: 0.98
     sub e
     ld a,b
     sbc a,d
-    jp po,010bdh
+    jp po,010bah
     xor 080h
-    jp p,01132h
+    jp p,0112dh
     ld bc,(07013h)
     ld a,c
     sla a
@@ -226,19 +225,18 @@ stosunek nasz / sdcc: 0.98
     ld a,(07016h)
     inc hl
     ld (hl),a
-    jr $+2
     ld hl,07013h
     inc (hl)
     jr nz,$+4
     inc hl
     inc (hl)
-    jp 0105dh
+    jp 0105ah
     ld hl,07011h
     inc (hl)
     jr nz,$+4
     inc hl
     inc (hl)
-    jp 01041h
+    jp 0103eh
     ret
 ```
 
@@ -430,10 +428,10 @@ stosunek nasz / sdcc: 1.60
 
 | kompilator | bajty funkcji | instrukcje | wołane procedury zewnętrzne |
 | --- | ---: | ---: | --- |
-| nasz | 62 | 25 | - |
+| nasz | 55 | 27 | - |
 | sdcc | 25 | 19 | divsint, modsint |
 
-stosunek nasz / sdcc: 2.48
+stosunek nasz / sdcc: 2.20
 
 - sdcc: adresy wywołań zewnętrznych w .rel są niezrelokowane (widoczne jako 0000)
 
@@ -448,22 +446,24 @@ stosunek nasz / sdcc: 2.48
     ld (07001h),hl
     ld hl,(07013h)
     ld (07003h),hl
-    call 01080h
-    ld bc,(0700dh)
+    call 01073h
+    ld c,l
+    ld b,h
     ld hl,(07011h)
     ld (07001h),hl
     ld hl,(07013h)
     ld (07003h),hl
     push bc
-    call 0112bh
+    call 01104h
     pop bc
-    ld de,(0700dh)
+    ex de,hl
     ld l,c
     ld h,b
     add hl,de
     ld c,l
     ld b,h
-    ld (0700dh),bc
+    ld l,c
+    ld h,b
     ret
 ```
 
@@ -495,39 +495,37 @@ stosunek nasz / sdcc: 2.48
 
 | kompilator | bajty funkcji | instrukcje | wołane procedury zewnętrzne |
 | --- | ---: | ---: | --- |
-| nasz | 95 | 44 | - |
+| nasz | 78 | 41 | - |
 | sdcc | 31 | 25 | - |
 
-stosunek nasz / sdcc: 3.06
+stosunek nasz / sdcc: 2.52
 
 - sdcc: adresy wywołań zewnętrznych w .rel są niezrelokowane (widoczne jako 0000)
 
 ### nasz
 
 ```asm
-    ld a,(07011h)
-    push af
-    ld a,(07012h)
-    push af
+    ld hl,(07011h)
+    push hl
     ld hl,(07001h)
     ld (07011h),hl
     ld a,(07011h)
     sub 002h
     ld a,(07012h)
     sbc a,000h
-    jp po,01058h
+    jp po,01051h
     xor 080h
-    jp p,01063h
+    jp p,01059h
     ld hl,(07011h)
-    ld (0700dh),hl
-    jr $+48
+    jr $+41
     ld hl,(07011h)
     dec hl
     ld e,l
     ld d,h
     ld (07001h),de
-    call 0103bh
-    ld bc,(0700dh)
+    call 01038h
+    ld c,l
+    ld b,h
     ld hl,(07011h)
     dec hl
     dec hl
@@ -535,19 +533,18 @@ stosunek nasz / sdcc: 3.06
     ld d,h
     ld (07001h),de
     push bc
-    call 0103bh
+    call 01038h
     pop bc
-    ld de,(0700dh)
+    ex de,hl
     ld l,c
     ld h,b
     add hl,de
     ld c,l
     ld b,h
-    ld (0700dh),bc
-    pop af
-    ld (07012h),a
-    pop af
-    ld (07011h),a
+    ld l,c
+    ld h,b
+    pop de
+    ld (07011h),de
     ret
 ```
 
@@ -585,10 +582,10 @@ stosunek nasz / sdcc: 3.06
 
 | kompilator | bajty funkcji | instrukcje | wołane procedury zewnętrzne |
 | --- | ---: | ---: | --- |
-| nasz | 74 | 44 | - |
+| nasz | 69 | 44 | - |
 | sdcc | 106 | 49 | - |
 
-stosunek nasz / sdcc: 0.70
+stosunek nasz / sdcc: 0.65
 
 - sdcc: adresy wywołań zewnętrznych w .rel są niezrelokowane (widoczne jako 0000)
 
@@ -602,9 +599,9 @@ stosunek nasz / sdcc: 0.70
     ld a,b
     ld hl,07004h
     sbc a,(hl)
-    jp po,0104dh
+    jp po,0104ah
     xor 080h
-    jp p,0107eh
+    jp p,01079h
     ld e,c
     ld d,b
     ld a,e
@@ -627,17 +624,17 @@ stosunek nasz / sdcc: 0.70
     ld a,e
     ld hl,07005h
     cp (hl)
-    jr nz,$+15
+    jr nz,$+13
     ld a,d
     ld hl,07006h
     cp (hl)
-    jr nz,$+8
-    ld (0700dh),bc
-    jr $+11
+    jr nz,$+6
+    ld l,c
+    ld h,b
+    jr $+8
     inc bc
-    jr $-62
+    jr $-60
     ld hl,0ffffh
-    ld (0700dh),hl
     ret
 ```
 
@@ -699,10 +696,10 @@ stosunek nasz / sdcc: 0.70
 
 | kompilator | bajty funkcji | instrukcje | wołane procedury zewnętrzne |
 | --- | ---: | ---: | --- |
-| nasz | 127 | 49 | - |
+| nasz | 98 | 51 | - |
 | sdcc | 33 | 22 | - |
 
-stosunek nasz / sdcc: 3.85
+stosunek nasz / sdcc: 2.97
 
 - sdcc: adresy wywołań zewnętrznych w .rel są niezrelokowane (widoczne jako 0000)
 
@@ -714,7 +711,8 @@ stosunek nasz / sdcc: 3.85
     add hl,de
     ld c,l
     ld b,h
-    ld (0700dh),bc
+    ld l,c
+    ld h,b
     ret
     ld a,000h
     ld hl,07001h
@@ -724,39 +722,40 @@ stosunek nasz / sdcc: 3.85
     ld hl,07002h
     sbc a,(hl)
     ld b,a
-    ld (0700dh),bc
+    ld l,c
+    ld h,b
     ret
     ld hl,(07001h)
     ld (07011h),hl
     ld hl,(07003h)
-    ld (07013h),hl
-    ld hl,(07013h)
     ld (07001h),hl
     ld hl,(07011h)
-    call 0103ah
-    ld bc,(0700dh)
-    ld (0700dh),bc
+    call 01037h
+    ld c,l
+    ld b,h
+    ld l,c
+    ld h,b
     ret
     ld a,(07001h)
-    ld (07015h),a
-    ld hl,(07003h)
-    ld (07016h),hl
     or a
-    jr z,$+23
-    ld hl,0103bh
+    jr z,$+21
+    ld hl,01038h
     ld (07001h),hl
-    ld hl,(07016h)
+    ld hl,(07003h)
     ld (07003h),hl
-    call 0105dh
-    ld bc,(0700dh)
-    jr $+21
-    ld hl,0104ah
+    call 01056h
+    ld c,l
+    ld b,h
+    jr $+19
+    ld hl,01045h
     ld (07001h),hl
-    ld hl,(07016h)
+    ld hl,(07003h)
     ld (07003h),hl
-    call 0105dh
-    ld bc,(0700dh)
-    ld (0700dh),bc
+    call 01056h
+    ld c,l
+    ld b,h
+    ld l,c
+    ld h,b
     ret
 ```
 
@@ -791,10 +790,10 @@ stosunek nasz / sdcc: 3.85
 
 | kompilator | bajty funkcji | instrukcje | wołane procedury zewnętrzne |
 | --- | ---: | ---: | --- |
-| nasz | 61 | 25 | - |
+| nasz | 55 | 24 | - |
 | sdcc | 53 | 29 | - |
 
-stosunek nasz / sdcc: 1.15
+stosunek nasz / sdcc: 1.04
 
 - sdcc: adresy wywołań zewnętrznych w .rel są niezrelokowane (widoczne jako 0000)
 
@@ -808,23 +807,22 @@ stosunek nasz / sdcc: 1.15
     ld a,(07002h)
     ld hl,07004h
     sbc a,(hl)
-    jp po,01052h
+    jp po,0104fh
     xor 080h
-    jp p,0105bh
+    jp p,01056h
     ld bc,(07003h)
-    jr $+2
     ld a,c
     ld hl,07005h
     sub (hl)
     ld a,b
     ld hl,07006h
     sbc a,(hl)
-    jp po,0106ah
+    jp po,01065h
     xor 080h
-    jp p,01073h
+    jp p,0106ch
     ld bc,(07005h)
-    jr $+2
-    ld (0700dh),bc
+    ld l,c
+    ld h,b
     ret
 ```
 
@@ -866,10 +864,10 @@ stosunek nasz / sdcc: 1.15
 
 | kompilator | bajty funkcji | instrukcje | wołane procedury zewnętrzne |
 | --- | ---: | ---: | --- |
-| nasz | 36 | 12 | - |
+| nasz | 20 | 10 | - |
 | sdcc | 3 | 1 | mulint |
 
-stosunek nasz / sdcc: 12.00
+stosunek nasz / sdcc: 6.67
 
 - sdcc: adresy wywołań zewnętrznych w .rel są niezrelokowane (widoczne jako 0000)
 
@@ -877,16 +875,14 @@ stosunek nasz / sdcc: 12.00
 
 ```asm
     ld hl,(07001h)
-    ld (07011h),hl
-    ld hl,(07003h)
-    ld (07013h),hl
-    ld hl,(07011h)
     ld (07001h),hl
-    ld hl,(07013h)
+    ld hl,(07003h)
     ld (07003h),hl
-    call 01066h
-    ld bc,(0700dh)
-    ld (0700dh),bc
+    call 01050h
+    ld c,l
+    ld b,h
+    ld l,c
+    ld h,b
     ret
 ```
 
@@ -900,10 +896,10 @@ stosunek nasz / sdcc: 12.00
 
 | kompilator | bajty funkcji | instrukcje | wołane procedury zewnętrzne |
 | --- | ---: | ---: | --- |
-| nasz | 33 | 11 | - |
+| nasz | 20 | 10 | - |
 | sdcc | 21 | 13 | - |
 
-stosunek nasz / sdcc: 1.57
+stosunek nasz / sdcc: 0.95
 
 - sdcc: adresy wywołań zewnętrznych w .rel są niezrelokowane (widoczne jako 0000)
 
@@ -911,15 +907,14 @@ stosunek nasz / sdcc: 1.57
 
 ```asm
     ld hl,(07001h)
-    ld (07011h),hl
-    ld a,(07003h)
-    ld (07013h),a
-    ld hl,(07011h)
     ld (07001h),hl
+    ld a,(07003h)
     ld (07003h),a
-    call 01063h
-    ld bc,(0700dh)
-    ld (0700dh),bc
+    call 01050h
+    ld c,l
+    ld b,h
+    ld l,c
+    ld h,b
     ret
 ```
 
@@ -945,10 +940,10 @@ stosunek nasz / sdcc: 1.57
 
 | kompilator | bajty funkcji | instrukcje | wołane procedury zewnętrzne |
 | --- | ---: | ---: | --- |
-| nasz | 27 | 15 | - |
+| nasz | 25 | 16 | - |
 | sdcc | 14 | 10 | - |
 
-stosunek nasz / sdcc: 1.93
+stosunek nasz / sdcc: 1.79
 
 - sdcc: adresy wywołań zewnętrznych w .rel są niezrelokowane (widoczne jako 0000)
 
@@ -968,7 +963,8 @@ stosunek nasz / sdcc: 1.93
     inc hl
     inc (hl)
     jr $-17
-    ld (0700dh),bc
+    ld l,c
+    ld h,b
     ret
 ```
 
@@ -991,10 +987,10 @@ stosunek nasz / sdcc: 1.93
 
 | kompilator | bajty funkcji | instrukcje | wołane procedury zewnętrzne |
 | --- | ---: | ---: | --- |
-| nasz | 133 | 93 | - |
+| nasz | 131 | 94 | - |
 | sdcc | 107 | 75 | - |
 
-stosunek nasz / sdcc: 1.24
+stosunek nasz / sdcc: 1.22
 
 - sdcc: adresy wywołań zewnętrznych w .rel są niezrelokowane (widoczne jako 0000)
 
@@ -1062,7 +1058,8 @@ stosunek nasz / sdcc: 1.24
     ld a,b
     adc a,000h
     ld b,a
-    ld (0700dh),bc
+    ld l,c
+    ld h,b
     ret
     ld hl,(07001h)
     ld a,(hl)
@@ -1180,10 +1177,10 @@ stosunek nasz / sdcc: 1.24
 
 | kompilator | bajty funkcji | instrukcje | wołane procedury zewnętrzne |
 | --- | ---: | ---: | --- |
-| nasz | 40 | 23 | - |
+| nasz | 38 | 24 | - |
 | sdcc | 37 | 24 | - |
 
-stosunek nasz / sdcc: 1.08
+stosunek nasz / sdcc: 1.03
 
 - sdcc: adresy wywołań zewnętrznych w .rel są niezrelokowane (widoczne jako 0000)
 
@@ -1211,7 +1208,8 @@ stosunek nasz / sdcc: 1.08
     ld hl,07003h
     dec (hl)
     jr $-30
-    ld (0700dh),bc
+    ld l,c
+    ld h,b
     ret
 ```
 
@@ -1248,10 +1246,10 @@ stosunek nasz / sdcc: 1.08
 
 | kompilator | bajty funkcji | instrukcje | wołane procedury zewnętrzne |
 | --- | ---: | ---: | --- |
-| nasz | 92 | 51 | - |
+| nasz | 78 | 50 | - |
 | sdcc | 47 | 27 | - |
 
-stosunek nasz / sdcc: 1.96
+stosunek nasz / sdcc: 1.66
 
 - sdcc: adresy wywołań zewnętrznych w .rel są niezrelokowane (widoczne jako 0000)
 
@@ -1270,44 +1268,43 @@ stosunek nasz / sdcc: 1.96
     jr nz,$+6
     ld a,b
     or a
-    jr z,$+38
+    jr z,$+36
     ld a,c
     cp 002h
     jr nz,$+6
     ld a,b
     or a
-    jr z,$+36
+    jr z,$+32
     ld a,c
     cp 003h
     jr nz,$+6
     ld a,b
     or a
-    jr z,$+34
+    jr z,$+28
     ld a,c
     cp 004h
     jr nz,$+6
     ld a,b
     or a
-    jr z,$+32
-    jr $+37
+    jr z,$+24
+    jr $+27
     ld a,00ah
-    ld (0700dh),a
-    jr $+37
+    ld l,a
+    jr $+25
     ld a,014h
-    ld (0700dh),a
-    jr $+30
+    ld l,a
+    jr $+20
     ld a,023h
-    ld (0700dh),a
-    jr $+23
+    ld l,a
+    jr $+15
     ld a,029h
-    ld (0700dh),a
-    jr $+16
+    ld l,a
+    jr $+10
     ld a,039h
-    ld (0700dh),a
-    jr $+9
+    ld l,a
+    jr $+5
     ld a,000h
-    ld (0700dh),a
-    jr $+2
+    ld l,a
     ret
 ```
 
