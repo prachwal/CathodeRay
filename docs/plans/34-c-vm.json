@@ -1,0 +1,30 @@
+{
+  "title": "Mini-C: maszyna wirtualna (bytecode + interpreter)",
+  "status": "queued",
+  "items": [
+    {
+      "id": "1",
+      "title": "Zamrożenie kodowania IR (spec, serializacja, wersja formatu)",
+      "status": "todo",
+      "note": "Gotowe gdy: spec kodowania ~30 opów IR w docs/bytecode.md, format cathode-vm/1, round-trip serializacji w testach"
+    },
+    {
+      "id": "2",
+      "title": "Interpreter w C# (fetch-decode-execute) + cathode vm run",
+      "status": "todo",
+      "note": "Gotowe gdy: interpreter wykonuje moduły .cvm (na bazie IrInterpreter), komenda cathode vm run prog.cvm działa na korpusie"
+    },
+    {
+      "id": "3",
+      "title": "Bramka fuzzing: bytecode vs AOT (zgodność)",
+      "status": "todo",
+      "note": "Gotowe gdy: fuzzing różnicowy bytecode-vs-AOT na wszystkich celach zielony (jak leaf_fuzz vs gcc)"
+    },
+    {
+      "id": "4",
+      "title": "Testy + docs + build/test/hygiene",
+      "status": "todo",
+      "note": "Gotowe gdy: testy + docs + build -warnaserror + test + hygiene OK"
+    }
+  ]
+}
