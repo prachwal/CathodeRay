@@ -1018,10 +1018,10 @@ L1075:  ldx     #$FF
 
 | kompilator | bajty funkcji | instrukcje | wołane procedury zewnętrzne |
 | --- | ---: | ---: | --- |
-| nasz | 181 | 91 | - |
+| nasz | 165 | 83 | - |
 | cc65 | 115 | 63 | incsp2, jmpvec, negax, pushax, pushwysp |
 
-stosunek nasz / cc65: 1.57
+stosunek nasz / cc65: 1.43
 
 - cc65: sama funkcja 115 B; po zlinkowaniu z runtime cc65 240 B (w tym 4 B startera)
 
@@ -1078,15 +1078,11 @@ L10A6:  lda     $14
     lda     $14
     cmp     #$00
     bne     L10DD
-    jmp     L1103
+    jmp     L10FB
 L10DD:  lda     #$7A
     sta     $14
     lda     #$10
     sta     $15
-    lda     $16
-    sta     $16
-    lda     $17
-    sta     $17
     jsr     L10A6
     lda     $1A
     sta     $28
@@ -1096,15 +1092,11 @@ L10DD:  lda     #$7A
     sta     $26
     lda     $29
     sta     $27
-    jmp     L1126
-L1103:  lda     #$90
+    jmp     L1116
+L10FB:  lda     #$90
     sta     $14
     lda     #$10
     sta     $15
-    lda     $16
-    sta     $16
-    lda     $17
-    sta     $17
     jsr     L10A6
     lda     $1A
     sta     $28
@@ -1114,7 +1106,7 @@ L1103:  lda     #$90
     sta     $26
     lda     $29
     sta     $27
-L1126:  lda     $26
+L1116:  lda     $26
     sta     $1A
     lda     $27
     sta     $1B
@@ -1308,26 +1300,18 @@ L1053:  ldy     #$01
 
 | kompilator | bajty funkcji | instrukcje | wołane procedury zewnętrzne |
 | --- | ---: | ---: | --- |
-| nasz | 36 | 19 | - |
+| nasz | 20 | 11 | - |
 | cc65 | 22 | 14 | pushax, pushwysp, tosmulax |
 
-stosunek nasz / cc65: 1.64
+stosunek nasz / cc65: 0.91
 
 - cc65: sama funkcja 22 B; po zlinkowaniu z runtime cc65 262 B (w tym 4 B startera)
 
 ### nasz
 
 ```asm
-    L10A5           := $10A5
-    lda     $14
-    sta     $14
-    lda     $15
-    sta     $15
-    lda     $16
-    sta     $16
-    lda     $17
-    sta     $17
-    jsr     L10A5
+    L1095           := $1095
+    jsr     L1095
     lda     $1A
     sta     $1E
     lda     $1B
@@ -1362,24 +1346,18 @@ stosunek nasz / cc65: 1.64
 
 | kompilator | bajty funkcji | instrukcje | wołane procedury zewnętrzne |
 | --- | ---: | ---: | --- |
-| nasz | 32 | 17 | - |
+| nasz | 20 | 11 | - |
 | cc65 | 28 | 17 | pusha, shlaxy |
 
-stosunek nasz / cc65: 1.14
+stosunek nasz / cc65: 0.71
 
 - cc65: sama funkcja 28 B; po zlinkowaniu z runtime cc65 146 B (w tym 4 B startera)
 
 ### nasz
 
 ```asm
-    L10A1           := $10A1
-    lda     $14
-    sta     $14
-    lda     $15
-    sta     $15
-    lda     $16
-    sta     $16
-    jsr     L10A1
+    L1095           := $1095
+    jsr     L1095
     lda     $1A
     sta     $1E
     lda     $1B

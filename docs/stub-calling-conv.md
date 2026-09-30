@@ -424,3 +424,19 @@ w Lowering/IR (wybór celu działania bez kopii, CSE w bloku, porównanie ze zna
   `.s` podany do `cc --cpu z80|8080` musi zwracać `int`/wskaźnik w HL, `char` w L (zapis do `cc_ret` jest ignorowany).
   Testy: `RuntimeRoutinesTests.Z80_Assembly_Routines_Return_In_Hl`, `RuntimeRoutinesTests.Assembly_Module_Returns_Int_In_Hl`.
 - Stub, 6502/65c02 i 6800 bez zmian (`ByteIsa.ReturnsInResultReg` = false: wynik w `cc_ret`).
+
+## Plan 36: efekt (Z80/8080, wywołanie ogonowe + tidy)
+
+Bajty mini-C Z80 przed/po (przed = `ea53a28`, po = ten commit; kolumny: bench, przed, po):
+
+| bench | przed | po |
+|---|---|---|
+| fnptr | 98 | 76 |
+| fib | 78 | 76 |
+| max3 | 55 | 55 |
+| sw | 78 | 78 |
+| bubble | 268 | 254 |
+
+Skąd spadki: `apply` w `fnptr` woła ogonowo (`call f + ret` → `jp (hl)`, −2 B na miejscu; reszta z kroków 2–4), `bubble` z peepholi. `fib` bez miejsc ogonowych (wołania karmią `+`) stoi. Nic nie rośnie w żadnej kolumnie (`target-sizes.txt`: maleją tylko wiersze z80/8080).
+
+Wywołanie ogonowe (`ByteSelector`, tylko Z80/8080): `Call` z wynikiem i zaraz `Ret` tej samej komórki (void albo 1–2 B, wynik już w miejscu docelowym) zamienia się w `jp`/`jmp` (pośrednie: `jp (hl)`/`pchl`), gdy ramka pusta (`Saved`) i brak zapisów par wokół wołania. Epilog z `ret` zostaje (inne powroty go używają). Rekurencja wzajemna z ramką nie optymalizuje się (test mutacją warunku).

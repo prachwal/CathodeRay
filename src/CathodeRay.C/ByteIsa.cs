@@ -37,6 +37,9 @@ internal abstract class ByteIsa
     /// crt0 po <c>call main</c> zapisuje go do <c>cc_ret</c>. Domyślnie <see langword="false"/>.</summary>
     public virtual bool ReturnsInResultReg => false;
 
+    /// <summary>Czy cel obsługuje wywołanie ogonowe (skok zamiast call+ret).</summary>
+    public virtual bool SupportsTailCall => false;
+
     /// <summary>Rejestry 8-bitowe, które <see cref="RegisterAllocator"/> może dać komórkom 1-bajtowym (w kolejności preferencji);
     /// domyślnie brak (komórki tylko w pamięci).</summary>
     public virtual IReadOnlyList<string> CellRegisters => [];
@@ -161,6 +164,15 @@ internal abstract class ByteIsa
     /// <summary>Wołanie przez wskaźnik z komórki 2-bajtowej.</summary>
     /// <param name="cell">Symbol komórki z adresem.</param>
     public abstract void CallIndirect(string cell);
+
+    /// <summary>Skok do funkcji w pozycji ogonowej (wynik już w miejscu docelowym).</summary>
+    /// <param name="symbol">Symbol funkcji.</param>
+    public virtual void TailCall(string symbol) => Jump(symbol);
+
+    /// <summary>Skok pośredni w pozycji ogonowej (wskaźnik w komórce 2-bajtowej).</summary>
+    /// <param name="cell">Symbol komórki z adresem.</param>
+    public virtual void TailCallIndirect(string cell) =>
+        throw new InvalidOperationException($"{GetType().Name} does not support indirect tail calls.");
 
     /// <summary>Powrót z podprogramu.</summary>
     public abstract void Return();

@@ -79,8 +79,8 @@
 15_funcptr.c stub 1430
 15_funcptr.c 6502 809
 15_funcptr.c 65c02 809
-15_funcptr.c z80 614
-15_funcptr.c 8080 705
+15_funcptr.c z80 608
+15_funcptr.c 8080 698
 15_funcptr.c 6800 856
 16_printf.c stub 7451
 16_printf.c 6502 4048
@@ -103,8 +103,8 @@
 19_struct_value.c stub 6487
 19_struct_value.c 6502 2414
 19_struct_value.c 65c02 2414
-19_struct_value.c z80 2212
-19_struct_value.c 8080 2329
+19_struct_value.c z80 2206
+19_struct_value.c 8080 2323
 19_struct_value.c 6800 2489
 20_matrix.c stub 2384
 20_matrix.c 6502 1296

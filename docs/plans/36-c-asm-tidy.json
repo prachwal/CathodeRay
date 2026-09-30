@@ -20,8 +20,8 @@
     {
       "id": "3",
       "title": "[S] Usuń kopię komórki na samą siebie po aliasowaniu parametru. | wykonawca: Haiku (plan-coder) | Plik: `src/CathodeRay.C/ParamAlias.cs` (w miejscu, gdzie po przemianowaniu tworzony jest `new Ir.Mov(Rename(mov.Dst, alias), Rename(mov.Src, alias))`, ok. linii 192) + test w `tests/CathodeRay.Tests/ParamAliasTests.cs`. Problem: po aliasowaniu parametru `v` na `cc_arg2` w `pick` powstaje `Mov(cc_arg2, cc_arg2)` i w listingu `ld hl,(cc_arg2) / ld (cc_arg2),hl`. Zmiana: po zbudowaniu nowej listy instrukcji pomiń każdy `Ir.Mov`, którego `Dst` i `Src` to komórki z tym samym `Sym` i tą samą szerokością `W` (nic nie robi). Uwaga: NIE usuwaj `Mov` z `Dst.Sym == Src.Sym` o różnych szerokościach (to rozszerzenie/zawężenie). Test: skompiluj `int g(int x) { return x; } int pick(uchar k, int v) { return k ? g(v) : g(v + 1); }` na z80 i 8080 (`CTargets.Find(\"z80\")!.Emit(module, optimize: true)`) i sprawdź wyrażeniem regularnym, że tekst NIE zawiera `ld hl,\\((\\w+)\\)\\r?\\n\\s*ld \\(\\1\\),hl` (Z80) ani `lhld (\\w+)\\r?\\n\\s*shld \\1` (8080); drugi test: wynik programu nadal poprawny przez `CcRun.RunOn(src_z_main, \"z80\")` z ręcznie policzoną wartością (np. `int main() { return pick(1, 5) + pick(0, 5); }` = 5 + 6 = 11 przy `g(x)=x`). Akceptacja liczbowa: `fnptr` Z80 <= o 4 B mniej niż przed tym zadaniem (zmierz sam przed i po); tabela z80/8080/6502/65c02 nie rośnie, 6800 i stub BEZ ZMIAN; fuzzy zielone.",
-      "status": "todo",
-      "note": "Haiku zrobil no-op w ParamAlias (bez efektu, pusty test). Prawdziwa przyczyna: EmitCall kopiuje arg do cc_argN z tej samej komórki. Poprawka w ByteSelector.EmitCall + test przepisany na ksztalt apply(f, v); fnptr Z80 94->82 B, tabela -1748 B (z80/8080/6502/65c02).",
+      "status": "done",
+      "note": "Zrobione w b3d8b50 (fix w ByteSelector.EmitCall, nie ParamAlias); status JSON dogoniony do .md.",
       "section": "B. Tidy asemblera"
     },
     {
@@ -34,15 +34,15 @@
     {
       "id": "5",
       "title": "[M] Wywołanie ogonowe na Z80/8080 (`call f` + `ret` -> `jp f`), gdy wynik funkcji to wynik wołanej i nic do odtworzenia. | wykonawca: mocny model (nie Haiku) | Pliki: `ByteSelector.EmitCall`/`EmitRet`/`EmitFunctionBody` (wykrycie wzorca w IR: `Call` z wynikiem i zaraz `Ret` tej samej szerokości tego wyniku, bez `Saved`, bez zapisanych par rejestrów `SavedAround`, brak lokalnych agregatów w ramce), `ByteIsa` (prymityw `TailCall(symbol)`), `Z80Isa`/`Intel8080Isa` (`jp sym`, dla pośredniego `jp (hl)`/`pchl`), `Lowering.Frames` (`CheckStack`: wywołanie ogonowe nie zwiększa głębokości), `IrInliner` bez zmian. Uwagi: W=1/W=2 wynik już w L/HL (plan 35), więc `jp` zostawia wynik w HL bez żadnej pracy; funkcje z `Saved` (rekurencja) NIE są kandydatami, dopóki epilog musi odtworzyć komórki; wołanie pośrednie `f(v)` przez wskaźnik: wskaźnik jest w komórce, `ld hl,(fp)` `jp (hl)`; funkcje eksportowane i static bez różnicy. Kontrprzykłady do testów (wynik liczony ręcznie): ogon w pętli bez wyniku (`void`), ogon z nierównymi szerokościami wyniku (`char f() { return g(); }` gdzie `g` zwraca `int` — wymaga zawężenia: NIE optymalizuj), ogon z lokalną żywą po wołaniu, ogon w funkcji z `Saved`, ogon przez wskaźnik funkcji z argumentami przed wołaniem. Akceptacja: `fnptr` Z80 o >= 8 B mniej niż po zadaniu 3 sekcji B; `RecursionFrameTests`, fuzzy (w tym nowy fuzz wskaźników z zadania 1) i `RandomIrTests` zielone; mutacja kontrolna (wyłącz warunek braku `Saved`) robi czerwony test; tabela z80/8080 nie rośnie, reszta BEZ ZMIAN.",
-      "status": "todo",
-      "note": "",
+      "status": "done",
+      "note": "Zrobione: TailCall/TailCallIndirect w ByteIsa (Z80/8080), detekcja Call+Ret w ByteSelector, TailCallTests (6), mutacja warunku Saved czerwona, fuzz zielony. Zmierzono: fnptr ogon daje -2 B (jedno miejsce; estymata >=8 B w planie zawyżona), cały plan 36: fnptr 98->76.",
       "section": "C. Wywołanie ogonowe"
     },
     {
       "id": "6",
       "title": "[S] Odśwież pomiary i dokumenty po planie 36. | wykonawca: Haiku (plan-coder) | Pliki: `docs/compare.md`, `docs/disasm-z80.md`, `docs/disasm-6502.md`, `docs/hotspots.md`, `docs/target-sizes.md` (generowane), `docs/stub-calling-conv.md` (dopisz na końcu sekcję `Plan 36: efekt` z tabelą bajtów przed/po dla `fnptr`, `fib`, `max3`, `sw`, `bubble`). Komendy: `dotnet build --nologo -v q`; `python3 tools/compare.py --write`; `python3 tools/disasm_compare.py --cpu z80 --all --md docs/disasm-z80.md`; `python3 tools/disasm_compare.py --cpu 6502 --all --md docs/disasm-6502.md`; `python3 tools/hotspots.py --write`. Bajty PRZED weź z poprzedniej wersji `docs/disasm-z80.md` (`git show HEAD~N:docs/disasm-z80.md` — użyj `git log --oneline -8 -- docs/disasm-z80.md` żeby znaleźć commit sprzed planu 36), bajty PO z nowo wygenerowanej. Akceptacja: w sekcji są liczby dla 5 benchów z obu stron; nie ma wpisów, w których 'po' > 'przed' bez komentarza; `python3 tools/plan.py hygiene docs/plans` = OK.",
-      "status": "todo",
-      "note": "",
+      "status": "done",
+      "note": "Zrobione: compare/disasm-z80/disasm-6502/hotspots/target-sizes odświeżone, sekcja Plan 36 w stub-calling-conv.md.",
       "section": "D. Pomiar"
     }
   ]

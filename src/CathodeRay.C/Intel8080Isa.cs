@@ -29,6 +29,9 @@ internal sealed partial class Intel8080Isa : ByteIsa
 
     public override bool ReturnsInResultReg => true;
 
+    /// <summary>Cel obsługuje wywołanie ogonowe.</summary>
+    public override bool SupportsTailCall => true;
+
     protected override IReadOnlySet<string> Reserved => ReservedNames;
 
     public override string Segment(string name) => $"SEGMENT \"{name}\"";
@@ -259,6 +262,12 @@ internal sealed partial class Intel8080Isa : ByteIsa
     {
         LoadPair("hl", new Word(false, cell, cell + "+1"));
         L("call __callhl");
+    }
+
+    public override void TailCallIndirect(string cell)
+    {
+        LoadPair("hl", new Word(false, cell, cell + "+1"));
+        L("pchl");
     }
 
     public override void Return() => L("ret");

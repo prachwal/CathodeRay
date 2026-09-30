@@ -118,7 +118,7 @@ public sealed class ParamAliasTests
         Ir.Module module = Codegen.Lower(TypeChecker.Check(Parser.Parse(NonLeaf)), "t.c", objectMode: true);
         string z80 = CTargets.Find("z80")!.Emit(module, optimize: true);
 
-        z80.Should().Contain("call g").And.Contain("call sub").And.NotContain("inc__x");
+        z80.Should().Contain("call g").And.Contain("jp sub").And.NotContain("inc__x");
         foreach (string kept in new[] { "after__x", "loop__x", "back__x", "swap__a", "apply__fp", "addr__x" })
         {
             z80.Should().Contain(kept, "parametr żywy za wołaniem, argument na dalszej pozycji, wskaźnik wołania albo wzięty adres");

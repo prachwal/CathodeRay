@@ -302,9 +302,17 @@ internal sealed class ByteSelector
             }
         }
 
-        for (int i = start; i < function.Body.Count; i++)
+        int bodyIndex = start;
+        while (bodyIndex < function.Body.Count)
         {
-            EmitIns(function, function.Body[i], i == function.Body.Count - 1);
+            if (TryEmitTailCall(function, bodyIndex, out int next))
+            {
+                bodyIndex = next;
+                continue;
+            }
+
+            EmitIns(function, function.Body[bodyIndex], bodyIndex == function.Body.Count - 1);
+            bodyIndex++;
         }
 
         Raw($"{Mangle(function, "ret")}:");
@@ -773,7 +781,70 @@ internal sealed class ByteSelector
         return bytes;
     }
 
-    private void EmitCall(Ir.Call call)
+    /// <summary>Wywołanie ogonowe: <c>Call</c> z wynikiem i zaraz <c>Ret</c> tej samej wartości
+    /// zamienia w skok (bez call/ret i bez przenoszenia wyniku). Bezpieczne tylko bez ramki
+    /// (<see cref="Ir.Function.Saved"/> puste), bez zapisów rejestrów wokół wołania i dla wyniku
+    /// void albo 1-2 bajtów (już w miejscu docelowym).</summary>
+    /// <param name="function">Emitowana funkcja.</param>
+    /// <param name="index">Pozycja kandydata na <c>Call</c>.</param>
+    /// <param name="next">Pozycja za zużytym <c>Ret</c> (gdy dopasowano).</param>
+    /// <returns>Czy wyemitowano skok ogonowy.</returns>
+    private bool TryEmitTailCall(Ir.Function function, int index, out int next)
+    {
+        next = index;
+        if (!_isa.SupportsTailCall || function.Body[index] is not Ir.Call call)
+        {
+            return false;
+        }
+
+        int retIndex = index + 1;
+        var skipped = new List<Ir.Src>();
+        while (retIndex < function.Body.Count && function.Body[retIndex] is Ir.Src comment)
+        {
+            skipped.Add(comment);
+            retIndex++;
+        }
+
+        if (retIndex >= function.Body.Count || function.Body[retIndex] is not Ir.Ret ret)
+        {
+            return false;
+        }
+
+        bool voidTail = call.Result is null && ret.Value is null && ret.W == 0;
+        bool valueTail = call.Result is { } result && ret.Value is Ir.Cell value
+            && value.Sym == result.Sym && value.W == result.W && ret.W == result.W && result.W is 1 or 2;
+        if (!voidTail && !valueTail)
+        {
+            return false;
+        }
+
+        if (function.Saved.Count != 0 || _isa.SavedAround(call).Count != 0)
+        {
+            return false;
+        }
+
+        foreach (Ir.Src comment in skipped)
+        {
+            EmitSource(comment);
+        }
+
+        EmitCallArgs(call);
+        if (call.Indirect is not null)
+        {
+            _usesIcall = true;
+            _isa.TailCallIndirect(_isa.Sym(call.Indirect.Sym));
+        }
+        else
+        {
+            _isa.TailCall(_isa.Sym(call.Direct!));
+        }
+
+        next = retIndex + 1;
+        return true;
+    }
+
+    /// <summary>Ustawia argumenty wołania w komórkach <c>cc_argN</c> (bez zapisów rejestrów i bez samego skoku).</summary>
+    private void EmitCallArgs(Ir.Call call)
     {
         for (int i = 0; i < call.Args.Count; i++)
         {
@@ -794,6 +865,11 @@ internal sealed class ByteSelector
                 StoreA(ArgSym(i, part));
             }
         }
+    }
+
+    private void EmitCall(Ir.Call call)
+    {
+        EmitCallArgs(call);
 
         // rejestry komórek żywych za wołaniem: na stos po argumentach, ze stosu przed zapisem wyniku (wynik może leżeć w tej parze)
         IReadOnlyList<string> saved = _isa.SavedAround(call);
