@@ -111,8 +111,8 @@
     {
       "id": "16",
       "title": "[M] Losowe programy IR vs `IrInterpreter` | wykonawca: mocny model | Plik: `tests/CathodeRay.Tests/RandomIrTests.cs` (generator na `IrProgram`, seed stały, 200 programów, pętle, `goto`, wywołania, wskaźniki). Akceptacja: zielony na wszystkich celach i przy obu wartościach `optimize`; czas < 60 s.",
-      "status": "todo",
-      "note": "",
+      "status": "done",
+      "note": "RandomIrTests: 200 programów IR (pętle, goto, wołania bezp./pośr., rekurencja, wskaźniki, W1/2/4) vs IrInterpreter na 6 celach × optimize; z80: 1060/1096 funkcji z rejestrem; mutacja reguły wołań: 91/200 czerwonych",
       "section": "C. Rejestry (Z80, potem 8080)"
     },
     {
