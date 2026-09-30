@@ -54,7 +54,8 @@ public sealed class CZeroPageTests
             exit.Should().Be(0, error.ToString());
             string listing = File.ReadAllText(lst);
 
-            listing.Should().Contain("lda (sum__p),y", "wskaźnik leży na stronie zerowej, więc bez kopii do __p");
+            // plan 33, krok 5: parametr liścia żyje w cc_arg1 (stała komórka strony zerowej)
+            listing.Should().Contain("lda (cc_arg1),y", "wskaźnik leży na stronie zerowej, więc bez kopii do __p");
             listing.Should().Contain("z:sum__s");
         }
         finally

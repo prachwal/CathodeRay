@@ -62,6 +62,11 @@ public abstract class ByteTarget : ICTarget
             legal = IndexFusion.Run(legal);
         }
 
+        if (optimize && ByteOrder == TargetByteOrder.Little)
+        {
+            legal = ParamAlias.Run(legal);
+        }
+
         Ir.Module tuned = optimize ? Tune(legal, isa) : legal;
         return new ByteSelector(tuned, isa).Emit();
     }

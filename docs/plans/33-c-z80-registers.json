@@ -34,7 +34,7 @@
     {
       "id": "5",
       "title": "[M] Aliasowanie parametrów liści na `cc_argN` (cele LE) | wykonawca: mocny model | Pliki: nowy przebieg `src/CathodeRay.C/ParamAlias.cs` wołany z `ByteTarget.Emit` przed `Tune`, gdy `optimize && ByteOrder == Little`. Warunki: brak `Ir.Call` po legalizacji, parametr niewzięty adresem, nie `volatile`, symbol tylko w tej funkcji; `ByteSelector` pomija kopię, gdy `param.Sym == ArgSym`. Akceptacja: kontrprzykład „inline + eksport” i „parametr zmieniany w pętli” w `TargetMatrixTests`; `python3 tools/disasm_compare.py --cpu z80 max3` daje ≤ 118 B; tabela: kolumny z80/8080/6502/65c02 nie rosną, 6800 i stub bez zmian.",
-      "status": "todo",
+      "status": "done",
       "note": "",
       "section": "B. Tanie optymalizacje modelu pamięci i 16-bitowe (Z80, 8080)"
     },

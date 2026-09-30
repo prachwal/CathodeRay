@@ -242,6 +242,11 @@ internal sealed class ByteSelector
         for (int i = 0; i < function.Params.Count; i++)
         {
             Ir.Cell param = function.Params[i];
+            if (param.Sym == ArgSym(i, 0))
+            {
+                continue;
+            }
+
             for (int part = 0; part < param.W; part++)
             {
                 LoadA(new Octet(false, ArgSym(i, part)));
