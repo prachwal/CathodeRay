@@ -33,6 +33,10 @@ internal abstract class ByteIsa
     /// przy porównaniu ze znakiem (bias <c>xor 80h</c>), tylko odejmuje (SUB/SBC, nie CMP) i woła <see cref="JumpIfSigned"/>.</summary>
     public virtual bool HasOverflowFlag => false;
 
+    /// <summary>Wynik funkcji o szerokości 1 lub 2 wraca w rejestrze CPU (Z80/8080: HL, dla 1 bajtu L), nie w <c>cc_ret</c>;
+    /// crt0 po <c>call main</c> zapisuje go do <c>cc_ret</c>. Domyślnie <see langword="false"/>.</summary>
+    public virtual bool ReturnsInResultReg => false;
+
     /// <summary>Rejestry 8-bitowe, które <see cref="RegisterAllocator"/> może dać komórkom 1-bajtowym (w kolejności preferencji);
     /// domyślnie brak (komórki tylko w pamięci).</summary>
     public virtual IReadOnlyList<string> CellRegisters => [];
@@ -256,6 +260,25 @@ internal abstract class ByteIsa
     /// <returns><see langword="true"/>, gdy sekwencja została wyemitowana.</returns>
     public virtual bool TryMoveWord(Word dst, Word src) => false;
 
+    /// <summary>Rejestr wyniku ← słowo (stała, para rejestrów albo pamięć obok siebie), bez zmiany A. Wołane tylko, gdy
+    /// <see cref="ReturnsInResultReg"/>.</summary>
+    /// <param name="value">Wartość.</param>
+    /// <returns><see langword="false"/>, gdy słowa nie da się przenieść parą (selektor przeniesie je bajtami przez A).</returns>
+    public virtual bool TryMoveToResultReg(Word value) => false;
+
+    /// <summary>Słowo ← rejestr wyniku, bez zmiany A. Wołane tylko, gdy <see cref="ReturnsInResultReg"/>.</summary>
+    /// <param name="dst">Cel (para rejestrów albo pamięć obok siebie).</param>
+    /// <returns><see langword="false"/>, gdy celu nie da się zapisać parą.</returns>
+    public virtual bool TryMoveFromResultReg(Word dst) => false;
+
+    /// <summary>Bajt rejestru wyniku ← A.</summary>
+    /// <param name="index">0 = młodszy, 1 = starszy.</param>
+    public virtual void ResultByteFromA(int index) => throw new NotSupportedException();
+
+    /// <summary>A ← bajt rejestru wyniku.</summary>
+    /// <param name="index">0 = młodszy, 1 = starszy.</param>
+    public virtual void ResultByteToA(int index) => throw new NotSupportedException();
+
     /// <summary>Odkłada na stos słowo z pamięci (prolog ramki) jedną sekwencją CPU, bez zmiany A. Decyzja zależy tylko od
     /// <paramref name="word"/>, tak samo jak w <see cref="TryPopWord"/>, więc prolog i epilog grupują bajty identycznie.
     /// Domyślnie <see langword="false"/>: selektor odkłada bajty przez A.</summary>
@@ -265,8 +288,9 @@ internal abstract class ByteIsa
 
     /// <summary>Zdejmuje ze stosu słowo do pamięci (epilog ramki), bez zmiany A; para przeciwna do <see cref="TryPushWord"/>.</summary>
     /// <param name="word">Słowo w pamięci (bajty sąsiednie).</param>
+    /// <param name="keepResult">Rejestr wyniku (<see cref="ReturnsInResultReg"/>) niesie już wynik funkcji i nie może się zmienić.</param>
     /// <returns><see langword="true"/>, gdy sekwencja została wyemitowana.</returns>
-    public virtual bool TryPopWord(Word word) => false;
+    public virtual bool TryPopWord(Word word, bool keepResult) => false;
 
     /// <summary>Dodawanie albo odejmowanie słów 16-bitowych <c>dst ← a ± b</c> jedną sekwencją CPU, bez zmiany A (może zmienić
     /// rejestry adresowe i flagi; flagi po niej są nieokreślone, selektor ich nie używa). Domyślnie <see langword="false"/>:

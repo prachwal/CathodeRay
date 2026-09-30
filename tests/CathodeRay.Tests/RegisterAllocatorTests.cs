@@ -312,7 +312,7 @@ public sealed class RegisterAllocatorTests
 
         string tuned = z80.Emit(module, optimize: true);
         tuned.Should().NotContain("sum_bytes__s").And.Contain("ld bc,0").And.Contain("ld a,c").And.Contain("ld c,a")
-            .And.Contain("ld a,b").And.Contain("ld b,a").And.Contain("ld (cc_ret),bc");
+            .And.Contain("ld a,b").And.Contain("ld b,a").And.Contain(string.Join(Environment.NewLine, "ld l,c", "ld h,b", "sum_bytes__ret:"));
         z80.Emit(module, optimize: false).Should().Contain("sum_bytes__s").And.NotContain("ld a,c");
     }
 

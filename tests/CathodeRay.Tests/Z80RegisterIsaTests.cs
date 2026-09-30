@@ -65,7 +65,7 @@ public sealed class Z80RegisterIsaTests
         (string code, int value) = Run(module, new Dictionary<string, string> { ["main__y"] = "bc" });
 
         code.Should().Contain("ld bc,1000").And.Contain("add hl,bc").And.Contain("inc bc").And.Contain("sbc hl,bc")
-            .And.Contain("ld de,7").And.Contain("ld c,l").And.Contain("ld b,h").And.Contain("ld (cc_ret),bc")
+            .And.Contain("ld de,7").And.Contain("ld c,l").And.Contain("ld b,h").And.Contain(string.Join(Environment.NewLine, "ld l,c", "ld h,b", "main__ret:"))
             .And.Contain("ld a,c").And.Contain("ld a,b").And.Contain("sub c").And.Contain("sbc a,b").And.Contain("jp po,");
         code.Should().NotContain("main__y");
         value.Should().Be(3015).And.Be(Interpret(module));

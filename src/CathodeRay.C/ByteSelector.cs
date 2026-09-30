@@ -310,7 +310,7 @@ internal sealed class ByteSelector
         Raw($"{Mangle(function, "ret")}:");
         foreach (Ir.Owned owned in function.Saved.Reverse())
         {
-            if (SavedWord(owned) is { } word && _isa.TryPopWord(word))
+            if (SavedWord(owned) is { } word && _isa.TryPopWord(word, InResultReg(function.RetW)))
             {
                 continue;
             }
@@ -324,6 +324,9 @@ internal sealed class ByteSelector
 
         _isa.Return();
     }
+
+    /// <summary>Wynik tej szerokości wraca w rejestrze CPU (<see cref="ByteIsa.ReturnsInResultReg"/>), nie w <c>cc_ret</c>.</summary>
+    private bool InResultReg(int width) => _isa.ReturnsInResultReg && width is 1 or 2;
 
     /// <summary>Komórka ramki jako słowo (skalar 2-bajtowy) do odłożenia parą albo <see langword="null"/>.</summary>
     private Word? SavedWord(Ir.Owned owned) =>
@@ -808,7 +811,23 @@ internal sealed class ByteSelector
             _isa.PopPair(pair);
         }
 
-        if (call.Result is not null && !(call.Result.W == 2 && TryMoveWord(WordOf(call.Result), Pair(RetSym(0), RetSym(1)))))
+        if (call.Result is not null && InResultReg(call.Result.W))
+        {
+            if (call.Result.W == 2 && WordOf(call.Result) is { } dst && _isa.TryMoveFromResultReg(dst))
+            {
+                _acc.Remove(dst.Lo);
+                _acc.Remove(dst.Hi);
+                return;
+            }
+
+            for (int part = 0; part < call.Result.W; part++)
+            {
+                _isa.ResultByteToA(part);
+                _acc.Clear();
+                StoreA(Dst(call.Result, part));
+            }
+        }
+        else if (call.Result is not null && !(call.Result.W == 2 && TryMoveWord(WordOf(call.Result), Pair(RetSym(0), RetSym(1)))))
         {
             for (int part = 0; part < call.Result.W; part++)
             {
@@ -820,7 +839,18 @@ internal sealed class ByteSelector
 
     private void EmitRet(Ir.Function function, Ir.Ret ret, bool last)
     {
-        if (ret.Value is not null && !(ret.W == 2 && TryMoveWord(Pair(RetSym(0), RetSym(1)), WordOf(ret.Value))))
+        if (ret.Value is not null && InResultReg(ret.W))
+        {
+            if (!(ret.W == 2 && WordOf(ret.Value) is { } word && _isa.TryMoveToResultReg(word)))
+            {
+                for (int part = 0; part < ret.W; part++)
+                {
+                    LoadA(ByteOf(ret.Value, part));
+                    _isa.ResultByteFromA(part);
+                }
+            }
+        }
+        else if (ret.Value is not null && !(ret.W == 2 && TryMoveWord(Pair(RetSym(0), RetSym(1)), WordOf(ret.Value))))
         {
             for (int part = 0; part < ret.W; part++)
             {

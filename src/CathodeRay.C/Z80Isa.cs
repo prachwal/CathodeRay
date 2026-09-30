@@ -29,6 +29,8 @@ internal sealed partial class Z80Isa : ByteIsa
 
     public override bool HasOverflowFlag => true;
 
+    public override bool ReturnsInResultReg => true;
+
     protected override IReadOnlySet<string> Reserved => ReservedNames;
 
     public override string Segment(string name) => $"SEGMENT \"{name}\"";
@@ -163,20 +165,72 @@ internal sealed partial class Z80Isa : ByteIsa
         return true;
     }
 
-    /// <summary>Słowo ze stosu do pamięci: <c>pop hl; ld (n),hl</c>.</summary>
+    /// <summary>Słowo ze stosu do pamięci: <c>pop hl; ld (n),hl</c>; przy wyniku w HL przez DE (w epilogu wolne): <c>pop de; ld (n),de</c>.</summary>
     /// <param name="word">Słowo.</param>
+    /// <param name="keepResult">HL niesie wynik.</param>
     /// <returns><see langword="false"/>, gdy bajty nie są sąsiednie w pamięci.</returns>
-    public override bool TryPopWord(Word word)
+    public override bool TryPopWord(Word word, bool keepResult)
     {
         if (!InMemoryWord(word))
         {
             return false;
         }
 
-        L("pop hl");
-        L($"ld ({word.Lo}),hl");
+        string pair = keepResult ? "de" : "hl";
+        L($"pop {pair}");
+        L($"ld ({word.Lo}),{pair}");
         return true;
     }
+
+    /// <summary>HL ← słowo (<c>ld hl,nn</c>, <c>ld hl,(n)</c>, <c>ld l,c; ld h,b</c>, z DE <c>ex de,hl</c>).</summary>
+    /// <param name="value">Wartość.</param>
+    /// <returns><see langword="false"/>, gdy bajty nie leżą parą.</returns>
+    public override bool TryMoveToResultReg(Word value)
+    {
+        if (!Usable(value))
+        {
+            return false;
+        }
+
+        // DE nie żyje po powrocie (epilog odtwarza ramkę bez niej): zamiana jest krótsza niż dwie kopie bajtów
+        if (PairOf(value) == "de")
+        {
+            L("ex de,hl");
+        }
+        else
+        {
+            LoadPair("hl", value);
+        }
+
+        return true;
+    }
+
+    /// <summary>Słowo ← HL (<c>ld (n),hl</c>, <c>ld c,l; ld b,h</c>, do DE <c>ex de,hl</c>).</summary>
+    /// <param name="dst">Cel.</param>
+    /// <returns><see langword="false"/>, gdy bajty nie leżą parą.</returns>
+    public override bool TryMoveFromResultReg(Word dst)
+    {
+        if (dst.IsImmediate || !Usable(dst))
+        {
+            return false;
+        }
+
+        // HL po wołaniu to już tylko pomocniczy rejestr: zamiana zamiast dwóch kopii bajtów
+        if (PairOf(dst) == "de")
+        {
+            L("ex de,hl");
+        }
+        else
+        {
+            StorePair("hl", dst);
+        }
+
+        return true;
+    }
+
+    public override void ResultByteFromA(int index) => L(index == 0 ? "ld l,a" : "ld h,a");
+
+    public override void ResultByteToA(int index) => L(index == 0 ? "ld a,l" : "ld a,h");
 
     /// <summary>Dodawanie/odejmowanie przez HL: <c>ld hl,a; add hl,de</c> albo <c>or a; sbc hl,de</c>, stała ±1..3 przez
     /// <c>inc hl</c>/<c>dec hl</c>, odjęcie stałej liczbowej jako dodanie jej przeciwieństwa.</summary>
@@ -400,21 +454,21 @@ internal sealed partial class Z80Isa : ByteIsa
             __crt_z: ld de,__bss_end
             ld a,l
             cp e
-            jp nz,__crt_z1
+            jr nz,__crt_z1
             ld a,h
             cp d
-            jp z,__crt_zd
+            jr z,__crt_zd
             __crt_z1: ld (hl),0
             inc hl
-            jp __crt_z
+            jr __crt_z
             __crt_zd: ld hl,__init_start
             __crt_i: ld de,__init_end
             ld a,l
             cp e
-            jp nz,__crt_i1
+            jr nz,__crt_i1
             ld a,h
             cp d
-            jp z,__crt_id
+            jr z,__crt_id
             __crt_i1: ld e,(hl)
             inc hl
             ld d,(hl)
@@ -423,8 +477,9 @@ internal sealed partial class Z80Isa : ByteIsa
             ex de,hl
             call __callhl
             pop hl
-            jp __crt_i
+            jr __crt_i
             __crt_id: call main
+            ld (cc_ret),hl
             halt
             __callhl: jp (hl)
             """);
@@ -446,7 +501,7 @@ internal sealed partial class Z80Isa : ByteIsa
     /// cel − adres skoku w −126..+129 (przesunięcie −128..127 liczone od adresu po 2-bajtowym skoku).</summary>
     /// <param name="text">Tekst funkcji.</param>
     /// <returns>Tekst po relaksacji.</returns>
-    protected override string Relax(string text) => BranchRelaxer.Shorten(SkipOverJump().Replace(text, Invert), Size, Shorten, -126, 129);
+    protected override string Relax(string text) => BranchRelaxer.Shorten(BranchRelaxer.DropJumpToNext(SkipOverJump().Replace(text, Invert)), Size, Shorten, -126, 129);
 
     /// <summary><c>jp cc,X; jp T; X:</c> (skok przez skok z porównania na równość) → <c>jp !cc,T; X:</c>.</summary>
     private static string Invert(Match match)

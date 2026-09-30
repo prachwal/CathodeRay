@@ -26,6 +26,8 @@ internal sealed class Intel8080Isa : ByteIsa
 
     public override IReadOnlyList<string> CellPairs { get; } = ["bc", "de"];
 
+    public override bool ReturnsInResultReg => true;
+
     protected override IReadOnlySet<string> Reserved => ReservedNames;
 
     public override string Segment(string name) => $"SEGMENT \"{name}\"";
@@ -165,20 +167,82 @@ internal sealed class Intel8080Isa : ByteIsa
         return true;
     }
 
-    /// <summary>Słowo ze stosu do pamięci: <c>pop h; shld n</c>.</summary>
+    /// <summary>Słowo ze stosu do pamięci: <c>pop h; shld n</c>; przy wyniku w HL chowany na czas zapisu w DE (w epilogu wolne):
+    /// <c>xchg; pop h; shld n; xchg</c>.</summary>
     /// <param name="word">Słowo.</param>
+    /// <param name="keepResult">HL niesie wynik.</param>
     /// <returns><see langword="false"/>, gdy bajty nie są sąsiednie w pamięci.</returns>
-    public override bool TryPopWord(Word word)
+    public override bool TryPopWord(Word word, bool keepResult)
     {
         if (!InMemoryWord(word))
         {
             return false;
         }
 
+        if (keepResult)
+        {
+            L("xchg");
+        }
+
         L("pop h");
         L($"shld {word.Lo}");
+        if (keepResult)
+        {
+            L("xchg");
+        }
+
         return true;
     }
+
+    /// <summary>HL ← słowo (<c>lxi h,nn</c>, <c>lhld n</c>, <c>mov l,c; mov h,b</c>, z DE <c>xchg</c>).</summary>
+    /// <param name="value">Wartość.</param>
+    /// <returns><see langword="false"/>, gdy bajty nie leżą parą.</returns>
+    public override bool TryMoveToResultReg(Word value)
+    {
+        if (!Usable(value))
+        {
+            return false;
+        }
+
+        // DE nie żyje po powrocie (epilog odtwarza ramkę bez niej): zamiana jest krótsza niż dwie kopie bajtów
+        if (PairOf(value) == "de")
+        {
+            L("xchg");
+        }
+        else
+        {
+            LoadPair("hl", value);
+        }
+
+        return true;
+    }
+
+    /// <summary>Słowo ← HL (<c>shld n</c>, <c>mov c,l; mov b,h</c>, do DE <c>xchg</c>).</summary>
+    /// <param name="dst">Cel.</param>
+    /// <returns><see langword="false"/>, gdy bajty nie leżą parą.</returns>
+    public override bool TryMoveFromResultReg(Word dst)
+    {
+        if (dst.IsImmediate || !Usable(dst))
+        {
+            return false;
+        }
+
+        // HL po wołaniu to już tylko pomocniczy rejestr: zamiana zamiast dwóch kopii bajtów
+        if (PairOf(dst) == "de")
+        {
+            L("xchg");
+        }
+        else
+        {
+            StorePair("hl", dst);
+        }
+
+        return true;
+    }
+
+    public override void ResultByteFromA(int index) => L(index == 0 ? "mov l,a" : "mov h,a");
+
+    public override void ResultByteToA(int index) => L(index == 0 ? "mov a,l" : "mov a,h");
 
     public override void PushPair(string pair) => L($"push {pair[..1]}");
 
@@ -288,6 +352,7 @@ internal sealed class Intel8080Isa : ByteIsa
             pop h
             jmp __crt_i
             __crt_id: call main
+            shld cc_ret
             hlt
             __callhl: pchl
             """);
@@ -304,6 +369,11 @@ internal sealed class Intel8080Isa : ByteIsa
 
         return text.ToString();
     }
+
+    /// <summary>Usuwa skoki do etykiety tuż za nimi (<see cref="BranchRelaxer.DropJumpToNext"/>); 8080 nie ma krótkich skoków.</summary>
+    /// <param name="text">Tekst funkcji.</param>
+    /// <returns>Tekst po zmianie.</returns>
+    protected override string Relax(string text) => BranchRelaxer.DropJumpToNext(text);
 
     private static IEnumerable<string> CrtCells()
     {

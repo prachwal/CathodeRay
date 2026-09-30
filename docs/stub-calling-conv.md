@@ -406,3 +406,21 @@ Wniosek z `docs/hotspots.md`: `sta ZP ; lda ZP` (122×) i `lda ZP ; sta ZP` (91�
 zbędne kopie. Prawdziwe straty to (a) kopiowanie zmiennej do tymczasowej tuż przed przesunięciem lub działaniem, (b) powtarzane podwyrażenia
 (`n - 1` dwa razy w pętli), (c) 16-bitowe porównanie ze znakiem (`eor #128` na obu połówkach, ok. 8 instrukcji). Dalsze zyski wymagają zmian
 w Lowering/IR (wybór celu działania bez kopii, CSE w bloku, porównanie ze znakiem przez odjęcie), czyli zadań większych niż S.
+
+## Plan 35: ramki parami i wynik w HL (Z80/8080)
+
+- Prolog/epilog ramki rekurencyjnej: skalar 2-bajtowy z `Function.Saved` odkładany jednym `ld hl,(n); push hl`
+  (8080: `lhld n; push h`), odtwarzany `pop hl; ld (n),hl`; komórki 1- i 4-bajtowe oraz agregaty dalej bajtami przez A.
+- **ABI wyniku na Z80/8080:** wynik szerokości 2 (`int`, `uint`, wskaźnik, młodsza połowa `long`/`float` po `WideLegalizer`)
+  wraca w **HL**, szerokości 1 w **L** (H nieokreślone). `cc_ret`/`cc_ret_h` nie są już kanałem wyniku; starsza połowa
+  wyniku 32-bitowego nadal leży w `cc_rethi`, `long long` i struktury w `cc_retbuf` (bez zmian). HL nie jest parą komórek
+  (`CellPairs` = `bc`, `de`) ani nie trafia do `SavedAround`; epilog ramki funkcji z wynikiem odtwarza słowa przez DE
+  (`pop de; ld (n),de`, 8080: `xchg; pop h; shld n; xchg`), żeby nie zniszczyć HL. Wynik w DE przechodzi do/z HL przez
+  `ex de,hl`/`xchg`. crt0 po `call main` zapisuje HL do `cc_ret` (`ld (cc_ret),hl` / `shld cc_ret`), więc testy i narzędzia
+  czytają wynik `main` z pamięci jak dotąd.
+- **Rutyny asemblerowe i moduły `.s`:** decyzja — zwracają w HL jak funkcje C (jedna konwencja, wołający nie rozróżnia
+  callee). `stdlib/target/z80/rt_mul.s` i `rt_div.s` (`__cc_mul`, `__cc_divu`, `__cc_modu`, wołane z `Legalizer`) zostawiają
+  wynik w HL i nie piszą `cc_ret`; na 8080 te rutyny są z `stdlib/portable/*.c`, więc dostają ABI z kompilatora. Własny moduł
+  `.s` podany do `cc --cpu z80|8080` musi zwracać `int`/wskaźnik w HL, `char` w L (zapis do `cc_ret` jest ignorowany).
+  Testy: `RuntimeRoutinesTests.Z80_Assembly_Routines_Return_In_Hl`, `RuntimeRoutinesTests.Assembly_Module_Returns_Int_In_Hl`.
+- Stub, 6502/65c02 i 6800 bez zmian (`ByteIsa.ReturnsInResultReg` = false: wynik w `cc_ret`).

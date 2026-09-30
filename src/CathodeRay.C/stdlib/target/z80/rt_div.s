@@ -1,9 +1,8 @@
-; rt_div.s (Z80) — __cc_divu: cc_ret = cc_arg1 / cc_arg2 (dzielnik 0 daje 0); __cc_modu: cc_ret = reszta.
+; rt_div.s (Z80) — __cc_divu: HL = cc_arg1 / cc_arg2 (dzielnik 0 daje 0); __cc_modu: HL = reszta (wynik W<=2 w HL, plan 35).
 GLOBAL __cc_divu
 GLOBAL __cc_modu
 EXTERN cc_arg1
 EXTERN cc_arg2
-EXTERN cc_ret
 SEGMENT "CODE"
 __cc_divu:
 ld bc,(cc_arg2)
@@ -11,7 +10,6 @@ ld a,b
 or c
 jr nz,__cc_div_go
 ld hl,0
-ld (cc_ret),hl
 ld (__cc_rem_),hl
 ret
 __cc_div_go:
@@ -37,13 +35,12 @@ inc e
 __cc_div_next:
 dec a
 jr nz,__cc_div_loop
-ld (cc_ret),de
 ld (__cc_rem_),hl
+ex de,hl
 ret
 __cc_modu:
 call __cc_divu
 ld hl,(__cc_rem_)
-ld (cc_ret),hl
 ret
 SEGMENT "BSS"
 __cc_rem_: DS 2

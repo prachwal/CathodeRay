@@ -46,6 +46,12 @@ internal static partial class BranchRelaxer
         return changed ? output.ToString() : text;
     }
 
+    /// <summary>Usuwa bezwarunkowy skok (Z80 <c>jp</c>, 8080 <c>jmp</c>) do etykiety, która stoi tuż za nim (dzielą je tylko etykiety
+    /// i komentarze), np. skok na koniec <c>if</c> z pustą gałęzią <c>else</c>.</summary>
+    /// <param name="text">Tekst asemblera funkcji.</param>
+    /// <returns>Tekst bez takich skoków.</returns>
+    public static string DropJumpToNext(string text) => JumpToNext().Replace(text, "$2");
+
     /// <summary>Zamienia pojedyncze długie skoki na krótkie względne (Z80: <c>jp cc,L</c> → <c>jr cc,L</c>), gdy cel jest w zasięgu.
     /// Odległość = adres celu − adres skoku, liczona na układzie z długimi skokami; w przód pomniejszona o skrócenie samego skoku
     /// (leży między nim a celem). Skracanie innych skoków tylko zbliża cele, więc wszystkie zamiany można wykonać jednocześnie.</summary>
@@ -114,4 +120,7 @@ internal static partial class BranchRelaxer
 
     [GeneratedRegex(@"^\s*jmp\s+(\S+)\s*$")]
     private static partial Regex JumpLine();
+
+    [GeneratedRegex(@"^[ \t]*(?:jp|jmp)[ \t]+([A-Za-z_.$][\w.$]*)[ \t]*\r?\n((?:[ \t]*(?:[A-Za-z_.$][\w.$]*:|;[^\r\n]*)[ \t]*\r?\n)*[ \t]*\1:)", RegexOptions.Multiline)]
+    private static partial Regex JumpToNext();
 }

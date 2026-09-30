@@ -67,7 +67,7 @@ public sealed class Intel8080RegisterIsaTests
 
         code.Should().Contain("lxi b,1000").And.Contain("inx b").And.Contain("lxi b,65531").And.Contain("add c").And.Contain("adc b")
             .And.Contain("sub c").And.Contain("sbb b").And.Contain("mov a,c").And.Contain("mov a,b")
-            .And.Contain(string.Join(Environment.NewLine, "mov l,c", "mov h,b", "shld cc_ret"));
+            .And.Contain(string.Join(Environment.NewLine, "mov l,c", "mov h,b", "main__ret:"));
         code.Should().NotContain("main__y");
         value.Should().Be(3015).And.Be(Interpret(module));
     }
@@ -150,7 +150,7 @@ public sealed class Intel8080RegisterIsaTests
 
         string tuned = target.Emit(module, optimize: true);
         tuned.Should().NotContain("sum_bytes__s").And.Contain("lxi b,0").And.Contain("mov a,c").And.Contain("mov c,a")
-            .And.Contain("mov a,b").And.Contain("mov b,a").And.Contain(string.Join(Environment.NewLine, "mov l,c", "mov h,b", "shld cc_ret"));
+            .And.Contain("mov a,b").And.Contain("mov b,a").And.Contain(string.Join(Environment.NewLine, "mov l,c", "mov h,b", "sum_bytes__ret:"));
         target.Emit(module, optimize: false).Should().Contain("sum_bytes__s").And.NotContain("mov a,c");
     }
 
