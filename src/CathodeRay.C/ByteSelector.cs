@@ -208,6 +208,30 @@ internal sealed class ByteSelector
 
     private string Dst(Ir.Cell cell, int index) => _isa.Loc(cell.Sym, cell.W, index);
 
+    /// <summary>Operand jako słowo 16-bitowe dla <see cref="ByteIsa.TryMoveWord"/> albo <see langword="null"/> (komórka węższa, <c>volatile</c>).</summary>
+    private Word? WordOf(Ir.Op op) => op switch
+    {
+        Ir.Cell { W: 2 } cell => Pair(Dst(cell, 0), Dst(cell, 1)),
+        Ir.Imm imm => new Word(true, Number(imm.Value & (imm.W == 1 ? 0xFF : 0xFFFF)), string.Empty),
+        Ir.AddrOf address => new Word(true, At(address.Sym, address.Off), string.Empty),
+        _ => null,
+    };
+
+    private Word? Pair(string lo, string hi) => (IsVolatile(lo) || IsVolatile(hi)) ? null : new Word(false, lo, hi);
+
+    /// <summary>Kopia słowa przez ISA; A się nie zmienia, ale bajty celu już nie są równe A.</summary>
+    private bool TryMoveWord(Word? dst, Word? src)
+    {
+        if (dst is not { } target || src is not { } source || !_isa.TryMoveWord(target, source))
+        {
+            return false;
+        }
+
+        _acc.Remove(target.Lo);
+        _acc.Remove(target.Hi);
+        return true;
+    }
+
     private void EmitFunction(Ir.Function function)
     {
         int mark = _isa.Mark;
@@ -242,7 +266,7 @@ internal sealed class ByteSelector
         for (int i = 0; i < function.Params.Count; i++)
         {
             Ir.Cell param = function.Params[i];
-            if (param.Sym == ArgSym(i, 0))
+            if (param.Sym == ArgSym(i, 0) || (param.W == 2 && TryMoveWord(WordOf(param), Pair(ArgSym(i, 0), ArgSym(i, 1)))))
             {
                 continue;
             }
@@ -344,6 +368,11 @@ internal sealed class ByteSelector
     private void EmitMov(Ir.Cell dst, Ir.Op src)
     {
         if (src is Ir.Cell same && same.Sym == dst.Sym && same.W == dst.W)
+        {
+            return;
+        }
+
+        if (dst.W == 2 && TryMoveWord(WordOf(dst), WordOf(src)))
         {
             return;
         }
@@ -677,6 +706,11 @@ internal sealed class ByteSelector
     {
         for (int i = 0; i < call.Args.Count; i++)
         {
+            if (call.ParamWidths[i] == 2 && TryMoveWord(Pair(ArgSym(i, 0), ArgSym(i, 1)), WordOf(call.Args[i])))
+            {
+                continue;
+            }
+
             for (int part = 0; part < call.ParamWidths[i]; part++)
             {
                 LoadA(ByteOf(call.Args[i], part));
@@ -694,7 +728,7 @@ internal sealed class ByteSelector
             CallDirect(_isa.Sym(call.Direct!));
         }
 
-        if (call.Result is not null)
+        if (call.Result is not null && !(call.Result.W == 2 && TryMoveWord(WordOf(call.Result), Pair(RetSym(0), RetSym(1)))))
         {
             for (int part = 0; part < call.Result.W; part++)
             {
@@ -706,7 +740,7 @@ internal sealed class ByteSelector
 
     private void EmitRet(Ir.Function function, Ir.Ret ret, bool last)
     {
-        if (ret.Value is not null)
+        if (ret.Value is not null && !(ret.W == 2 && TryMoveWord(Pair(RetSym(0), RetSym(1)), WordOf(ret.Value))))
         {
             for (int part = 0; part < ret.W; part++)
             {

@@ -41,7 +41,7 @@
     {
       "id": "6",
       "title": "[M] `Word` i `TryMoveWord` w `ByteIsa` + Z80 | wykonawca: mocny model | Pliki: `ByteIsa.cs`, `Z80Isa.cs`, `ByteSelector.cs` (`EmitMov`, `EmitCall`, `EmitRet`, prolog). Akceptacja: `IrConformanceTests.Moves_Convert_Widths` i `Long_Moves_Loads_And_Stores…` zielone; max3 na Z80 ≤ 100 B; tabela: z80 maleje w każdym wierszu z przypisaniami 16-bit, inne kolumny bez zmian.",
-      "status": "todo",
+      "status": "done",
       "note": "",
       "section": "B. Tanie optymalizacje modelu pamięci i 16-bitowe (Z80, 8080)"
     },

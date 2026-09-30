@@ -169,6 +169,13 @@ internal abstract class ByteIsa
     /// <returns><see langword="true"/>, gdy sekwencja została wyemitowana; inaczej selektor użyje ogólnego łańcucha ADD/SUB.</returns>
     public virtual bool TryStep(IReadOnlyList<string> bytes, bool increment) => false;
 
+    /// <summary>Kopia słowa 16-bitowego <c>dst ← src</c> jedną sekwencją CPU, bez użycia A (może zmienić rejestry adresowe i flagi).
+    /// Domyślnie <see langword="false"/>: selektor kopiuje bajt po bajcie przez A.</summary>
+    /// <param name="dst">Cel (pamięć).</param>
+    /// <param name="src">Źródło: stała albo pamięć.</param>
+    /// <returns><see langword="true"/>, gdy sekwencja została wyemitowana.</returns>
+    public virtual bool TryMoveWord(Word dst, Word src) => false;
+
     /// <summary>Zamienia tekst od znacznika na jego wersję po relaksacji skoków (krótkie skoki warunkowe tam, gdzie cel jest w zasięgu).</summary>
     /// <param name="mark">Znacznik z <see cref="Mark"/>.</param>
     public void RelaxFrom(int mark)

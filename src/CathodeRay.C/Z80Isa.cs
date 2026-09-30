@@ -93,6 +93,22 @@ internal sealed class Z80Isa : ByteIsa
         return true;
     }
 
+    /// <summary>Kopia słowa przez HL (<c>ld hl,(src)</c> albo <c>ld hl,stała</c>; <c>ld (dst),hl</c>), gdy bajty obu stron leżą obok siebie.</summary>
+    /// <param name="dst">Cel.</param>
+    /// <param name="src">Źródło.</param>
+    /// <returns><see langword="false"/>, gdy bajty nie są sąsiednie.</returns>
+    public override bool TryMoveWord(Word dst, Word src)
+    {
+        if (dst.IsImmediate || !Adjacent(dst) || (!src.IsImmediate && !Adjacent(src)))
+        {
+            return false;
+        }
+
+        L(src.IsImmediate ? $"ld hl,{src.Lo}" : $"ld hl,({src.Lo})");
+        L($"ld ({dst.Lo}),hl");
+        return true;
+    }
+
     public override void PushA() => L("push af");
 
     public override void PopA() => L("pop af");
@@ -216,6 +232,9 @@ internal sealed class Z80Isa : ByteIsa
         yield return "cc_t0";
         yield return "cc_t1";
     }
+
+    /// <summary>Starszy bajt leży tuż za młodszym: <c>x</c>/<c>x+1</c> albo para komórek crt0 <c>cc_x</c>/<c>cc_x_h</c>.</summary>
+    private static bool Adjacent(Word word) => word.Hi == word.Lo + "+1" || word.Hi == word.Lo + "_h";
 
     private void Operate(string mnemonic, Octet value)
     {
