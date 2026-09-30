@@ -6,7 +6,7 @@
     {
       "id": "1",
       "title": "[S] Fuzz wskaźników funkcji: rozszerz `tools/leaf_fuzz.py` o wywołania przez wskaźnik do funkcji (potrzebne zanim ruszymy wywołanie ogonowe i peepholes z wynikiem w HL). | wykonawca: Haiku (plan-coder) | Plik: tylko `tools/leaf_fuzz.py` (żadnych zmian w C#; istniejący `LeafFuzzTests` uruchamia wygenerowane programy). Co dodać: w generatorze programów dodaj 1-2 krótkie funkcje `int hN(int x)` (np. `return x + K;`, `return x * 3;`) o stałych parametrach z tych samych typów co reszta (I16), tablicę lub zmienną `int (*fp)(int)` przypisywaną `hN` oraz wyrażenie wołające `fp(arg)`; dodaj też funkcję `apply(int (*f)(int), int v) { return f(v); }` i jej wołanie z losowym `hN` (to jest dokładnie kształt `apply` z `samples/bench/fnptr.c`). W wersji `gcc` użyj tych samych definicji (typy: `I16` to `short`, więc `int (*fp)(I16)` przez `typedef I16 (*F)(I16);`). Wynik wołania wchodzi do sumy kontrolnej tak jak inne wyniki. Akceptacja: `python3 tools/leaf_fuzz.py gen 300 /tmp/p/lf` generuje programy kompilujące się w gcc; `LEAF_FUZZ_DIR=/tmp/p/lf dotnet test --nologo --filter LeafFuzzTests` ma `Passed!  - Failed:     0` na wszystkich celach; pokaż w raporcie fragment jednego wygenerowanego programu z `fp(`. Mutacja kontrolna: w `Z80Isa.cs` tymczasowo zepsuj `CallIndirect` (np. zamień `ld l,e` na `ld l,d` w jego ciele) i sprawdź, że fuzz robi się czerwony, po czym przywróć plik (`git checkout -- src/CathodeRay.C/Z80Isa.cs` jest niedozwolone — przywróć Edit-em do poprzedniej treści i sprawdź `git diff` = pusto). Tabela rozmiarów bez zmian (nie regeneruj).",
-      "status": "todo",
+      "status": "done",
       "note": "",
       "section": "A. Test różnicowy"
     },

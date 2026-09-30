@@ -167,9 +167,35 @@ def walker(r):
     ])
 
 
+def fnptr_functions(r):
+    """Generuj 1-2 proste funkcje do testów wskaźników funkcji."""
+    lines = []
+    funcs = []
+    count = r.randint(1, 2)
+    for i in range(count):
+        fname = f"h{i}"
+        op = r.choice(["+", "*", "-", "^"])
+        k = const(r, "I16")
+        lines.append(f"static I16 {fname}(I16 x) {{ return x {op} {k}; }}")
+        lines.append("")
+        funcs.append(fname)
+
+    lines.append("I16 apply(I16 (*f)(I16), I16 v) {")
+    lines.append("  return f(v);")
+    lines.append("}")
+    lines.append("")
+
+    return "\n".join(lines), funcs
+
+
 def program(seed):
     r = random.Random(seed)
     functions, body = [walker(r)], []
+
+    # Dodaj funkcje i apply dla testów wskaźników funkcji
+    fptext, fpfuncs = fnptr_functions(r)
+    functions.append(fptext)
+
     body.append("  for (mU8 = 0; mU8 < 16; mU8++) arr[mU8] = (U16)mU8 * 4099 + 17;")
     body.append(f"  h = walk({r.randint(0, 9)}, {r.randint(0, 65535)}) ^ walk(mU8, h);")
     for f in range(3):
@@ -191,6 +217,18 @@ def program(seed):
                     args.append(const(r, t))
             body.append(f"  h = h * 31 + (U16){wname}({', '.join(args)});")
             body.append("  h = h ^ (U16)mU8 ^ (U16)mI16 ^ (U16)mU16 ^ (U16)mI32;")
+
+    # Dodaj wywołania funkcji przez wskaźnik
+    if fpfuncs:
+        body.append(f"  I16 (*fp)(I16);")
+        chosen = r.choice(fpfuncs)
+        body.append(f"  fp = {chosen};")
+        body.append(f"  h = h * 31 + (U16)fp({const(r, 'I16')});")
+        body.append("  h = h ^ (U16)mU8 ^ (U16)mI16 ^ (U16)mU16 ^ (U16)mI32;")
+        chosen2 = r.choice(fpfuncs)
+        body.append(f"  h = h * 31 + (U16)apply({chosen2}, {const(r, 'I16')});")
+        body.append("  h = h ^ (U16)mU8 ^ (U16)mI16 ^ (U16)mU16 ^ (U16)mI32;")
+
     main = ["int main() {", "  U16 h; U8 mU8; I16 mI16; U16 mU16; I32 mI32;", "  h = 0; mU8 = 1; mI16 = 2; mU16 = 3; mI32 = 4L;", *body, "  return h & 32767;", "}"]
     return "\n".join(functions + main)
 
