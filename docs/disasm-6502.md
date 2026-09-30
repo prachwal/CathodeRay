@@ -4,10 +4,10 @@
 
 | kompilator | bajty funkcji | instrukcje | wołane procedury zewnętrzne |
 | --- | ---: | ---: | --- |
-| nasz | 119 | 60 | - |
+| nasz | 46 | 22 | - |
 | cc65 | 22 | 12 | ldeaxysp, pusheax, tosaddeax |
 
-stosunek nasz / cc65: 5.41
+stosunek nasz / cc65: 2.09
 
 - cc65: sama funkcja 22 B; po zlinkowaniu z runtime cc65 147 B (w tym 4 B startera)
 
@@ -15,63 +15,25 @@ stosunek nasz / cc65: 5.41
 
 ```asm
     lda     $14
+    clc
+    adc     $18
     sta     $1E
     lda     $15
+    adc     $19
     sta     $1F
     lda     $16
+    adc     $7001
     sta     $20
     lda     $17
+    adc     $7002
     sta     $21
-    lda     $18
-    sta     $22
-    lda     $19
-    sta     $23
-    lda     $7001
-    sta     $24
-    lda     $7002
-    sta     $25
-    lda     $1E
-    clc
-    adc     $22
-    sta     $2A
-    lda     $1F
-    adc     $23
-    sta     $2B
-    lda     #$00
-    sta     $2C
-    lda     $2A
-    sec
-    sbc     $1E
-    lda     $2B
-    sbc     $1F
-    bcs     L10BC
-    lda     #$01
-    sta     $2C
-L10BC:  lda     $20
-    clc
-    adc     $24
-    sta     $28
-    lda     $21
-    adc     $25
-    sta     $29
-    lda     $28
-    clc
-    adc     $2C
-    sta     $28
-    lda     $29
-    adc     #$00
-    sta     $29
-    lda     $2A
-    sta     $26
-    lda     $2B
-    sta     $27
-    lda     $28
+    lda     $20
     sta     $8040
-    lda     $29
+    lda     $21
     sta     $8041
-    lda     $26
+    lda     $1E
     sta     $1A
-    lda     $27
+    lda     $1F
     sta     $1B
     rts
 ```
@@ -97,258 +59,250 @@ L10BC:  lda     $20
 
 | kompilator | bajty funkcji | instrukcje | wołane procedury zewnętrzne |
 | --- | ---: | ---: | --- |
-| nasz | 462 | 242 | - |
+| nasz | 446 | 234 | - |
 | cc65 | 379 | 217 | decsp6, pushax, pushwysp, stax0sp, staxspidx, staxysp, tosaddax, tosicmp |
 
-stosunek nasz / cc65: 1.22
+stosunek nasz / cc65: 1.18
 
 - cc65: sama funkcja 379 B; po zlinkowaniu z runtime cc65 598 B (w tym 4 B startera)
 
 ### nasz
 
 ```asm
-    lda     $14
-    sta     $1E
-    lda     $15
-    sta     $1F
-    lda     $16
-    sta     $20
-    lda     $17
-    sta     $21
     lda     #$00
-    sta     $22
-    sta     $23
-L1090:  lda     $20
+    sta     $1E
+    sta     $1F
+L1080:  lda     $16
     sec
     sbc     #$01
-    sta     $2A
-    lda     $21
+    sta     $26
+    lda     $17
     sbc     #$00
-    sta     $2B
-    lda     $23
-    eor     #$80
-    sta     $1C
-    lda     $2B
-    eor     #$80
-    sta     $1D
-    lda     $22
-    sec
-    sbc     $2A
-    lda     $1C
-    sbc     $1D
-    bcc     L10B7
-    jmp     L1247
-L10B7:  lda     #$00
-    sta     $24
-    sta     $25
-L10BD:  lda     $20
-    sec
-    sbc     #$01
-    sta     $2A
-    lda     $21
-    sbc     #$00
-    sta     $2B
-    lda     $2A
-    sec
-    sbc     $22
-    sta     $2A
-    lda     $2B
-    sbc     $23
-    sta     $2B
-    lda     $25
-    eor     #$80
-    sta     $1C
-    lda     $2B
-    eor     #$80
-    sta     $1D
-    lda     $24
-    sec
-    sbc     $2A
-    lda     $1C
-    sbc     $1D
-    bcc     L10F1
-    jmp     L123E
-L10F1:  lda     $24
-    sta     $2A
-    lda     $25
-    sta     $2B
-    lda     $2A
-    asl     a
-    sta     $2A
-    lda     $2B
-    rol     a
-    sta     $2B
-    lda     $1E
-    clc
-    adc     $2A
-    sta     $28
+    sta     $27
     lda     $1F
-    adc     $2B
-    sta     $29
-    lda     $28
+    eor     #$80
+    sta     $1C
+    lda     $27
+    eor     #$80
+    sta     $1D
+    lda     $1E
+    sec
+    sbc     $26
+    lda     $1C
+    sbc     $1D
+    bcc     L10A7
+    jmp     L1237
+L10A7:  lda     #$00
+    sta     $20
+    sta     $21
+L10AD:  lda     $16
+    sec
+    sbc     #$01
+    sta     $26
+    lda     $17
+    sbc     #$00
+    sta     $27
+    lda     $26
+    sec
+    sbc     $1E
+    sta     $26
+    lda     $27
+    sbc     $1F
+    sta     $27
+    lda     $21
+    eor     #$80
+    sta     $1C
+    lda     $27
+    eor     #$80
+    sta     $1D
+    lda     $20
+    sec
+    sbc     $26
+    lda     $1C
+    sbc     $1D
+    bcc     L10E1
+    jmp     L122E
+L10E1:  lda     $20
+    sta     $26
+    lda     $21
+    sta     $27
+    lda     $26
+    asl     a
+    sta     $26
+    lda     $27
+    rol     a
+    sta     $27
+    lda     $14
+    clc
+    adc     $26
+    sta     $24
+    lda     $15
+    adc     $27
+    sta     $25
+    lda     $24
     sta     $10
-    lda     $29
+    lda     $25
     sta     $11
     ldy     #$00
     lda     ($10),y
-    sta     $28
+    sta     $24
     ldy     #$01
     lda     ($10),y
-    sta     $29
-    lda     $24
+    sta     $25
+    lda     $20
     clc
     adc     #$01
-    sta     $2C
-    lda     $25
+    sta     $28
+    lda     $21
     adc     #$00
-    sta     $2D
-    lda     $2C
+    sta     $29
+    lda     $28
     asl     a
-    sta     $2C
-    lda     $2D
+    sta     $28
+    lda     $29
     rol     a
-    sta     $2D
-    lda     $1E
+    sta     $29
+    lda     $14
     clc
-    adc     $2C
-    sta     $2A
-    lda     $1F
-    adc     $2D
-    sta     $2B
-    lda     $2A
+    adc     $28
+    sta     $26
+    lda     $15
+    adc     $29
+    sta     $27
+    lda     $26
     sta     $10
-    lda     $2B
+    lda     $27
     sta     $11
     ldy     #$00
     lda     ($10),y
-    sta     $2A
-    ldy     #$01
-    lda     ($10),y
-    sta     $2B
-    eor     #$80
-    sta     $1C
-    lda     $29
-    eor     #$80
-    sta     $1D
-    lda     $2A
-    sec
-    sbc     $28
-    lda     $1C
-    sbc     $1D
-    bcc     L1174
-    jmp     L1235
-L1174:  lda     $24
-    sta     $2A
-    lda     $25
-    sta     $2B
-    lda     $2A
-    asl     a
-    sta     $2A
-    lda     $2B
-    rol     a
-    sta     $2B
-    lda     $1E
-    clc
-    adc     $2A
-    sta     $28
-    lda     $1F
-    adc     $2B
-    sta     $29
-    ldy     #$00
-    lda     ($28),y
     sta     $26
     ldy     #$01
-    lda     ($28),y
+    lda     ($10),y
     sta     $27
-    lda     $24
+    eor     #$80
+    sta     $1C
+    lda     $25
+    eor     #$80
+    sta     $1D
+    lda     $26
+    sec
+    sbc     $24
+    lda     $1C
+    sbc     $1D
+    bcc     L1164
+    jmp     L1225
+L1164:  lda     $20
+    sta     $26
+    lda     $21
+    sta     $27
+    lda     $26
+    asl     a
+    sta     $26
+    lda     $27
+    rol     a
+    sta     $27
+    lda     $14
+    clc
+    adc     $26
+    sta     $24
+    lda     $15
+    adc     $27
+    sta     $25
+    ldy     #$00
+    lda     ($24),y
+    sta     $22
+    ldy     #$01
+    lda     ($24),y
+    sta     $23
+    lda     $20
     clc
     adc     #$01
-    sta     $2A
-    lda     $25
+    sta     $26
+    lda     $21
     adc     #$00
-    sta     $2B
-    lda     $2A
+    sta     $27
+    lda     $26
     asl     a
-    sta     $2A
-    lda     $2B
+    sta     $26
+    lda     $27
     rol     a
-    sta     $2B
-    lda     $1E
+    sta     $27
+    lda     $14
     clc
-    adc     $2A
-    sta     $28
-    lda     $1F
-    adc     $2B
-    sta     $29
-    lda     $28
+    adc     $26
+    sta     $24
+    lda     $15
+    adc     $27
+    sta     $25
+    lda     $24
     sta     $10
-    lda     $29
+    lda     $25
     sta     $11
     ldy     #$00
     lda     ($10),y
-    sta     $28
+    sta     $24
     ldy     #$01
     lda     ($10),y
+    sta     $25
+    lda     $20
+    sta     $28
+    lda     $21
     sta     $29
-    lda     $24
-    sta     $2C
-    lda     $25
-    sta     $2D
-    lda     $2C
-    asl     a
-    sta     $2C
-    lda     $2D
-    rol     a
-    sta     $2D
-    lda     $1E
-    clc
-    adc     $2C
-    sta     $2A
-    lda     $1F
-    adc     $2D
-    sta     $2B
     lda     $28
-    ldy     #$00
-    sta     ($2A),y
+    asl     a
+    sta     $28
     lda     $29
-    ldy     #$01
-    sta     ($2A),y
+    rol     a
+    sta     $29
+    lda     $14
+    clc
+    adc     $28
+    sta     $26
+    lda     $15
+    adc     $29
+    sta     $27
     lda     $24
+    ldy     #$00
+    sta     ($26),y
+    lda     $25
+    ldy     #$01
+    sta     ($26),y
+    lda     $20
     clc
     adc     #$01
-    sta     $2C
-    lda     $25
+    sta     $28
+    lda     $21
     adc     #$00
-    sta     $2D
-    lda     $2C
+    sta     $29
+    lda     $28
     asl     a
-    sta     $2C
-    lda     $2D
+    sta     $28
+    lda     $29
     rol     a
-    sta     $2D
-    lda     $1E
+    sta     $29
+    lda     $14
     clc
-    adc     $2C
-    sta     $2A
-    lda     $1F
-    adc     $2D
-    sta     $2B
-    lda     $26
+    adc     $28
+    sta     $26
+    lda     $15
+    adc     $29
+    sta     $27
+    lda     $22
     ldy     #$00
-    sta     ($2A),y
-    lda     $27
+    sta     ($26),y
+    lda     $23
     ldy     #$01
-    sta     ($2A),y
-    jmp     L1235
-L1235:  inc     $24
-    bne     L123B
-    inc     $25
-L123B:  jmp     L10BD
-L123E:  inc     $22
-    bne     L1244
-    inc     $23
-L1244:  jmp     L1090
-L1247:  rts
+    sta     ($26),y
+    jmp     L1225
+L1225:  inc     $20
+    bne     L122B
+    inc     $21
+L122B:  jmp     L10AD
+L122E:  inc     $1E
+    bne     L1234
+    inc     $1F
+L1234:  jmp     L1080
+L1237:  rts
 ```
 
 ### cc65
@@ -577,49 +531,37 @@ L117A:  ldy     #$0A
 
 | kompilator | bajty funkcji | instrukcje | wołane procedury zewnętrzne |
 | --- | ---: | ---: | --- |
-| nasz | 66 | 33 | - |
+| nasz | 42 | 21 | - |
 | cc65 | 92 | 55 | pushax, pushwysp, staspidx, stax0sp, staxysp |
 
-stosunek nasz / cc65: 0.72
+stosunek nasz / cc65: 0.46
 
 - cc65: sama funkcja 92 B; po zlinkowaniu z runtime cc65 224 B (w tym 4 B startera)
 
 ### nasz
 
 ```asm
-    lda     $14
+L107A:  lda     $18
+    ora     $19
+    beq     L10A3
+    ldy     #$00
+    lda     ($16),y
     sta     $1E
-    lda     $15
-    sta     $1F
-    lda     $16
-    sta     $20
-    lda     $17
-    sta     $21
-    lda     $18
-    sta     $22
-    lda     $19
-    sta     $23
-L1092:  lda     $22
-    ora     $23
-    beq     L10BB
+    lda     $1E
     ldy     #$00
-    lda     ($20),y
-    sta     $24
-    lda     $24
-    ldy     #$00
-    sta     ($1E),y
-    inc     $1E
-    bne     L10AA
-    inc     $1F
-L10AA:  inc     $20
-    bne     L10B0
-    inc     $21
-L10B0:  lda     $22
-    bne     L10B6
-    dec     $23
-L10B6:  dec     $22
-    jmp     L1092
-L10BB:  rts
+    sta     ($14),y
+    inc     $14
+    bne     L1092
+    inc     $15
+L1092:  inc     $16
+    bne     L1098
+    inc     $17
+L1098:  lda     $18
+    bne     L109E
+    dec     $19
+L109E:  dec     $18
+    jmp     L107A
+L10A3:  rts
 ```
 
 ### cc65
@@ -781,10 +723,10 @@ stosunek nasz / cc65: 2.09
 
 | kompilator | bajty funkcji | instrukcje | wołane procedury zewnętrzne |
 | --- | ---: | ---: | --- |
-| nasz | 156 | 85 | - |
+| nasz | 144 | 77 | - |
 | cc65 | 74 | 44 | _fib, pushax, tosaddax |
 
-stosunek nasz / cc65: 2.11
+stosunek nasz / cc65: 1.95
 
 - cc65: sama funkcja 74 B; po zlinkowaniu z runtime cc65 154 B (w tym 4 B startera)
 
@@ -799,10 +741,6 @@ L107A:  lda     $1E
     pha
     lda     $21
     pha
-    lda     $22
-    pha
-    lda     $23
-    pha
     lda     $14
     sta     $1E
     lda     $15
@@ -814,13 +752,13 @@ L107A:  lda     $1E
     sbc     #$02
     lda     $1C
     sbc     #$80
-    bcs     L10AE
+    bcs     L10A8
     lda     $1E
     sta     $1A
     lda     $1F
     sta     $1B
-    jmp     L1103
-L10AE:  lda     $1E
+    jmp     L10FD
+L10A8:  lda     $1E
     sec
     sbc     #$01
     sta     $22
@@ -863,11 +801,7 @@ L10AE:  lda     $1E
     sta     $1A
     lda     $21
     sta     $1B
-L1103:  pla
-    sta     $23
-    pla
-    sta     $22
-    pla
+L10FD:  pla
     sta     $21
     pla
     sta     $20
@@ -931,89 +865,77 @@ L1045:  jsr     _fib
 
 | kompilator | bajty funkcji | instrukcje | wołane procedury zewnętrzne |
 | --- | ---: | ---: | --- |
-| nasz | 143 | 73 | - |
+| nasz | 119 | 61 | - |
 | cc65 | 119 | 71 | decsp2, pushax, pushwysp, stax0sp, tosaddax |
 
-stosunek nasz / cc65: 1.20
+stosunek nasz / cc65: 1.00
 
 - cc65: sama funkcja 119 B; po zlinkowaniu z runtime cc65 248 B (w tym 4 B startera)
 
 ### nasz
 
 ```asm
-    lda     $14
-    sta     $1E
-    lda     $15
-    sta     $1F
-    lda     $16
-    sta     $20
-    lda     $17
-    sta     $21
-    lda     $18
-    sta     $22
-    lda     $19
-    sta     $23
     lda     #$00
-    sta     $24
-    sta     $25
-L1098:  lda     $25
+    sta     $1E
+    sta     $1F
+L1080:  lda     $1F
     eor     #$80
     sta     $1C
-    lda     $21
+    lda     $17
     eor     #$80
     sta     $1D
-    lda     $24
+    lda     $1E
     sec
-    sbc     $20
+    sbc     $16
     lda     $1C
     sbc     $1D
-    bcs     L1102
-    lda     $24
-    sta     $28
-    lda     $25
-    sta     $29
-    lda     $28
-    asl     a
-    sta     $28
-    lda     $29
-    rol     a
-    sta     $29
+    bcs     L10EA
     lda     $1E
-    clc
-    adc     $28
-    sta     $26
+    sta     $22
     lda     $1F
-    adc     $29
-    sta     $27
-    lda     $26
+    sta     $23
+    lda     $22
+    asl     a
+    sta     $22
+    lda     $23
+    rol     a
+    sta     $23
+    lda     $14
+    clc
+    adc     $22
+    sta     $20
+    lda     $15
+    adc     $23
+    sta     $21
+    lda     $20
     sta     $10
-    lda     $27
+    lda     $21
     sta     $11
     ldy     #$00
     lda     ($10),y
-    sta     $26
+    sta     $20
     ldy     #$01
     lda     ($10),y
-    sta     $27
-    lda     $26
-    cmp     $22
-    bne     L10F9
-    lda     $27
-    cmp     $23
-    bne     L10F9
-    lda     $24
+    sta     $21
+    lda     $20
+    cmp     $18
+    bne     L10E1
+    lda     $21
+    cmp     $19
+    bne     L10E1
+    lda     $1E
     sta     $1A
-    lda     $25
+    lda     $1F
     sta     $1B
-    jmp     L1108
-L10F9:  inc     $24
-    bne     L10FF
-    inc     $25
-L10FF:  jmp     L1098
-L1102:  lda     #$FF
+    jmp     L10F0
+L10E1:  inc     $1E
+    bne     L10E7
+    inc     $1F
+L10E7:  jmp     L1080
+L10EA:  lda     #$FF
     sta     $1A
     sta     $1B
-L1108:  rts
+L10F0:  rts
 ```
 
 ### cc65
@@ -1096,10 +1018,10 @@ L1075:  ldx     #$FF
 
 | kompilator | bajty funkcji | instrukcje | wołane procedury zewnętrzne |
 | --- | ---: | ---: | --- |
-| nasz | 229 | 109 | - |
+| nasz | 205 | 101 | - |
 | cc65 | 115 | 63 | incsp2, jmpvec, negax, pushax, pushwysp |
 
-stosunek nasz / cc65: 1.99
+stosunek nasz / cc65: 1.78
 
 - cc65: sama funkcja 115 B; po zlinkowaniu z runtime cc65 240 B (w tym 4 B startera)
 
@@ -1108,52 +1030,44 @@ stosunek nasz / cc65: 1.99
 ```asm
     L1077           := $1077
     lda     $14
+    clc
+    adc     $14
     sta     $1E
     lda     $15
+    adc     $15
     sta     $1F
     lda     $1E
-    clc
-    adc     $1E
-    sta     $20
+    sta     $1A
     lda     $1F
-    adc     $1F
+    sta     $1B
+    rts
+    lda     #$00
+    sec
+    sbc     $14
+    sta     $20
+    lda     #$00
+    sbc     $15
     sta     $21
     lda     $20
     sta     $1A
     lda     $21
     sta     $1B
     rts
-    lda     $14
-    sta     $7007
-    lda     $15
-    sta     $7008
-    lda     #$00
-    sec
-    sbc     $7007
+L10A6:  lda     $14
     sta     $22
-    lda     #$00
-    sbc     $7008
-    sta     $23
-    lda     $22
-    sta     $1A
-    lda     $23
-    sta     $1B
-    rts
-L10BA:  lda     $14
-    sta     $7009
     lda     $15
-    sta     $700A
+    sta     $23
     lda     $16
-    sta     $700B
+    sta     $7007
     lda     $17
-    sta     $700C
-    lda     $700B
+    sta     $7008
+    lda     $7007
     sta     $14
-    lda     $700C
+    lda     $7008
     sta     $15
-    lda     $7009
+    lda     $22
     sta     $8042
-    lda     $700A
+    lda     $23
     sta     $8043
     jsr     L1077
     lda     $1A
@@ -1173,9 +1087,9 @@ L10BA:  lda     $14
     sta     $28
     lda     $26
     cmp     #$00
-    bne     L110D
-    jmp     L1133
-L110D:  lda     #$7A
+    bne     L10F5
+    jmp     L111B
+L10F5:  lda     #$7A
     sta     $14
     lda     #$10
     sta     $15
@@ -1183,7 +1097,7 @@ L110D:  lda     #$7A
     sta     $16
     lda     $28
     sta     $17
-    jsr     L10BA
+    jsr     L10A6
     lda     $1A
     sta     $2B
     lda     $1B
@@ -1192,8 +1106,8 @@ L110D:  lda     #$7A
     sta     $29
     lda     $2C
     sta     $2A
-    jmp     L1156
-L1133:  lda     #$98
+    jmp     L113E
+L111B:  lda     #$90
     sta     $14
     lda     #$10
     sta     $15
@@ -1201,7 +1115,7 @@ L1133:  lda     #$98
     sta     $16
     lda     $28
     sta     $17
-    jsr     L10BA
+    jsr     L10A6
     lda     $1A
     sta     $2B
     lda     $1B
@@ -1210,7 +1124,7 @@ L1133:  lda     #$98
     sta     $29
     lda     $2C
     sta     $2A
-L1156:  lda     $29
+L113E:  lda     $29
     sta     $1A
     lda     $2A
     sta     $1B
@@ -1289,10 +1203,10 @@ L1066:  jsr     pushax
 
 | kompilator | bajty funkcji | instrukcje | wołane procedury zewnętrzne |
 | --- | ---: | ---: | --- |
-| nasz | 107 | 54 | - |
+| nasz | 83 | 42 | - |
 | cc65 | 90 | 52 | decsp2, pushax, pushwysp, stax0sp, tosicmp |
 
-stosunek nasz / cc65: 1.19
+stosunek nasz / cc65: 0.92
 
 - cc65: sama funkcja 90 B; po zlinkowaniu z runtime cc65 237 B (w tym 4 B startera)
 
@@ -1303,54 +1217,42 @@ stosunek nasz / cc65: 1.19
     sta     $1E
     lda     $15
     sta     $1F
-    lda     $16
-    sta     $20
+    eor     #$80
+    sta     $1C
     lda     $17
-    sta     $21
-    lda     $18
-    sta     $22
+    eor     #$80
+    sta     $1D
+    lda     $14
+    sec
+    sbc     $16
+    lda     $1C
+    sbc     $1D
+    bcs     L10A2
+    lda     $16
+    sta     $1E
+    lda     $17
+    sta     $1F
+    jmp     L10A2
+L10A2:  lda     $1F
+    eor     #$80
+    sta     $1C
     lda     $19
-    sta     $23
-    lda     $1E
-    sta     $24
-    lda     $1F
-    sta     $25
-    eor     #$80
-    sta     $1C
-    lda     $21
     eor     #$80
     sta     $1D
     lda     $1E
     sec
-    sbc     $20
+    sbc     $18
     lda     $1C
     sbc     $1D
-    bcs     L10BA
-    lda     $20
-    sta     $24
-    lda     $21
-    sta     $25
-    jmp     L10BA
-L10BA:  lda     $25
-    eor     #$80
-    sta     $1C
-    lda     $23
-    eor     #$80
-    sta     $1D
-    lda     $24
-    sec
-    sbc     $22
-    lda     $1C
-    sbc     $1D
-    bcs     L10DC
-    lda     $22
-    sta     $24
-    lda     $23
-    sta     $25
-    jmp     L10DC
-L10DC:  lda     $24
+    bcs     L10C4
+    lda     $18
+    sta     $1E
+    lda     $19
+    sta     $1F
+    jmp     L10C4
+L10C4:  lda     $1E
     sta     $1A
-    lda     $25
+    lda     $1F
     sta     $1B
     rts
 ```
@@ -1539,39 +1441,35 @@ stosunek nasz / cc65: 1.57
 
 | kompilator | bajty funkcji | instrukcje | wołane procedury zewnętrzne |
 | --- | ---: | ---: | --- |
-| nasz | 51 | 25 | - |
+| nasz | 43 | 21 | - |
 | cc65 | 78 | 48 | decsp2, pushax, stax0sp, staxysp |
 
-stosunek nasz / cc65: 0.65
+stosunek nasz / cc65: 0.55
 
 - cc65: sama funkcja 78 B; po zlinkowaniu z runtime cc65 151 B (w tym 4 B startera)
 
 ### nasz
 
 ```asm
-    lda     $14
-    sta     $1E
-    lda     $15
-    sta     $1F
     lda     #$00
+    sta     $1E
+    sta     $1F
+L1080:  ldy     #$00
+    lda     ($14),y
     sta     $20
-    sta     $21
-L1088:  ldy     #$00
-    lda     ($1E),y
-    sta     $22
     cmp     #$00
-    bne     L1095
-    jmp     L10A4
-L1095:  inc     $20
-    bne     L109B
-    inc     $21
-L109B:  inc     $1E
-    bne     L10A1
+    bne     L108D
+    jmp     L109C
+L108D:  inc     $1E
+    bne     L1093
     inc     $1F
-L10A1:  jmp     L1088
-L10A4:  lda     $20
+L1093:  inc     $14
+    bne     L1099
+    inc     $15
+L1099:  jmp     L1080
+L109C:  lda     $1E
     sta     $1A
-    lda     $21
+    lda     $1F
     sta     $1B
     rts
 ```
@@ -1633,118 +1531,102 @@ L1037:  ldy     #$03
 
 | kompilator | bajty funkcji | instrukcje | wołane procedury zewnętrzne |
 | --- | ---: | ---: | --- |
-| nasz | 203 | 103 | - |
+| nasz | 167 | 87 | - |
 | cc65 | 200 | 114 | pushax, pushwysp, staspidx, staxspidx, tosadda0, tosaddax, tossubax |
 
-stosunek nasz / cc65: 1.01
+stosunek nasz / cc65: 0.83
 
 - cc65: sama funkcja 200 B; po zlinkowaniu z runtime cc65 397 B (w tym 4 B startera)
 
 ### nasz
 
 ```asm
-    lda     $14
+    ldy     #$00
+    lda     ($16),y
     sta     $1E
-    lda     $15
+    ldy     #$01
+    lda     ($16),y
     sta     $1F
-    lda     $16
+    ldy     #$00
+    lda     ($14),y
     sta     $20
-    lda     $17
+    ldy     #$01
+    lda     ($14),y
     sta     $21
-    ldy     #$00
-    lda     ($20),y
-    sta     $22
-    ldy     #$01
-    lda     ($20),y
-    sta     $23
-    ldy     #$00
-    lda     ($1E),y
-    sta     $24
-    ldy     #$01
-    lda     ($1E),y
-    sta     $25
-    lda     $22
+    lda     $1E
     sec
-    sbc     $24
+    sbc     $20
+    sta     $1E
+    lda     $1F
+    sbc     $21
+    sta     $1F
+    ldy     #$02
+    lda     ($16),y
+    sta     $20
+    ldy     #$03
+    lda     ($16),y
+    sta     $21
+    ldy     #$02
+    lda     ($14),y
     sta     $22
-    lda     $23
-    sbc     $25
+    ldy     #$03
+    lda     ($14),y
     sta     $23
-    ldy     #$02
-    lda     ($20),y
-    sta     $24
-    ldy     #$03
-    lda     ($20),y
-    sta     $25
-    ldy     #$02
-    lda     ($1E),y
-    sta     $26
-    ldy     #$03
-    lda     ($1E),y
-    sta     $27
-    lda     $24
+    lda     $20
     sec
-    sbc     $26
-    sta     $24
-    lda     $25
-    sbc     $27
-    sta     $25
-    lda     $22
+    sbc     $22
+    sta     $20
+    lda     $21
+    sbc     $23
+    sta     $21
+    lda     $1E
     clc
-    adc     $24
-    sta     $22
-    lda     $23
-    adc     $25
-    sta     $23
+    adc     $20
+    sta     $1E
+    lda     $1F
+    adc     $21
+    sta     $1F
     ldy     #$04
-    lda     ($20),y
-    sta     $24
-    lda     $22
+    lda     ($16),y
+    sta     $20
+    lda     $1E
     clc
-    adc     $24
-    sta     $22
-    lda     $23
+    adc     $20
+    sta     $1E
+    lda     $1F
     adc     #$00
-    sta     $23
-    lda     $22
+    sta     $1F
+    lda     $1E
     sta     $1A
-    lda     $23
+    lda     $1F
     sta     $1B
     rts
-    lda     $14
-    sta     $28
-    lda     $15
-    sta     $29
-    lda     $16
-    sta     $7007
-    lda     $17
-    sta     $7008
     ldy     #$00
-    lda     ($28),y
-    sta     $2A
+    lda     ($14),y
+    sta     $24
     ldy     #$01
-    lda     ($28),y
-    sta     $2B
-    lda     $2A
+    lda     ($14),y
+    sta     $25
+    lda     $24
     clc
-    adc     $7007
-    sta     $2A
-    lda     $2B
-    adc     $7008
-    sta     $2B
-    lda     $2A
+    adc     $16
+    sta     $24
+    lda     $25
+    adc     $17
+    sta     $25
+    lda     $24
     ldy     #$00
-    sta     ($28),y
-    lda     $2B
+    sta     ($14),y
+    lda     $25
     ldy     #$01
-    sta     ($28),y
+    sta     ($14),y
     ldy     #$04
-    lda     ($28),y
-    sta     $2C
-    inc     $2C
-    lda     $2C
+    lda     ($14),y
+    sta     $26
+    inc     $26
+    lda     $26
     ldy     #$04
-    sta     ($28),y
+    sta     ($14),y
     rts
 ```
 
@@ -1871,47 +1753,41 @@ stosunek nasz / cc65: 1.01
 
 | kompilator | bajty funkcji | instrukcje | wołane procedury zewnętrzne |
 | --- | ---: | ---: | --- |
-| nasz | 66 | 33 | - |
+| nasz | 54 | 27 | - |
 | cc65 | 81 | 49 | decsp2, pusha, pushw0sp, stax0sp, staxysp, tosadda0 |
 
-stosunek nasz / cc65: 0.81
+stosunek nasz / cc65: 0.67
 
 - cc65: sama funkcja 81 B; po zlinkowaniu z runtime cc65 206 B (w tym 4 B startera)
 
 ### nasz
 
 ```asm
-    lda     $14
-    sta     $1E
-    lda     $15
-    sta     $1F
-    lda     $16
-    sta     $20
     lda     #$00
-    sta     $21
-    sta     $22
-L108C:  lda     $20
+    sta     $1E
+    sta     $1F
+L1080:  lda     $16
     cmp     #$00
-    bne     L1095
-    jmp     L10B3
-L1095:  ldy     #$00
-    lda     ($1E),y
-    sta     $23
-    lda     $21
+    bne     L1089
+    jmp     L10A7
+L1089:  ldy     #$00
+    lda     ($14),y
+    sta     $20
+    lda     $1E
     clc
-    adc     $23
-    sta     $21
-    lda     $22
+    adc     $20
+    sta     $1E
+    lda     $1F
     adc     #$00
-    sta     $22
-    inc     $1E
-    bne     L10AE
-    inc     $1F
-L10AE:  dec     $20
-    jmp     L108C
-L10B3:  lda     $21
+    sta     $1F
+    inc     $14
+    bne     L10A2
+    inc     $15
+L10A2:  dec     $16
+    jmp     L1080
+L10A7:  lda     $1E
     sta     $1A
-    lda     $22
+    lda     $1F
     sta     $1B
     rts
 ```
@@ -1974,10 +1850,10 @@ L1043:  sta     ($00),y
 
 | kompilator | bajty funkcji | instrukcje | wołane procedury zewnętrzne |
 | --- | ---: | ---: | --- |
-| nasz | 122 | 56 | - |
+| nasz | 120 | 55 | - |
 | cc65 | 57 | 27 | pusha |
 
-stosunek nasz / cc65: 2.14
+stosunek nasz / cc65: 2.11
 
 - cc65: sama funkcja 57 B; po zlinkowaniu z runtime cc65 90 B (w tym 4 B startera)
 
@@ -1986,60 +1862,59 @@ stosunek nasz / cc65: 2.14
 ```asm
     lda     $14
     sta     $1E
-    sta     $1F
     lda     #$00
-    sta     $20
-    lda     $1F
-    ora     $20
-    beq     L10C9
-    lda     $1F
+    sta     $1F
+    lda     $1E
+    ora     $1F
+    beq     L10C7
+    lda     $1E
     cmp     #$01
-    bne     L1099
-    lda     $20
+    bne     L1097
+    lda     $1F
     cmp     #$00
-    bne     L1099
-    jmp     L10D0
-L1099:  lda     $1F
+    bne     L1097
+    jmp     L10CE
+L1097:  lda     $1E
     cmp     #$02
-    bne     L10A8
-    lda     $20
+    bne     L10A6
+    lda     $1F
     cmp     #$00
-    bne     L10A8
-    jmp     L10D7
-L10A8:  lda     $1F
+    bne     L10A6
+    jmp     L10D5
+L10A6:  lda     $1E
     cmp     #$03
-    bne     L10B7
-    lda     $20
+    bne     L10B5
+    lda     $1F
     cmp     #$00
-    bne     L10B7
-    jmp     L10DE
-L10B7:  lda     $1F
+    bne     L10B5
+    jmp     L10DC
+L10B5:  lda     $1E
     cmp     #$04
-    bne     L10C6
-    lda     $20
+    bne     L10C4
+    lda     $1F
     cmp     #$00
-    bne     L10C6
-    jmp     L10E5
-L10C6:  jmp     L10EC
-L10C9:  lda     #$0A
+    bne     L10C4
+    jmp     L10E3
+L10C4:  jmp     L10EA
+L10C7:  lda     #$0A
     sta     $1A
-    jmp     L10F3
-L10D0:  lda     #$14
+    jmp     L10F1
+L10CE:  lda     #$14
     sta     $1A
-    jmp     L10F3
-L10D7:  lda     #$23
+    jmp     L10F1
+L10D5:  lda     #$23
     sta     $1A
-    jmp     L10F3
-L10DE:  lda     #$29
+    jmp     L10F1
+L10DC:  lda     #$29
     sta     $1A
-    jmp     L10F3
-L10E5:  lda     #$39
+    jmp     L10F1
+L10E3:  lda     #$39
     sta     $1A
-    jmp     L10F3
-L10EC:  lda     #$00
+    jmp     L10F1
+L10EA:  lda     #$00
     sta     $1A
-    jmp     L10F3
-L10F3:  rts
+    jmp     L10F1
+L10F1:  rts
 ```
 
 ### cc65

@@ -4,78 +4,28 @@
 
 | kompilator | bajty funkcji | instrukcje | wołane procedury zewnętrzne |
 | --- | ---: | ---: | --- |
-| nasz | 170 | 63 | - |
+| nasz | 36 | 13 | - |
 | sdcc | 33 | 19 | - |
 
-stosunek nasz / sdcc: 5.15
+stosunek nasz / sdcc: 1.09
 
 - sdcc: adresy wywołań zewnętrznych w .rel są niezrelokowane (widoczne jako 0000)
 
 ### nasz
 
 ```asm
-    ld a,(07001h)
-    ld (07011h),a
-    ld a,(07002h)
-    ld (07012h),a
-    ld a,(07003h)
-    ld (07013h),a
-    ld a,(07004h)
-    ld (07014h),a
-    ld a,(07005h)
-    ld (07015h),a
-    ld a,(07006h)
-    ld (07016h),a
-    ld a,(07007h)
-    ld (07017h),a
-    ld a,(07008h)
-    ld (07018h),a
-    ld a,(07011h)
-    ld hl,07015h
-    add a,(hl)
-    ld (0701dh),a
-    ld a,(07012h)
-    ld hl,07016h
-    adc a,(hl)
-    ld (0701eh),a
-    ld a,000h
-    ld (0701fh),a
-    ld a,(0701dh)
-    ld hl,07011h
-    sub (hl)
-    ld a,(0701eh)
-    ld hl,07012h
-    sbc a,(hl)
-    jp nc,0109ah
-    ld a,001h
-    ld (0701fh),a
-    ld a,(07013h)
-    ld hl,07017h
-    add a,(hl)
-    ld (0701bh),a
-    ld a,(07014h)
-    ld hl,07018h
-    adc a,(hl)
-    ld (0701ch),a
-    ld a,(0701bh)
-    ld hl,0701fh
-    add a,(hl)
-    ld (0701bh),a
-    ld a,(0701ch)
-    adc a,000h
-    ld (0701ch),a
-    ld a,(0701dh)
-    ld (07019h),a
-    ld a,(0701eh)
-    ld (0701ah),a
-    ld a,(0701bh)
-    ld (08040h),a
-    ld a,(0701ch)
-    ld (08041h),a
-    ld a,(07019h)
-    ld (0700dh),a
-    ld a,(0701ah)
-    ld (0700eh),a
+    ld hl,(07001h)
+    ld de,(07005h)
+    add hl,de
+    ld (07011h),hl
+    ld hl,(07003h)
+    ld de,(07007h)
+    adc hl,de
+    ld (07013h),hl
+    ld hl,(07013h)
+    ld (08040h),hl
+    ld hl,(07011h)
+    ld (0700dh),hl
     ret
 ```
 
@@ -107,251 +57,188 @@ stosunek nasz / sdcc: 5.15
 
 | kompilator | bajty funkcji | instrukcje | wołane procedury zewnętrzne |
 | --- | ---: | ---: | --- |
-| nasz | 586 | 236 | - |
+| nasz | 270 | 173 | - |
 | sdcc | 276 | 111 | - |
 
-stosunek nasz / sdcc: 2.12
+stosunek nasz / sdcc: 0.98
 
 - sdcc: adresy wywołań zewnętrznych w .rel są niezrelokowane (widoczne jako 0000)
 
 ### nasz
 
 ```asm
-    ld a,(07001h)
-    ld (07011h),a
-    ld a,(07002h)
-    ld (07012h),a
-    ld a,(07003h)
-    ld (07013h),a
-    ld a,(07004h)
-    ld (07014h),a
-    ld a,000h
+    ld hl,00000h
+    ld (07011h),hl
+    ld hl,(07003h)
+    dec hl
+    ld c,l
+    ld b,h
+    ld a,(07011h)
+    sub c
+    ld a,(07012h)
+    sbc a,b
+    jp po,01054h
+    xor 080h
+    jp p,01148h
+    ld hl,00000h
+    ld (07013h),hl
+    ld hl,(07003h)
+    dec hl
+    ld c,l
+    ld b,h
+    ld l,c
+    ld h,b
+    push de
+    ld de,(07011h)
+    or a
+    sbc hl,de
+    pop de
+    ld c,l
+    ld b,h
+    ld a,(07013h)
+    sub c
+    ld a,(07014h)
+    sbc a,b
+    jp po,0107dh
+    xor 080h
+    jp p,0113dh
+    ld bc,(07013h)
+    ld a,c
+    sla a
+    ld c,a
+    ld a,b
+    rl a
+    ld b,a
+    ld hl,(07001h)
+    add hl,bc
+    ld e,l
+    ld d,h
+    ld l,e
+    ld h,d
+    ld a,(hl)
+    ld e,a
+    inc hl
+    ld a,(hl)
+    ld d,a
+    ld hl,(07013h)
+    inc hl
+    ld c,l
+    ld b,h
+    ld a,c
+    sla a
+    ld c,a
+    ld a,b
+    rl a
+    ld b,a
+    ld hl,(07001h)
+    add hl,bc
+    ld c,l
+    ld b,h
+    ld l,c
+    ld h,b
+    ld a,(hl)
+    ld c,a
+    inc hl
+    ld a,(hl)
+    ld b,a
+    ld a,c
+    sub e
+    ld a,b
+    sbc a,d
+    jp po,010bdh
+    xor 080h
+    jp p,01132h
+    ld bc,(07013h)
+    ld a,c
+    sla a
+    ld c,a
+    ld a,b
+    rl a
+    ld b,a
+    ld hl,(07001h)
+    add hl,bc
+    ld e,l
+    ld d,h
+    ld l,e
+    ld h,d
+    ld a,(hl)
     ld (07015h),a
+    inc hl
+    ld a,(hl)
     ld (07016h),a
-    ld a,(07013h)
-    sub 001h
-    ld (0701dh),a
-    ld a,(07014h)
-    sbc a,000h
-    ld (0701eh),a
-    ld a,(07016h)
-    xor 080h
-    ld (0700fh),a
-    ld a,(0701eh)
-    xor 080h
-    ld (07010h),a
+    ld hl,(07013h)
+    inc hl
+    ld c,l
+    ld b,h
+    ld a,c
+    sla a
+    ld c,a
+    ld a,b
+    rl a
+    ld b,a
+    ld hl,(07001h)
+    add hl,bc
+    ld e,l
+    ld d,h
+    ld l,e
+    ld h,d
+    ld a,(hl)
+    ld e,a
+    inc hl
+    ld a,(hl)
+    ld d,a
+    ld bc,(07013h)
+    ld a,c
+    sla a
+    ld c,a
+    ld a,b
+    rl a
+    ld b,a
+    ld hl,(07001h)
+    add hl,bc
+    ld c,l
+    ld b,h
+    ld l,c
+    ld h,b
+    ld a,e
+    ld (hl),a
+    ld a,d
+    inc hl
+    ld (hl),a
+    ld hl,(07013h)
+    inc hl
+    ld c,l
+    ld b,h
+    ld a,c
+    sla a
+    ld c,a
+    ld a,b
+    rl a
+    ld b,a
+    ld hl,(07001h)
+    add hl,bc
+    ld c,l
+    ld b,h
+    ld l,c
+    ld h,b
     ld a,(07015h)
-    ld hl,0701dh
-    sub (hl)
-    ld a,(0700fh)
-    ld hl,07010h
-    sbc a,(hl)
-    jp nc,01284h
-    ld a,000h
-    ld (07017h),a
-    ld (07018h),a
-    ld a,(07013h)
-    sub 001h
-    ld (0701dh),a
-    ld a,(07014h)
-    sbc a,000h
-    ld (0701eh),a
-    ld a,(0701dh)
-    ld hl,07015h
-    sub (hl)
-    ld (0701dh),a
-    ld a,(0701eh)
-    ld hl,07016h
-    sbc a,(hl)
-    ld (0701eh),a
-    ld a,(07018h)
-    xor 080h
-    ld (0700fh),a
-    ld a,(0701eh)
-    xor 080h
-    ld (07010h),a
-    ld a,(07017h)
-    ld hl,0701dh
-    sub (hl)
-    ld a,(0700fh)
-    ld hl,07010h
-    sbc a,(hl)
-    jp nc,01279h
-    ld a,(07017h)
-    ld (0701dh),a
-    ld a,(07018h)
-    ld (0701eh),a
-    ld a,(0701dh)
-    sla a
-    ld (0701dh),a
-    ld a,(0701eh)
-    rl a
-    ld (0701eh),a
-    ld a,(07011h)
-    ld hl,0701dh
-    add a,(hl)
-    ld (0701bh),a
-    ld a,(07012h)
-    ld hl,0701eh
-    adc a,(hl)
-    ld (0701ch),a
-    ld hl,(0701bh)
-    ld a,(hl)
-    ld (0701bh),a
-    inc hl
-    ld a,(hl)
-    ld (0701ch),a
-    ld a,(07017h)
-    add a,001h
-    ld (0701fh),a
-    ld a,(07018h)
-    adc a,000h
-    ld (07020h),a
-    ld a,(0701fh)
-    sla a
-    ld (0701fh),a
-    ld a,(07020h)
-    rl a
-    ld (07020h),a
-    ld a,(07011h)
-    ld hl,0701fh
-    add a,(hl)
-    ld (0701dh),a
-    ld a,(07012h)
-    ld hl,07020h
-    adc a,(hl)
-    ld (0701eh),a
-    ld hl,(0701dh)
-    ld a,(hl)
-    ld (0701dh),a
-    inc hl
-    ld a,(hl)
-    ld (0701eh),a
-    xor 080h
-    ld (0700fh),a
-    ld a,(0701ch)
-    xor 080h
-    ld (07010h),a
-    ld a,(0701dh)
-    ld hl,0701bh
-    sub (hl)
-    ld a,(0700fh)
-    ld hl,07010h
-    sbc a,(hl)
-    jp nc,0126eh
-    ld a,(07017h)
-    ld (0701dh),a
-    ld a,(07018h)
-    ld (0701eh),a
-    ld a,(0701dh)
-    sla a
-    ld (0701dh),a
-    ld a,(0701eh)
-    rl a
-    ld (0701eh),a
-    ld a,(07011h)
-    ld hl,0701dh
-    add a,(hl)
-    ld (0701bh),a
-    ld a,(07012h)
-    ld hl,0701eh
-    adc a,(hl)
-    ld (0701ch),a
-    ld hl,(0701bh)
-    ld a,(hl)
-    ld (07019h),a
-    inc hl
-    ld a,(hl)
-    ld (0701ah),a
-    ld a,(07017h)
-    add a,001h
-    ld (0701dh),a
-    ld a,(07018h)
-    adc a,000h
-    ld (0701eh),a
-    ld a,(0701dh)
-    sla a
-    ld (0701dh),a
-    ld a,(0701eh)
-    rl a
-    ld (0701eh),a
-    ld a,(07011h)
-    ld hl,0701dh
-    add a,(hl)
-    ld (0701bh),a
-    ld a,(07012h)
-    ld hl,0701eh
-    adc a,(hl)
-    ld (0701ch),a
-    ld hl,(0701bh)
-    ld a,(hl)
-    ld (0701bh),a
-    inc hl
-    ld a,(hl)
-    ld (0701ch),a
-    ld a,(07017h)
-    ld (0701fh),a
-    ld a,(07018h)
-    ld (07020h),a
-    ld a,(0701fh)
-    sla a
-    ld (0701fh),a
-    ld a,(07020h)
-    rl a
-    ld (07020h),a
-    ld a,(07011h)
-    ld hl,0701fh
-    add a,(hl)
-    ld (0701dh),a
-    ld a,(07012h)
-    ld hl,07020h
-    adc a,(hl)
-    ld (0701eh),a
-    ld hl,(0701dh)
-    ld a,(0701bh)
     ld (hl),a
-    ld a,(0701ch)
+    ld a,(07016h)
     inc hl
     ld (hl),a
-    ld a,(07017h)
-    add a,001h
-    ld (0701fh),a
-    ld a,(07018h)
-    adc a,000h
-    ld (07020h),a
-    ld a,(0701fh)
-    sla a
-    ld (0701fh),a
-    ld a,(07020h)
-    rl a
-    ld (07020h),a
-    ld a,(07011h)
-    ld hl,0701fh
-    add a,(hl)
-    ld (0701dh),a
-    ld a,(07012h)
-    ld hl,07020h
-    adc a,(hl)
-    ld (0701eh),a
-    ld hl,(0701dh)
-    ld a,(07019h)
-    ld (hl),a
-    ld a,(0701ah)
-    inc hl
-    ld (hl),a
-    jp 0126eh
-    ld hl,07017h
+    jr $+2
+    ld hl,07013h
     inc (hl)
     jr nz,$+4
     inc hl
     inc (hl)
-    jp 01094h
-    ld hl,07015h
+    jp 0105dh
+    ld hl,07011h
     inc (hl)
     jr nz,$+4
     inc hl
     inc (hl)
-    jp 0105bh
+    jp 01041h
     ret
 ```
 
@@ -475,56 +362,44 @@ stosunek nasz / sdcc: 2.12
 
 | kompilator | bajty funkcji | instrukcje | wołane procedury zewnętrzne |
 | --- | ---: | ---: | --- |
-| nasz | 90 | 41 | - |
+| nasz | 48 | 29 | - |
 | sdcc | 30 | 18 | - |
 
-stosunek nasz / sdcc: 3.00
+stosunek nasz / sdcc: 1.60
 
 - sdcc: adresy wywołań zewnętrznych w .rel są niezrelokowane (widoczne jako 0000)
 
 ### nasz
 
 ```asm
-    ld a,(07001h)
-    ld (07011h),a
-    ld a,(07002h)
-    ld (07012h),a
-    ld a,(07003h)
-    ld (07013h),a
-    ld a,(07004h)
-    ld (07014h),a
     ld a,(07005h)
-    ld (07015h),a
-    ld a,(07006h)
-    ld (07016h),a
-    ld a,(07015h)
-    ld hl,07016h
+    ld hl,07006h
     or (hl)
-    jp z,01094h
-    ld hl,(07013h)
+    jr z,$+40
+    ld hl,(07003h)
     ld a,(hl)
-    ld (07017h),a
-    ld hl,(07011h)
-    ld a,(07017h)
+    ld c,a
+    ld hl,(07001h)
+    ld a,c
     ld (hl),a
-    ld hl,07011h
+    ld hl,07001h
     inc (hl)
     jr nz,$+4
     inc hl
     inc (hl)
-    ld hl,07013h
+    ld hl,07003h
     inc (hl)
     jr nz,$+4
     inc hl
     inc (hl)
-    ld hl,07015h
+    ld hl,07005h
     ld a,(hl)
     dec (hl)
     or a
     jr nz,$+4
     inc hl
     dec (hl)
-    jp 0105fh
+    jr $-45
     ret
 ```
 
@@ -555,62 +430,40 @@ stosunek nasz / sdcc: 3.00
 
 | kompilator | bajty funkcji | instrukcje | wołane procedury zewnętrzne |
 | --- | ---: | ---: | --- |
-| nasz | 135 | 47 | - |
+| nasz | 62 | 25 | - |
 | sdcc | 25 | 19 | divsint, modsint |
 
-stosunek nasz / sdcc: 5.40
+stosunek nasz / sdcc: 2.48
 
 - sdcc: adresy wywołań zewnętrznych w .rel są niezrelokowane (widoczne jako 0000)
 
 ### nasz
 
 ```asm
-    ld a,(07001h)
-    ld (07011h),a
-    ld a,(07002h)
-    ld (07012h),a
-    ld a,(07003h)
-    ld (07013h),a
-    ld a,(07004h)
-    ld (07014h),a
-    ld a,(07011h)
-    ld (07001h),a
-    ld a,(07012h)
-    ld (07002h),a
-    ld a,(07013h)
-    ld (07003h),a
-    ld a,(07014h)
-    ld (07004h),a
-    call 010cbh
-    ld a,(0700dh)
-    ld (07015h),a
-    ld a,(0700eh)
-    ld (07016h),a
-    ld a,(07011h)
-    ld (07001h),a
-    ld a,(07012h)
-    ld (07002h),a
-    ld a,(07013h)
-    ld (07003h),a
-    ld a,(07014h)
-    ld (07004h),a
-    call 011cfh
-    ld a,(0700dh)
-    ld (07017h),a
-    ld a,(0700eh)
-    ld (07018h),a
-    ld a,(07015h)
-    ld hl,07017h
-    add a,(hl)
-    ld (07015h),a
-    ld a,(07016h)
-    ld hl,07018h
-    adc a,(hl)
-    ld (07016h),a
-    ld a,(07015h)
-    ld (0700dh),a
-    ld a,(07016h)
-    ld (0700eh),a
+    ld hl,(07001h)
+    ld (07011h),hl
+    ld hl,(07003h)
+    ld (07013h),hl
+    ld hl,(07011h)
+    ld (07001h),hl
+    ld hl,(07013h)
+    ld (07003h),hl
+    call 01080h
+    ld bc,(0700dh)
+    ld hl,(07011h)
+    ld (07001h),hl
+    ld hl,(07013h)
+    ld (07003h),hl
+    push bc
+    call 0112bh
+    pop bc
+    ld de,(0700dh)
+    ld l,c
+    ld h,b
+    add hl,de
+    ld c,l
+    ld b,h
+    ld (0700dh),bc
     ret
 ```
 
@@ -642,10 +495,10 @@ stosunek nasz / sdcc: 5.40
 
 | kompilator | bajty funkcji | instrukcje | wołane procedury zewnętrzne |
 | --- | ---: | ---: | --- |
-| nasz | 212 | 83 | - |
+| nasz | 95 | 44 | - |
 | sdcc | 31 | 25 | - |
 
-stosunek nasz / sdcc: 6.84
+stosunek nasz / sdcc: 3.06
 
 - sdcc: adresy wywołań zewnętrznych w .rel są niezrelokowane (widoczne jako 0000)
 
@@ -656,80 +509,41 @@ stosunek nasz / sdcc: 6.84
     push af
     ld a,(07012h)
     push af
-    ld a,(07013h)
-    push af
-    ld a,(07014h)
-    push af
-    ld a,(07015h)
-    push af
-    ld a,(07016h)
-    push af
-    ld a,(07001h)
-    ld (07011h),a
-    ld a,(07002h)
-    ld (07012h),a
+    ld hl,(07001h)
+    ld (07011h),hl
+    ld a,(07011h)
+    sub 002h
+    ld a,(07012h)
+    sbc a,000h
+    jp po,01058h
     xor 080h
-    ld (0700fh),a
-    ld a,(07011h)
-    sub 002h
-    ld a,(0700fh)
-    sbc a,080h
-    jp nc,01080h
-    ld a,(07011h)
-    ld (0700dh),a
-    ld a,(07012h)
-    ld (0700eh),a
-    jp 010f6h
-    ld a,(07011h)
-    sub 001h
-    ld (07015h),a
-    ld a,(07012h)
-    sbc a,000h
-    ld (07016h),a
-    ld a,(07015h)
-    ld (07001h),a
-    ld a,(07016h)
-    ld (07002h),a
+    jp p,01063h
+    ld hl,(07011h)
+    ld (0700dh),hl
+    jr $+48
+    ld hl,(07011h)
+    dec hl
+    ld e,l
+    ld d,h
+    ld (07001h),de
     call 0103bh
-    ld a,(0700dh)
-    ld (07013h),a
-    ld a,(0700eh)
-    ld (07014h),a
-    ld a,(07011h)
-    sub 002h
-    ld (07017h),a
-    ld a,(07012h)
-    sbc a,000h
-    ld (07018h),a
-    ld a,(07017h)
-    ld (07001h),a
-    ld a,(07018h)
-    ld (07002h),a
+    ld bc,(0700dh)
+    ld hl,(07011h)
+    dec hl
+    dec hl
+    ld e,l
+    ld d,h
+    ld (07001h),de
+    push bc
     call 0103bh
-    ld a,(0700dh)
-    ld (07015h),a
-    ld a,(0700eh)
-    ld (07016h),a
-    ld a,(07013h)
-    ld hl,07015h
-    add a,(hl)
-    ld (07013h),a
-    ld a,(07014h)
-    ld hl,07016h
-    adc a,(hl)
-    ld (07014h),a
-    ld a,(07013h)
-    ld (0700dh),a
-    ld a,(07014h)
-    ld (0700eh),a
-    pop af
-    ld (07016h),a
-    pop af
-    ld (07015h),a
-    pop af
-    ld (07014h),a
-    pop af
-    ld (07013h),a
+    pop bc
+    ld de,(0700dh)
+    ld l,c
+    ld h,b
+    add hl,de
+    ld c,l
+    ld b,h
+    ld (0700dh),bc
     pop af
     ld (07012h),a
     pop af
@@ -771,90 +585,59 @@ stosunek nasz / sdcc: 6.84
 
 | kompilator | bajty funkcji | instrukcje | wołane procedury zewnętrzne |
 | --- | ---: | ---: | --- |
-| nasz | 192 | 75 | - |
+| nasz | 74 | 44 | - |
 | sdcc | 106 | 49 | - |
 
-stosunek nasz / sdcc: 1.81
+stosunek nasz / sdcc: 0.70
 
 - sdcc: adresy wywołań zewnętrznych w .rel są niezrelokowane (widoczne jako 0000)
 
 ### nasz
 
 ```asm
-    ld a,(07001h)
-    ld (07011h),a
-    ld a,(07002h)
-    ld (07012h),a
-    ld a,(07003h)
-    ld (07013h),a
-    ld a,(07004h)
-    ld (07014h),a
-    ld a,(07005h)
-    ld (07015h),a
-    ld a,(07006h)
-    ld (07016h),a
-    ld a,000h
-    ld (07017h),a
-    ld (07018h),a
-    ld a,(07018h)
-    xor 080h
-    ld (0700fh),a
-    ld a,(07014h)
-    xor 080h
-    ld (07010h),a
-    ld a,(07017h)
-    ld hl,07013h
+    ld bc,00000h
+    ld a,c
+    ld hl,07003h
     sub (hl)
-    ld a,(0700fh)
-    ld hl,07010h
+    ld a,b
+    ld hl,07004h
     sbc a,(hl)
-    jp nc,010f2h
-    ld a,(07017h)
-    ld (0701bh),a
-    ld a,(07018h)
-    ld (0701ch),a
-    ld a,(0701bh)
+    jp po,0104dh
+    xor 080h
+    jp p,0107eh
+    ld e,c
+    ld d,b
+    ld a,e
     sla a
-    ld (0701bh),a
-    ld a,(0701ch)
+    ld e,a
+    ld a,d
     rl a
-    ld (0701ch),a
-    ld a,(07011h)
-    ld hl,0701bh
-    add a,(hl)
-    ld (07019h),a
-    ld a,(07012h)
-    ld hl,0701ch
-    adc a,(hl)
-    ld (0701ah),a
-    ld hl,(07019h)
+    ld d,a
+    ld hl,(07001h)
+    add hl,de
+    ld e,l
+    ld d,h
+    ld l,e
+    ld h,d
     ld a,(hl)
-    ld (07019h),a
+    ld e,a
     inc hl
     ld a,(hl)
-    ld (0701ah),a
-    ld a,(07019h)
-    ld hl,07015h
+    ld d,a
+    ld a,e
+    ld hl,07005h
     cp (hl)
-    jp nz,010e7h
-    ld a,(0701ah)
-    ld hl,07016h
+    jr nz,$+15
+    ld a,d
+    ld hl,07006h
     cp (hl)
-    jp nz,010e7h
-    ld a,(07017h)
-    ld (0700dh),a
-    ld a,(07018h)
-    ld (0700eh),a
-    jp 010fah
-    ld hl,07017h
-    inc (hl)
-    jr nz,$+4
-    inc hl
-    inc (hl)
-    jp 01067h
-    ld a,0ffh
-    ld (0700dh),a
-    ld (0700eh),a
+    jr nz,$+8
+    ld (0700dh),bc
+    jr $+11
+    inc bc
+    jr $-62
+    ld hl,0ffffh
+    ld (0700dh),hl
     ret
 ```
 
@@ -916,122 +699,64 @@ stosunek nasz / sdcc: 1.81
 
 | kompilator | bajty funkcji | instrukcje | wołane procedury zewnętrzne |
 | --- | ---: | ---: | --- |
-| nasz | 302 | 107 | - |
+| nasz | 127 | 49 | - |
 | sdcc | 33 | 22 | - |
 
-stosunek nasz / sdcc: 9.15
+stosunek nasz / sdcc: 3.85
 
 - sdcc: adresy wywołań zewnętrznych w .rel są niezrelokowane (widoczne jako 0000)
 
 ### nasz
 
 ```asm
-    ld a,(07001h)
-    ld (07011h),a
-    ld a,(07002h)
-    ld (07012h),a
-    ld a,(07011h)
-    ld hl,07011h
-    add a,(hl)
-    ld (07013h),a
-    ld a,(07012h)
-    ld hl,07012h
-    adc a,(hl)
-    ld (07014h),a
-    ld a,(07013h)
-    ld (0700dh),a
-    ld a,(07014h)
-    ld (0700eh),a
+    ld hl,(07001h)
+    ld de,(07001h)
+    add hl,de
+    ld c,l
+    ld b,h
+    ld (0700dh),bc
+    ret
+    ld a,000h
+    ld hl,07001h
+    sub (hl)
+    ld c,a
+    ld a,000h
+    ld hl,07002h
+    sbc a,(hl)
+    ld b,a
+    ld (0700dh),bc
+    ret
+    ld hl,(07001h)
+    ld (07011h),hl
+    ld hl,(07003h)
+    ld (07013h),hl
+    ld hl,(07013h)
+    ld (07001h),hl
+    ld hl,(07011h)
+    call 0103ah
+    ld bc,(0700dh)
+    ld (0700dh),bc
     ret
     ld a,(07001h)
     ld (07015h),a
-    ld a,(07002h)
-    ld (07016h),a
-    ld a,000h
-    ld hl,07015h
-    sub (hl)
-    ld (07017h),a
-    ld a,000h
-    ld hl,07016h
-    sbc a,(hl)
-    ld (07018h),a
-    ld a,(07017h)
-    ld (0700dh),a
-    ld a,(07018h)
-    ld (0700eh),a
-    ret
-    ld a,(07001h)
-    ld (07019h),a
-    ld a,(07002h)
-    ld (0701ah),a
-    ld a,(07003h)
-    ld (0701bh),a
-    ld a,(07004h)
-    ld (0701ch),a
-    ld a,(0701bh)
-    ld (07001h),a
-    ld a,(0701ch)
-    ld (07002h),a
-    ld hl,(07019h)
-    call 0103ah
-    ld a,(0700dh)
-    ld (0701dh),a
-    ld a,(0700eh)
-    ld (0701eh),a
-    ld a,(0701dh)
-    ld (0700dh),a
-    ld a,(0701eh)
-    ld (0700eh),a
-    ret
-    ld a,(07001h)
-    ld (0701fh),a
-    ld a,(07003h)
-    ld (07020h),a
-    ld a,(07004h)
-    ld (07021h),a
-    ld a,(0701fh)
-    cp 000h
-    jp nz,010f3h
-    jp 01129h
-    ld a,(08042h)
-    ld (07001h),a
-    ld a,(08043h)
-    ld (07002h),a
-    ld a,(07020h)
-    ld (07003h),a
-    ld a,(07021h)
-    ld (07004h),a
-    call 01093h
-    ld a,(0700dh)
-    ld (07024h),a
-    ld a,(0700eh)
-    ld (07025h),a
-    ld a,(07024h)
-    ld (07022h),a
-    ld a,(07025h)
-    ld (07023h),a
-    jp 0115ch
-    ld a,(08044h)
-    ld (07001h),a
-    ld a,(08045h)
-    ld (07002h),a
-    ld a,(07020h)
-    ld (07003h),a
-    ld a,(07021h)
-    ld (07004h),a
-    call 01093h
-    ld a,(0700dh)
-    ld (07024h),a
-    ld a,(0700eh)
-    ld (07025h),a
-    ld a,(07024h)
-    ld (07022h),a
-    ld a,(07025h)
-    ld (07023h),a
-    ld a,(07022h)
-    ld (0700dh),a
-    ld a,(07023h)
-    ld (0700eh),a
+    ld hl,(07003h)
+    ld (07016h),hl
+    or a
+    jr z,$+23
+    ld hl,0103bh
+    ld (07001h),hl
+    ld hl,(07016h)
+    ld (07003h),hl
+    call 0105dh
+    ld bc,(0700dh)
+    jr $+21
+    ld hl,0104ah
+    ld (07001h),hl
+    ld hl,(07016h)
+    ld (07003h),hl
+    call 0105dh
+    ld bc,(0700dh)
+    ld (0700dh),bc
     ret
 ```
 
@@ -1066,71 +791,40 @@ stosunek nasz / sdcc: 9.15
 
 | kompilator | bajty funkcji | instrukcje | wołane procedury zewnętrzne |
 | --- | ---: | ---: | --- |
-| nasz | 154 | 56 | - |
+| nasz | 61 | 25 | - |
 | sdcc | 53 | 29 | - |
 
-stosunek nasz / sdcc: 2.91
+stosunek nasz / sdcc: 1.15
 
 - sdcc: adresy wywołań zewnętrznych w .rel są niezrelokowane (widoczne jako 0000)
 
 ### nasz
 
 ```asm
+    ld bc,(07001h)
     ld a,(07001h)
-    ld (07011h),a
+    ld hl,07003h
+    sub (hl)
     ld a,(07002h)
-    ld (07012h),a
-    ld a,(07003h)
-    ld (07013h),a
-    ld a,(07004h)
-    ld (07014h),a
-    ld a,(07005h)
-    ld (07015h),a
-    ld a,(07006h)
-    ld (07016h),a
-    ld a,(07011h)
-    ld (07017h),a
-    ld a,(07012h)
-    ld (07018h),a
-    xor 080h
-    ld (0700fh),a
-    ld a,(07014h)
-    xor 080h
-    ld (07010h),a
-    ld a,(07011h)
-    ld hl,07013h
-    sub (hl)
-    ld a,(0700fh)
-    ld hl,07010h
+    ld hl,07004h
     sbc a,(hl)
-    jp nc,01098h
-    ld a,(07013h)
-    ld (07017h),a
-    ld a,(07014h)
-    ld (07018h),a
-    jp 01098h
-    ld a,(07018h)
+    jp po,01052h
     xor 080h
-    ld (0700fh),a
-    ld a,(07016h)
-    xor 080h
-    ld (07010h),a
-    ld a,(07017h)
-    ld hl,07015h
+    jp p,0105bh
+    ld bc,(07003h)
+    jr $+2
+    ld a,c
+    ld hl,07005h
     sub (hl)
-    ld a,(0700fh)
-    ld hl,07010h
+    ld a,b
+    ld hl,07006h
     sbc a,(hl)
-    jp nc,010c8h
-    ld a,(07015h)
-    ld (07017h),a
-    ld a,(07016h)
-    ld (07018h),a
-    jp 010c8h
-    ld a,(07017h)
-    ld (0700dh),a
-    ld a,(07018h)
-    ld (0700eh),a
+    jp po,0106ah
+    xor 080h
+    jp p,01073h
+    ld bc,(07005h)
+    jr $+2
+    ld (0700dh),bc
     ret
 ```
 
@@ -1172,41 +866,27 @@ stosunek nasz / sdcc: 2.91
 
 | kompilator | bajty funkcji | instrukcje | wołane procedury zewnętrzne |
 | --- | ---: | ---: | --- |
-| nasz | 76 | 26 | - |
+| nasz | 36 | 12 | - |
 | sdcc | 3 | 1 | mulint |
 
-stosunek nasz / sdcc: 25.33
+stosunek nasz / sdcc: 12.00
 
 - sdcc: adresy wywołań zewnętrznych w .rel są niezrelokowane (widoczne jako 0000)
 
 ### nasz
 
 ```asm
-    ld a,(07001h)
-    ld (07011h),a
-    ld a,(07002h)
-    ld (07012h),a
-    ld a,(07003h)
-    ld (07013h),a
-    ld a,(07004h)
-    ld (07014h),a
-    ld a,(07011h)
-    ld (07001h),a
-    ld a,(07012h)
-    ld (07002h),a
-    ld a,(07013h)
-    ld (07003h),a
-    ld a,(07014h)
-    ld (07004h),a
-    call 01090h
-    ld a,(0700dh)
-    ld (07015h),a
-    ld a,(0700eh)
-    ld (07016h),a
-    ld a,(07015h)
-    ld (0700dh),a
-    ld a,(07016h)
-    ld (0700eh),a
+    ld hl,(07001h)
+    ld (07011h),hl
+    ld hl,(07003h)
+    ld (07013h),hl
+    ld hl,(07011h)
+    ld (07001h),hl
+    ld hl,(07013h)
+    ld (07003h),hl
+    call 01066h
+    ld bc,(0700dh)
+    ld (0700dh),bc
     ret
 ```
 
@@ -1220,37 +900,26 @@ stosunek nasz / sdcc: 25.33
 
 | kompilator | bajty funkcji | instrukcje | wołane procedury zewnętrzne |
 | --- | ---: | ---: | --- |
-| nasz | 64 | 22 | - |
+| nasz | 33 | 11 | - |
 | sdcc | 21 | 13 | - |
 
-stosunek nasz / sdcc: 3.05
+stosunek nasz / sdcc: 1.57
 
 - sdcc: adresy wywołań zewnętrznych w .rel są niezrelokowane (widoczne jako 0000)
 
 ### nasz
 
 ```asm
-    ld a,(07001h)
-    ld (07011h),a
-    ld a,(07002h)
-    ld (07012h),a
+    ld hl,(07001h)
+    ld (07011h),hl
     ld a,(07003h)
     ld (07013h),a
-    ld a,(07011h)
-    ld (07001h),a
-    ld a,(07012h)
-    ld (07002h),a
-    ld a,(07013h)
+    ld hl,(07011h)
+    ld (07001h),hl
     ld (07003h),a
-    call 01084h
-    ld a,(0700dh)
-    ld (07014h),a
-    ld a,(0700eh)
-    ld (07015h),a
-    ld a,(07014h)
-    ld (0700dh),a
-    ld a,(07015h)
-    ld (0700eh),a
+    call 01063h
+    ld bc,(0700dh)
+    ld (0700dh),bc
     ret
 ```
 
@@ -1276,44 +945,30 @@ stosunek nasz / sdcc: 3.05
 
 | kompilator | bajty funkcji | instrukcje | wołane procedury zewnętrzne |
 | --- | ---: | ---: | --- |
-| nasz | 67 | 29 | - |
+| nasz | 27 | 15 | - |
 | sdcc | 14 | 10 | - |
 
-stosunek nasz / sdcc: 4.79
+stosunek nasz / sdcc: 1.93
 
 - sdcc: adresy wywołań zewnętrznych w .rel są niezrelokowane (widoczne jako 0000)
 
 ### nasz
 
 ```asm
-    ld a,(07001h)
-    ld (07011h),a
-    ld a,(07002h)
-    ld (07012h),a
-    ld a,000h
-    ld (07013h),a
-    ld (07014h),a
-    ld hl,(07011h)
+    ld bc,00000h
+    ld hl,(07001h)
     ld a,(hl)
-    ld (07015h),a
-    cp 000h
-    jp nz,0105eh
-    jp 01071h
-    ld hl,07013h
+    ld e,a
+    or a
+    jr z,$+13
+    inc bc
+    ld hl,07001h
     inc (hl)
     jr nz,$+4
     inc hl
     inc (hl)
-    ld hl,07011h
-    inc (hl)
-    jr nz,$+4
-    inc hl
-    inc (hl)
-    jp 0104fh
-    ld a,(07013h)
-    ld (0700dh),a
-    ld a,(07014h)
-    ld (0700eh),a
+    jr $-17
+    ld (0700dh),bc
     ret
 ```
 
@@ -1336,132 +991,107 @@ stosunek nasz / sdcc: 4.79
 
 | kompilator | bajty funkcji | instrukcje | wołane procedury zewnętrzne |
 | --- | ---: | ---: | --- |
-| nasz | 273 | 118 | - |
+| nasz | 133 | 93 | - |
 | sdcc | 107 | 75 | - |
 
-stosunek nasz / sdcc: 2.55
+stosunek nasz / sdcc: 1.24
 
 - sdcc: adresy wywołań zewnętrznych w .rel są niezrelokowane (widoczne jako 0000)
 
 ### nasz
 
 ```asm
-    ld a,(07001h)
+    ld hl,(07003h)
+    ld a,(hl)
+    ld c,a
+    inc hl
+    ld a,(hl)
+    ld b,a
+    ld hl,(07001h)
+    ld a,(hl)
+    ld e,a
+    inc hl
+    ld a,(hl)
+    ld d,a
+    ld l,c
+    ld h,b
+    or a
+    sbc hl,de
+    ld c,l
+    ld b,h
+    ld hl,(07003h)
+    inc hl
+    inc hl
+    ld a,(hl)
+    ld e,a
+    inc hl
+    ld a,(hl)
+    ld d,a
+    ld hl,(07001h)
+    inc hl
+    inc hl
+    ld a,(hl)
     ld (07011h),a
-    ld a,(07002h)
+    inc hl
+    ld a,(hl)
     ld (07012h),a
-    ld a,(07003h)
-    ld (07013h),a
-    ld a,(07004h)
-    ld (07014h),a
-    ld hl,(07013h)
-    ld a,(hl)
-    ld (07015h),a
-    inc hl
-    ld a,(hl)
-    ld (07016h),a
-    ld hl,(07011h)
-    ld a,(hl)
-    ld (07017h),a
-    inc hl
-    ld a,(hl)
-    ld (07018h),a
-    ld a,(07015h)
-    ld hl,07017h
-    sub (hl)
-    ld (07015h),a
-    ld a,(07016h)
-    ld hl,07018h
-    sbc a,(hl)
-    ld (07016h),a
-    ld hl,(07013h)
-    inc hl
-    inc hl
-    ld a,(hl)
-    ld (07017h),a
-    inc hl
-    ld a,(hl)
-    ld (07018h),a
-    ld hl,(07011h)
-    inc hl
-    inc hl
-    ld a,(hl)
-    ld (07019h),a
-    inc hl
-    ld a,(hl)
-    ld (0701ah),a
-    ld a,(07017h)
-    ld hl,07019h
-    sub (hl)
-    ld (07017h),a
-    ld a,(07018h)
-    ld hl,0701ah
-    sbc a,(hl)
-    ld (07018h),a
-    ld a,(07015h)
-    ld hl,07017h
-    add a,(hl)
-    ld (07015h),a
-    ld a,(07016h)
-    ld hl,07018h
-    adc a,(hl)
-    ld (07016h),a
-    ld hl,(07013h)
+    ld l,e
+    ld h,d
+    push de
+    ld de,(07011h)
+    or a
+    sbc hl,de
+    pop de
+    ld e,l
+    ld d,h
+    ld l,c
+    ld h,b
+    add hl,de
+    ld c,l
+    ld b,h
+    ld hl,(07003h)
+    push de
     ld de,00004h
     add hl,de
+    pop de
     ld a,(hl)
-    ld (07017h),a
-    ld a,(07015h)
-    ld hl,07017h
-    add a,(hl)
-    ld (07015h),a
-    ld a,(07016h)
+    ld e,a
+    ld a,c
+    add a,e
+    ld c,a
+    ld a,b
     adc a,000h
-    ld (07016h),a
-    ld a,(07015h)
-    ld (0700dh),a
-    ld a,(07016h)
-    ld (0700eh),a
+    ld b,a
+    ld (0700dh),bc
     ret
-    ld a,(07001h)
-    ld (0701bh),a
-    ld a,(07002h)
-    ld (0701ch),a
-    ld a,(07003h)
-    ld (0701dh),a
-    ld a,(07004h)
-    ld (0701eh),a
-    ld hl,(0701bh)
+    ld hl,(07001h)
     ld a,(hl)
-    ld (0701fh),a
+    ld c,a
     inc hl
     ld a,(hl)
-    ld (07020h),a
-    ld a,(0701fh)
-    ld hl,0701dh
-    add a,(hl)
-    ld (0701fh),a
-    ld a,(07020h)
-    ld hl,0701eh
-    adc a,(hl)
-    ld (07020h),a
-    ld hl,(0701bh)
-    ld a,(0701fh)
+    ld b,a
+    ld l,c
+    ld h,b
+    ld de,(07003h)
+    add hl,de
+    ld c,l
+    ld b,h
+    ld hl,(07001h)
+    ld a,c
     ld (hl),a
-    ld a,(07020h)
+    ld a,b
     inc hl
     ld (hl),a
-    ld hl,(0701bh)
+    ld hl,(07001h)
     ld de,00004h
     add hl,de
     ld a,(hl)
-    ld (07021h),a
-    ld hl,07021h
-    inc (hl)
-    ld hl,(0701bh)
+    ld c,a
+    inc c
+    ld hl,(07001h)
     ld de,00004h
     add hl,de
-    ld a,(07021h)
+    ld a,c
     ld (hl),a
     ret
 ```
@@ -1550,51 +1180,38 @@ stosunek nasz / sdcc: 2.55
 
 | kompilator | bajty funkcji | instrukcje | wołane procedury zewnętrzne |
 | --- | ---: | ---: | --- |
-| nasz | 90 | 36 | - |
+| nasz | 40 | 23 | - |
 | sdcc | 37 | 24 | - |
 
-stosunek nasz / sdcc: 2.43
+stosunek nasz / sdcc: 1.08
 
 - sdcc: adresy wywołań zewnętrznych w .rel są niezrelokowane (widoczne jako 0000)
 
 ### nasz
 
 ```asm
-    ld a,(07001h)
-    ld (07011h),a
-    ld a,(07002h)
-    ld (07012h),a
+    ld bc,00000h
     ld a,(07003h)
-    ld (07013h),a
-    ld a,000h
-    ld (07014h),a
-    ld (07015h),a
-    ld a,(07013h)
-    cp 000h
-    jp nz,01060h
-    jp 01088h
-    ld hl,(07011h)
+    or a
+    jr z,$+28
+    ld hl,(07001h)
     ld a,(hl)
-    ld (07018h),a
-    ld a,(07014h)
-    ld hl,07018h
-    add a,(hl)
-    ld (07014h),a
-    ld a,(07015h)
+    ld e,a
+    ld a,c
+    add a,e
+    ld c,a
+    ld a,b
     adc a,000h
-    ld (07015h),a
-    ld hl,07011h
+    ld b,a
+    ld hl,07001h
     inc (hl)
     jr nz,$+4
     inc hl
     inc (hl)
-    ld hl,07013h
+    ld hl,07003h
     dec (hl)
-    jp 01055h
-    ld a,(07014h)
-    ld (0700dh),a
-    ld a,(07015h)
-    ld (0700eh),a
+    jr $-30
+    ld (0700dh),bc
     ret
 ```
 
@@ -1631,10 +1248,10 @@ stosunek nasz / sdcc: 2.43
 
 | kompilator | bajty funkcji | instrukcje | wołane procedury zewnętrzne |
 | --- | ---: | ---: | --- |
-| nasz | 152 | 57 | - |
+| nasz | 92 | 51 | - |
 | sdcc | 47 | 27 | - |
 
-stosunek nasz / sdcc: 3.23
+stosunek nasz / sdcc: 1.96
 
 - sdcc: adresy wywołań zewnętrznych w .rel są niezrelokowane (widoczne jako 0000)
 
@@ -1642,61 +1259,55 @@ stosunek nasz / sdcc: 3.23
 
 ```asm
     ld a,(07001h)
-    ld (07011h),a
-    ld (07012h),a
+    ld c,a
     ld a,000h
-    ld (07013h),a
-    ld a,(07012h)
-    ld hl,07013h
-    or (hl)
-    jp z,010a2h
-    ld a,(07012h)
+    ld b,a
+    ld a,c
+    or b
+    jr z,$+40
+    ld a,c
     cp 001h
-    jp nz,01066h
-    ld a,(07013h)
-    cp 000h
-    jp nz,01066h
-    jp 010aah
-    ld a,(07012h)
+    jr nz,$+6
+    ld a,b
+    or a
+    jr z,$+38
+    ld a,c
     cp 002h
-    jp nz,01079h
-    ld a,(07013h)
-    cp 000h
-    jp nz,01079h
-    jp 010b2h
-    ld a,(07012h)
+    jr nz,$+6
+    ld a,b
+    or a
+    jr z,$+36
+    ld a,c
     cp 003h
-    jp nz,0108ch
-    ld a,(07013h)
-    cp 000h
-    jp nz,0108ch
-    jp 010bah
-    ld a,(07012h)
+    jr nz,$+6
+    ld a,b
+    or a
+    jr z,$+34
+    ld a,c
     cp 004h
-    jp nz,0109fh
-    ld a,(07013h)
-    cp 000h
-    jp nz,0109fh
-    jp 010c2h
-    jp 010cah
+    jr nz,$+6
+    ld a,b
+    or a
+    jr z,$+32
+    jr $+37
     ld a,00ah
     ld (0700dh),a
-    jp 010d2h
+    jr $+37
     ld a,014h
     ld (0700dh),a
-    jp 010d2h
+    jr $+30
     ld a,023h
     ld (0700dh),a
-    jp 010d2h
+    jr $+23
     ld a,029h
     ld (0700dh),a
-    jp 010d2h
+    jr $+16
     ld a,039h
     ld (0700dh),a
-    jp 010d2h
+    jr $+9
     ld a,000h
     ld (0700dh),a
-    jp 010d2h
+    jr $+2
     ret
 ```
 

@@ -6,19 +6,19 @@ Odświeżenie: `python3 tools/compare.py --write` (po `dotnet build`; wymaga cc6
 
 | funkcja | mini-C 6502 | cc65 -Os | mini-C Z80 | SDCC Z80 |
 | --- | ---: | ---: | ---: | ---: |
-| add32 | 119 | 22 | 170 | 33 |
-| bubble | 462 | 271 | 586 | 276 |
-| copy | 66 | 74 | 90 | 30 |
-| div16* | 562 | 38 | 715 | 25 |
-| fib | 156 | 52 | 212 | 31 |
-| find | 143 | 80 | 192 | 106 |
-| fnptr | 229 | 104 | 302 | 33 |
-| max3 | 107 | 70 | 154 | 53 |
-| mul16* | 91 | 19 | 104 | 3 |
-| shift* | 239 | 27 | 343 | 21 |
-| str_len | 51 | 56 | 67 | 14 |
-| structs | 203 | 135 | 273 | 107 |
-| sum_bytes | 66 | 71 | 90 | 37 |
-| sw | 122 | 57 | 152 | 47 |
+| add32 | 46 | 22 | 36 | 33 |
+| bubble | 446 | 271 | 270 | 276 |
+| copy | 42 | 74 | 48 | 30 |
+| div16* | 562 | 38 | 468 | 25 |
+| fib | 144 | 52 | 95 | 31 |
+| find | 119 | 80 | 74 | 106 |
+| fnptr | 205 | 104 | 127 | 33 |
+| max3 | 83 | 70 | 61 | 53 |
+| mul16* | 91 | 19 | 64 | 3 |
+| shift* | 199 | 27 | 155 | 21 |
+| str_len | 43 | 56 | 27 | 14 |
+| structs | 167 | 135 | 133 | 107 |
+| sum_bytes | 54 | 71 | 40 | 37 |
+| sw | 120 | 57 | 92 | 47 |
 
-Średnia geometryczna bez wierszy z `*`: mini-C / cc65 = 1.73, mini-C / SDCC = 3.52.
+Średnia geometryczna bez wierszy z `*`: mini-C / cc65 = 1.36, mini-C / SDCC = 1.49.
