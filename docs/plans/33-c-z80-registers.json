@@ -48,7 +48,7 @@
     {
       "id": "7",
       "title": "[S] `TryMoveWord` dla 8080 (`lhld`/`shld`) | wykonawca: Haiku (plan-coder) | Plik: `Intel8080Isa.cs`. Akceptacja: `dotnet test --filter \"IrConformance|TargetMatrix\"` zielony; tabela: kolumna 8080 maleje, pozostałe bez zmian.",
-      "status": "todo",
+      "status": "done",
       "note": "",
       "section": "B. Tanie optymalizacje modelu pamięci i 16-bitowe (Z80, 8080)"
     },
