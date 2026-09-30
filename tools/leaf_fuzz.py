@@ -6,7 +6,8 @@
 
 Domyślny katalog: /tmp/leaf-fuzz. Wymaga gcc. Liście g0..g2 mają 1-3 parametry szerokości 1/2/4 (U8, I16, U16, I32), zmieniają je
 (także w pętlach), a main woła je wielokrotnie ze stałymi i własnymi zmiennymi (które potem też wchodzą do sumy kontrolnej).
-Tylko działania, które dają ten sam wynik mod 2^k w gcc i w naszym C (16-bitowy int): + - & | ^, porównania zmiennej ze stałą
+Tylko działania, które dają ten sam wynik mod 2^k w gcc i w naszym C (16-bitowy int): + - & | ^, jednoargumentowe - ~,
+stałe I32 także graniczne (0x7FFFFFFF, 0x80000000, 0xFFFFFFFF, przeniesienia przez bajty i połówki), porównania zmiennej ze stałą
 (także graniczną) albo ze zmienną tego samego typu,
 operandy rzutowane na typ wyniku (w mini-C działanie na dwóch uchar jest 8-bitowe, docs/minic.md).
 """
@@ -23,6 +24,9 @@ def const(r, t):
     if t == "U8":
         return str(r.randint(0, 255))
     if t == "I32":
+        if r.random() < 0.3:
+            # wartości graniczne long i przeniesienia przez granice bajtów i połówek
+            return r.choice(["2147483647L", "(-2147483647L - 1)", "-1L", "255L", "256L", "65535L", "65536L", "16777215L", "16777216L", "-65536L"])
         return f"{r.choice([r.randint(-99999, 99999), r.randint(0, 9)])}L"
     if r.random() < 0.25:
         # wartości graniczne słowa 16-bitowego (przeniesienie/pożyczka i przepełnienie ze znakiem)
@@ -59,8 +63,10 @@ def function(r, name, static):
         pad = " " * indent
         for _ in range(r.randint(2, 4)):
             k, v = r.random(), r.choice([n for n, _ in vs if n not in locked])
-            if k < 0.45:
+            if k < 0.37:
                 assign(pad, v)
+            elif k < 0.45:
+                lines.append(f"{pad}{v} = {r.choice(['-', '~'])}({operand(types[v])});")
             elif k < 0.65 and depth < 2:
                 lines.append(f"{pad}{v} = {v} & 7;")
                 lines.append(f"{pad}while ({v} > 0) {{")

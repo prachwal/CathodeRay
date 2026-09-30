@@ -83,8 +83,8 @@
     {
       "id": "12",
       "title": "[M] `long` Add/Sub/And/Or/Xor/Mov bez rozbijania w celach bajtowych | wykonawca: mocny model | Pliki: `WideLegalizer.cs` (tryb „zostaw arytmetykę”, dalej rozbija `Call`/`Ret`/`Load`/`Store`), `ByteTarget.cs`. Akceptacja: wszystkie `Long_*_Match_The_Oracle` zielone; add32 na Z80 ≤ 130 B; stub bez zmian (dalej pełne rozbicie).",
-      "status": "todo",
-      "note": "",
+      "status": "done",
+      "note": "add32 z80 85 -> 36 B; tabela -13928 B w 20 wierszach (z80/8080/6502/65c02/6800), stub bez zmian; ParamAlias aliasuje cały long na cc_argN/cc_argN+1",
       "section": "B. Tanie optymalizacje modelu pamięci i 16-bitowe (Z80, 8080)"
     },
     {

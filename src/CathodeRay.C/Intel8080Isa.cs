@@ -249,9 +249,6 @@ internal sealed class Intel8080Isa : ByteIsa
         yield return "cc_t1";
     }
 
-    /// <summary>Starszy bajt leży tuż za młodszym: <c>x</c>/<c>x+1</c> albo para komórek crt0 <c>cc_x</c>/<c>cc_x_h</c>.</summary>
-    private static bool Adjacent(Word word) => word.Hi == word.Lo + "+1" || word.Hi == word.Lo + "_h";
-
     private void Operate(string immediate, string memory, Octet value)
     {
         if (value.IsImmediate)

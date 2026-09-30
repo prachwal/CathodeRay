@@ -217,6 +217,16 @@ internal sealed class ByteSelector
         _ => null,
     };
 
+    /// <summary>Połowa (0 = młodsza, 1 = starsza) operandu 32-bitowego jako słowo albo <see langword="null"/>; węższy operand
+    /// ma starszą połowę równą zeru.</summary>
+    private Word? HalfOf(Ir.Op op, int half) => op switch
+    {
+        Ir.Cell { W: 4 } cell => Pair(Dst(cell, 2 * half), Dst(cell, (2 * half) + 1)),
+        Ir.Imm { W: 4 } imm => new Word(true, Number((imm.Value >> (16 * half)) & 0xFFFF), string.Empty),
+        Ir.Cell { W: 1 } when half == 0 => null,
+        _ => half == 0 ? WordOf(op) : new Word(true, "0", string.Empty),
+    };
+
     private Word? Pair(string lo, string hi) => (IsVolatile(lo) || IsVolatile(hi)) ? null : new Word(false, lo, hi);
 
     /// <summary>Kopia słowa przez ISA; A się nie zmienia, ale bajty celu już nie są równe A.</summary>
@@ -379,6 +389,12 @@ internal sealed class ByteSelector
 
         for (int i = 0; i < dst.W; i++)
         {
+            if (dst.W == 4 && i % 2 == 0 && TryMoveWord(HalfOf(dst, i / 2), HalfOf(src, i / 2)))
+            {
+                i++;
+                continue;
+            }
+
             LoadA(ByteOf(src, i));
             StoreA(Dst(dst, i));
         }
@@ -450,6 +466,18 @@ internal sealed class ByteSelector
             // A bez zmian, ale bajty celu już nie są mu równe
             _acc.Remove(dst.Lo);
             _acc.Remove(dst.Hi);
+            return;
+        }
+
+        if (alu is ByteAlu.Add or ByteAlu.Sub && bin.Dst.W == 4 && HalfOf(bin.Dst, 0) is { } dl && HalfOf(bin.Dst, 1) is { } dh
+            && HalfOf(bin.A, 0) is { } al && HalfOf(bin.A, 1) is { } ah && HalfOf(bin.B, 0) is { } bl && HalfOf(bin.B, 1) is { } bh
+            && _isa.TryAddLong((dl, dh), (al, ah), (bl, bh), alu == ByteAlu.Sub))
+        {
+            foreach (string address in (string[])[dl.Lo, dl.Hi, dh.Lo, dh.Hi])
+            {
+                _acc.Remove(address);
+            }
+
             return;
         }
 

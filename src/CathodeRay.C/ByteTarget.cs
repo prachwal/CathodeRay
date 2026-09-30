@@ -54,7 +54,7 @@ public abstract class ByteTarget : ICTarget
     public string Emit(Ir.Module module, bool optimize)
     {
         ArgumentNullException.ThrowIfNull(module);
-        Ir.Module wide = WideLegalizer.Run(Legalizer.Run(CaseFold.Apply(module), wide: true), ByteOrder);
+        Ir.Module wide = WideLegalizer.Run(Legalizer.Run(CaseFold.Apply(module), wide: true), ByteOrder, keepArithmetic: true);
         Ir.Module legal = Legalizer.Run(wide);
         ByteIsa isa = CreateIsa();
         if (isa.SupportsIndexed)

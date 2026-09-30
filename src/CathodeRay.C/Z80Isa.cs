@@ -165,6 +165,46 @@ internal sealed partial class Z80Isa : ByteIsa
         return true;
     }
 
+    /// <summary>32 bity przez HL i DE: <c>add hl,de</c> (albo <c>or a; sbc hl,de</c>) na młodszych połówkach, <c>adc hl,de</c>
+    /// (<c>sbc hl,de</c>) na starszych; <c>ld</c> między nimi nie rusza przeniesienia.</summary>
+    /// <param name="dst">Cel.</param>
+    /// <param name="a">Lewy operand.</param>
+    /// <param name="b">Prawy operand.</param>
+    /// <param name="subtract">Odejmowanie.</param>
+    /// <returns><see langword="false"/>, gdy bajty którejś połówki nie są sąsiednie.</returns>
+    public override bool TryAddLong((Word Lo, Word Hi) dst, (Word Lo, Word Hi) a, (Word Lo, Word Hi) b, bool subtract)
+    {
+        Word[] memory = [dst.Lo, dst.Hi, a.Lo, a.Hi, b.Lo, b.Hi];
+        if (dst.Lo.IsImmediate || dst.Hi.IsImmediate || memory.Any(static w => !w.IsImmediate && !Adjacent(w)))
+        {
+            return false;
+        }
+
+        if (!subtract && a.Lo.IsImmediate && a.Hi.IsImmediate)
+        {
+            (a, b) = (b, a);
+        }
+
+        L(a.Lo.IsImmediate ? $"ld hl,{a.Lo.Lo}" : $"ld hl,({a.Lo.Lo})");
+        L(b.Lo.IsImmediate ? $"ld de,{b.Lo.Lo}" : $"ld de,({b.Lo.Lo})");
+        if (subtract)
+        {
+            L("or a");
+            L("sbc hl,de");
+        }
+        else
+        {
+            L("add hl,de");
+        }
+
+        L($"ld ({dst.Lo.Lo}),hl");
+        L(a.Hi.IsImmediate ? $"ld hl,{a.Hi.Lo}" : $"ld hl,({a.Hi.Lo})");
+        L(b.Hi.IsImmediate ? $"ld de,{b.Hi.Lo}" : $"ld de,({b.Hi.Lo})");
+        L(subtract ? "sbc hl,de" : "adc hl,de");
+        L($"ld ({dst.Hi.Lo}),hl");
+        return true;
+    }
+
     /// <summary>S xor V po odejmowaniu: przy przepełnieniu (P/V = 1) odwraca bit znaku A, wtedy S niesie wynik.</summary>
     /// <param name="less">Skok przy <c>x &lt; y</c> (<c>jp m</c>), inaczej przy <c>x &gt;= y</c> (<c>jp p</c>).</param>
     /// <param name="label">Etykieta.</param>
@@ -374,9 +414,6 @@ internal sealed partial class Z80Isa : ByteIsa
         yield return "cc_t0";
         yield return "cc_t1";
     }
-
-    /// <summary>Starszy bajt leży tuż za młodszym: <c>x</c>/<c>x+1</c> albo para komórek crt0 <c>cc_x</c>/<c>cc_x_h</c>.</summary>
-    private static bool Adjacent(Word word) => word.Hi == word.Lo + "+1" || word.Hi == word.Lo + "_h";
 
     private void Operate(string mnemonic, Octet value)
     {

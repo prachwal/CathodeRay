@@ -33,13 +33,15 @@ internal abstract class ByteIsa
     /// <summary>Nazwy, których asembler nie przyjmie jako symbole użytkownika (bez rozróżniania wielkości liter).</summary>
     protected virtual IReadOnlySet<string> Reserved { get; } = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
-    /// <summary>Adres bajtu komórki (indeks 0 = młodszy).</summary>
+    /// <summary>Adres bajtu komórki (indeks 0 = młodszy). Komórka 32-bitowa <c>cc_argN</c> (parametr <c>long</c> liścia po
+    /// <see cref="ParamAlias"/>) ma starszą połowę w <c>cc_argN+1</c>.</summary>
     /// <param name="sym">Symbol komórki.</param>
     /// <param name="width">Szerokość komórki.</param>
     /// <param name="index">Numer bajtu od najmłodszego.</param>
     /// <returns>Wyrażenie adresu.</returns>
     public string Loc(string sym, int width, int index) =>
-        width == 1 ? Sym(sym) : BigEndian ? At(sym, width - 1 - index) : At(sym, index);
+        width == 1 ? Sym(sym) : BigEndian ? At(sym, width - 1 - index)
+        : (width == 4 && index >= 2 && ParamAlias.NextArg(sym) is { } high) ? At(high, index - 2) : At(sym, index);
 
     /// <summary>Nazwa symbolu w asemblerze: nazwy zastrzeżone CPU (rejestry, mnemoniki, operatory) dostają przedrostek.</summary>
     /// <param name="name">Nazwa z kodu pośredniego.</param>
@@ -190,6 +192,16 @@ internal abstract class ByteIsa
     /// <returns><see langword="true"/>, gdy sekwencja została wyemitowana.</returns>
     public virtual bool TryAddWord(Word dst, Word a, Word b, bool subtract) => false;
 
+    /// <summary>Dodawanie albo odejmowanie liczb 32-bitowych <c>dst ← a ± b</c> podanych jako połówki (młodsza, starsza) jedną
+    /// sekwencją CPU z przeniesieniem między połówkami, bez zmiany A (flagi po niej nieokreślone). Domyślnie <see langword="false"/>:
+    /// selektor liczy łańcuchem bajtów przez A.</summary>
+    /// <param name="dst">Cel (pamięć): młodsza i starsza połowa.</param>
+    /// <param name="a">Lewy operand: połówki (stałe albo pamięć).</param>
+    /// <param name="b">Prawy operand: połówki (stałe albo pamięć).</param>
+    /// <param name="subtract"><see langword="true"/>: <c>a - b</c>.</param>
+    /// <returns><see langword="true"/>, gdy sekwencja została wyemitowana.</returns>
+    public virtual bool TryAddLong((Word Lo, Word Hi) dst, (Word Lo, Word Hi) a, (Word Lo, Word Hi) b, bool subtract) => false;
+
     /// <summary>Skok po odejmowaniu ze znakiem <c>x - y</c> (A = najstarszy bajt różnicy, flagi S i V po nim); może zmienić A.
     /// Wołane tylko, gdy <see cref="HasOverflowFlag"/>.</summary>
     /// <param name="less"><see langword="true"/>: skok, gdy <c>x &lt; y</c>; inaczej, gdy <c>x &gt;= y</c>.</param>
@@ -229,6 +241,21 @@ internal abstract class ByteIsa
     /// <summary>Dopisuje linię surowego tekstu (etykieta, komentarz).</summary>
     /// <param name="line">Linia.</param>
     public void Raw(string line) => L(line);
+
+    /// <summary>Starszy bajt leży tuż za młodszym: <c>x</c>/<c>x+1</c>, <c>x+2</c>/<c>x+3</c> albo para komórek crt0 <c>cc_x</c>/<c>cc_x_h</c>.</summary>
+    /// <param name="word">Słowo w pamięci.</param>
+    /// <returns><see langword="true"/>, gdy bajty są sąsiednie.</returns>
+    protected static bool Adjacent(Word word)
+    {
+        if (word.Hi == word.Lo + "+1" || word.Hi == word.Lo + "_h")
+        {
+            return true;
+        }
+
+        int plus = word.Lo.LastIndexOf('+');
+        return plus > 0 && int.TryParse(word.Lo.AsSpan(plus + 1), System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out int offset)
+            && word.Hi == $"{word.Lo[..plus]}+{offset + 1}";
+    }
 
     /// <summary>Relaksacja skoków w tekście jednej funkcji; domyślnie bez zmian (CPU z absolutnymi skokami warunkowymi).</summary>
     /// <param name="text">Tekst funkcji.</param>

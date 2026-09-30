@@ -63,6 +63,13 @@ internal static class ParamAlias
         return module with { Functions = functions, Data = [.. module.Data.Where(d => !removed.Contains(d.Sym))] };
     }
 
+    /// <summary>Następna komórka argumentu: <c>cc_argN</c> → <c>cc_argN+1</c> (starsza połowa aliasowanego parametru <c>long</c>).</summary>
+    /// <param name="sym">Symbol komórki.</param>
+    /// <returns>Symbol następnego argumentu albo <see langword="null"/>, gdy <paramref name="sym"/> nie jest komórką argumentu.</returns>
+    public static string? NextArg(string sym) =>
+        (sym.StartsWith("cc_arg", StringComparison.Ordinal) && int.TryParse(sym.AsSpan(6), System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out int n))
+            ? $"cc_arg{n + 1}" : null;
+
     /// <summary>Symbol obiektu bez przesunięcia (<c>x+2</c> → <c>x</c>).</summary>
     private static string Base(string sym)
     {
@@ -114,11 +121,13 @@ internal static class ParamAlias
             }
         }
 
-        // każde użycie obiektu parametru musi być jedną z jego komórek-parametrów i nie szersze od niej
+        // każde użycie obiektu parametru musi być jedną z jego komórek-parametrów i nie szersze od niej; wyjątek: cały parametr
+        // long, gdy obie połówki trafiają do kolejnych cc_argN, cc_argN+1 (ByteIsa.Loc składa je w jedną komórkę)
         var bad = new HashSet<string>(StringComparer.Ordinal);
         foreach (Ir.Cell cell in function.Body.SelectMany(IrFacts.Operands).OfType<Ir.Cell>().Concat(function.Body.OfType<Ir.LoadIdx>().Select(static l => l.Index)).Concat(function.Body.OfType<Ir.StoreIdx>().Select(static s => s.Index)))
         {
-            if (!widths.TryGetValue(cell.Sym, out int width) || cell.W > width)
+            bool whole = cell.W == 4 && alias.TryGetValue(cell.Sym, out string? low) && alias.TryGetValue(cell.Sym + "+2", out string? high) && high == NextArg(low);
+            if (!whole && (!widths.TryGetValue(cell.Sym, out int width) || cell.W > width))
             {
                 bad.Add(Base(cell.Sym));
             }
