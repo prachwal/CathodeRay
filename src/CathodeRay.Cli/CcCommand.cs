@@ -30,10 +30,30 @@ internal static partial class CcCommand
         var werror = new Option<bool>("-Werror", "--werror") { Description = "Traktuj ostrzeżenia kompilatora jak błędy." };
         var stats = new Option<bool>("--stats") { Description = "Wypisz rozmiary segmentów zlinkowanego programu." };
         var cpu = new Option<string>("--cpu") { Description = "Cel kompilatora: nazwa z rejestru celów (domyślnie stub).", DefaultValueFactory = _ => CTargets.Default.Name };
-        var command = new Command("cc", "Kompiluje program mini-C na wybrany cel (domyślnie stub): C→obiekt→link.") { inputs, output, format, listing, map, config, incdir, define, noStdlib, noOpt, werror, cpu, stats };
+        var ir = new Option<string>("--ir") { Description = "Reprezentacja pośrednia: cell (domyślnie) albo vreg; --ir list wypisuje rodzaje.", DefaultValueFactory = _ => "cell" };
+        var command = new Command("cc", "Kompiluje program mini-C na wybrany cel (domyślnie stub): C→obiekt→link.") { inputs, output, format, listing, map, config, incdir, define, noStdlib, noOpt, werror, cpu, ir, stats };
         command.SetAction(parse =>
         {
             TextWriter error = parse.InvocationConfiguration.Error;
+            string irKind = parse.GetValue(ir)!;
+            if (irKind == "list")
+            {
+                parse.InvocationConfiguration.Output.WriteLine("cell, vreg");
+                return 0;
+            }
+
+            if (!irKind.Equals("cell", StringComparison.OrdinalIgnoreCase) && !irKind.Equals("vreg", StringComparison.OrdinalIgnoreCase))
+            {
+                error.WriteLine($"cc: unknown IR '{irKind}' (available: cell, vreg).");
+                return 1;
+            }
+
+            if (irKind.Equals("vreg", StringComparison.OrdinalIgnoreCase))
+            {
+                error.WriteLine("cc: IR 'vreg' not yet implemented (try --ir cell).");
+                return 1;
+            }
+
             FileInfo[] files = parse.GetRequiredValue(inputs);
             foreach (FileInfo input in files)
             {

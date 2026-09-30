@@ -5,8 +5,8 @@
     {
       "id": "1",
       "title": "[S] Faza 0: flaga --ir cell|vreg (vreg -> czytelny blad) + szkielet VReg.cs; kryterium: kompiluje return 42 (design §7, §D4)",
-      "status": "todo",
-      "note": ""
+      "status": "done",
+      "note": "Flaga --ir (cell|vreg|list) w CcCommand; vreg -> czytelny blad; VReg.cs (model rekordow); VRegCliTests 5/5."
     },
     {
       "id": "2",
