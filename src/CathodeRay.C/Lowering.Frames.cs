@@ -28,6 +28,29 @@ internal sealed partial class Lowering
         return seen;
     }
 
+    /// <summary>Komórki, które druga aktywacja funkcji musi zachować: żywe po którymś wołaniu (poza wynikiem tego wołania),
+    /// parametry i komórki o wziętym adresie (odczyt przez wskaźnik jest dla analizy niewidoczny).</summary>
+    private static HashSet<string> LiveAcrossCalls(Pending pending)
+    {
+        IReadOnlyList<Ir.Ins> body = pending.Function.Body;
+        Dictionary<string, int> sizes = pending.Scalars.Concat(pending.Aggregates).ToDictionary(static o => o.Sym, static o => o.Size, StringComparer.Ordinal);
+        int Size(string sym) => sizes.GetValueOrDefault(sym);
+        var live = IrLiveness.Of(body, Size);
+        var across = new HashSet<string>(pending.Function.Params.Select(static p => IrLiveness.BaseSymbol(p.Sym)), StringComparer.Ordinal);
+        for (int i = 0; i < body.Count; i++)
+        {
+            if (body[i] is Ir.Call call)
+            {
+                string? result = IrLiveness.Killed(call, Size);
+                across.UnionWith(live.LiveOut(i).Where(sym => sym != result));
+            }
+
+            across.UnionWith(IrFacts.Uses(body[i]).OfType<Ir.AddrOf>().Select(static a => IrLiveness.BaseSymbol(a.Sym)));
+        }
+
+        return across;
+    }
+
     private void FinalizeFrames()
     {
         var defined = new HashSet<string>(_pending.Select(static p => p.Function.Name), StringComparer.Ordinal);
@@ -94,8 +117,9 @@ internal sealed partial class Lowering
             var saved = new List<Ir.Owned>();
             if (framed)
             {
-                saved.AddRange(pending.Scalars);
-                foreach (Ir.Owned aggregate in pending.Aggregates)
+                HashSet<string> across = LiveAcrossCalls(pending);
+                saved.AddRange(pending.Scalars.Where(o => across.Contains(o.Sym)));
+                foreach (Ir.Owned aggregate in pending.Aggregates.Where(o => across.Contains(o.Sym)))
                 {
                     if (aggregate.Size > MaxSavedAggregate)
                     {

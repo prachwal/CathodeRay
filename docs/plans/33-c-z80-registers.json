@@ -20,7 +20,7 @@
     {
       "id": "3",
       "title": "[M] `IrLiveness` i naprawa `Frames` | wykonawca: mocny model | Pliki: nowy `src/CathodeRay.C/IrLiveness.cs`, `Lowering.Frames.cs` (zamiana 191-220). Akceptacja: test z zadania 1 zielony na wszystkich celach; nowe testy jednostkowe liveness (pętla, `goto` w przód i w tył, zapis częściowy) w `tests/CathodeRay.Tests/IrLivenessTests.cs`. Tabela: wiersze z rekurencją mogą się zmienić w obie strony (dokładniejszy `Saved`); każdy wzrost uzasadniony w commicie jako naprawa.",
-      "status": "todo",
+      "status": "done",
       "note": "",
       "section": "A. Poprawność i wspólna infrastruktura"
     },

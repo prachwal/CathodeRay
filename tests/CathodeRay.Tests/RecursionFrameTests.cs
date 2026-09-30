@@ -1,3 +1,4 @@
+using CathodeRay.C;
 using FluentAssertions;
 
 namespace CathodeRay.Tests;
@@ -7,6 +8,21 @@ namespace CathodeRay.Tests;
 /// zbędnych czasowych zmiennych na stosie.</summary>
 public sealed class RecursionFrameTests
 {
+    // k(0) = 0 * 5 + 1 = 1; k(1) = 3 + 1 = 4; k(2) = 4 + 4 = 8; k(3) = 5 + 8 = 13
+    private const string OverwrittenSource = """
+        int k(int n) {
+            int x;
+            int r;
+            x = n * 5;
+            if (n == 0) return x + 1;
+            r = k(n - 1);
+            x = n + 2;
+            return x + r;
+        }
+
+        int main() { return k(3); }
+        """;
+
     public static TheoryData<string> Targets()
     {
         var data = new TheoryData<string>();
@@ -108,5 +124,47 @@ public sealed class RecursionFrameTests
 
         // g(1) = 3 (x = 3 przeżywa wywołanie g(0)); g(3) = 9 (n & 1, więc x = 9 przeżywa wywołanie g(2)); 3 * 10 + 9
         CcRun.RunOn(Source, cpu).Value.Should().Be(39);
+    }
+
+    [Theory]
+    [MemberData(nameof(Targets))]
+    public void Locals_Live_Across_Call_In_Loop_Survive(string cpu)
+    {
+        // s i i czytane po wołaniu (i przez krawędź wsteczną pętli), więc druga aktywacja musi je zachować
+        const string Source = """
+            int h(int n) {
+                int s;
+                int i;
+                if (n == 0) return 1;
+                s = n;
+                for (i = 0; i < 2; i = i + 1) {
+                    s = s + h(n - 1);
+                }
+                return s;
+            }
+
+            int main() { return h(3); }
+            """;
+
+        // h(0) = 1; h(1) = 1 + 1 + 1 = 3; h(2) = 2 + 3 + 3 = 8; h(3) = 3 + 8 + 8 = 19
+        CcRun.RunOn(Source, cpu).Value.Should().Be(19);
+    }
+
+    [Theory]
+    [MemberData(nameof(Targets))]
+    public void Local_Overwritten_After_Call_Is_Correct(string cpu)
+    {
+        // x zapisane po wołaniu, zanim ktokolwiek je przeczyta: nie trzeba go zachowywać
+        CcRun.RunOn(OverwrittenSource, cpu).Value.Should().Be(13);
+    }
+
+    [Fact]
+    public void Frames_Save_Only_Cells_Live_Across_Calls()
+    {
+        Ir.Module module = Codegen.Lower(TypeChecker.Check(Parser.Parse(OverwrittenSource, StdLib.HeaderReader)), "t.c");
+        Ir.Function k = module.Functions.Single(static f => f.Name == "k");
+
+        // n: parametr (zawsze), r: wynik wołania zapisany po powrocie, x: nadpisane po wołaniu przed odczytem
+        k.Saved.Select(static o => o.Sym).Should().Contain("k__n").And.NotContain("k__x").And.NotContain("k__r");
     }
 }
