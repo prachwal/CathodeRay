@@ -253,6 +253,7 @@ internal sealed class ByteSelector
     private void EmitFunction(Ir.Function function)
     {
         int mark = _isa.Mark;
+        _isa.BeginFunction(function);
         EmitFunctionBody(function);
         _isa.RelaxFrom(mark);
     }

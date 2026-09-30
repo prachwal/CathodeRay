@@ -15,6 +15,9 @@ internal sealed partial class Z80Isa : ByteIsa
     /// <summary>Adres bajtu komórki (tekst jak z <see cref="ByteIsa.Loc"/>) → rejestr <c>b</c>, <c>c</c>, <c>d</c> albo <c>e</c>.</summary>
     private readonly Dictionary<string, string> _registers = new(StringComparer.Ordinal);
 
+    /// <summary>Rejestry komórek bieżącej funkcji (<see cref="BeginFunction"/>); <see langword="null"/>: wszystkie z mapy.</summary>
+    private HashSet<string>? _active;
+
     private int _position;
 
     /// <summary>Rejestry, które prymitywy niszczą niezależnie od mapy rejestrów: A i HL (rejestr adresowy); wszystko niszczą
@@ -68,6 +71,17 @@ internal sealed partial class Z80Isa : ByteIsa
     }
 
     public override bool IsRegister(string address) => _registers.ContainsKey(address);
+
+    /// <summary>Zbiera rejestry komórek funkcji: parę pomocniczą wolną w tej funkcji wolno niszczyć, bo w wersji 1 żaden rejestr
+    /// nie żyje przez wołanie ani przez wejście do funkcji.</summary>
+    /// <param name="function">Funkcja.</param>
+    public override void BeginFunction(Ir.Function function)
+    {
+        ArgumentNullException.ThrowIfNull(function);
+        _active = [.. function.Params.Concat(function.Body.SelectMany(IrFacts.Operands).OfType<Ir.Cell>())
+            .SelectMany(c => Enumerable.Range(0, c.W).Select(i => Resolve(Loc(c.Sym, c.W, i))))
+            .OfType<string>()];
+    }
 
     public override void LoadA(Octet value) => L(value.IsImmediate ? $"ld a,{value.Text}" : $"ld a,{Operand(value.Text)}");
 
@@ -200,15 +214,23 @@ internal sealed partial class Z80Isa : ByteIsa
             subtract = false;
         }
 
-        // prawy operand: jego własna para BC/DE albo para pomocnicza bez komórek; bez wolnej pary łańcuch przez A w selektorze
+        // prawy operand: jego własna para BC/DE albo para pomocnicza bez komórek; bez wolnej pary: pamięć przez DE przechowane
+        // na stosie (cel zapisuje się dopiero po pop de), stała tak samo, chyba że i lewy operand, i cel są w rejestrach (wtedy łańcuch przez A w selektorze jest krótszy)
         bool steps = constant is { } c && (c <= 3 || c >= 0xFFFD);
         string? rhs = (constant is null ? PairOf(b) : null) ?? Scratch();
-        if (rhs is null && !steps)
+        bool save = rhs is null && !steps && (constant is null || !(InRegisters(a) && InRegisters(dst)));
+        if (rhs is null && !steps && !save)
         {
             return false;
         }
 
+        rhs ??= save ? "de" : null;
         LoadPair("hl", a);
+        if (save)
+        {
+            L("push de");
+        }
+
         if (constant is { } k && steps)
         {
             string step = k <= 3 ? "inc hl" : "dec hl";
@@ -231,6 +253,11 @@ internal sealed partial class Z80Isa : ByteIsa
             }
         }
 
+        if (save)
+        {
+            L("pop de");
+        }
+
         StorePair("hl", dst);
         return true;
     }
@@ -245,7 +272,7 @@ internal sealed partial class Z80Isa : ByteIsa
     public override bool TryAddLong((Word Lo, Word Hi) dst, (Word Lo, Word Hi) a, (Word Lo, Word Hi) b, bool subtract)
     {
         Word[] memory = [dst.Lo, dst.Hi, a.Lo, a.Hi, b.Lo, b.Hi];
-        if (dst.Lo.IsImmediate || dst.Hi.IsImmediate || Scratch() != "de"
+        if (dst.Lo.IsImmediate || dst.Hi.IsImmediate
             || memory.Any(w => !w.IsImmediate && (!Adjacent(w) || IsRegister(w.Lo) || IsRegister(w.Hi))))
         {
             return false;
@@ -254,6 +281,13 @@ internal sealed partial class Z80Isa : ByteIsa
         if (!subtract && a.Lo.IsImmediate && a.Hi.IsImmediate)
         {
             (a, b) = (b, a);
+        }
+
+        // wszystkie połówki w pamięci; DE zajęte w tej funkcji przechowane na stosie
+        bool save = Scratch() != "de";
+        if (save)
+        {
+            L("push de");
         }
 
         L(a.Lo.IsImmediate ? $"ld hl,{a.Lo.Lo}" : $"ld hl,({a.Lo.Lo})");
@@ -273,6 +307,11 @@ internal sealed partial class Z80Isa : ByteIsa
         L(b.Hi.IsImmediate ? $"ld de,{b.Hi.Lo}" : $"ld de,({b.Hi.Lo})");
         L(subtract ? "sbc hl,de" : "adc hl,de");
         L($"ld ({dst.Hi.Lo}),hl");
+        if (save)
+        {
+            L("pop de");
+        }
+
         return true;
     }
 
@@ -413,7 +452,24 @@ internal sealed partial class Z80Isa : ByteIsa
     /// cel − adres skoku w −126..+129 (przesunięcie −128..127 liczone od adresu po 2-bajtowym skoku).</summary>
     /// <param name="text">Tekst funkcji.</param>
     /// <returns>Tekst po relaksacji.</returns>
-    protected override string Relax(string text) => BranchRelaxer.Shorten(text, Size, Shorten, -126, 129);
+    protected override string Relax(string text) => BranchRelaxer.Shorten(SkipOverJump().Replace(text, Invert), Size, Shorten, -126, 129);
+
+    /// <summary><c>jp cc,X; jp T; X:</c> (skok przez skok z porównania na równość) → <c>jp !cc,T; X:</c>.</summary>
+    private static string Invert(Match match)
+    {
+        string condition = match.Groups[2].Value switch
+        {
+            "nz" => "z",
+            "z" => "nz",
+            "nc" => "c",
+            "c" => "nc",
+            "po" => "pe",
+            "pe" => "po",
+            "p" => "m",
+            _ => "p",
+        };
+        return $"{match.Groups[1].Value}jp {condition},{match.Groups[4].Value}{Environment.NewLine}{match.Groups[5].Value}";
+    }
 
     private static (string Short, string Target)? Shorten(string line)
     {
@@ -483,6 +539,9 @@ internal sealed partial class Z80Isa : ByteIsa
     [GeneratedRegex(@"^\s*jp\s+((?:nz|z|nc|c),)?\s*([A-Za-z_.$][\w.$]*)\s*$")]
     private static partial Regex LongJump();
 
+    [GeneratedRegex(@"^([ \t]*)jp (nz|z|nc|c|po|pe|p|m),([A-Za-z_.$][\w.$]*)\r?\n[ \t]*jp ([A-Za-z_.$][\w.$]*)\r?\n([ \t]*\3:)", RegexOptions.Multiline)]
+    private static partial Regex SkipOverJump();
+
     private static IEnumerable<string> CrtCells()
     {
         for (int arg = 1; arg <= TypeChecker.MaxArgs; arg++)
@@ -499,6 +558,13 @@ internal sealed partial class Z80Isa : ByteIsa
 
     private void Operate(string mnemonic, Octet value)
     {
+        if (mnemonic == "cp " && value is { IsImmediate: true, Text: "0" })
+        {
+            // A - 0: te same Z i C (zero), 1 B krócej
+            L("or a");
+            return;
+        }
+
         if (value.IsImmediate || IsRegister(value.Text))
         {
             L($"{mnemonic}{(value.IsImmediate ? value.Text : Resolve(value.Text))}");
@@ -524,8 +590,11 @@ internal sealed partial class Z80Isa : ByteIsa
     /// <summary>Para <c>bc</c>/<c>de</c>, gdy słowo leży w niej w całości (młodszy bajt w C/E).</summary>
     private string? PairOf(Word word) => InRegisters(word) && (_registers[word.Hi] + _registers[word.Lo]) is "bc" or "de" ? _registers[word.Hi] + _registers[word.Lo] : null;
 
-    /// <summary>Para pomocnicza bez rejestrów przypisanych komórkom: DE, potem BC; <see langword="null"/>, gdy obie zajęte.</summary>
-    private string? Scratch() => new[] { "de", "bc" }.FirstOrDefault(p => !_registers.ContainsValue(p[..1]) && !_registers.ContainsValue(p[1..]));
+    /// <summary>Para pomocnicza bez rejestrów przypisanych komórkom bieżącej funkcji: DE, potem BC; <see langword="null"/>, gdy obie zajęte.</summary>
+    private string? Scratch() => new[] { "de", "bc" }.FirstOrDefault(p => !Taken(p[..1]) && !Taken(p[1..]));
+
+    /// <summary>Rejestr należy do komórki bieżącej funkcji (bez <see cref="BeginFunction"/>: do którejkolwiek komórki).</summary>
+    private bool Taken(string register) => _active?.Contains(register) ?? _registers.ContainsValue(register);
 
     /// <summary>Słowo do pary rejestrów (<c>hl</c>, <c>de</c>, <c>bc</c>); nie zmienia flag. Z rejestrów najpierw młodszy bajt: młodszy
     /// rejestr celu (C/E/L) nigdy nie jest starszym rejestrem źródła (B/D).</summary>

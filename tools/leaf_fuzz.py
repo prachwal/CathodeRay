@@ -4,7 +4,7 @@
   python3 tools/leaf_fuzz.py gen 120 [KATALOG]     # generuje pNN_ours.c / pNN_gcc.c i gcc.txt (wynik referencyjny z gcc)
   LEAF_FUZZ_DIR=KATALOG dotnet test --nologo --filter LeafFuzzTests   # kompiluje pNN_ours.c na wszystkich celach i porównuje z gcc.txt
 
-Domyślny katalog: /tmp/leaf-fuzz. Wymaga gcc. Liście g0..g2 mają 1-3 parametry szerokości 1/2/4 (U8, I16, U16, I32), zmieniają je
+Domyślny katalog: /tmp/leaf-fuzz. Wymaga gcc. Liść walk przechodzi wskaźnikiem po tablicy z licznikiem (kandydaci na pary rejestrów Z80). Liście g0..g2 mają 1-3 parametry szerokości 1/2/4 (U8, I16, U16, I32), zmieniają je
 (także w pętlach), a main woła je wielokrotnie ze stałymi i własnymi zmiennymi (które potem też wchodzą do sumy kontrolnej).
 Tylko działania, które dają ten sam wynik mod 2^k w gcc i w naszym C (16-bitowy int): + - & | ^, jednoargumentowe - ~,
 stałe I32 także graniczne (0x7FFFFFFF, 0x80000000, 0xFFFFFFFF, przeniesienia przez bajty i połówki), porównania zmiennej ze stałą
@@ -101,9 +101,32 @@ def function(r, name, static):
     return "\n".join(lines), params
 
 
+def walker(r):
+    """Liść z licznikiem i wskaźnikiem po tablicy (także przesunięcie > 3 bajtów): kandydaci na pary rejestrów."""
+    ops = lambda: r.choice(["+", "-", "^", "|", "&"])
+    far = r.randint(2, 7)
+    return "\n".join([
+        "U16 arr[16];",
+        "U16 walk(U8 n, U16 s) {",
+        "  U16 *q; U16 t; U8 k;",
+        "  q = arr; k = 0; n = n & 7;",
+        "  while (n > 0) {",
+        f"    t = *q {ops()} s;",
+        f"    s = t {ops()} q[{far}];",
+        f"    *q = *q {ops()} (U16)k;",
+        "    q++; k = k + 3; n = n - 1;",
+        "  }",
+        f"  return s {ops()} (U16)k;",
+        "}",
+        "",
+    ])
+
+
 def program(seed):
     r = random.Random(seed)
-    functions, body = [], []
+    functions, body = [walker(r)], []
+    body.append("  for (mU8 = 0; mU8 < 16; mU8++) arr[mU8] = (U16)mU8 * 4099 + 17;")
+    body.append(f"  h = walk({r.randint(0, 9)}, {r.randint(0, 65535)}) ^ walk(mU8, h);")
     for f in range(3):
         text, params = function(r, f"g{f}", static=r.random() < 0.3)
         functions.append(text)

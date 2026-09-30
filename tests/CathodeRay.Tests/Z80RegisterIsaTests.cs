@@ -113,12 +113,15 @@ public sealed class Z80RegisterIsaTests
             new Ir.Ret(v, 1),
         ];
         var arr = new Ir.Data("arr", "DATA", 8, [new Ir.Bytes([10, 20, 30, 40, 50, 60, 70, 80])], false);
-        Ir.Module module = Module(body, Bss("main__x", 1), Bss("main__p", 2), Bss("main__v", 1), arr);
         var registers = new Dictionary<string, string> { ["main__x"] = "e" };
         if (bcTaken)
         {
+            // para zajęta w tej funkcji (wolne pary liczy się per funkcja, BeginFunction)
+            body.Insert(0, new Ir.Mov(new Ir.Cell("main__other", 2), new Ir.Imm(0, 2)));
             registers["main__other"] = "bc";
         }
+
+        Ir.Module module = Module(body, Bss("main__x", 1), Bss("main__p", 2), Bss("main__v", 1), Bss("main__other", 2), arr);
 
         (string code, int value) = Run(module, registers);
 

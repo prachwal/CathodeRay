@@ -172,6 +172,12 @@ internal abstract class ByteIsa
     /// <returns>Domyślnie <see langword="false"/>.</returns>
     public virtual bool IsRegister(string address) => false;
 
+    /// <summary>Początek emisji funkcji (np. rejestry jej komórek wyznaczają wolne pary pomocnicze); domyślnie nic.</summary>
+    /// <param name="function">Funkcja.</param>
+    public virtual void BeginFunction(Ir.Function function)
+    {
+    }
+
     /// <summary>Zwiększa albo zmniejsza o 1 liczbę zapisaną w kolejnych bajtach pamięci (od najmłodszego) jedną, krótką sekwencją
     /// CPU (np. <c>INC</c> pamięci z pominięciem starszego bajtu, gdy nie ma przeniesienia). Nie musi zachować
     /// flag; może zmienić A i flagi. Wywoływane tylko, gdy liczba ma 1 lub 2 bajty.</summary>
