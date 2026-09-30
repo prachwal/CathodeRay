@@ -16,35 +16,7 @@ internal static class IndexFusion
         return module with { Functions = [.. module.Functions.Select(f => f with { Body = Fuse([.. f.Body], sizes) })] };
     }
 
-    private static IEnumerable<Ir.Op> Reads(Ir.Ins ins) => ins switch
-    {
-        Ir.Mov mov => [mov.Src],
-        Ir.Bin bin => [bin.A, bin.B],
-        Ir.Un un => [un.A],
-        Ir.Load load => [load.Ptr],
-        Ir.Store store => [store.Ptr, store.Value],
-        Ir.CopyBlock copy => [copy.Dst, copy.Src],
-        Ir.Fill fill => [fill.Dst],
-        Ir.BrCmp branch => [branch.A, branch.B],
-        Ir.Call call => call.Indirect is null ? call.Args : [.. call.Args, call.Indirect],
-        Ir.Ret { Value: not null } ret => [ret.Value],
-        Ir.LoadIdx loadIdx => [loadIdx.Index],
-        Ir.StoreIdx storeIdx => [storeIdx.Index, storeIdx.Value],
-        _ => [],
-    };
-
-    private static Ir.Cell? Written(Ir.Ins ins) => ins switch
-    {
-        Ir.Mov mov => mov.Dst,
-        Ir.Bin bin => bin.Dst,
-        Ir.Un un => un.Dst,
-        Ir.Load load => load.Dst,
-        Ir.Call call => call.Result,
-        Ir.LoadIdx loadIdx => loadIdx.Dst,
-        _ => null,
-    };
-
-    private static bool Uses(Ir.Ins ins, string symbol) => Reads(ins).Any(op => op is Ir.Cell cell && cell.Sym == symbol);
+    private static bool Uses(Ir.Ins ins, string symbol) => IrFacts.Uses(ins).Any(op => op is Ir.Cell cell && cell.Sym == symbol);
 
     /// <summary>Komórka jest martwa od instrukcji <paramref name="from"/>: zapis albo znacznik instrukcji C ją zabija, odczyt ożywia,
     /// a etykieta, skok i powrót przerywają analizę (zakładamy, że żyje).</summary>
@@ -68,7 +40,7 @@ internal static class IndexFusion
                 return false;
             }
 
-            if (Written(ins) is { } written && written.Sym == symbol)
+            if (IrFacts.Def(ins) is { } written && written.Sym == symbol)
             {
                 return true;
             }

@@ -6,21 +6,6 @@ namespace CathodeRay.C;
 /// (zewnętrzny kod może wołać z powrotem); funkcje biblioteki standardowej i konsola nie wołają kodu użytkownika.</summary>
 internal sealed partial class Lowering
 {
-    private static IEnumerable<Ir.Op> OperandsOf(Ir.Ins ins) => ins switch
-    {
-        Ir.Mov mov => [mov.Src],
-        Ir.Bin bin => [bin.A, bin.B],
-        Ir.Un un => [un.A],
-        Ir.Load load => [load.Ptr],
-        Ir.Store store => [store.Ptr, store.Value],
-        Ir.CopyBlock copy => [copy.Dst, copy.Src],
-        Ir.Fill fill => [fill.Dst],
-        Ir.BrCmp branch => [branch.A, branch.B],
-        Ir.Call call => call.Args,
-        Ir.Ret { Value: not null } ret => [ret.Value],
-        _ => [],
-    };
-
     private static bool IsKnownLeaf(string function) =>
         function is "putchar" or "puthex" or "putdec" || StdLib.Modules.Any(m => m.Defines.Contains(function));
 
@@ -51,7 +36,7 @@ internal sealed partial class Lowering
         {
             foreach (Ir.Ins ins in function.Body)
             {
-                foreach (Ir.Op op in OperandsOf(ins))
+                foreach (Ir.Op op in IrFacts.Uses(ins))
                 {
                     if (op is Ir.AddrOf { Sym: var symbol } && _functions.ContainsKey(symbol))
                     {

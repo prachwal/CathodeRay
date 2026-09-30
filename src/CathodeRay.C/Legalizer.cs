@@ -82,7 +82,7 @@ internal sealed class Legalizer
 
         foreach (Ir.Ins ins in function.Body)
         {
-            foreach (Ir.Op op in Operands(ins))
+            foreach (Ir.Op op in IrFacts.Operands(ins))
             {
                 switch (op)
                 {
@@ -99,35 +99,6 @@ internal sealed class Legalizer
             {
                 yield return name;
             }
-        }
-    }
-
-    private static IEnumerable<Ir.Op> Operands(Ir.Ins ins)
-    {
-        switch (ins)
-        {
-            case Ir.Mov mov:
-                return [mov.Dst, mov.Src];
-            case Ir.Bin bin:
-                return [bin.Dst, bin.A, bin.B];
-            case Ir.Un un:
-                return [un.Dst, un.A];
-            case Ir.Load load:
-                return [load.Dst, load.Ptr];
-            case Ir.Store store:
-                return [store.Ptr, store.Value];
-            case Ir.CopyBlock copy:
-                return [copy.Dst, copy.Src];
-            case Ir.Fill fill:
-                return [fill.Dst];
-            case Ir.BrCmp branch:
-                return [branch.A, branch.B];
-            case Ir.Call call:
-                return [.. call.Args, .. call.Indirect is null ? [] : new Ir.Op[] { call.Indirect }, .. call.Result is null ? [] : new Ir.Op[] { call.Result }];
-            case Ir.Ret { Value: { } value }:
-                return [value];
-            default:
-                return [];
         }
     }
 

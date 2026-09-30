@@ -13,7 +13,7 @@
     {
       "id": "2",
       "title": "[M] `IrFacts`: jedna definicja `Operands/Uses/Def/LoopWeights` | wykonawca: mocny model | Pliki: nowy `src/CathodeRay.C/IrFacts.cs`, `ZeroPageAllocator.cs`, `Legalizer.cs`, `Lowering.Frames.cs`, `IrInliner.cs`. Akceptacja: `dotnet test` zielony i tabela **bajt w bajt bez zmian** (czysty refaktor).",
-      "status": "todo",
+      "status": "done",
       "note": "",
       "section": "A. Poprawność i wspólna infrastruktura"
     },

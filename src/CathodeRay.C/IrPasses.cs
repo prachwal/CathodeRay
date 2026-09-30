@@ -32,11 +32,11 @@ internal static class IrPasses
             }
 
             if (i + 1 < body.Count
-                && Defined(body[i]) is { } tempVar && IsTemporary(tempVar)
+                && IrFacts.Def(body[i]) is { } tempVar && IsTemporary(tempVar)
                 && body[i] is not Ir.Mov
                 && body[i + 1] is Ir.Mov { Src: Ir.Cell copySource } copyMov && copySource.Sym == tempVar.Sym
                 && copyMov.Dst.W == tempVar.W && copySource.W == tempVar.W
-                && !ReadOperands(body[i]).Any(op => Reads(op, copyMov.Dst.Sym) && body[i] is Ir.Bin { Kind: not (Ir.BinOp.Add or Ir.BinOp.Sub or Ir.BinOp.And or Ir.BinOp.Or or Ir.BinOp.Xor) })
+                && !IrFacts.Uses(body[i]).Any(op => Reads(op, copyMov.Dst.Sym) && body[i] is Ir.Bin { Kind: not (Ir.BinOp.Add or Ir.BinOp.Sub or Ir.BinOp.And or Ir.BinOp.Or or Ir.BinOp.Xor) })
                 && IsDeadAfter(body, i + 2, tempVar.Sym))
             {
                 result.Add(WithDestination(body[i], copyMov.Dst));
@@ -94,31 +94,6 @@ internal static class IrPasses
 
     private static bool Reads(Ir.Op op, string symbol) => op is Ir.Cell cell && cell.Sym == symbol;
 
-    private static IEnumerable<Ir.Op> ReadOperands(Ir.Ins ins) => ins switch
-    {
-        Ir.Mov mov => [mov.Src],
-        Ir.Bin bin => [bin.A, bin.B],
-        Ir.Un un => [un.A],
-        Ir.Load load => [load.Ptr],
-        Ir.Store store => [store.Ptr, store.Value],
-        Ir.CopyBlock copy => [copy.Dst, copy.Src],
-        Ir.Fill fill => [fill.Dst],
-        Ir.BrCmp branch => [branch.A, branch.B],
-        Ir.Call call => call.Indirect is null ? call.Args : [.. call.Args, call.Indirect],
-        Ir.Ret { Value: not null } ret => [ret.Value],
-        _ => [],
-    };
-
-    private static Ir.Cell? Defined(Ir.Ins ins) => ins switch
-    {
-        Ir.Mov mov => mov.Dst,
-        Ir.Bin bin => bin.Dst,
-        Ir.Un un => un.Dst,
-        Ir.Load load => load.Dst,
-        Ir.Call call => call.Result,
-        _ => null,
-    };
-
     private static Ir.Ins WithDestination(Ir.Ins ins, Ir.Cell destination) => ins switch
     {
         Ir.Mov mov => mov with { Dst = destination },
@@ -147,12 +122,12 @@ internal static class IrPasses
                 return false;
             }
 
-            if (ReadOperands(ins).Any(op => Reads(op, symbol)))
+            if (IrFacts.Uses(ins).Any(op => Reads(op, symbol)))
             {
                 return false;
             }
 
-            if (Defined(ins) is { } written && written.Sym == symbol)
+            if (IrFacts.Def(ins) is { } written && written.Sym == symbol)
             {
                 return true;
             }
@@ -178,7 +153,7 @@ internal static class IrPasses
         var taken = new HashSet<string>(StringComparer.Ordinal);
         foreach (Ir.Ins ins in body)
         {
-            foreach (Ir.Op op in ReadOperands(ins))
+            foreach (Ir.Op op in IrFacts.Uses(ins))
             {
                 if (op is Ir.AddrOf address)
                 {
@@ -264,7 +239,7 @@ internal static class IrPasses
                 continue;
             }
 
-            if (Defined(ins) is { } defined)
+            if (IrFacts.Def(ins) is { } defined)
             {
                 Kill(defined.Sym);
                 if (ins is Ir.Mov { Src: var source } && Tracked(defined.Sym))
@@ -289,7 +264,7 @@ internal static class IrPasses
                 known.Clear();
             }
 
-            if (ins is Ir.Mov { Src: Ir.Cell same } self && Defined(ins) is { } target && same.Sym == target.Sym && same.W == target.W)
+            if (ins is Ir.Mov { Src: Ir.Cell same } self && IrFacts.Def(ins) is { } target && same.Sym == target.Sym && same.W == target.W)
             {
                 continue;
             }
@@ -371,7 +346,7 @@ internal static class IrPasses
             var reads = new HashSet<string>(StringComparer.Ordinal);
             foreach (Ir.Ins ins in body)
             {
-                foreach (Ir.Op op in ReadOperands(ins))
+                foreach (Ir.Op op in IrFacts.Uses(ins))
                 {
                     if (op is Ir.Cell cell)
                     {
@@ -381,7 +356,7 @@ internal static class IrPasses
             }
 
             int before = body.Count;
-            body = [.. body.Where(ins => ins is Ir.Call or Ir.Load { Volatile: true } || Defined(ins) is not { } d || !IsLocal(d.Sym, function, inlined) || taken.Contains(BaseSymbol(d.Sym)) || reads.Contains(d.Sym) || volatiles?.Contains(BaseSymbol(d.Sym)) == true)];
+            body = [.. body.Where(ins => ins is Ir.Call or Ir.Load { Volatile: true } || IrFacts.Def(ins) is not { } d || !IsLocal(d.Sym, function, inlined) || taken.Contains(BaseSymbol(d.Sym)) || reads.Contains(d.Sym) || volatiles?.Contains(BaseSymbol(d.Sym)) == true)];
             if (body.Count == before)
             {
                 return body;
