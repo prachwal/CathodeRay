@@ -27,7 +27,7 @@
     {
       "id": "4",
       "title": "[S] Bramkowanie `optimize` w `ByteTarget.Emit` | wykonawca: Haiku (plan-coder) | Plik: `src/CathodeRay.C/ByteTarget.cs` (`Tune` tylko gdy `optimize`, także ZP 6502). Akceptacja: `dotnet test` zielony; tabela bez zmian (domyślnie `optimize=true`); `cathode cc x.c --cpu 6502 -O0` daje kod bez `z:` dla komórek modułu. Test w `TargetSizeTests` (jeden program, `-O0` ≥ domyślny).",
-      "status": "todo",
+      "status": "done",
       "note": "",
       "section": "A. Poprawność i wspólna infrastruktura"
     },

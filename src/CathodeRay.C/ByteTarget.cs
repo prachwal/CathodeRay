@@ -62,7 +62,8 @@ public abstract class ByteTarget : ICTarget
             legal = IndexFusion.Run(legal);
         }
 
-        return new ByteSelector(Tune(legal, isa), isa).Emit();
+        Ir.Module tuned = optimize ? Tune(legal, isa) : legal;
+        return new ByteSelector(tuned, isa).Emit();
     }
 
     /// <summary>Dostosowanie modułu do CPU po legalizacji (np. przydział strony zerowej); domyślnie bez zmian.</summary>
