@@ -6,7 +6,7 @@ kodu pośredniego IR) nie zna procesora; cel drukuje IR jako asembler swojego CP
 | cel | CPU | bajty słowa | konwencja | interpreter w testach |
 | --- | --- | --- | --- | --- |
 | `stub` | zaślepka CathodeRay (A, X) | LE | argumenty w A/X i `cc_argN`, wynik w A/X | `StubCpu` |
-| `6502`, `65c02` | MOS 6502 / WDC 65C02 | LE | argumenty `cc_argN`, wynik `cc_ret`, wskaźnik `(__p),Y` na stronie zerowej | `Mos6502` (tablice z JSON ISA) |
+| `6502`, `65c02`, `nes`, `6510` | MOS 6502 / WDC 65C02 / NES 2A03 / MOS 6510 | LE | argumenty `cc_argN`, wynik `cc_ret`, wskaźnik `(__p),Y` na stronie zerowej | `Mos6502` (tablice z JSON ISA) |
 | `z80` | Zilog Z80 | LE | argumenty `cc_argN`, wynik W<=2 w HL (L dla 1 B; plan 35), HL jako rejestr adresowy | `Z80Cpu` |
 | `8080` | Intel 8080 | LE | jak `z80` (wynik w HL), mnemoniki Intel | `Z80Cpu(intel8080: true)` |
 | `6800` | Motorola 6800 | BE | argumenty `cc_argN`, wynik `cc_ret`, rejestr X | `Mc6800Cpu` (tablice z JSON ISA) |

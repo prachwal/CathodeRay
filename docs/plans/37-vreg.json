@@ -35,8 +35,8 @@
     {
       "id": "6",
       "title": "[S] Flagi nes/ioPort w Mos6502Target (N-6510 jako warianty rejestru CTargets, niezalezne od VReg; design §D6)",
-      "status": "todo",
-      "note": ""
+      "status": "done",
+      "note": "Mos6502Target(nes/ioPort) + CTargets.All + Runners + VRegTargetInfo; ten sam selektor (brak SED, ZP od $10); rozmiary nes/6510 == 6502 co do bajta; goldeny odswiezone (tylko nowe kolumny)."
     },
     {
       "id": "7",

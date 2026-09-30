@@ -4,7 +4,7 @@ namespace CathodeRay.C;
 public static class CTargets
 {
     /// <summary>Zaimplementowane cele.</summary>
-    public static IReadOnlyList<ICTarget> All { get; } = [new StubTarget(), new Mos6502Target(), new Mos6502Target(cmos: true), new Z80Target(), new Intel8080Target(), new M6800Target()];
+    public static IReadOnlyList<ICTarget> All { get; } = [new StubTarget(), new Mos6502Target(), new Mos6502Target(cmos: true), new Mos6502Target(nes: true), new Mos6502Target(ioPort: true), new Z80Target(), new Intel8080Target(), new M6800Target()];
 
     /// <summary>Cel domyślny (stub).</summary>
     public static ICTarget Default => All[0];

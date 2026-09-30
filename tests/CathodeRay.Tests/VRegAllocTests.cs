@@ -28,6 +28,8 @@ public sealed class VRegAllocTests
     [InlineData("stub", 1, false)]
     [InlineData("6502", 1, false)]
     [InlineData("65c02", 1, false)]
+    [InlineData("nes", 1, false)]
+    [InlineData("6510", 1, false)]
     [InlineData("z80", 3, true)]
     [InlineData("8080", 3, true)]
     [InlineData("6800", 2, false)]

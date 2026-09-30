@@ -16,7 +16,7 @@ public sealed record VRegTargetInfo(IReadOnlyList<string> PhysRegs, bool HasPair
         return target.Name.ToLowerInvariant() switch
         {
             "stub" => new VRegTargetInfo(["a"], false, 1),
-            "6502" or "65c02" => new VRegTargetInfo(["a", "x", "y"], false, 1),
+            "6502" or "65c02" or "nes" or "6510" => new VRegTargetInfo(["a", "x", "y"], false, 1),
             "z80" or "8080" => new VRegTargetInfo(["a", "hl", "bc", "de"], true, 3),
             "6800" => new VRegTargetInfo(["a", "b", "x"], false, 2),
             _ => new VRegTargetInfo([], false, 0),
