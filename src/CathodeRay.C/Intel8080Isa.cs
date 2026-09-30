@@ -4,7 +4,9 @@ using System.Text;
 namespace CathodeRay.C;
 
 /// <summary>Prymitywy Intel 8080 (mnemoniki Intel): A jako akumulator, HL jako rejestr adresowy (<c>LXI H,adres; ADD M</c>,
-/// wskaźniki przez <c>LHLD</c>), bez rejestrów IX/IY i bez instrukcji Z80.</summary>
+/// wskaźniki przez <c>LHLD</c>), bez rejestrów IX/IY i bez instrukcji Z80. Komórki mogą leżeć w B, C, D, E (pary BC/DE) jak na
+/// <see cref="Z80Isa"/>: <c>mov a,c</c>, <c>add c</c>, <c>inr c</c>, <c>inx b</c>; słowo z pamięci do pary przez <c>lhld</c> i
+/// <c>mov c,l; mov b,h</c> (8080 nie ma <c>ld bc,(nn)</c>).</summary>
 internal sealed class Intel8080Isa : ByteIsa
 {
     private static readonly HashSet<string> ReservedNames = new(
@@ -13,7 +15,16 @@ internal sealed class Intel8080Isa : ByteIsa
 
     private int _position;
 
+    /// <summary>Rejestry, które prymitywy niszczą niezależnie od mapy rejestrów: A i HL (rejestr adresowy); wszystko niszczą tylko
+    /// wołania. Rejestry B, C, D, E przypisane komórkom prymitywy zachowują: parę pomocniczą (<see cref="PtrSetup"/> z przesunięciem
+    /// &gt; 3) biorą tylko wolną, inaczej <c>push d</c>/<c>pop d</c>.</summary>
+    public static IReadOnlySet<string> Clobbers { get; } = new HashSet<string>(["a", "h", "l"], StringComparer.Ordinal);
+
     public override IEnumerable<string> IndirectSymbols => ["__callhl"];
+
+    public override IReadOnlyList<string> CellRegisters { get; } = ["c", "b", "e", "d"];
+
+    public override IReadOnlyList<string> CellPairs { get; } = ["bc", "de"];
 
     protected override IReadOnlySet<string> Reserved => ReservedNames;
 
@@ -29,9 +40,10 @@ internal sealed class Intel8080Isa : ByteIsa
 
     public override string Reserve(int size) => $"DS {size}";
 
-    public override void LoadA(Octet value) => L(value.IsImmediate ? $"mvi a,{value.Text}" : $"lda {value.Text}");
+    public override void LoadA(Octet value) =>
+        L(value.IsImmediate ? $"mvi a,{value.Text}" : Resolve(value.Text) is { } register ? $"mov a,{register}" : $"lda {value.Text}");
 
-    public override void StoreA(string address) => L($"sta {address}");
+    public override void StoreA(string address) => L(Resolve(address) is { } register ? $"mov {register},a" : $"sta {address}");
 
     public override void Alu(ByteAlu op, Octet value, bool first)
     {
@@ -73,6 +85,18 @@ internal sealed class Intel8080Isa : ByteIsa
     public override bool TryStep(IReadOnlyList<string> bytes, bool increment)
     {
         string op = increment ? "inr" : "dcr";
+        if (bytes.Any(IsRegister))
+        {
+            // rejestr: inr c; para: inx b (bez flag, kontrakt pozwala); inny układ przez łańcuch ADD/SUB w selektorze
+            string? register = bytes.Count == 1 ? Resolve(bytes[0]) : PairOf(new Word(false, bytes[0], bytes[1]))?[..1];
+            if (register is not null)
+            {
+                L(bytes.Count == 1 ? $"{op} {register}" : $"{(increment ? "inx" : "dcx")} {register}");
+            }
+
+            return register is not null;
+        }
+
         L($"lxi h,{bytes[0]}");
         if (bytes.Count == 1)
         {
@@ -101,27 +125,28 @@ internal sealed class Intel8080Isa : ByteIsa
         return true;
     }
 
-    /// <summary>Kopia słowa przez HL (<c>lxi h,wartość</c> albo <c>lhld adres</c>; <c>shld adres</c>), gdy bajty obu stron leżą obok siebie.</summary>
+    /// <summary>Kopia słowa przez HL (<c>lxi h,wartość</c> albo <c>lhld adres</c>; <c>shld adres</c>), gdy bajty obu stron leżą obok
+    /// siebie; cel w parze BC/DE: <c>lxi b,wartość</c>, <c>mov c,e; mov b,d</c> albo <c>lhld adres; mov c,l; mov b,h</c>.</summary>
     /// <param name="dst">Cel.</param>
     /// <param name="src">Źródło.</param>
     /// <returns><see langword="false"/>, gdy bajty nie są sąsiednie.</returns>
     public override bool TryMoveWord(Word dst, Word src)
     {
-        if (dst.IsImmediate || !Adjacent(dst) || (!src.IsImmediate && !Adjacent(src)))
+        if (dst.IsImmediate || !Usable(dst) || !Usable(src))
         {
             return false;
         }
 
-        if (src.IsImmediate)
+        if (PairOf(dst) is { } pair)
         {
-            L($"lxi h,{src.Lo}");
+            LoadPair(pair, src);
         }
         else
         {
-            L($"lhld {src.Lo}");
+            LoadPair("hl", src);
+            StorePair("hl", dst);
         }
 
-        L($"shld {dst.Lo}");
         return true;
     }
 
@@ -133,7 +158,7 @@ internal sealed class Intel8080Isa : ByteIsa
 
     public override void CallIndirect(string cell)
     {
-        L($"lhld {cell}");
+        LoadPair("hl", new Word(false, cell, cell + "+1"));
         L("call __callhl");
     }
 
@@ -141,7 +166,7 @@ internal sealed class Intel8080Isa : ByteIsa
 
     public override void PtrSetup(string cell, int offset, bool mustCopy = false)
     {
-        L($"lhld {cell}");
+        LoadPair("hl", new Word(false, cell, cell + "+1"));
         if (offset is > 0 and <= 3)
         {
             for (int i = 0; i < offset; i++)
@@ -151,8 +176,19 @@ internal sealed class Intel8080Isa : ByteIsa
         }
         else if (offset > 3)
         {
-            L($"lxi d,{offset}");
-            L("dad d");
+            // para pomocnicza tylko wolna (DE, potem BC); obie z komórkami: DE przechowane na stosie
+            string? pair = Scratch();
+            if (pair is null)
+            {
+                L("push d");
+            }
+
+            L($"lxi {pair?[..1] ?? "d"},{offset}");
+            L($"dad {pair?[..1] ?? "d"}");
+            if (pair is null)
+            {
+                L("pop d");
+            }
         }
 
         _position = 0;
@@ -251,14 +287,71 @@ internal sealed class Intel8080Isa : ByteIsa
 
     private void Operate(string immediate, string memory, Octet value)
     {
+        if (immediate == "cpi" && value is { IsImmediate: true, Text: "0" })
+        {
+            // A - 0: te same Z i C (zero), 1 B krócej
+            L("ora a");
+            return;
+        }
+
         if (value.IsImmediate)
         {
             L($"{immediate} {value.Text}");
             return;
         }
 
+        if (Resolve(value.Text) is { } register)
+        {
+            L($"{memory} {register}");
+            return;
+        }
+
         L($"lxi h,{value.Text}");
         L($"{memory} m");
+    }
+
+    /// <summary>Słowo do pary rejestrów (<c>hl</c>, <c>de</c>, <c>bc</c>); nie zmienia flag ani A. Z pamięci do BC/DE przez HL
+    /// (<c>lhld</c>, potem <c>mov</c>), więc niszczy HL. Z rejestrów najpierw młodszy bajt.</summary>
+    private void LoadPair(string pair, Word word)
+    {
+        if (word.IsImmediate)
+        {
+            L($"lxi {pair[..1]},{word.Lo}");
+        }
+        else if (InRegisters(word))
+        {
+            Move(pair[1..], Resolve(word.Lo)!);
+            Move(pair[..1], Resolve(word.Hi)!);
+        }
+        else
+        {
+            L($"lhld {word.Lo}");
+            Move(pair[1..], "l");
+            Move(pair[..1], "h");
+        }
+    }
+
+    /// <summary>Para rejestrów do słowa (rejestry albo pamięć przez <c>shld</c>); nie zmienia flag ani A.</summary>
+    private void StorePair(string pair, Word word)
+    {
+        if (InRegisters(word))
+        {
+            Move(Resolve(word.Lo)!, pair[1..]);
+            Move(Resolve(word.Hi)!, pair[..1]);
+            return;
+        }
+
+        Move("l", pair[1..]);
+        Move("h", pair[..1]);
+        L($"shld {word.Lo}");
+    }
+
+    private void Move(string dst, string src)
+    {
+        if (dst != src)
+        {
+            L($"mov {dst},{src}");
+        }
     }
 
     private void Advance(int index)

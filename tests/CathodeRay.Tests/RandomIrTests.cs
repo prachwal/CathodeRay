@@ -65,21 +65,24 @@ public sealed class RandomIrTests
         }
     }
 
-    [Fact]
-    public void Z80_Allocator_Assigns_Registers_In_Random_Programs()
+    [Theory]
+    [InlineData("z80")]
+    [InlineData("8080")]
+    public void Allocator_Assigns_Registers_In_Random_Programs(string cpu)
     {
+        var target = (ByteTarget)CTargets.Find(cpu)!;
         int functions = 0;
         int withRegisters = 0;
         for (int seed = 0; seed < Programs; seed++)
         {
             Ir.Module module = Generator.Create(seed).Build();
             Ir.Module legal = ParamAlias.Run(Legalizer.Run(WideLegalizer.Run(Legalizer.Run(CaseFold.Apply(module), wide: true), TargetByteOrder.Little, keepArithmetic: true)));
-            Dictionary<string, string> map = RegisterAllocator.Run(legal);
+            Dictionary<string, string> map = RegisterAllocator.Run(legal, target.CreateIsa());
             functions += legal.Functions.Count;
             withRegisters += legal.Functions.Count(f => f.Body.SelectMany(IrFacts.Operands).OfType<Ir.Cell>().Any(c => map.ContainsKey(IrLiveness.BaseSymbol(c.Sym))));
         }
 
-        _output.WriteLine($"z80: {withRegisters} z {functions} funkcji w {Programs} programach dostało rejestr");
+        _output.WriteLine($"{cpu}: {withRegisters} z {functions} funkcji w {Programs} programach dostało rejestr");
         withRegisters.Should().BeGreaterThan(functions / 2, "generator ma ćwiczyć przydział rejestrów, nie tylko pamięć");
     }
 

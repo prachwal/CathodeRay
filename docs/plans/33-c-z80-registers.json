@@ -118,8 +118,8 @@
     {
       "id": "17",
       "title": "[S] Port na 8080 (`mov`, `inr`, `inx`, `xchg`) | wykonawca: Haiku (plan-coder) | Plik: `Intel8080Isa.cs` + `Intel8080Target.Tune` (2 linie). Akceptacja: `dotnet test --filter \"IrConformance|TargetMatrix|RandomIr\"` zielony; tabela: kolumna 8080 maleje, inne bez zmian.",
-      "status": "todo",
-      "note": "",
+      "status": "done",
+      "note": "mapa rejestrów w ByteIsa (CellRegisters/CellPairs, wspólna dla Z80 i 8080), RegisterAllocator.Run(module, isa); 8080: mov/add r/inr/inx/lhld+mov, cpi 0 -> ora a; 8080 -5607 B w 23/24 wierszach, inne kolumny bez zmian; bubble 8080 530 -> 352 B",
       "section": "C. Rejestry (Z80, potem 8080)"
     },
     {

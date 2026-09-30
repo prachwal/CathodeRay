@@ -12,22 +12,20 @@ internal sealed partial class Z80Isa : ByteIsa
         ["A", "B", "C", "D", "E", "H", "L", "I", "R", "AF", "BC", "DE", "HL", "SP", "IX", "IY", "IXH", "IXL", "IYH", "IYL", "NZ", "Z", "NC", "PO", "PE", "P", "M", "LOW", "HIGH", "MOD", "SHL", "SHR", "AND", "OR", "XOR", "NOT"],
         StringComparer.OrdinalIgnoreCase);
 
-    /// <summary>Adres bajtu komórki (tekst jak z <see cref="ByteIsa.Loc"/>) → rejestr <c>b</c>, <c>c</c>, <c>d</c> albo <c>e</c>.</summary>
-    private readonly Dictionary<string, string> _registers = new(StringComparer.Ordinal);
-
-    /// <summary>Rejestry komórek bieżącej funkcji (<see cref="BeginFunction"/>); <see langword="null"/>: wszystkie z mapy.</summary>
-    private HashSet<string>? _active;
-
     private int _position;
 
     /// <summary>Rejestry, które prymitywy niszczą niezależnie od mapy rejestrów: A i HL (rejestr adresowy); wszystko niszczą
     /// tylko wołania (<see cref="Call"/>, <see cref="CallIndirect"/>). Rejestry B, C, D, E przypisane komórkom przez
-    /// <see cref="AssignRegisters"/> prymitywy zachowują: parę pomocniczą (<see cref="TryAddWord"/>, <see cref="TryAddLong"/>,
+    /// <see cref="ByteIsa.AssignRegisters"/> prymitywy zachowują: parę pomocniczą (<see cref="TryAddWord"/>, <see cref="TryAddLong"/>,
     /// <see cref="PtrSetup"/> z przesunięciem &gt; 3) biorą tylko wolną, inaczej <c>push de</c>/<c>pop de</c> albo łańcuch przez A.
     /// Alokator może więc dać komórce dowolny z B, C, D, E, jeśli nie żyje przez wołanie.</summary>
     public static IReadOnlySet<string> Clobbers { get; } = new HashSet<string>(["a", "h", "l"], StringComparer.Ordinal);
 
     public override IEnumerable<string> IndirectSymbols => ["__callhl"];
+
+    public override IReadOnlyList<string> CellRegisters { get; } = ["c", "b", "e", "d"];
+
+    public override IReadOnlyList<string> CellPairs { get; } = ["bc", "de"];
 
     public override bool HasOverflowFlag => true;
 
@@ -44,44 +42,6 @@ internal sealed partial class Z80Isa : ByteIsa
     public override string Word(string expression) => $"DW {expression}";
 
     public override string Reserve(int size) => $"DS {size}";
-
-    /// <summary>Przypisuje komórkom rejestry; selektor dalej widzi nazwy symboliczne, a ISA tłumaczy operand przy emisji (jak strona
-    /// zerowa w <see cref="Mos6502Isa"/>). Komórka 1-bajtowa dostaje <c>b</c>, <c>c</c>, <c>d</c> albo <c>e</c>, 2-bajtowa dwa rejestry,
-    /// starszy pierwszy: młodszy <c>c</c>/<c>e</c>, starszy <c>b</c>/<c>d</c> (np. <c>bc</c>, <c>de</c>).</summary>
-    /// <param name="cells">Symbol komórki z kodu pośredniego → rejestr(y).</param>
-    public void AssignRegisters(IReadOnlyDictionary<string, string> cells)
-    {
-        ArgumentNullException.ThrowIfNull(cells);
-        foreach ((string sym, string registers) in cells)
-        {
-            bool valid = registers.Length == 1
-                ? registers is "b" or "c" or "d" or "e"
-                : registers.Length == 2 && registers[0] is 'b' or 'd' && registers[1] is 'c' or 'e';
-            if (!valid)
-            {
-                throw new ArgumentException($"niedozwolone rejestry '{registers}' dla {sym}", nameof(cells));
-            }
-
-            _registers[Sym(sym)] = registers[^1..];
-            if (registers.Length == 2)
-            {
-                _registers[At(sym, 1)] = registers[..1];
-            }
-        }
-    }
-
-    public override bool IsRegister(string address) => _registers.ContainsKey(address);
-
-    /// <summary>Zbiera rejestry komórek funkcji: parę pomocniczą wolną w tej funkcji wolno niszczyć, bo w wersji 1 żaden rejestr
-    /// nie żyje przez wołanie ani przez wejście do funkcji.</summary>
-    /// <param name="function">Funkcja.</param>
-    public override void BeginFunction(Ir.Function function)
-    {
-        ArgumentNullException.ThrowIfNull(function);
-        _active = [.. function.Params.Concat(function.Body.SelectMany(IrFacts.Operands).OfType<Ir.Cell>())
-            .SelectMany(c => Enumerable.Range(0, c.W).Select(i => Resolve(Loc(c.Sym, c.W, i))))
-            .OfType<string>()];
-    }
 
     public override void LoadA(Octet value) => L(value.IsImmediate ? $"ld a,{value.Text}" : $"ld a,{Operand(value.Text)}");
 
@@ -575,26 +535,8 @@ internal sealed partial class Z80Isa : ByteIsa
         L($"{mnemonic}(hl)");
     }
 
-    /// <summary>Rejestr przypisany bajtowi komórki albo <see langword="null"/> (pamięć).</summary>
-    private string? Resolve(string address) => _registers.GetValueOrDefault(address);
-
     /// <summary>Operand bajtu: rejestr albo <c>(adres)</c>.</summary>
     private string Operand(string address) => Resolve(address) ?? $"({address})";
-
-    /// <summary>Oba bajty słowa w rejestrach.</summary>
-    private bool InRegisters(Word word) => !word.IsImmediate && IsRegister(word.Lo) && IsRegister(word.Hi);
-
-    /// <summary>Słowo, które przeniosą <see cref="LoadPair"/> i <see cref="StorePair"/>: stała, oba bajty w rejestrach albo oba w pamięci obok siebie.</summary>
-    private bool Usable(Word word) => word.IsImmediate || InRegisters(word) || (!IsRegister(word.Lo) && !IsRegister(word.Hi) && Adjacent(word));
-
-    /// <summary>Para <c>bc</c>/<c>de</c>, gdy słowo leży w niej w całości (młodszy bajt w C/E).</summary>
-    private string? PairOf(Word word) => InRegisters(word) && (_registers[word.Hi] + _registers[word.Lo]) is "bc" or "de" ? _registers[word.Hi] + _registers[word.Lo] : null;
-
-    /// <summary>Para pomocnicza bez rejestrów przypisanych komórkom bieżącej funkcji: DE, potem BC; <see langword="null"/>, gdy obie zajęte.</summary>
-    private string? Scratch() => new[] { "de", "bc" }.FirstOrDefault(p => !Taken(p[..1]) && !Taken(p[1..]));
-
-    /// <summary>Rejestr należy do komórki bieżącej funkcji (bez <see cref="BeginFunction"/>: do którejkolwiek komórki).</summary>
-    private bool Taken(string register) => _active?.Contains(register) ?? _registers.ContainsValue(register);
 
     /// <summary>Słowo do pary rejestrów (<c>hl</c>, <c>de</c>, <c>bc</c>); nie zmienia flag. Z rejestrów najpierw młodszy bajt: młodszy
     /// rejestr celu (C/E/L) nigdy nie jest starszym rejestrem źródła (B/D).</summary>
@@ -606,8 +548,8 @@ internal sealed partial class Z80Isa : ByteIsa
         }
         else if (InRegisters(word))
         {
-            Move(pair[1..], _registers[word.Lo]);
-            Move(pair[..1], _registers[word.Hi]);
+            Move(pair[1..], Resolve(word.Lo)!);
+            Move(pair[..1], Resolve(word.Hi)!);
         }
         else
         {
@@ -620,8 +562,8 @@ internal sealed partial class Z80Isa : ByteIsa
     {
         if (InRegisters(word))
         {
-            Move(_registers[word.Lo], pair[1..]);
-            Move(_registers[word.Hi], pair[..1]);
+            Move(Resolve(word.Lo)!, pair[1..]);
+            Move(Resolve(word.Hi)!, pair[..1]);
         }
         else
         {

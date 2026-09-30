@@ -9,6 +9,12 @@ internal abstract class ByteIsa
 {
     private readonly StringBuilder _out = new();
 
+    /// <summary>Adres bajtu komórki (tekst jak z <see cref="Loc"/>) → rejestr z <see cref="CellRegisters"/>.</summary>
+    private readonly Dictionary<string, string> _registers = new(StringComparer.Ordinal);
+
+    /// <summary>Rejestry komórek bieżącej funkcji (<see cref="BeginFunction"/>); <see langword="null"/>: wszystkie z mapy.</summary>
+    private HashSet<string>? _active;
+
     private int _localLabels;
 
     /// <summary>Bajty słowa w pamięci od najstarszego (6800).</summary>
@@ -23,6 +29,13 @@ internal abstract class ByteIsa
     /// <summary>CPU ma flagę przepełnienia po odejmowaniu (wynik ze znakiem to S xor V): selektor nie odwraca najstarszych bajtów
     /// przy porównaniu ze znakiem (bias <c>xor 80h</c>), tylko odejmuje (SUB/SBC, nie CMP) i woła <see cref="JumpIfSigned"/>.</summary>
     public virtual bool HasOverflowFlag => false;
+
+    /// <summary>Rejestry 8-bitowe, które <see cref="RegisterAllocator"/> może dać komórkom 1-bajtowym (w kolejności preferencji);
+    /// domyślnie brak (komórki tylko w pamięci).</summary>
+    public virtual IReadOnlyList<string> CellRegisters => [];
+
+    /// <summary>Pary rejestrów dla komórek 2-bajtowych, starszy rejestr pierwszy (np. <c>bc</c>: młodszy bajt w C); domyślnie brak.</summary>
+    public virtual IReadOnlyList<string> CellPairs => [];
 
     /// <summary>Długość dotychczasowego tekstu (znacznik początku funkcji).</summary>
     public int Mark => _out.Length;
@@ -167,15 +180,42 @@ internal abstract class ByteIsa
     /// <returns>Tekst stałej albo null.</returns>
     public virtual string? AddressByte(string expression, int index) => null;
 
-    /// <summary>Bajt komórki leży w rejestrze CPU (mapa rejestrów ISA), nie w pamięci: nie trafia do sekcji danych ani do ramek.</summary>
-    /// <param name="address">Adres bajtu (tekst jak z <see cref="Loc"/>).</param>
-    /// <returns>Domyślnie <see langword="false"/>.</returns>
-    public virtual bool IsRegister(string address) => false;
-
-    /// <summary>Początek emisji funkcji (np. rejestry jej komórek wyznaczają wolne pary pomocnicze); domyślnie nic.</summary>
-    /// <param name="function">Funkcja.</param>
-    public virtual void BeginFunction(Ir.Function function)
+    /// <summary>Przypisuje komórkom rejestry; selektor dalej widzi nazwy symboliczne, a ISA tłumaczy operand przy emisji (jak strona
+    /// zerowa w <see cref="Mos6502Isa"/>). Komórka 1-bajtowa dostaje rejestr z <see cref="CellRegisters"/>, 2-bajtowa parę z
+    /// <see cref="CellPairs"/> (starszy rejestr pierwszy).</summary>
+    /// <param name="cells">Symbol komórki z kodu pośredniego → rejestr albo para.</param>
+    public void AssignRegisters(IReadOnlyDictionary<string, string> cells)
     {
+        ArgumentNullException.ThrowIfNull(cells);
+        foreach ((string sym, string registers) in cells)
+        {
+            if (!(registers.Length == 1 ? CellRegisters : CellPairs).Contains(registers))
+            {
+                throw new ArgumentException($"niedozwolone rejestry '{registers}' dla {sym}", nameof(cells));
+            }
+
+            _registers[Sym(sym)] = registers[^1..];
+            if (registers.Length == 2)
+            {
+                _registers[At(sym, 1)] = registers[..1];
+            }
+        }
+    }
+
+    /// <summary>Bajt komórki leży w rejestrze CPU (mapa <see cref="AssignRegisters"/>), nie w pamięci: nie trafia do sekcji danych.</summary>
+    /// <param name="address">Adres bajtu (tekst jak z <see cref="Loc"/>).</param>
+    /// <returns><see langword="true"/>, gdy bajt ma rejestr.</returns>
+    public bool IsRegister(string address) => _registers.ContainsKey(address);
+
+    /// <summary>Początek emisji funkcji: zbiera rejestry jej komórek. Parę pomocniczą wolną w tej funkcji prymitywy mogą niszczyć,
+    /// bo rejestr komórki nie żyje przez wejście do funkcji ani przez wołanie bez zapisu.</summary>
+    /// <param name="function">Funkcja.</param>
+    public void BeginFunction(Ir.Function function)
+    {
+        ArgumentNullException.ThrowIfNull(function);
+        _active = [.. function.Params.Concat(function.Body.SelectMany(IrFacts.Operands).OfType<Ir.Cell>())
+            .SelectMany(c => Enumerable.Range(0, c.W).Select(i => Resolve(Loc(c.Sym, c.W, i))))
+            .OfType<string>()];
     }
 
     /// <summary>Zwiększa albo zmniejsza o 1 liczbę zapisaną w kolejnych bajtach pamięci (od najmłodszego) jedną, krótką sekwencją
@@ -268,6 +308,32 @@ internal abstract class ByteIsa
             && word.Hi == $"{word.Lo[..plus]}+{offset + 1}";
     }
 
+    /// <summary>Rejestr przypisany bajtowi komórki albo <see langword="null"/> (pamięć).</summary>
+    /// <param name="address">Adres bajtu.</param>
+    /// <returns>Rejestr albo null.</returns>
+    protected string? Resolve(string address) => _registers.GetValueOrDefault(address);
+
+    /// <summary>Oba bajty słowa w rejestrach.</summary>
+    /// <param name="word">Słowo.</param>
+    /// <returns><see langword="true"/>, gdy oba bajty mają rejestry.</returns>
+    protected bool InRegisters(Word word) => !word.IsImmediate && IsRegister(word.Lo) && IsRegister(word.Hi);
+
+    /// <summary>Słowo, które przeniesie para rejestrów: stała, oba bajty w rejestrach albo oba w pamięci obok siebie.</summary>
+    /// <param name="word">Słowo.</param>
+    /// <returns><see langword="true"/>, gdy słowo da się przenieść parą.</returns>
+    protected bool Usable(Word word) => word.IsImmediate || InRegisters(word) || (!IsRegister(word.Lo) && !IsRegister(word.Hi) && Adjacent(word));
+
+    /// <summary>Para z <see cref="CellPairs"/>, gdy słowo leży w niej w całości (młodszy bajt w młodszym rejestrze).</summary>
+    /// <param name="word">Słowo.</param>
+    /// <returns>Para (np. <c>bc</c>) albo null.</returns>
+    protected string? PairOf(Word word) =>
+        InRegisters(word) && CellPairs.Contains(_registers[word.Hi] + _registers[word.Lo]) ? _registers[word.Hi] + _registers[word.Lo] : null;
+
+    /// <summary>Para pomocnicza bez rejestrów komórek bieżącej funkcji, od ostatniej z <see cref="CellPairs"/> (DE, potem BC);
+    /// <see langword="null"/>, gdy wszystkie zajęte.</summary>
+    /// <returns>Para albo null.</returns>
+    protected string? Scratch() => CellPairs.Reverse().FirstOrDefault(p => !Taken(p[..1]) && !Taken(p[1..]));
+
     /// <summary>Relaksacja skoków w tekście jednej funkcji; domyślnie bez zmian (CPU z absolutnymi skokami warunkowymi).</summary>
     /// <param name="text">Tekst funkcji.</param>
     /// <returns>Ten sam obiekt, gdy nic się nie zmieniło.</returns>
@@ -276,4 +342,7 @@ internal abstract class ByteIsa
     /// <summary>Dopisuje linię kodu.</summary>
     /// <param name="line">Linia.</param>
     protected void L(string line) => _out.AppendLine(line);
+
+    /// <summary>Rejestr należy do komórki bieżącej funkcji (bez <see cref="BeginFunction"/>: do którejkolwiek komórki).</summary>
+    private bool Taken(string register) => _active?.Contains(register) ?? _registers.ContainsValue(register);
 }

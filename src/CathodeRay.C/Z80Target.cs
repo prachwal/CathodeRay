@@ -28,7 +28,7 @@ public sealed class Z80Target : ByteTarget
     /// <inheritdoc/>
     internal override Ir.Module Tune(Ir.Module module, ByteIsa isa)
     {
-        ((Z80Isa)isa).AssignRegisters(RegisterAllocator.Run(module));
+        isa.AssignRegisters(RegisterAllocator.Run(module, isa));
         return module;
     }
 }

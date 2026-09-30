@@ -1,6 +1,7 @@
 namespace CathodeRay.C;
 
-/// <summary>Przydział rejestrów B, C, D, E komórkom Z80 (wersja 1, konwencja caller-saved: wołany niszczy wszystko). Kandydat
+/// <summary>Przydział rejestrów komórkom celów z mapą rejestrów w ISA (<see cref="ByteIsa.CellRegisters"/>, <see cref="ByteIsa.CellPairs"/>:
+/// Z80 i 8080 — B, C, D, E; wersja 1, konwencja caller-saved: wołany niszczy wszystko). Kandydat
 /// to komórka BSS modułu o zasięgu odwołań 1 albo 2 bajty, której symbol występuje w dokładnie jednej funkcji (nie przedrostek
 /// nazwy: tymczasowe <c>__lg*</c>/<c>__wl*</c> i komórki z inline'owania bywają wspólne), nie jest żywa na wejściu funkcji (wartość
 /// z poprzedniej aktywacji, np. lokalnej <c>static</c>, nigdy nie jest czytana), nie jest żywa za żadnym <see cref="Ir.Call"/>
@@ -8,19 +9,17 @@ namespace CathodeRay.C;
 /// zapisywana w ramce (<see cref="Ir.Function.Saved"/>), parametrem, zewnętrzna ani eksportowana. Żywość na grafie przepływu
 /// (<see cref="IrLiveness"/>) jest dokładna także w pętlach i przy <c>goto</c>. Przydział zachłanny po wadze (odwołania, w pętli
 /// ×8 na poziom); komórki, których przedziały się nie przecinają, dzielą rejestr. Komórka 1-bajtowa dostaje jeden rejestr,
-/// 2-bajtowa parę BC albo DE (A i HL należą do prymitywów ISA).</summary>
+/// 2-bajtowa parę (A i HL należą do prymitywów ISA).</summary>
 internal static class RegisterAllocator
 {
-    private static readonly string[] Bytes = ["c", "b", "e", "d"];
-
-    private static readonly string[] Pairs = ["bc", "de"];
-
     /// <summary>Wybiera rejestry komórek modułu.</summary>
     /// <param name="module">Moduł po legalizacji (i po <see cref="ParamAlias"/>).</param>
-    /// <returns>Symbol komórki → rejestr (<c>c</c>) albo para (<c>bc</c>, starszy pierwszy), jak w <see cref="Z80Isa.AssignRegisters"/>.</returns>
-    public static Dictionary<string, string> Run(Ir.Module module)
+    /// <param name="isa">Prymitywy celu: rejestry i pary dostępne dla komórek.</param>
+    /// <returns>Symbol komórki → rejestr (<c>c</c>) albo para (<c>bc</c>, starszy pierwszy), jak w <see cref="ByteIsa.AssignRegisters"/>.</returns>
+    public static Dictionary<string, string> Run(Ir.Module module, ByteIsa isa)
     {
         ArgumentNullException.ThrowIfNull(module);
+        ArgumentNullException.ThrowIfNull(isa);
         var blocked = new HashSet<string>(StringComparer.Ordinal);
         var owner = new Dictionary<string, int>(StringComparer.Ordinal);
         var extent = new Dictionary<string, int>(StringComparer.Ordinal);
@@ -82,7 +81,7 @@ internal static class RegisterAllocator
         var map = new Dictionary<string, string>(StringComparer.Ordinal);
         foreach ((int f, List<string> cells) in candidates)
         {
-            foreach ((string sym, string registers) in Allocate(module.Functions[f], cells, extent))
+            foreach ((string sym, string registers) in Allocate(module.Functions[f], cells, extent, isa))
             {
                 map[sym] = registers;
             }
@@ -100,7 +99,7 @@ internal static class RegisterAllocator
 
     /// <summary>Przydział w jednej funkcji: odrzuca kandydatów żywych na wejściu i za wołaniem, buduje interferencję (komórka
     /// żywa za zapisem innej) i koloruje zachłannie po wadze.</summary>
-    private static Dictionary<string, string> Allocate(Ir.Function function, List<string> cells, Dictionary<string, int> extent)
+    private static Dictionary<string, string> Allocate(Ir.Function function, List<string> cells, Dictionary<string, int> extent, ByteIsa isa)
     {
         var result = new Dictionary<string, string>(StringComparer.Ordinal);
         IReadOnlyList<Ir.Ins> body = function.Body;
@@ -148,7 +147,7 @@ internal static class RegisterAllocator
         foreach (string sym in pool.OrderByDescending(s => weight.GetValueOrDefault(s)).ThenBy(static s => s, StringComparer.Ordinal))
         {
             var taken = new HashSet<char>(edges[sym].Where(result.ContainsKey).SelectMany(n => result[n]));
-            string? choice = (extent[sym] == 1 ? Bytes : Pairs).FirstOrDefault(r => !r.Any(taken.Contains));
+            string? choice = (extent[sym] == 1 ? isa.CellRegisters : isa.CellPairs).FirstOrDefault(r => !r.Any(taken.Contains));
             if (choice is not null)
             {
                 result[sym] = choice;
