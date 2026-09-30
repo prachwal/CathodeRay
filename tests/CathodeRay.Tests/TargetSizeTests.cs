@@ -44,4 +44,13 @@ public sealed class TargetSizeTests
 
         File.ReadAllText(golden).Should().Be(actual, "rozmiar kodu zmienił się — jeśli zamierzenie, odśwież tabelę (UPDATE_TARGET_SIZES=1)");
     }
+
+    [Fact]
+    public void Code_Size_Without_Optimization_Is_Greater_Or_Equal()
+    {
+        string source = File.ReadAllText(Repo.Path("samples", "minic", "01_types.c"));
+        int optimized = CcRun.Sizes(source, "6502", "--incdir", Repo.Path("samples", "minic"))["CODE"];
+        int unoptimized = CcRun.Sizes(source, "6502", "--incdir", Repo.Path("samples", "minic"), "-O0")["CODE"];
+        unoptimized.Should().BeGreaterThanOrEqualTo(optimized, "kod bez optymalizacji powinien być >= zoptymalizowany");
+    }
 }

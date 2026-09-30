@@ -207,7 +207,7 @@ internal sealed partial class Lowering
             return Convert(value, TypeOf(cast.Value), TypeOf(cast), depth);
         }
 
-        value = Widen(value, TypeOf(cast.Value), width, depth + 1);
+        value = Widen(value, TypeOf(cast.Value), width, depth);
         if (value switch { Ir.Cell c => c.W, Ir.Imm i => i.W, _ => 2 } == width)
         {
             return value;

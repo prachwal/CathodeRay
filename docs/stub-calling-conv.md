@@ -394,3 +394,15 @@ obiektów (`Materialize` kopiuje stałe do komórek `__w8x*`). Argument `long lo
 (1 slot), wynik wraca przez `cc_retbuf`. Literały: `123LL`, `5ULL` oraz każda liczba powyżej 32 bitów (`Ir.Imm.High` to starsza połowa).
 Konwersja `float` <-> `long long` nie jest obsługiwana (błąd typów). Tekst: `lltoa`/`ulltoa` z `<stdlib.h>`; `printf` nie ma
 `%lld` (koszt dzielenia 64-bitowego w każdym programie).
+
+## Plan 32: efekt (kroki 1-13)
+
+Pomiar `tools/compare.py`: mini-C / cc65 1,74 → 1,73, mini-C / SDCC 3,56 → 3,52. Realny zysk dały tylko (krok 5, węższe ramki rekurencji, wycofany: skan liniowy ignorował skoki w przód i dawał zły wynik, zob. `RecursionFrameTests`): usuwanie kodu nieosiągalnego w IR
+(−1152 B w 80 wierszach `target-sizes`), `inc` zamiast `adc #0` przy dodawaniu stałej do
+`uint` na 6502 (−2..5 B). Reguły peephole (`ldy`, martwy kod po `jmp`, powtórzone `lda #0`) i przebieg `Mov`→`Mov` w `ForwardTemporaries`
+działają w testach jednostkowych, ale nie mają efektu na benchach. Krok 9 (łańcuchy `jmp`) wstrzymany: +3 B na `stub`.
+
+Wniosek z `docs/hotspots.md`: `sta ZP ; lda ZP` (122×) i `lda ZP ; sta ZP` (91×) to zwykły przepływ danych między różnymi komórkami, a nie
+zbędne kopie. Prawdziwe straty to (a) kopiowanie zmiennej do tymczasowej tuż przed przesunięciem lub działaniem, (b) powtarzane podwyrażenia
+(`n - 1` dwa razy w pętli), (c) 16-bitowe porównanie ze znakiem (`eor #128` na obu połówkach, ok. 8 instrukcji). Dalsze zyski wymagają zmian
+w Lowering/IR (wybór celu działania bez kopii, CSE w bloku, porównanie ze znakiem przez odjęcie), czyli zadań większych niż S.

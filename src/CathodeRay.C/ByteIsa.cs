@@ -9,6 +9,15 @@ internal abstract class ByteIsa
 {
     private readonly StringBuilder _out = new();
 
+    /// <summary>Adres bajtu komórki (tekst jak z <see cref="Loc"/>) → rejestr z <see cref="CellRegisters"/>.</summary>
+    private readonly Dictionary<string, string> _registers = new(StringComparer.Ordinal);
+
+    /// <summary>Wołanie → pary rejestrów komórek żywych za nim, zapisywane na stosie wokół niego (klucz: instancja wołania).</summary>
+    private readonly Dictionary<Ir.Call, IReadOnlyList<string>> _callSaves = new(ReferenceEqualityComparer.Instance);
+
+    /// <summary>Rejestry komórek bieżącej funkcji (<see cref="BeginFunction"/>); <see langword="null"/>: wszystkie z mapy.</summary>
+    private HashSet<string>? _active;
+
     private int _localLabels;
 
     /// <summary>Bajty słowa w pamięci od najstarszego (6800).</summary>
@@ -20,6 +29,17 @@ internal abstract class ByteIsa
     /// <summary>CPU ma adresowanie indeksowane z 8-bitowym rejestrem indeksowym (<see cref="Ir.LoadIdx"/>).</summary>
     public virtual bool SupportsIndexed => false;
 
+    /// <summary>CPU ma flagę przepełnienia po odejmowaniu (wynik ze znakiem to S xor V): selektor nie odwraca najstarszych bajtów
+    /// przy porównaniu ze znakiem (bias <c>xor 80h</c>), tylko odejmuje (SUB/SBC, nie CMP) i woła <see cref="JumpIfSigned"/>.</summary>
+    public virtual bool HasOverflowFlag => false;
+
+    /// <summary>Rejestry 8-bitowe, które <see cref="RegisterAllocator"/> może dać komórkom 1-bajtowym (w kolejności preferencji);
+    /// domyślnie brak (komórki tylko w pamięci).</summary>
+    public virtual IReadOnlyList<string> CellRegisters => [];
+
+    /// <summary>Pary rejestrów dla komórek 2-bajtowych, starszy rejestr pierwszy (np. <c>bc</c>: młodszy bajt w C); domyślnie brak.</summary>
+    public virtual IReadOnlyList<string> CellPairs => [];
+
     /// <summary>Długość dotychczasowego tekstu (znacznik początku funkcji).</summary>
     public int Mark => _out.Length;
 
@@ -29,13 +49,15 @@ internal abstract class ByteIsa
     /// <summary>Nazwy, których asembler nie przyjmie jako symbole użytkownika (bez rozróżniania wielkości liter).</summary>
     protected virtual IReadOnlySet<string> Reserved { get; } = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
-    /// <summary>Adres bajtu komórki (indeks 0 = młodszy).</summary>
+    /// <summary>Adres bajtu komórki (indeks 0 = młodszy). Komórka 32-bitowa <c>cc_argN</c> (parametr <c>long</c> liścia po
+    /// <see cref="ParamAlias"/>) ma starszą połowę w <c>cc_argN+1</c>.</summary>
     /// <param name="sym">Symbol komórki.</param>
     /// <param name="width">Szerokość komórki.</param>
     /// <param name="index">Numer bajtu od najmłodszego.</param>
     /// <returns>Wyrażenie adresu.</returns>
     public string Loc(string sym, int width, int index) =>
-        width == 1 ? Sym(sym) : BigEndian ? At(sym, width - 1 - index) : At(sym, index);
+        width == 1 ? Sym(sym) : BigEndian ? At(sym, width - 1 - index)
+        : (width == 4 && index >= 2 && ParamAlias.NextArg(sym) is { } high) ? At(high, index - 2) : At(sym, index);
 
     /// <summary>Nazwa symbolu w asemblerze: nazwy zastrzeżone CPU (rejestry, mnemoniki, operatory) dostają przedrostek.</summary>
     /// <param name="name">Nazwa z kodu pośredniego.</param>
@@ -161,6 +183,64 @@ internal abstract class ByteIsa
     /// <returns>Tekst stałej albo null.</returns>
     public virtual string? AddressByte(string expression, int index) => null;
 
+    /// <summary>Przypisuje komórkom rejestry; selektor dalej widzi nazwy symboliczne, a ISA tłumaczy operand przy emisji (jak strona
+    /// zerowa w <see cref="Mos6502Isa"/>). Komórka 1-bajtowa dostaje rejestr z <see cref="CellRegisters"/>, 2-bajtowa parę z
+    /// <see cref="CellPairs"/> (starszy rejestr pierwszy).</summary>
+    /// <param name="cells">Symbol komórki z kodu pośredniego → rejestr albo para.</param>
+    /// <param name="saves">Wołanie (instancja) → pary z <see cref="CellPairs"/> do zapisania wokół niego (<see cref="SavedAround"/>).</param>
+    public void AssignRegisters(IReadOnlyDictionary<string, string> cells, IEnumerable<(Ir.Call Call, IReadOnlyList<string> Pairs)>? saves = null)
+    {
+        ArgumentNullException.ThrowIfNull(cells);
+        foreach ((Ir.Call call, IReadOnlyList<string> pairs) in saves ?? [])
+        {
+            _callSaves[call] = pairs.All(CellPairs.Contains) ? pairs : throw new ArgumentException($"niedozwolone pary '{string.Join(",", pairs)}'", nameof(saves));
+        }
+
+        foreach ((string sym, string registers) in cells)
+        {
+            if (!(registers.Length == 1 ? CellRegisters : CellPairs).Contains(registers))
+            {
+                throw new ArgumentException($"niedozwolone rejestry '{registers}' dla {sym}", nameof(cells));
+            }
+
+            _registers[Sym(sym)] = registers[^1..];
+            if (registers.Length == 2)
+            {
+                _registers[At(sym, 1)] = registers[..1];
+            }
+        }
+    }
+
+    /// <summary>Pary rejestrów komórek żywych za wołaniem: selektor odkłada je na stos przed <c>call</c> (<see cref="PushPair"/>, po
+    /// argumentach) i zdejmuje w odwrotnej kolejności po nim (<see cref="PopPair"/>, przed zapisem wyniku).</summary>
+    /// <param name="call">Wołanie (ta sama instancja co w module).</param>
+    /// <returns>Pary albo pusta lista.</returns>
+    public IReadOnlyList<string> SavedAround(Ir.Call call) => _callSaves.GetValueOrDefault(call) ?? [];
+
+    /// <summary>Bajt komórki leży w rejestrze CPU (mapa <see cref="AssignRegisters"/>), nie w pamięci: nie trafia do sekcji danych.</summary>
+    /// <param name="address">Adres bajtu (tekst jak z <see cref="Loc"/>).</param>
+    /// <returns><see langword="true"/>, gdy bajt ma rejestr.</returns>
+    public bool IsRegister(string address) => _registers.ContainsKey(address);
+
+    /// <summary>Początek emisji funkcji: zbiera rejestry jej komórek. Parę pomocniczą wolną w tej funkcji prymitywy mogą niszczyć,
+    /// bo rejestr komórki nie żyje przez wejście do funkcji ani przez wołanie bez zapisu.</summary>
+    /// <param name="function">Funkcja.</param>
+    public void BeginFunction(Ir.Function function)
+    {
+        ArgumentNullException.ThrowIfNull(function);
+        _active = [.. function.Params.Concat(function.Body.SelectMany(IrFacts.Operands).OfType<Ir.Cell>())
+            .SelectMany(c => Enumerable.Range(0, c.W).Select(i => Resolve(Loc(c.Sym, c.W, i))))
+            .OfType<string>()];
+    }
+
+    /// <summary>Odkłada parę rejestrów z <see cref="CellPairs"/> na stos (bez zmiany A i flag).</summary>
+    /// <param name="pair">Para, np. <c>bc</c>.</param>
+    public virtual void PushPair(string pair) => throw new NotSupportedException();
+
+    /// <summary>Zdejmuje parę rejestrów ze stosu (bez zmiany A i flag).</summary>
+    /// <param name="pair">Para, np. <c>bc</c>.</param>
+    public virtual void PopPair(string pair) => throw new NotSupportedException();
+
     /// <summary>Zwiększa albo zmniejsza o 1 liczbę zapisaną w kolejnych bajtach pamięci (od najmłodszego) jedną, krótką sekwencją
     /// CPU (np. <c>INC</c> pamięci z pominięciem starszego bajtu, gdy nie ma przeniesienia). Nie musi zachować
     /// flag; może zmienić A i flagi. Wywoływane tylko, gdy liczba ma 1 lub 2 bajty.</summary>
@@ -168,6 +248,39 @@ internal abstract class ByteIsa
     /// <param name="increment"><see langword="true"/>: +1, <see langword="false"/>: -1.</param>
     /// <returns><see langword="true"/>, gdy sekwencja została wyemitowana; inaczej selektor użyje ogólnego łańcucha ADD/SUB.</returns>
     public virtual bool TryStep(IReadOnlyList<string> bytes, bool increment) => false;
+
+    /// <summary>Kopia słowa 16-bitowego <c>dst ← src</c> jedną sekwencją CPU, bez użycia A (może zmienić rejestry adresowe i flagi).
+    /// Domyślnie <see langword="false"/>: selektor kopiuje bajt po bajcie przez A.</summary>
+    /// <param name="dst">Cel (pamięć).</param>
+    /// <param name="src">Źródło: stała albo pamięć.</param>
+    /// <returns><see langword="true"/>, gdy sekwencja została wyemitowana.</returns>
+    public virtual bool TryMoveWord(Word dst, Word src) => false;
+
+    /// <summary>Dodawanie albo odejmowanie słów 16-bitowych <c>dst ← a ± b</c> jedną sekwencją CPU, bez zmiany A (może zmienić
+    /// rejestry adresowe i flagi; flagi po niej są nieokreślone, selektor ich nie używa). Domyślnie <see langword="false"/>:
+    /// selektor liczy bajt po bajcie przez A.</summary>
+    /// <param name="dst">Cel (pamięć).</param>
+    /// <param name="a">Lewy operand: stała albo pamięć.</param>
+    /// <param name="b">Prawy operand: stała albo pamięć.</param>
+    /// <param name="subtract"><see langword="true"/>: <c>a - b</c>.</param>
+    /// <returns><see langword="true"/>, gdy sekwencja została wyemitowana.</returns>
+    public virtual bool TryAddWord(Word dst, Word a, Word b, bool subtract) => false;
+
+    /// <summary>Dodawanie albo odejmowanie liczb 32-bitowych <c>dst ← a ± b</c> podanych jako połówki (młodsza, starsza) jedną
+    /// sekwencją CPU z przeniesieniem między połówkami, bez zmiany A (flagi po niej nieokreślone). Domyślnie <see langword="false"/>:
+    /// selektor liczy łańcuchem bajtów przez A.</summary>
+    /// <param name="dst">Cel (pamięć): młodsza i starsza połowa.</param>
+    /// <param name="a">Lewy operand: połówki (stałe albo pamięć).</param>
+    /// <param name="b">Prawy operand: połówki (stałe albo pamięć).</param>
+    /// <param name="subtract"><see langword="true"/>: <c>a - b</c>.</param>
+    /// <returns><see langword="true"/>, gdy sekwencja została wyemitowana.</returns>
+    public virtual bool TryAddLong((Word Lo, Word Hi) dst, (Word Lo, Word Hi) a, (Word Lo, Word Hi) b, bool subtract) => false;
+
+    /// <summary>Skok po odejmowaniu ze znakiem <c>x - y</c> (A = najstarszy bajt różnicy, flagi S i V po nim); może zmienić A.
+    /// Wołane tylko, gdy <see cref="HasOverflowFlag"/>.</summary>
+    /// <param name="less"><see langword="true"/>: skok, gdy <c>x &lt; y</c>; inaczej, gdy <c>x &gt;= y</c>.</param>
+    /// <param name="label">Etykieta.</param>
+    public virtual void JumpIfSigned(bool less, string label) => throw new NotSupportedException();
 
     /// <summary>Zamienia tekst od znacznika na jego wersję po relaksacji skoków (krótkie skoki warunkowe tam, gdzie cel jest w zasięgu).</summary>
     /// <param name="mark">Znacznik z <see cref="Mark"/>.</param>
@@ -203,6 +316,47 @@ internal abstract class ByteIsa
     /// <param name="line">Linia.</param>
     public void Raw(string line) => L(line);
 
+    /// <summary>Starszy bajt leży tuż za młodszym: <c>x</c>/<c>x+1</c>, <c>x+2</c>/<c>x+3</c> albo para komórek crt0 <c>cc_x</c>/<c>cc_x_h</c>.</summary>
+    /// <param name="word">Słowo w pamięci.</param>
+    /// <returns><see langword="true"/>, gdy bajty są sąsiednie.</returns>
+    protected static bool Adjacent(Word word)
+    {
+        if (word.Hi == word.Lo + "+1" || word.Hi == word.Lo + "_h")
+        {
+            return true;
+        }
+
+        int plus = word.Lo.LastIndexOf('+');
+        return plus > 0 && int.TryParse(word.Lo.AsSpan(plus + 1), System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out int offset)
+            && word.Hi == $"{word.Lo[..plus]}+{offset + 1}";
+    }
+
+    /// <summary>Rejestr przypisany bajtowi komórki albo <see langword="null"/> (pamięć).</summary>
+    /// <param name="address">Adres bajtu.</param>
+    /// <returns>Rejestr albo null.</returns>
+    protected string? Resolve(string address) => _registers.GetValueOrDefault(address);
+
+    /// <summary>Oba bajty słowa w rejestrach.</summary>
+    /// <param name="word">Słowo.</param>
+    /// <returns><see langword="true"/>, gdy oba bajty mają rejestry.</returns>
+    protected bool InRegisters(Word word) => !word.IsImmediate && IsRegister(word.Lo) && IsRegister(word.Hi);
+
+    /// <summary>Słowo, które przeniesie para rejestrów: stała, oba bajty w rejestrach albo oba w pamięci obok siebie.</summary>
+    /// <param name="word">Słowo.</param>
+    /// <returns><see langword="true"/>, gdy słowo da się przenieść parą.</returns>
+    protected bool Usable(Word word) => word.IsImmediate || InRegisters(word) || (!IsRegister(word.Lo) && !IsRegister(word.Hi) && Adjacent(word));
+
+    /// <summary>Para z <see cref="CellPairs"/>, gdy słowo leży w niej w całości (młodszy bajt w młodszym rejestrze).</summary>
+    /// <param name="word">Słowo.</param>
+    /// <returns>Para (np. <c>bc</c>) albo null.</returns>
+    protected string? PairOf(Word word) =>
+        InRegisters(word) && CellPairs.Contains(_registers[word.Hi] + _registers[word.Lo]) ? _registers[word.Hi] + _registers[word.Lo] : null;
+
+    /// <summary>Para pomocnicza bez rejestrów komórek bieżącej funkcji, od ostatniej z <see cref="CellPairs"/> (DE, potem BC);
+    /// <see langword="null"/>, gdy wszystkie zajęte.</summary>
+    /// <returns>Para albo null.</returns>
+    protected string? Scratch() => CellPairs.Reverse().FirstOrDefault(p => !Taken(p[..1]) && !Taken(p[1..]));
+
     /// <summary>Relaksacja skoków w tekście jednej funkcji; domyślnie bez zmian (CPU z absolutnymi skokami warunkowymi).</summary>
     /// <param name="text">Tekst funkcji.</param>
     /// <returns>Ten sam obiekt, gdy nic się nie zmieniło.</returns>
@@ -211,4 +365,7 @@ internal abstract class ByteIsa
     /// <summary>Dopisuje linię kodu.</summary>
     /// <param name="line">Linia.</param>
     protected void L(string line) => _out.AppendLine(line);
+
+    /// <summary>Rejestr należy do komórki bieżącej funkcji (bez <see cref="BeginFunction"/>: do którejkolwiek komórki).</summary>
+    private bool Taken(string register) => _active?.Contains(register) ?? _registers.ContainsValue(register);
 }

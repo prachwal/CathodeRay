@@ -6,21 +6,6 @@ namespace CathodeRay.C;
 /// (zewnętrzny kod może wołać z powrotem); funkcje biblioteki standardowej i konsola nie wołają kodu użytkownika.</summary>
 internal sealed partial class Lowering
 {
-    private static IEnumerable<Ir.Op> OperandsOf(Ir.Ins ins) => ins switch
-    {
-        Ir.Mov mov => [mov.Src],
-        Ir.Bin bin => [bin.A, bin.B],
-        Ir.Un un => [un.A],
-        Ir.Load load => [load.Ptr],
-        Ir.Store store => [store.Ptr, store.Value],
-        Ir.CopyBlock copy => [copy.Dst, copy.Src],
-        Ir.Fill fill => [fill.Dst],
-        Ir.BrCmp branch => [branch.A, branch.B],
-        Ir.Call call => call.Args,
-        Ir.Ret { Value: not null } ret => [ret.Value],
-        _ => [],
-    };
-
     private static bool IsKnownLeaf(string function) =>
         function is "putchar" or "puthex" or "putdec" || StdLib.Modules.Any(m => m.Defines.Contains(function));
 
@@ -43,6 +28,29 @@ internal sealed partial class Lowering
         return seen;
     }
 
+    /// <summary>Komórki, które druga aktywacja funkcji musi zachować: żywe po którymś wołaniu (poza wynikiem tego wołania),
+    /// parametry i komórki o wziętym adresie (odczyt przez wskaźnik jest dla analizy niewidoczny).</summary>
+    private static HashSet<string> LiveAcrossCalls(Pending pending)
+    {
+        IReadOnlyList<Ir.Ins> body = pending.Function.Body;
+        Dictionary<string, int> sizes = pending.Scalars.Concat(pending.Aggregates).ToDictionary(static o => o.Sym, static o => o.Size, StringComparer.Ordinal);
+        int Size(string sym) => sizes.GetValueOrDefault(sym);
+        var live = IrLiveness.Of(body, Size);
+        var across = new HashSet<string>(pending.Function.Params.Select(static p => IrLiveness.BaseSymbol(p.Sym)), StringComparer.Ordinal);
+        for (int i = 0; i < body.Count; i++)
+        {
+            if (body[i] is Ir.Call call)
+            {
+                string? result = IrLiveness.Killed(call, Size);
+                across.UnionWith(live.LiveOut(i).Where(sym => sym != result));
+            }
+
+            across.UnionWith(IrFacts.Uses(body[i]).OfType<Ir.AddrOf>().Select(static a => IrLiveness.BaseSymbol(a.Sym)));
+        }
+
+        return across;
+    }
+
     private void FinalizeFrames()
     {
         var defined = new HashSet<string>(_pending.Select(static p => p.Function.Name), StringComparer.Ordinal);
@@ -51,7 +59,7 @@ internal sealed partial class Lowering
         {
             foreach (Ir.Ins ins in function.Body)
             {
-                foreach (Ir.Op op in OperandsOf(ins))
+                foreach (Ir.Op op in IrFacts.Uses(ins))
                 {
                     if (op is Ir.AddrOf { Sym: var symbol } && _functions.ContainsKey(symbol))
                     {
@@ -109,8 +117,9 @@ internal sealed partial class Lowering
             var saved = new List<Ir.Owned>();
             if (framed)
             {
-                saved.AddRange(pending.Scalars);
-                foreach (Ir.Owned aggregate in pending.Aggregates)
+                HashSet<string> across = LiveAcrossCalls(pending);
+                saved.AddRange(pending.Scalars.Where(o => across.Contains(o.Sym)));
+                foreach (Ir.Owned aggregate in pending.Aggregates.Where(o => across.Contains(o.Sym)))
                 {
                     if (aggregate.Size > MaxSavedAggregate)
                     {
@@ -121,7 +130,8 @@ internal sealed partial class Lowering
                 }
             }
 
-            _frames[name] = saved.Sum(static o => o.Size) + 2;
+            // ramka: zapisane komórki, adres powrotu i pary rejestrów odkładane przez cel wokół wołań (RegisterAllocator)
+            _frames[name] = saved.Sum(static o => o.Size) + 2 + _callSave;
             _functionsOut.Add(pending.Function with { Saved = saved });
         }
 

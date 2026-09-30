@@ -38,6 +38,10 @@ public abstract class ByteTarget : ICTarget
     /// <inheritdoc/>
     public virtual int? StackLimit => 256;
 
+    /// <summary>Dwa bajty na każdą parę rejestrów komórek (<see cref="ByteIsa.CellPairs"/>), bo wokół wołania selektor odkłada
+    /// najwyżej wszystkie pary (<see cref="ByteIsa.SavedAround"/>).</summary>
+    public int CallSaveBytes => 2 * CreateIsa().CellPairs.Count;
+
     /// <inheritdoc/>
     public virtual TargetLayout Layout => FlatLayout;
 
@@ -54,7 +58,7 @@ public abstract class ByteTarget : ICTarget
     public string Emit(Ir.Module module, bool optimize)
     {
         ArgumentNullException.ThrowIfNull(module);
-        Ir.Module wide = WideLegalizer.Run(Legalizer.Run(CaseFold.Apply(module), wide: true), ByteOrder);
+        Ir.Module wide = WideLegalizer.Run(Legalizer.Run(CaseFold.Apply(module), wide: true), ByteOrder, keepArithmetic: true);
         Ir.Module legal = Legalizer.Run(wide);
         ByteIsa isa = CreateIsa();
         if (isa.SupportsIndexed)
@@ -62,7 +66,13 @@ public abstract class ByteTarget : ICTarget
             legal = IndexFusion.Run(legal);
         }
 
-        return new ByteSelector(Tune(legal, isa), isa).Emit();
+        if (optimize && ByteOrder == TargetByteOrder.Little)
+        {
+            legal = ParamAlias.Run(legal);
+        }
+
+        Ir.Module tuned = optimize ? Tune(legal, isa) : legal;
+        return new ByteSelector(tuned, isa).Emit();
     }
 
     /// <summary>Dostosowanie modułu do CPU po legalizacji (np. przydział strony zerowej); domyślnie bez zmian.</summary>

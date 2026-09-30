@@ -14,6 +14,9 @@ internal sealed class WideLegalizer
 
     private readonly bool _bigEndian;
 
+    /// <summary>Zostawia 32-bitowe Mov/Add/Sub/And/Or/Xor/Neg/Cpl (selektor bajtowy liczy je łańcuchem 4 bajtów z przeniesieniem).</summary>
+    private readonly bool _keepArithmetic;
+
     private readonly List<Ir.Data> _temps = [];
 
     private readonly HashSet<string> _tempNames = new(StringComparer.Ordinal);
@@ -22,10 +25,11 @@ internal sealed class WideLegalizer
 
     private int _labels;
 
-    private WideLegalizer(Ir.Module module, bool bigEndian)
+    private WideLegalizer(Ir.Module module, bool bigEndian, bool keepArithmetic)
     {
         _module = module;
         _bigEndian = bigEndian;
+        _keepArithmetic = keepArithmetic;
     }
 
     /// <summary>Przesunięcie połówki względem adresu obiektu 32-bitowego: młodsza połowa leży pod niższym adresem w LE, pod wyższym w BE.</summary>
@@ -34,11 +38,13 @@ internal sealed class WideLegalizer
     /// <summary>Rozbija operacje 32-bitowe modułu na 16-bitowe.</summary>
     /// <param name="module">Moduł po <see cref="Legalizer"/>.</param>
     /// <param name="byteOrder">Kolejność bajtów celu (układ połówek w pamięci).</param>
-    /// <returns>Moduł bez komórek i stałych 32-bitowych.</returns>
-    public static Ir.Module Run(Ir.Module module, TargetByteOrder byteOrder)
+    /// <param name="keepArithmetic"><see langword="true"/>: 32-bitowe Mov/Add/Sub/And/Or/Xor/Neg/Cpl zostają (cele bajtowe liczą je
+    /// łańcuchem bajtów); rozbijane są dalej wołania, powroty, dostępy przez wskaźnik, porównania i przesunięcia.</param>
+    /// <returns>Moduł bez komórek i stałych 32-bitowych (poza zostawioną arytmetyką).</returns>
+    public static Ir.Module Run(Ir.Module module, TargetByteOrder byteOrder, bool keepArithmetic = false)
     {
         ArgumentNullException.ThrowIfNull(module);
-        return new WideLegalizer(module, byteOrder == TargetByteOrder.Big).Apply();
+        return new WideLegalizer(module, byteOrder == TargetByteOrder.Big, keepArithmetic).Apply();
     }
 
     private static int WidthOf(Ir.Op op) => op switch
@@ -143,6 +149,9 @@ internal sealed class WideLegalizer
     {
         switch (ins)
         {
+            case Ir.Mov { Dst.W: 4 } or Ir.Un { Dst.W: 4 } or Ir.Bin { Dst.W: 4, Kind: Ir.BinOp.Add or Ir.BinOp.Sub or Ir.BinOp.And or Ir.BinOp.Or or Ir.BinOp.Xor } when _keepArithmetic:
+                output.Add(ins);
+                break;
             case Ir.Mov { Dst.W: 4 } mov:
                 RewriteMov(mov, output);
                 break;

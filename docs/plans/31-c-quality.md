@@ -1,4 +1,4 @@
-# Mini-C: jakość kodu i brakujące typy (float, short, volatile, inline, pola bitowe), strona zerowa 6502, kolizje nazw (status: otwarty)
+# Mini-C: jakość kodu i brakujące typy (float, short, volatile, inline, pola bitowe), strona zerowa 6502, kolizje nazw (status: zamknięty)
 
 Cztery luki z porównania z cc65/SDCC (pomiar: 14 małych funkcji, kod mini-C ok. 2,8× większy od cc65 na 6502 i ok. 3,9× od SDCC na Z80): kolizje nazw różniących się wielkością liter (Z80, 8080), zmienne 6502 poza stroną zerową, brak optymalizacji poza peephole stuba i brakujące typy/kwalifikatory (float, short, long long, volatile, inline, pola bitowe).
 

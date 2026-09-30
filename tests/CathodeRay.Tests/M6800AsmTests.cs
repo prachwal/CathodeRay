@@ -1,4 +1,5 @@
 using CathodeRay.Assembler;
+using CathodeRay.Assembler.Link;
 using FluentAssertions;
 
 namespace CathodeRay.Tests;
@@ -24,6 +25,8 @@ public sealed class M6800AsmTests
             { "STX $1234", [0xFF, 0x12, 0x34] },
             { "NEG $12,X", [0x60, 0x12] },
             { "NEG $1234", [0x70, 0x12, 0x34] },
+            { "LDAA z:$12", [0x96, 0x12] },
+            { "STX z:$12", [0xDF, 0x12] },
             { "BRA *+5", [0x20, 0x03] },
         };
     }
@@ -85,5 +88,21 @@ public sealed class M6800AsmTests
 
         Asm(File.ReadAllText(Repo.Path("tests", "CathodeRay.Tests", "Asm", "6800", "program.s")))
             .Should().StartWith(expected);
+    }
+
+    [Fact]
+    public void Direct_Prefix_Gives_Two_Bytes_With_Abs8_Relocation()
+    {
+        AssemblerTarget target = AssemblerTargets.Find("6800")!;
+        ObjectModule module = new TwoPassAssembler(Repo.LoadTarget(target), target.DefaultSyntax)
+            .AssembleObject("6800", ".extern x\nldaa z:x\nstx z:x+1\nldaa x\n", "main", _ => null);
+
+        // LDAA d8 = 96, STX d8 = DF, LDAA a16 = B6 (bez z: symbol relokowalny dostaje formę rozszerzoną);
+        // w miejscu relokacji zostaje sam dodatek (x = 0), linker go nadpisuje
+        module.Segments.Should().ContainSingle().Which.Data.Should().Equal(0x96, 0x00, 0xDF, 0x01, 0xB6, 0x00, 0x00);
+        module.Relocations.Should().Equal(
+            new Relocation("CODE", 1, RelocKind.Abs8, "x", 0),
+            new Relocation("CODE", 3, RelocKind.Abs8, "x", 1),
+            new Relocation("CODE", 5, RelocKind.Abs16, "x", 0));
     }
 }

@@ -96,4 +96,48 @@ public sealed class CUintTests
         CathodeRay.C.CheckedProgram quiet = CathodeRay.C.TypeChecker.Check(CathodeRay.C.Parser.Parse("int main() { uint b = 2; return b < 1000; }"));
         quiet.Warnings.Should().BeEmpty();
     }
+
+    /// <summary>Plan 32, krok 11: optymalizacja dodawania 16-bitowej stałej z zerowym bajtem starszym na 6502 za pomocą inc zamiast adc #0.</summary>
+    [Theory]
+    [InlineData(0, 3)]
+    [InlineData(0xFFFE, 1)]
+    [InlineData(0x00FF, 0x0102)]
+    [InlineData(0xFF00, 0xFF03)]
+    public void Uint_Add_Constant_With_Zero_High_Byte_On_6502(uint input, uint expected)
+    {
+        // Test na 6502: x = y + 3, gdzie y to input, oczekiwany wynik to expected
+        // Testujemy pełny zakres, w tym 0xFFFE+3 = 0x10001 → 0x0001 (overflow)
+        string source = $$"""
+            uint compute(uint y) { return y + 3; }
+            int main(void) { return compute({{input}}); }
+            """;
+        var result = CcRun.RunOn(source, "6502");
+        result.Value.Should().Be((int)(expected & 0xFFFF), $"for input {input:X4}");
+        result.Stderr.Should().BeEmpty(result.Stderr);
+    }
+
+    /// <summary>Plan 32, krok 12: porównanie 16-bitowe z zerem przy użyciu `lda lo ; ora hi`.</summary>
+    [Theory]
+    [InlineData("6502")]
+    [InlineData("z80")]
+    public void Uint_Zero_Comparison_Works_On_Multiple_Targets(string cpu)
+    {
+        // Test porównania `x == 0` dla uint z różnymi wartościami
+        // Zwracamy 1 jeśli x == 0, 0 w przeciwnym razie
+        const string Source = """
+            int check_zero(uint x) {
+                return (x == 0) ? 1 : 0;
+            }
+            int main(void) {
+                int result = 0;
+                if (check_zero(0) == 1) result = result + 1;
+                if (check_zero(0x0100) == 0) result = result + 2;
+                if (check_zero(0x0001) == 0) result = result + 4;
+                if (check_zero(0xFFFF) == 0) result = result + 8;
+                return result;
+            }
+            """;
+        var resultValue = CcRun.RunOn(Source, cpu);
+        resultValue.Value.Should().Be(1 + 2 + 4 + 8, $"on {cpu}");
+    }
 }

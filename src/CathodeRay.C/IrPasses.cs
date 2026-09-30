@@ -10,36 +10,89 @@ internal static class IrPasses
     /// <param name="inlined">Nazwy funkcji wstawionych do tego ciała: ich komórki też są lokalne (używane tylko w wstawionym kodzie).</param>
     /// <param name="volatiles">Symbole <c>volatile</c>: nie są propagowane ani usuwane.</param>
     public static List<Ir.Ins> Optimize(List<Ir.Ins> body, string function, IReadOnlySet<string>? inlined = null, IReadOnlySet<string>? volatiles = null) =>
-        RemoveDead(Propagate(ForwardTemporaries(body), function, inlined, volatiles), function, inlined, volatiles);
+        RemoveDead(Propagate(DropUnreachable(ForwardTemporaries(body)), function, inlined, volatiles), function, inlined, volatiles);
+
+    /// <summary>Zamienia <c>t = op …; v = t</c> na <c>v = op …</c>, gdy <c>t</c> jest tymczasową martwą po kopii, a szerokości się zgadzają.</summary>
+    internal static List<Ir.Ins> ForwardTemporaries(List<Ir.Ins> body)
+    {
+        var result = new List<Ir.Ins>(body.Count);
+        for (int i = 0; i < body.Count; i++)
+        {
+            // Case: Mov(t, X) followed by Mov(v, t) where t is dead
+            if (i + 1 < body.Count
+                && body[i] is Ir.Mov movFirst && IsTemporary(movFirst.Dst)
+                && body[i + 1] is Ir.Mov { Src: Ir.Cell cellSrc } movSecond && cellSrc.Sym == movFirst.Dst.Sym
+                && movSecond.Dst.W == movFirst.Dst.W
+                && GetWidth(movFirst.Src) == movFirst.Dst.W
+                && IsDeadAfter(body, i + 2, movFirst.Dst.Sym))
+            {
+                result.Add(new Ir.Mov(movSecond.Dst, movFirst.Src));
+                i++;
+                continue;
+            }
+
+            if (i + 1 < body.Count
+                && IrFacts.Def(body[i]) is { } tempVar && IsTemporary(tempVar)
+                && body[i] is not Ir.Mov
+                && body[i + 1] is Ir.Mov { Src: Ir.Cell copySource } copyMov && copySource.Sym == tempVar.Sym
+                && copyMov.Dst.W == tempVar.W && copySource.W == tempVar.W
+                && !IrFacts.Uses(body[i]).Any(op => Reads(op, copyMov.Dst.Sym) && body[i] is Ir.Bin { Kind: not (Ir.BinOp.Add or Ir.BinOp.Sub or Ir.BinOp.And or Ir.BinOp.Or or Ir.BinOp.Xor) })
+                && IsDeadAfter(body, i + 2, tempVar.Sym))
+            {
+                result.Add(WithDestination(body[i], copyMov.Dst));
+                i++;
+                continue;
+            }
+
+            result.Add(body[i]);
+        }
+
+        return result;
+    }
+
+    /// <summary>Usuwa instrukcje (poza <see cref="Ir.Src"/>) od bezwarunkowego skoku (<see cref="Ir.Jmp"/> lub powrotu <see cref="Ir.Ret"/>) do najbliższej etykiety (<see cref="Ir.Label"/>),
+    /// ponieważ są nieosiągalne (martwy kod).</summary>
+    internal static List<Ir.Ins> DropUnreachable(List<Ir.Ins> body)
+    {
+        var result = new List<Ir.Ins>(body.Count);
+        for (int i = 0; i < body.Count; i++)
+        {
+            Ir.Ins ins = body[i];
+            result.Add(ins);
+
+            if (ins is Ir.Jmp or Ir.Ret)
+            {
+                // Usuń instrukcje między bezwarunkowym skokiem a nearest Label,
+                // ale zachowaj Src (znaczniki lokalizacji źródła)
+                i++;
+                while (i < body.Count && body[i] is not Ir.Label)
+                {
+                    if (body[i] is Ir.Src)
+                    {
+                        result.Add(body[i]);
+                    }
+
+                    i++;
+                }
+
+                i--; // Kompensuj i++ pętli for
+            }
+        }
+
+        return result;
+    }
+
+    private static int GetWidth(Ir.Op op) => op switch
+    {
+        Ir.Cell cell => cell.W,
+        Ir.Imm imm => imm.W,
+        Ir.AddrOf => 2,
+        _ => 0,
+    };
 
     private static bool IsTemporary(Ir.Cell cell) => cell.Sym.Contains("__t@", StringComparison.Ordinal);
 
     private static bool Reads(Ir.Op op, string symbol) => op is Ir.Cell cell && cell.Sym == symbol;
-
-    private static IEnumerable<Ir.Op> ReadOperands(Ir.Ins ins) => ins switch
-    {
-        Ir.Mov mov => [mov.Src],
-        Ir.Bin bin => [bin.A, bin.B],
-        Ir.Un un => [un.A],
-        Ir.Load load => [load.Ptr],
-        Ir.Store store => [store.Ptr, store.Value],
-        Ir.CopyBlock copy => [copy.Dst, copy.Src],
-        Ir.Fill fill => [fill.Dst],
-        Ir.BrCmp branch => [branch.A, branch.B],
-        Ir.Call call => call.Indirect is null ? call.Args : [.. call.Args, call.Indirect],
-        Ir.Ret { Value: not null } ret => [ret.Value],
-        _ => [],
-    };
-
-    private static Ir.Cell? Defined(Ir.Ins ins) => ins switch
-    {
-        Ir.Mov mov => mov.Dst,
-        Ir.Bin bin => bin.Dst,
-        Ir.Un un => un.Dst,
-        Ir.Load load => load.Dst,
-        Ir.Call call => call.Result,
-        _ => null,
-    };
 
     private static Ir.Ins WithDestination(Ir.Ins ins, Ir.Cell destination) => ins switch
     {
@@ -69,43 +122,18 @@ internal static class IrPasses
                 return false;
             }
 
-            if (ReadOperands(ins).Any(op => Reads(op, symbol)))
+            if (IrFacts.Uses(ins).Any(op => Reads(op, symbol)))
             {
                 return false;
             }
 
-            if (Defined(ins) is { } written && written.Sym == symbol)
+            if (IrFacts.Def(ins) is { } written && written.Sym == symbol)
             {
                 return true;
             }
         }
 
         return true;
-    }
-
-    /// <summary>Zamienia <c>t = op …; v = t</c> na <c>v = op …</c>, gdy <c>t</c> jest tymczasową martwą po kopii, a szerokości się zgadzają.</summary>
-    private static List<Ir.Ins> ForwardTemporaries(List<Ir.Ins> body)
-    {
-        var result = new List<Ir.Ins>(body.Count);
-        for (int i = 0; i < body.Count; i++)
-        {
-            if (i + 1 < body.Count
-                && Defined(body[i]) is { } temporary && IsTemporary(temporary)
-                && body[i] is not Ir.Mov
-                && body[i + 1] is Ir.Mov { Src: Ir.Cell source } copy && source.Sym == temporary.Sym
-                && copy.Dst.W == temporary.W && source.W == temporary.W
-                && !ReadOperands(body[i]).Any(op => Reads(op, copy.Dst.Sym) && body[i] is Ir.Bin { Kind: not (Ir.BinOp.Add or Ir.BinOp.Sub or Ir.BinOp.And or Ir.BinOp.Or or Ir.BinOp.Xor) })
-                && IsDeadAfter(body, i + 2, temporary.Sym))
-            {
-                result.Add(WithDestination(body[i], copy.Dst));
-                i++;
-                continue;
-            }
-
-            result.Add(body[i]);
-        }
-
-        return result;
     }
 
     private static bool IsLocal(string symbol, string function, IReadOnlySet<string>? inlined = null) =>
@@ -125,7 +153,7 @@ internal static class IrPasses
         var taken = new HashSet<string>(StringComparer.Ordinal);
         foreach (Ir.Ins ins in body)
         {
-            foreach (Ir.Op op in ReadOperands(ins))
+            foreach (Ir.Op op in IrFacts.Uses(ins))
             {
                 if (op is Ir.AddrOf address)
                 {
@@ -211,7 +239,7 @@ internal static class IrPasses
                 continue;
             }
 
-            if (Defined(ins) is { } defined)
+            if (IrFacts.Def(ins) is { } defined)
             {
                 Kill(defined.Sym);
                 if (ins is Ir.Mov { Src: var source } && Tracked(defined.Sym))
@@ -236,7 +264,7 @@ internal static class IrPasses
                 known.Clear();
             }
 
-            if (ins is Ir.Mov { Src: Ir.Cell same } self && Defined(ins) is { } target && same.Sym == target.Sym && same.W == target.W)
+            if (ins is Ir.Mov { Src: Ir.Cell same } self && IrFacts.Def(ins) is { } target && same.Sym == target.Sym && same.W == target.W)
             {
                 continue;
             }
@@ -318,7 +346,7 @@ internal static class IrPasses
             var reads = new HashSet<string>(StringComparer.Ordinal);
             foreach (Ir.Ins ins in body)
             {
-                foreach (Ir.Op op in ReadOperands(ins))
+                foreach (Ir.Op op in IrFacts.Uses(ins))
                 {
                     if (op is Ir.Cell cell)
                     {
@@ -328,7 +356,7 @@ internal static class IrPasses
             }
 
             int before = body.Count;
-            body = [.. body.Where(ins => ins is Ir.Call or Ir.Load { Volatile: true } || Defined(ins) is not { } d || !IsLocal(d.Sym, function, inlined) || taken.Contains(BaseSymbol(d.Sym)) || reads.Contains(d.Sym) || volatiles?.Contains(BaseSymbol(d.Sym)) == true)];
+            body = [.. body.Where(ins => ins is Ir.Call or Ir.Load { Volatile: true } || IrFacts.Def(ins) is not { } d || !IsLocal(d.Sym, function, inlined) || taken.Contains(BaseSymbol(d.Sym)) || reads.Contains(d.Sym) || volatiles?.Contains(BaseSymbol(d.Sym)) == true)];
             if (body.Count == before)
             {
                 return body;

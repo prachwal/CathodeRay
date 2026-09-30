@@ -97,4 +97,15 @@ public sealed class Z80CpuTests
         Z80Cpu cpu = Run(false, 0x18, 0x01, 0x3C, 0x3C);
         cpu.A.Should().Be(1);
     }
+
+    [Fact]
+    public void Intel8080_Sub_Sets_Parity_Flag()
+    {
+        // SUB 0x80 from 0x00 -> 0x80 (0x00 - 0x80 - 0 = -0x80 = 0x80)
+        // Parity of 0x80 (binary 1000_0000 = 1 bit set, odd) = false, so P = 0
+        // Expected: C=1 (borrow), S=1 (sign), N=1 (subtract), P=0 (odd parity), Z=0, H=0
+        Z80Cpu cpu = Run(true, 0x3E, 0x00, 0xD6, 0x80); // LD A,0x00; SUB 0x80
+        cpu.A.Should().Be(0x80);
+        cpu.F.Should().Be((byte)(Z80Cpu.FlagC | Z80Cpu.FlagS | Z80Cpu.FlagN));
+    }
 }

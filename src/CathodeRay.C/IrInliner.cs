@@ -21,7 +21,7 @@ internal static class IrInliner
         {
             foreach (Ir.Ins ins in function.Body)
             {
-                foreach (Ir.Op op in Operands(ins))
+                foreach (Ir.Op op in IrFacts.Uses(ins))
                 {
                     if (op is Ir.AddrOf address)
                     {
@@ -96,7 +96,7 @@ internal static class IrInliner
                     referenced.Add(direct);
                 }
 
-                foreach (Ir.Op op in Operands(ins))
+                foreach (Ir.Op op in IrFacts.Uses(ins))
                 {
                     if (op is Ir.AddrOf address)
                     {
@@ -153,19 +153,4 @@ internal static class IrInliner
 
         output.Add(new Ir.Label(end));
     }
-
-    private static IEnumerable<Ir.Op> Operands(Ir.Ins ins) => ins switch
-    {
-        Ir.Mov mov => [mov.Src],
-        Ir.Bin bin => [bin.A, bin.B],
-        Ir.Un un => [un.A],
-        Ir.Load load => [load.Ptr],
-        Ir.Store store => [store.Ptr, store.Value],
-        Ir.CopyBlock copy => [copy.Dst, copy.Src],
-        Ir.Fill fill => [fill.Dst],
-        Ir.BrCmp branch => [branch.A, branch.B],
-        Ir.Call call => call.Args,
-        Ir.Ret { Value: not null } ret => [ret.Value],
-        _ => [],
-    };
 }

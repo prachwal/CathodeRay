@@ -37,6 +37,14 @@ internal sealed class ByteSelector
     /// <returns>Tekst dla asemblera CPU.</returns>
     public string Emit()
     {
+        // komórka w rejestrze nie może być zewnętrzna ani zapisywana w ramce (push/pop jej bajtów)
+        string? misplaced = _module.ExternCells.Concat(_module.Functions.SelectMany(static f => f.Saved).Select(static o => o.Sym))
+            .FirstOrDefault(sym => _isa.IsRegister(_isa.Sym(sym)));
+        if (misplaced is not null)
+        {
+            throw new InvalidOperationException($"cell {misplaced} is assigned to a register but is extern or saved in a frame.");
+        }
+
         foreach (Ir.Function function in _module.Functions)
         {
             EmitFunction(function);
@@ -208,9 +216,44 @@ internal sealed class ByteSelector
 
     private string Dst(Ir.Cell cell, int index) => _isa.Loc(cell.Sym, cell.W, index);
 
+    /// <summary>Operand jako słowo 16-bitowe dla <see cref="ByteIsa.TryMoveWord"/> albo <see langword="null"/> (komórka węższa, <c>volatile</c>).</summary>
+    private Word? WordOf(Ir.Op op) => op switch
+    {
+        Ir.Cell { W: 2 } cell => Pair(Dst(cell, 0), Dst(cell, 1)),
+        Ir.Imm imm => new Word(true, Number(imm.Value & (imm.W == 1 ? 0xFF : 0xFFFF)), string.Empty),
+        Ir.AddrOf address => new Word(true, At(address.Sym, address.Off), string.Empty),
+        _ => null,
+    };
+
+    /// <summary>Połowa (0 = młodsza, 1 = starsza) operandu 32-bitowego jako słowo albo <see langword="null"/>; węższy operand
+    /// ma starszą połowę równą zeru.</summary>
+    private Word? HalfOf(Ir.Op op, int half) => op switch
+    {
+        Ir.Cell { W: 4 } cell => Pair(Dst(cell, 2 * half), Dst(cell, (2 * half) + 1)),
+        Ir.Imm { W: 4 } imm => new Word(true, Number((imm.Value >> (16 * half)) & 0xFFFF), string.Empty),
+        Ir.Cell { W: 1 } when half == 0 => null,
+        _ => half == 0 ? WordOf(op) : new Word(true, "0", string.Empty),
+    };
+
+    private Word? Pair(string lo, string hi) => (IsVolatile(lo) || IsVolatile(hi)) ? null : new Word(false, lo, hi);
+
+    /// <summary>Kopia słowa przez ISA; A się nie zmienia, ale bajty celu już nie są równe A.</summary>
+    private bool TryMoveWord(Word? dst, Word? src)
+    {
+        if (dst is not { } target || src is not { } source || !_isa.TryMoveWord(target, source))
+        {
+            return false;
+        }
+
+        _acc.Remove(target.Lo);
+        _acc.Remove(target.Hi);
+        return true;
+    }
+
     private void EmitFunction(Ir.Function function)
     {
         int mark = _isa.Mark;
+        _isa.BeginFunction(function);
         EmitFunctionBody(function);
         _isa.RelaxFrom(mark);
     }
@@ -242,6 +285,11 @@ internal sealed class ByteSelector
         for (int i = 0; i < function.Params.Count; i++)
         {
             Ir.Cell param = function.Params[i];
+            if (param.Sym == ArgSym(i, 0) || (param.W == 2 && TryMoveWord(WordOf(param), Pair(ArgSym(i, 0), ArgSym(i, 1)))))
+            {
+                continue;
+            }
+
             for (int part = 0; part < param.W; part++)
             {
                 LoadA(new Octet(false, ArgSym(i, part)));
@@ -343,8 +391,19 @@ internal sealed class ByteSelector
             return;
         }
 
+        if (dst.W == 2 && TryMoveWord(WordOf(dst), WordOf(src)))
+        {
+            return;
+        }
+
         for (int i = 0; i < dst.W; i++)
         {
+            if (dst.W == 4 && i % 2 == 0 && TryMoveWord(HalfOf(dst, i / 2), HalfOf(src, i / 2)))
+            {
+                i++;
+                continue;
+            }
+
             LoadA(ByteOf(src, i));
             StoreA(Dst(dst, i));
         }
@@ -360,6 +419,26 @@ internal sealed class ByteSelector
                 _acc.Clear();
                 return;
             }
+        }
+
+        // Optymalizacja: dodawanie 16-bitowe stałej z zerowym bajtem starszym (tylko 6502): zamiast adc #0 użyj bcc skip; inc hi
+        if (bin.Kind == Ir.BinOp.Add && bin.Dst.W == 2 && bin.A is Ir.Cell sameCell && sameCell.Sym == bin.Dst.Sym && sameCell.W == 2 && bin.B is Ir.Imm imm && imm.W == 2 && (imm.Value >> 8) == 0 && _isa is Mos6502Isa)
+        {
+            // Dodaj młodszy bajt (carry zostanie ustawiony jeśli overflow)
+            LoadA(ByteOf(bin.A, 0));
+            Alu(ByteAlu.Add, ByteOf(bin.B, 0), true);
+            StoreA(Dst(bin.Dst, 0));
+
+            // Zamiast lda hi; adc #0; sta hi, użyj bcc skip; inc hi; skip:
+            // Carry flag jest ustawiony jeśli był overflow (dodanie spowodowało >= 256)
+            // bcc = branch if carry clear (brak overflow)
+            string skip = _isa.LocalLabel();
+            Raw($"bcc {skip}");
+            _isa.TryStep([Dst(bin.Dst, 1)], true);
+            Raw($"{skip}:");
+
+            _acc.Clear();
+            return;
         }
 
         switch (bin.Kind)
@@ -390,6 +469,27 @@ internal sealed class ByteSelector
 
     private void EmitChain(ByteAlu alu, Ir.Bin bin)
     {
+        if (alu is ByteAlu.Add or ByteAlu.Sub && bin.Dst.W == 2 && WordOf(bin.Dst) is { } dst && WordOf(bin.A) is { } a && WordOf(bin.B) is { } b
+            && _isa.TryAddWord(dst, a, b, alu == ByteAlu.Sub))
+        {
+            // A bez zmian, ale bajty celu już nie są mu równe
+            _acc.Remove(dst.Lo);
+            _acc.Remove(dst.Hi);
+            return;
+        }
+
+        if (alu is ByteAlu.Add or ByteAlu.Sub && bin.Dst.W == 4 && HalfOf(bin.Dst, 0) is { } dl && HalfOf(bin.Dst, 1) is { } dh
+            && HalfOf(bin.A, 0) is { } al && HalfOf(bin.A, 1) is { } ah && HalfOf(bin.B, 0) is { } bl && HalfOf(bin.B, 1) is { } bh
+            && _isa.TryAddLong((dl, dh), (al, ah), (bl, bh), alu == ByteAlu.Sub))
+        {
+            foreach (string address in (string[])[dl.Lo, dl.Hi, dh.Lo, dh.Hi])
+            {
+                _acc.Remove(address);
+            }
+
+            return;
+        }
+
         for (int i = 0; i < bin.Dst.W; i++)
         {
             LoadA(ByteOf(bin.A, i));
@@ -606,12 +706,14 @@ internal sealed class ByteSelector
         bool onBorrow = cond is Ir.Cond.Lt or Ir.Cond.Gt or Ir.Cond.Ltu or Ir.Cond.Gtu;
         Ir.Op x = swap ? branch.B : branch.A;
         Ir.Op y = swap ? branch.A : branch.B;
-        Octet[] xs = Bytes(x, width, signed ? "cc_t0" : null);
-        Octet[] ys = Bytes(y, width, signed ? "cc_t1" : null);
+        bool overflow = signed && _isa.HasOverflowFlag;
+        bool bias = signed && !overflow;
+        Octet[] xs = Bytes(x, width, bias ? "cc_t0" : null);
+        Octet[] ys = Bytes(y, width, bias ? "cc_t1" : null);
         for (int i = 0; i < width; i++)
         {
             LoadA(xs[i]);
-            if (width == 1)
+            if (width == 1 && !overflow)
             {
                 Cmp(ys[i]);
             }
@@ -619,6 +721,12 @@ internal sealed class ByteSelector
             {
                 Alu(ByteAlu.Sub, ys[i], i == 0);
             }
+        }
+
+        if (overflow)
+        {
+            _isa.JumpIfSigned(onBorrow, target);
+            return;
         }
 
         _isa.JumpIf(onBorrow ? ByteFlag.Borrow : ByteFlag.NoBorrow, target);
@@ -652,11 +760,23 @@ internal sealed class ByteSelector
     {
         for (int i = 0; i < call.Args.Count; i++)
         {
+            if (call.ParamWidths[i] == 2 && TryMoveWord(Pair(ArgSym(i, 0), ArgSym(i, 1)), WordOf(call.Args[i])))
+            {
+                continue;
+            }
+
             for (int part = 0; part < call.ParamWidths[i]; part++)
             {
                 LoadA(ByteOf(call.Args[i], part));
                 StoreA(ArgSym(i, part));
             }
+        }
+
+        // rejestry komórek żywych za wołaniem: na stos po argumentach, ze stosu przed zapisem wyniku (wynik może leżeć w tej parze)
+        IReadOnlyList<string> saved = _isa.SavedAround(call);
+        foreach (string pair in saved)
+        {
+            _isa.PushPair(pair);
         }
 
         if (call.Indirect is not null)
@@ -669,7 +789,12 @@ internal sealed class ByteSelector
             CallDirect(_isa.Sym(call.Direct!));
         }
 
-        if (call.Result is not null)
+        foreach (string pair in saved.Reverse())
+        {
+            _isa.PopPair(pair);
+        }
+
+        if (call.Result is not null && !(call.Result.W == 2 && TryMoveWord(WordOf(call.Result), Pair(RetSym(0), RetSym(1)))))
         {
             for (int part = 0; part < call.Result.W; part++)
             {
@@ -681,7 +806,7 @@ internal sealed class ByteSelector
 
     private void EmitRet(Ir.Function function, Ir.Ret ret, bool last)
     {
-        if (ret.Value is not null)
+        if (ret.Value is not null && !(ret.W == 2 && TryMoveWord(Pair(RetSym(0), RetSym(1)), WordOf(ret.Value))))
         {
             for (int part = 0; part < ret.W; part++)
             {
@@ -802,7 +927,7 @@ internal sealed class ByteSelector
         }
 
         text.AppendLine(_isa.Segment(segment));
-        foreach (Ir.Data data in _module.Data.Where(d => d.Segment == segment))
+        foreach (Ir.Data data in _module.Data.Where(d => d.Segment == segment && !_isa.IsRegister(_isa.Sym(d.Sym))))
         {
             if (data.Exported)
             {

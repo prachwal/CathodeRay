@@ -1,0 +1,98 @@
+{
+  "title": "Mini-C: wydajność kodu 6502 — kopie przez tymczasowe, ramki rekurencji, peephole",
+  "status": "queued",
+  "intro": "Cel: mniejszy i szybszy kod 6502 (i pośrednio Z80/8080/6800) bez zmiany semantyki. Baza pomiaru: `python3 tools/compare.py` = mini-C/cc65 1,74×, mini-C/SDCC 3,56× (`docs/compare.md`). Pomiar wzorców w listingach `samples/bench` (6502, 888 instrukcji kodu użytkownika): `sta M ; lda M` 193×, `lda M ; sta M` 133×, `sta M ; ldy #I` 22×, `jmp M` 31×; `fib` zapisuje na stosie także tymczasowe (10 B na cykl rekurencji).\n\nZadania są napisane dla małego modelu (Haiku): każde dotyczy jednego pliku źródłowego (plus test), ma dokładny opis zmiany, kryterium sukcesu i komendę sprawdzającą. Rozmiar: wszystkie S (<1 h).\n\nZasady dla wykonawcy (obowiązują w każdym zadaniu):\n1. Przed zmianą przeczytaj wskazany plik w całości oraz test, który go dotyka. Nie zmieniaj innych plików niż wymienione (poza testem i goldenami).\n2. Analizatory StyleCop/Roslynator są błędami kompilacji: kolejność członków (pola, konstruktory, właściwości, metody; statyczne przed instancyjnymi), dokumentacja `<summary>`/`<param>` po polsku, nawiasy w wyrażeniach warunkowych.\n3. Budowanie i testy: `dotnet build --nologo -v q`, potem test docelowy `dotnet test --nologo --filter NazwaTestu`. Pełny zestaw (~4 min) tylko na końcu zadania: `dotnet test --nologo`. Nie buduj, gdy w tle trwa `dotnet test`.\n4. Goldeny po zamierzonej zmianie kodu: `UPDATE_IR_GATE=1 dotnet test --nologo --filter IrGateTests` i `UPDATE_TARGET_SIZES=1 dotnet test --nologo --filter TargetSizeTests`; obejrzyj `git diff tests/CathodeRay.Tests/target-sizes.txt` — rozmiary mają maleć (albo zostać), nigdy rosnąć. Wzrost = błąd w zadaniu, cofnij.\n5. Poprawność: każdy nowy przebieg musi zachować wynik `IrConformanceTests`, `TargetMatrixTests` (6 celów). Gdy test wyroczni pada, nie poprawiaj testu — popraw kod albo wycofaj zmianę i opisz w `note`.\n6. Po zadaniu: `python3 tools/compare.py --write` (krok 1 tylko raz, potem tylko przy zadaniach oznaczonych „zmierz”), `python3 tools/plan.py set docs/plans/32-c-performance.json N --status done`, `python3 tools/plan.py render docs/plans/32-c-performance.json`, commit: `perf(c): opis (plan 32, krok N)`.\n7. Zatrzymaj się i zapisz w `note`, jeśli: potrzebna jest zmiana w więcej niż 2 plikach źródłowych, test wyroczni pada z niejasnego powodu, rozmiar wzrósł.\n\nNie robić: ogólnego alokatora rejestrów (to osobny, duży plan po pomiarze efektów tych kroków).",
+  "items": [
+    {
+      "id": "1",
+      "title": "[S] `tools/hotspots.py`: skrypt liczący najczęstsze pary i trójki instrukcji w listingach 6502 z `samples/bench` (kompilacja: `cathode cc plik.c /tmp/m.c --nostdlib -o x.bin -l x.lst --cpu 6502`, gdzie `m.c` to `int main(){return 0;}`; brać tylko linie z nazwą pliku benchu w kolumnie źródła; operandy normalizować: `#…`→`#I`, `z:…`→`ZP`, reszta→`M`). Wynik `--write` → `docs/hotspots.md` (tabela top 15 par, top 10 trójek, liczba instrukcji). Kryterium: uruchomienie daje liczby zbliżone do bazy z wstępu (sta M;lda M ≈193). Sprawdź: `python3 tools/hotspots.py --write && head -30 docs/hotspots.md`.",
+      "status": "done",
+      "note": "",
+      "section": "A. Pomiar"
+    },
+    {
+      "id": "2",
+      "title": "[S] `IrPasses.ForwardTemporaries`: przypadek `Mov(t, X)` po którym tuż następuje `Mov(v, t)` i `t` jest martwa (użyj istniejącego `IsDeadAfter`) → jedna instrukcja `Mov(v, X)`. Dodaj test w `tests/CathodeRay.Tests/IrPassesTests.cs` (nowy plik, jeśli brak) na małym IR zbudowanym ręcznie: dwie kopie w łańcuchu dają jedną. Zmierz: liczba `sta M ; lda M` w `hotspots.md` maleje.",
+      "status": "done",
+      "note": "",
+      "section": "B. Kopie przez tymczasowe (IR, `IrPasses.cs`)"
+    },
+    {
+      "id": "3",
+      "title": "[S] `IrPasses.ForwardTemporaries`: przypadek `Bin(op, t, A, B)` po którym `Mov(v, t)` i `t` martwa → `Bin(op, v, A, B)`, ale tylko gdy `v` nie występuje jako A ani B (chyba że op to Add/And/Or/Xor/Sub z v==A, wtedy też wolno; dla pozostałych nie). Test jak wyżej. Uwaga na `Load` i `Call` z wynikiem: tam już jest podobny wariant — użyj `WithDestination`.",
+      "status": "done",
+      "note": "Pokryte przez krok 2 (wariant Bin->Mov istniał w ForwardTemporaries; agent dodał wariant Mov->Mov). Bez efektu na rozmiar: hotspots bez zmian.",
+      "section": "B. Kopie przez tymczasowe (IR, `IrPasses.cs`)"
+    },
+    {
+      "id": "4",
+      "title": "[S] `IrPasses.RemoveDead`: usuwaj też zapisy do komórek lokalnych, których jedyny odczyt jest w martwej gałęzi po bezwarunkowym `Jmp`/`Ret` (kod nieosiągalny między `Jmp`/`Ret` a następną `Label`): najpierw dodaj przebieg `DropUnreachable(body)` usuwający instrukcje (poza `Src`) od `Jmp`/`Ret` do najbliższej `Label`. Wywołaj go w `Optimize` przed `Propagate`. Test: `return 1; x = 2;` nie zostawia zapisu `x`.",
+      "status": "done",
+      "note": "",
+      "section": "B. Kopie przez tymczasowe (IR, `IrPasses.cs`)"
+    },
+    {
+      "id": "5",
+      "title": "[S] Zapisuj na stosie tylko komórki żywe przez wołanie: dla funkcji na cyklu wołań (`FinalizeFrames`) oblicz zbiór komórek czytanych po jakimkolwiek `Ir.Call` w ciele bez wcześniejszego zapisu (liniowe skanowanie od wołania do końca funkcji, etykiety i skoki traktuj zachowawczo: wszystko po wołaniu w kolejności instrukcji + wszystko po etykietach wstecznych, czyli przy pętli cała funkcja). Komórki spoza zbioru wyjmij z `Saved` (nie z `Data`). Kryterium: `fib` na 6502 ma ramkę < 10 B/cykl (komunikat ostrzeżenia z `cathode cc samples/bench/fib.c … `), testy rekurencji (`CRecursionTests`, `CStackTests` — znajdź `grep -l recurs tests/CathodeRay.Tests/*.cs`) zielone. Zmierz.",
+      "status": "todo",
+      "note": "WYCOFANY (poprawka po analizie Opus): skan liniowy CollectLive ignorowal skoki w przod, program z goto po wywolaniu rekurencyjnym dawal 100 zamiast 39. Przywrocono Lowering.Frames.cs sprzed kroku 5; test regresji w RecursionFrameTests. Wrocic po wspolnej analizie liveness (plan 33).",
+      "section": "C. Ramka rekurencji (`Lowering.Frames.cs`)"
+    },
+    {
+      "id": "6",
+      "title": "[S] Test regresji dla kroku C: nowy test `RecursionFrameTests` z trzema programami (fib, silnia rekurencyjna na `int`, wzajemna rekurencja is_even/is_odd) uruchamianymi na `stub`, `6502`, `z80`, `6800` przez `CcRun.RunOn`; oczekiwane wartości policz ręcznie i wpisz jako stałe.",
+      "status": "done",
+      "note": "",
+      "section": "C. Ramka rekurencji (`Lowering.Frames.cs`)"
+    },
+    {
+      "id": "7",
+      "title": "[S] Usuń `ldy #N` gdy poprzedni `ldy #N` tego samego N był w tym samym bloku bez zmiany Y (Y zmieniają: `ldy`, `iny`, `dey`, `tay`, `jsr`, etykieta, `jmp`, gałąź, `rts`). Wzorzec 22× w bazie (`sta M ; ldy #I`). Test w `PeepholeTests` (istniejący plik — sprawdź `ls tests/CathodeRay.Tests | grep -i peep`): dwa kolejne dostępy `(zp),y` z tym samym indeksem mają jedno `ldy`.",
+      "status": "done",
+      "note": "",
+      "section": "D. Peephole 6502 (`Peephole.cs`, tekst asemblera po `ByteSelector`)"
+    },
+    {
+      "id": "8",
+      "title": "[S] Zamień `jmp L` bezpośrednio poprzedzony `jmp`/`rts` (kod martwy do następnej etykiety) — usuń martwe instrukcje do najbliższej etykiety. Test: `jmp a` `lda #1` `a:` → zostaje `jmp a`, a następnie standardowe usunięcie skoku do następnej instrukcji.",
+      "status": "done",
+      "note": "",
+      "section": "D. Peephole 6502 (`Peephole.cs`, tekst asemblera po `ByteSelector`)"
+    },
+    {
+      "id": "9",
+      "title": "[S] `jmp L1` gdzie w `L1:` stoi wyłącznie `jmp L2` → `jmp L2` (łańcuchy skoków, maks. 4 poziomy, wykryj cykl i przerwij). Test na krótkim asemblerze jak w istniejących testach peephole.",
+      "status": "partial",
+      "note": "Agent STOP: przekierowanie jmp L1->L2 dalo +3 B na stub (07_control.c 718->721), zmiana wycofana. Prawdopodobnie zwalnia dopiero po usunieciu martwej etykiety L1; wrocic po kroku 10.",
+      "section": "D. Peephole 6502 (`Peephole.cs`, tekst asemblera po `ByteSelector`)"
+    },
+    {
+      "id": "10",
+      "title": "[S] `lda #0` + `sta M` + `lda #0` + `sta N` (zerowanie sąsiednich bajtów) → drugie `lda #0` usuń, bo A nadal 0 (tylko gdy między nimi są wyłącznie `sta`/`stx`/`sty`). Wzorzec z `lda #I ; sta M` 19× w bazie. Test.",
+      "status": "done",
+      "note": "",
+      "section": "D. Peephole 6502 (`Peephole.cs`, tekst asemblera po `ByteSelector`)"
+    },
+    {
+      "id": "11",
+      "title": "[S] Dodawanie stałej 16-bitowej o zerowym bajcie starszym (`x = y + 5` przy typie 2-bajtowym): zamiast `lda hi ; adc #0 ; sta` użyj `bcc skip ; inc hi` (6502: `inc` na ZP/abs). Ogranicz do celów z `TryStep`/INC pamięci (6502, 6800 nie; 6502 tak). Zacznij od metody obsługującej `Bin` Add z `Imm`, znajdź `TryStep`. Test: `x = y + 3` dla `uint` na 6502 daje kod z `inc` i poprawny wynik na pełnym zakresie (0xFFFE+3).",
+      "status": "done",
+      "note": "",
+      "section": "E. Ścieżka 16-bitowa (`ByteSelector.cs`)"
+    },
+    {
+      "id": "12",
+      "title": "[S] Porównanie 16-bitowe z stałą 0 i `==`/`!=`: użyj `lda lo ; ora hi` (jest już dla zera na jednym bajcie — rozszerz na 2 bajty, jeśli nie ma). Test na 6502/z80: `if (x == 0)` dla `uint` przy x=0, 0x100, 0x01, 0xFFFF.",
+      "status": "done",
+      "note": "",
+      "section": "E. Ścieżka 16-bitowa (`ByteSelector.cs`)"
+    },
+    {
+      "id": "13",
+      "title": "[S] Zmierz i opisz: uruchom `python3 tools/hotspots.py --write` i `python3 tools/compare.py --write`, wklej do `docs/stub-calling-conv.md` sekcję „Plan 32: efekt” z liczbami przed/po (baza ze wstępu) i wnioskami; commit. Jeśli spadek sta;lda < 30% bazy, dodaj do planu następne zadania na podstawie nowych top-10 par.",
+      "status": "done",
+      "note": "",
+      "section": "E. Ścieżka 16-bitowa (`ByteSelector.cs`)"
+    }
+  ]
+}

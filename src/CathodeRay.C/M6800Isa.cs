@@ -4,10 +4,17 @@ using System.Text;
 namespace CathodeRay.C;
 
 /// <summary>Prymitywy Motorola 6800: akumulator A, rejestr indeksowy X do dostępu pośredniego (<c>LDAA n,X</c>), słowa
-/// big-endian (komórka 2-bajtowa: starszy bajt pod <c>sym</c>, więc <c>LDX komórka</c> ładuje wskaźnik).</summary>
+/// big-endian (komórka 2-bajtowa: starszy bajt pod <c>sym</c>, więc <c>LDX komórka</c> ładuje wskaźnik). Komórki na stronie
+/// bezpośredniej (<c>$00xx</c>) dostają przedrostek <c>z:</c>, ale tylko w instrukcjach z trybem bezpośrednim (INC/DEC/TST/CLR/NEG/COM
+/// i przesunięcia pamięci go nie mają, więc zostają przy adresie rozszerzonym).</summary>
 internal sealed class M6800Isa : ByteIsa
 {
     private static readonly HashSet<string> ReservedNames = new(["A", "B", "X"], StringComparer.OrdinalIgnoreCase);
+
+    private static readonly string[] FixedZeroPage =
+        ["cc_arg1", "cc_arg1_h", "cc_arg2", "cc_arg2_h", "cc_arg3", "cc_arg3_h", "cc_ret", "cc_ret_h", "cc_t0", "cc_t1"];
+
+    private readonly HashSet<string> _zeroPage = new(FixedZeroPage, StringComparer.Ordinal);
 
     private int _labels;
 
@@ -31,13 +38,17 @@ internal sealed class M6800Isa : ByteIsa
 
     public override string? AddressByte(string expression, int index) => (index == 0 ? "<(" : ">(") + expression + ")";
 
-    public override void LoadA(Octet value) => L(value.IsImmediate ? $"ldaa #{value.Text}" : $"ldaa {value.Text}");
+    /// <summary>Dopisuje komórki modułu przeniesione na stronę bezpośrednią (operandy dostają przedrostek <c>z:</c>).</summary>
+    /// <param name="names">Nazwy symboli (bez przesunięć).</param>
+    public void AddZeroPage(IEnumerable<string> names) => _zeroPage.UnionWith(names);
 
-    public override void StoreA(string address) => L($"staa {address}");
+    public override void LoadA(Octet value) => L(value.IsImmediate ? $"ldaa #{value.Text}" : $"ldaa {Mem(value.Text)}");
+
+    public override void StoreA(string address) => L($"staa {Mem(address)}");
 
     public override void Alu(ByteAlu op, Octet value, bool first)
     {
-        string operand = value.IsImmediate ? $"#{value.Text}" : value.Text;
+        string operand = value.IsImmediate ? $"#{value.Text}" : Mem(value.Text);
         string mnemonic = op switch
         {
             ByteAlu.Add => first ? "adda" : "adca",
@@ -49,7 +60,7 @@ internal sealed class M6800Isa : ByteIsa
         L($"{mnemonic} {operand}");
     }
 
-    public override void Cmp(Octet value) => L(value.IsImmediate ? $"cmpa #{value.Text}" : $"cmpa {value.Text}");
+    public override void Cmp(Octet value) => L(value.IsImmediate ? $"cmpa #{value.Text}" : $"cmpa {Mem(value.Text)}");
 
     public override void ShlA(bool first) => L(first ? "asla" : "rola");
 
@@ -106,8 +117,26 @@ internal sealed class M6800Isa : ByteIsa
 
     public override void CallIndirect(string cell)
     {
-        L($"ldx {cell}");
+        L($"ldx {Mem(cell)}");
         L("jsr 0,x");
+    }
+
+    /// <summary>Kopia słowa przez X: <c>ldx źródło</c> (albo <c>ldx #stała</c>), <c>stx cel</c>. Obie strony w pamięci big-endian
+    /// (starszy bajt tuż przed młodszym: <c>Lo</c> = <c>Hi+1</c>); para <c>cc_argN</c>/<c>cc_argN_h</c> leży odwrotnie (młodszy pod
+    /// <c>cc_argN</c>), więc zostaje przy kopii bajtowej. A się nie zmienia; X i flagi N/Z/V tak (X nie trzyma stanu między prymitywami).</summary>
+    /// <param name="dst">Cel.</param>
+    /// <param name="src">Źródło.</param>
+    /// <returns><see langword="false"/>, gdy któraś strona nie jest słowem big-endian w pamięci.</returns>
+    public override bool TryMoveWord(Word dst, Word src)
+    {
+        if (!InMemory(dst) || !(src.IsImmediate || InMemory(src)))
+        {
+            return false;
+        }
+
+        L(src.IsImmediate ? $"ldx #{src.Lo}" : $"ldx {Mem(src.Hi)}");
+        L($"stx {Mem(dst.Hi)}");
+        return true;
     }
 
     public override void Return() => L("rts");
@@ -116,19 +145,19 @@ internal sealed class M6800Isa : ByteIsa
     {
         if (offset <= 254)
         {
-            L($"ldx {cell}");
+            L($"ldx {Mem(cell)}");
             _offset = offset;
             return;
         }
 
         // Przesunięcie większe niż indeks 8-bitowy: dodajemy je do wskaźnika przez bajty pośrednie (BE: cc_t0 starszy, cc_t1 młodszy).
-        L($"ldaa {cell}+1");
+        L($"ldaa {Mem(cell + "+1")}");
         L($"adda #{offset & 0xFF}");
-        L("staa cc_t1");
-        L($"ldaa {cell}");
+        L("staa z:cc_t1");
+        L($"ldaa {Mem(cell)}");
         L($"adca #{offset >> 8}");
-        L("staa cc_t0");
-        L("ldx cc_t0");
+        L("staa z:cc_t0");
+        L("ldx z:cc_t0");
         _offset = 0;
     }
 
@@ -154,30 +183,41 @@ internal sealed class M6800Isa : ByteIsa
         text.AppendLine(".segment \"CODE\"");
         text.AppendLine("""
             lds #$0FFF
+            ldx #$FF
+            __crt_zz: clr 0,x
+            dex
+            bne __crt_zz
             ldx #__bss_start
-            __crt_z: cpx #__bss_end
-            beq __crt_zd
-            clra
-            staa 0,x
+            __crt_z: clr 0,x
             inx
-            jmp __crt_z
-            __crt_zd: ldx #__init_start
+            cpx #__bss_end
+            bne __crt_z
+            ldx #__init_start
             __crt_i: cpx #__init_end
             beq __crt_id
-            stx __crt_ip
+            stx z:__crt_ip
             ldx 0,x
             jsr 0,x
-            ldx __crt_ip
+            ldx z:__crt_ip
             inx
             inx
-            jmp __crt_i
+            bra __crt_i
             __crt_id: jsr main
-            __crt_halt: jmp __crt_halt
+            __crt_halt: bra __crt_halt
             """);
+
+        // strona bezpośrednia jest zerowana w całości ($01..$FF, obszar C_ZP to $10..$FF); pętla BSS sprawdza koniec po zapisie,
+        // bo BSS nie jest pusty (__bss_start)
+        text.AppendLine(".segment \"ZP\"");
+        text.AppendLine("__crt_ip: .res 2");
+        foreach (string symbol in CrtCells().Where(_zeroPage.Contains))
+        {
+            text.AppendLine($"{symbol}: .res 1");
+        }
+
         text.AppendLine(".segment \"BSS\"");
         text.AppendLine("__bss_start: .res 1");
-        text.AppendLine("__crt_ip: .res 2");
-        foreach (string symbol in CrtCells())
+        foreach (string symbol in CrtCells().Where(symbol => !_zeroPage.Contains(symbol)))
         {
             text.AppendLine($"{symbol}: .res 1");
         }
@@ -226,8 +266,12 @@ internal sealed class M6800Isa : ByteIsa
             return mnemonic is "ldx" or "lds" or "cpx" ? 3 : 2;
         }
 
-        return operand.EndsWith(",x", StringComparison.Ordinal) ? 2 : 3;
+        return operand.StartsWith("z:", StringComparison.Ordinal) || operand.EndsWith(",x", StringComparison.Ordinal) ? 2 : 3;
     }
+
+    /// <summary>Słowo w pamięci big-endian: starszy bajt pod <c>Hi</c>, młodszy pod <c>Hi+1</c> (bez pary <c>x</c>/<c>x_h</c> z crt0).</summary>
+    private static bool InMemory(Word word) =>
+        !word.IsImmediate && word.Lo != word.Hi + "_h" && Adjacent(new Word(false, word.Hi, word.Lo));
 
     private static IEnumerable<string> CrtCells()
     {
@@ -241,5 +285,14 @@ internal sealed class M6800Isa : ByteIsa
         yield return "cc_ret_h";
         yield return "cc_t0";
         yield return "cc_t1";
+    }
+
+    /// <summary>Adres z przedrostkiem <c>z:</c> (tryb bezpośredni), gdy symbol bazowy leży na stronie bezpośredniej. Tylko dla
+    /// instrukcji, które mają tryb bezpośredni (LDAA/STAA/ALU/CMPA/LDX/STX).</summary>
+    private string Mem(string address)
+    {
+        int plus = address.IndexOfAny(['+', '-']);
+        string symbol = plus < 0 ? address : address[..plus];
+        return _zeroPage.Contains(symbol) ? "z:" + address : address;
     }
 }
