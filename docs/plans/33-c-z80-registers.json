@@ -1,6 +1,6 @@
 {
   "title": "Mini-C: Z80/8080/6800 — tanie optymalizacje modelu pamięci, prymitywy 16-bitowe i przydział rejestrów",
-  "status": "open",
+  "status": "closed",
   "intro": "Cel: mniejszy i szybszy kod Z80/8080/6800 przez tanie optymalizacje modelu pamięci (aliasowanie parametrów liści, 16-bitowe przesłania i dodawanie przez HL, porównania ze znakiem przez flagę P/V, `jr`), a dopiero potem przydział rejestrów. Źródło: analiza Opus `docs/z80-register-optimizer-analysis.md` (pomiary na 14 benchach, `tools/disasm_compare.py`): rejestry same dają ok. 21% (max3 154 -> ok. 120 B), tanie kroki razem ok. 31-34% (max3 -> ok. 68 B; SDCC 53 B), po wszystkim max3 ok. 55-60 B.\n\nKolejność jest istotna: A (poprawność, wspólna analiza liveness) -> B -> C -> D. Zadania oznaczone „Haiku (plan-coder)” są dla subagenta `.claude/agents/plan-coder.md`, pozostałe wymagają mocnego modelu. Krok 5 planu 32 (węższe ramki rekurencji) został wycofany, bo skan liniowy ignorował skoki w przód; wraca w zadaniu 3 jako analiza liveness na grafie przepływu.\n\nZasady wykonawcy jak w `docs/plans/32-c-performance.md` (jedna zmiana = jeden commit, `TargetSizeTests` nie rośnie, goldeny przez UPDATE_IR_GATE/UPDATE_TARGET_SIZES, oczekiwane wartości testów liczone ręcznie, STOP przy wzroście rozmiaru). Dodatkowo: po każdym zadaniu uruchom pełny `dotnet test` i sam sprawdź `git diff tests/CathodeRay.Tests/target-sizes.txt`; raportowi agenta nie ufaj bez tego (w planie 32 raport „testy zielone” ukrył regresję ramek).",
   "items": [
     {
@@ -139,7 +139,7 @@
     {
       "id": "20",
       "title": "[S] 6800: `TryMoveWord` przez `ldx`/`stx` | wykonawca: Haiku (plan-coder) | Plik: `M6800Isa.cs` (tylko gdy obie strony to komórki big-endian, nie para `cc_arg`). Akceptacja: `Long_Moves…` i `TargetMatrixTests` 6800 zielone; kolumna 6800 maleje.",
-      "status": "todo",
+      "status": "done",
       "note": "",
       "section": "D. 6800"
     }

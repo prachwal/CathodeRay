@@ -1,4 +1,4 @@
-# Mini-C: Z80/8080/6800 — tanie optymalizacje modelu pamięci, prymitywy 16-bitowe i przydział rejestrów (status: otwarty)
+# Mini-C: Z80/8080/6800 — tanie optymalizacje modelu pamięci, prymitywy 16-bitowe i przydział rejestrów (status: zamknięty)
 
 Cel: mniejszy i szybszy kod Z80/8080/6800 przez tanie optymalizacje modelu pamięci (aliasowanie parametrów liści, 16-bitowe przesłania i dodawanie przez HL, porównania ze znakiem przez flagę P/V, `jr`), a dopiero potem przydział rejestrów. Źródło: analiza Opus `docs/z80-register-optimizer-analysis.md` (pomiary na 14 benchach, `tools/disasm_compare.py`): rejestry same dają ok. 21% (max3 154 -> ok. 120 B), tanie kroki razem ok. 31-34% (max3 -> ok. 68 B; SDCC 53 B), po wszystkim max3 ok. 55-60 B.
 
@@ -36,6 +36,6 @@ Zasady wykonawcy jak w `docs/plans/32-c-performance.md` (jedna zmiana = jeden co
 ## D. 6800
 
 - [x] **19.** [M] 6800: strona bezpośrednia | wykonawca: mocny model | Pliki: `src/CathodeRay.Assembler/Isa/Targets/M6800Set.cs` (formy `z:{b}`), `M6800Isa.cs` (`Mem` tylko dla mnemoników z trybem `d8`, `Size` = 2 dla `z:`, crt0 zeruje ZP, stałe `cc_arg1..3/cc_ret/cc_t*` na ZP), `M6800Target.cs` (obszar `C_ZP`, `Tune` z `ZeroPageAllocator`). Akceptacja: test asemblera `ldaa z:x` = 2 B z relokacją `Abs8`; `TargetMatrixTests` 6800 zielone; kolumna 6800 maleje w każdym wierszu.
-- [ ] **20.** [S] 6800: `TryMoveWord` przez `ldx`/`stx` | wykonawca: Haiku (plan-coder) | Plik: `M6800Isa.cs` (tylko gdy obie strony to komórki big-endian, nie para `cc_arg`). Akceptacja: `Long_Moves…` i `TargetMatrixTests` 6800 zielone; kolumna 6800 maleje.
+- [x] **20.** [S] 6800: `TryMoveWord` przez `ldx`/`stx` | wykonawca: Haiku (plan-coder) | Plik: `M6800Isa.cs` (tylko gdy obie strony to komórki big-endian, nie para `cc_arg`). Akceptacja: `Long_Moves…` i `TargetMatrixTests` 6800 zielone; kolumna 6800 maleje.
 
-Postęp: 19/20 gotowych.
+Postęp: 20/20 gotowych.

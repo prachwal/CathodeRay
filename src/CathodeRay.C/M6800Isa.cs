@@ -121,6 +121,24 @@ internal sealed class M6800Isa : ByteIsa
         L("jsr 0,x");
     }
 
+    /// <summary>Kopia słowa przez X: <c>ldx źródło</c> (albo <c>ldx #stała</c>), <c>stx cel</c>. Obie strony w pamięci big-endian
+    /// (starszy bajt tuż przed młodszym: <c>Lo</c> = <c>Hi+1</c>); para <c>cc_argN</c>/<c>cc_argN_h</c> leży odwrotnie (młodszy pod
+    /// <c>cc_argN</c>), więc zostaje przy kopii bajtowej. A się nie zmienia; X i flagi N/Z/V tak (X nie trzyma stanu między prymitywami).</summary>
+    /// <param name="dst">Cel.</param>
+    /// <param name="src">Źródło.</param>
+    /// <returns><see langword="false"/>, gdy któraś strona nie jest słowem big-endian w pamięci.</returns>
+    public override bool TryMoveWord(Word dst, Word src)
+    {
+        if (!InMemory(dst) || !(src.IsImmediate || InMemory(src)))
+        {
+            return false;
+        }
+
+        L(src.IsImmediate ? $"ldx #{src.Lo}" : $"ldx {Mem(src.Hi)}");
+        L($"stx {Mem(dst.Hi)}");
+        return true;
+    }
+
     public override void Return() => L("rts");
 
     public override void PtrSetup(string cell, int offset, bool mustCopy = false)
@@ -250,6 +268,10 @@ internal sealed class M6800Isa : ByteIsa
 
         return operand.StartsWith("z:", StringComparison.Ordinal) || operand.EndsWith(",x", StringComparison.Ordinal) ? 2 : 3;
     }
+
+    /// <summary>Słowo w pamięci big-endian: starszy bajt pod <c>Hi</c>, młodszy pod <c>Hi+1</c> (bez pary <c>x</c>/<c>x_h</c> z crt0).</summary>
+    private static bool InMemory(Word word) =>
+        !word.IsImmediate && word.Lo != word.Hi + "_h" && Adjacent(new Word(false, word.Hi, word.Lo));
 
     private static IEnumerable<string> CrtCells()
     {
