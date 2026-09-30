@@ -1,4 +1,4 @@
-# Mini-C: wydajność kodu 6502 — kopie przez tymczasowe, ramki rekurencji, peephole (status: otwarty)
+# Mini-C: wydajność kodu 6502 — kopie przez tymczasowe, ramki rekurencji, peephole (status: w kolejce)
 
 Cel: mniejszy i szybszy kod 6502 (i pośrednio Z80/8080/6800) bez zmiany semantyki. Baza pomiaru: `python3 tools/compare.py` = mini-C/cc65 1,74×, mini-C/SDCC 3,56× (`docs/compare.md`). Pomiar wzorców w listingach `samples/bench` (6502, 888 instrukcji kodu użytkownika): `sta M ; lda M` 193×, `lda M ; sta M` 133×, `sta M ; ldy #I` 22×, `jmp M` 31×; `fib` zapisuje na stosie także tymczasowe (10 B na cykl rekurencji).
 
