@@ -41,12 +41,11 @@ def function(r, name, static):
     lines = []
 
     def operand(target, pool=None, cast=True):
-        names = [n for n, t in (pool or vs) if not (cast and target == "I32") or t == "I32"]
+        names = [n for n, t in (pool or vs)]
         v = r.choice(names + ["K"])
         text = const(r, target) if v == "K" else v
-        # mini-C: uchar op uchar zostaje 8-bitowe, więc lewy operand ma typ wyniku (rzutowanie; dla I32 zmienna albo stała I32,
-        # bo `(long)int op long` w jednym wyrażeniu daje dziś zły wynik na wszystkich celach, zob. raport planu 33 krok 5)
-        return text if target in ("U8", "I32") or not cast else f"({target}){text}"
+        # mini-C: uchar op uchar zostaje 8-bitowe, więc lewy operand ma typ wyniku (rzutowanie)
+        return text if target == "U8" or not cast else f"({target}){text}"
 
     def assign(pad, v):
         t = types[v]
