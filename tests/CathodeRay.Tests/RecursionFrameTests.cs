@@ -85,4 +85,28 @@ public sealed class RecursionFrameTests
         // All four conditions are true: 1 + 2 + 4 + 8 = 15
         CcRun.RunOn(Source, cpu).Value.Should().Be(15);
     }
+
+    [Theory]
+    [MemberData(nameof(Targets))]
+    public void Local_Live_Across_Recursive_Call_Survives_Forward_Goto(string cpu)
+    {
+        // regresja: skok w przód po wywołaniu nie może ukryć odczytu x przed zapisem ramki
+        const string Source = """
+            int g(int n) {
+                int x;
+                x = n * 3;
+                if (n == 0) return 0;
+                g(n - 1);
+                if (n & 1) goto skip;
+                x = 100;
+                skip:
+                return x;
+            }
+
+            int main() { return g(1) * 10 + g(3); }
+            """;
+
+        // g(1) = 3 (x = 3 przeżywa wywołanie g(0)); g(3) = 9 (n & 1, więc x = 9 przeżywa wywołanie g(2)); 3 * 10 + 9
+        CcRun.RunOn(Source, cpu).Value.Should().Be(39);
+    }
 }

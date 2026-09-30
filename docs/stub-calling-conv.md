@@ -397,8 +397,8 @@ Konwersja `float` <-> `long long` nie jest obsługiwana (błąd typów). Tekst: 
 
 ## Plan 32: efekt (kroki 1-13)
 
-Pomiar `tools/compare.py`: mini-C / cc65 1,74 → 1,73, mini-C / SDCC 3,56 → 3,52. Realny zysk dały tylko: usuwanie kodu nieosiągalnego w IR
-(−1152 B w 80 wierszach `target-sizes`), węższe ramki rekurencji (`fib` 10 → 8 B na cykl) i `inc` zamiast `adc #0` przy dodawaniu stałej do
+Pomiar `tools/compare.py`: mini-C / cc65 1,74 → 1,73, mini-C / SDCC 3,56 → 3,52. Realny zysk dały tylko (krok 5, węższe ramki rekurencji, wycofany: skan liniowy ignorował skoki w przód i dawał zły wynik, zob. `RecursionFrameTests`): usuwanie kodu nieosiągalnego w IR
+(−1152 B w 80 wierszach `target-sizes`), `inc` zamiast `adc #0` przy dodawaniu stałej do
 `uint` na 6502 (−2..5 B). Reguły peephole (`ldy`, martwy kod po `jmp`, powtórzone `lda #0`) i przebieg `Mov`→`Mov` w `ForwardTemporaries`
 działają w testach jednostkowych, ale nie mają efektu na benchach. Krok 9 (łańcuchy `jmp`) wstrzymany: +3 B na `stub`.
 
