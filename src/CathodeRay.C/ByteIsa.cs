@@ -176,6 +176,16 @@ internal abstract class ByteIsa
     /// <returns><see langword="true"/>, gdy sekwencja została wyemitowana.</returns>
     public virtual bool TryMoveWord(Word dst, Word src) => false;
 
+    /// <summary>Dodawanie albo odejmowanie słów 16-bitowych <c>dst ← a ± b</c> jedną sekwencją CPU, bez zmiany A (może zmienić
+    /// rejestry adresowe i flagi; flagi po niej są nieokreślone, selektor ich nie używa). Domyślnie <see langword="false"/>:
+    /// selektor liczy bajt po bajcie przez A.</summary>
+    /// <param name="dst">Cel (pamięć).</param>
+    /// <param name="a">Lewy operand: stała albo pamięć.</param>
+    /// <param name="b">Prawy operand: stała albo pamięć.</param>
+    /// <param name="subtract"><see langword="true"/>: <c>a - b</c>.</param>
+    /// <returns><see langword="true"/>, gdy sekwencja została wyemitowana.</returns>
+    public virtual bool TryAddWord(Word dst, Word a, Word b, bool subtract) => false;
+
     /// <summary>Zamienia tekst od znacznika na jego wersję po relaksacji skoków (krótkie skoki warunkowe tam, gdzie cel jest w zasięgu).</summary>
     /// <param name="mark">Znacznik z <see cref="Mark"/>.</param>
     public void RelaxFrom(int mark)

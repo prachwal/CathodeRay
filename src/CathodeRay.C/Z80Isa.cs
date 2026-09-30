@@ -109,6 +109,59 @@ internal sealed class Z80Isa : ByteIsa
         return true;
     }
 
+    /// <summary>Dodawanie/odejmowanie przez HL: <c>ld hl,a; add hl,de</c> albo <c>or a; sbc hl,de</c>, stała ±1..3 przez
+    /// <c>inc hl</c>/<c>dec hl</c>, odjęcie stałej liczbowej jako dodanie jej przeciwieństwa.</summary>
+    /// <param name="dst">Cel.</param>
+    /// <param name="a">Lewy operand.</param>
+    /// <param name="b">Prawy operand.</param>
+    /// <param name="subtract">Odejmowanie.</param>
+    /// <returns><see langword="false"/>, gdy bajty nie są sąsiednie albo oba operandy są stałymi.</returns>
+    public override bool TryAddWord(Word dst, Word a, Word b, bool subtract)
+    {
+        if (dst.IsImmediate || !Adjacent(dst) || (a.IsImmediate && b.IsImmediate) || (!a.IsImmediate && !Adjacent(a)) || (!b.IsImmediate && !Adjacent(b)))
+        {
+            return false;
+        }
+
+        if (!subtract && a.IsImmediate)
+        {
+            (a, b) = (b, a);
+        }
+
+        int? constant = null;
+        if (b.IsImmediate && int.TryParse(b.Lo, NumberStyles.Integer, CultureInfo.InvariantCulture, out int value))
+        {
+            constant = (subtract ? -value : value) & 0xFFFF;
+            subtract = false;
+        }
+
+        L(a.IsImmediate ? $"ld hl,{a.Lo}" : $"ld hl,({a.Lo})");
+        if (constant is { } k && (k <= 3 || k >= 0xFFFD))
+        {
+            string step = k <= 3 ? "inc hl" : "dec hl";
+            for (int i = 0; i < (k <= 3 ? k : 0x10000 - k); i++)
+            {
+                L(step);
+            }
+        }
+        else
+        {
+            L(constant is { } n ? $"ld de,{n}" : (b.IsImmediate ? $"ld de,{b.Lo}" : $"ld de,({b.Lo})"));
+            if (subtract)
+            {
+                L("or a");
+                L("sbc hl,de");
+            }
+            else
+            {
+                L("add hl,de");
+            }
+        }
+
+        L($"ld ({dst.Lo}),hl");
+        return true;
+    }
+
     public override void PushA() => L("push af");
 
     public override void PopA() => L("pop af");

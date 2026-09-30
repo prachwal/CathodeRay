@@ -23,6 +23,9 @@ def const(r, t):
         return str(r.randint(0, 255))
     if t == "I32":
         return f"{r.choice([r.randint(-99999, 99999), r.randint(0, 9)])}L"
+    if r.random() < 0.25:
+        # wartości graniczne słowa 16-bitowego (przeniesienie/pożyczka i przepełnienie ze znakiem)
+        return r.choice(["32767", "-32767", "(-32767 - 1)", "-1", "0", "1"] if t == "I16" else ["65535", "32768", "32767", "0", "1"])
     return str(r.randint(-300, 30000) if t == "I16" else r.randint(0, 32767))
 
 

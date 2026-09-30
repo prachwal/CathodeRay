@@ -444,6 +444,15 @@ internal sealed class ByteSelector
 
     private void EmitChain(ByteAlu alu, Ir.Bin bin)
     {
+        if (alu is ByteAlu.Add or ByteAlu.Sub && bin.Dst.W == 2 && WordOf(bin.Dst) is { } dst && WordOf(bin.A) is { } a && WordOf(bin.B) is { } b
+            && _isa.TryAddWord(dst, a, b, alu == ByteAlu.Sub))
+        {
+            // A bez zmian, ale bajty celu już nie są mu równe
+            _acc.Remove(dst.Lo);
+            _acc.Remove(dst.Hi);
+            return;
+        }
+
         for (int i = 0; i < bin.Dst.W; i++)
         {
             LoadA(ByteOf(bin.A, i));
