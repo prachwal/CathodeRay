@@ -12,7 +12,8 @@ PROTECTED = ("tests/CathodeRay.Tests/CcRun.cs", "tests/CathodeRay.Tests/Repo.cs"
 BASH_ALLOW = [
     r"^dotnet (build|test) --nologo",
     r"^(UPDATE_IR_GATE|UPDATE_TARGET_SIZES)=1 dotnet test --nologo",
-    r"^python3 tools/(compare|hotspots|plan)\.py",
+    r"^python3 tools/(compare|hotspots|plan|disasm_compare|leaf_fuzz|recursion_fuzz)\.py",
+    r"^(RECURSION_FUZZ_DIR|LEAF_FUZZ_DIR)=\S+ dotnet test --nologo",
     r"^git (status|diff|log|add|show)\b",
     r"^git commit -m ",
     r"^git branch --show-current$",
