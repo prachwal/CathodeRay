@@ -128,9 +128,10 @@ public static class VReg
     /// <param name="Params">Rejestry parametrów w kolejności deklaracji.</param>
     /// <param name="Sym">Rejestr → pierwotny symbol komórki (do odtworzenia <see cref="Ir"/>; rejestr bez wpisu jest syntezowany).</param>
     /// <param name="Aggregates">Agregaty funkcji (pamięć, nigdy rejestry).</param>
+    /// <param name="Saved">Pamięć zapisywana w ramce (jak <see cref="Ir.Function.Saved"/>).</param>
     /// <param name="RetW">Szerokość wyniku (0 dla void).</param>
     /// <param name="Blocks">Bloki w kolejności źródła.</param>
-    public sealed record Function(string Name, bool IsStatic, IReadOnlyList<Reg> Params, IReadOnlyDictionary<int, string> Sym, IReadOnlyList<Ir.Owned> Aggregates, int RetW, IReadOnlyList<Block> Blocks);
+    public sealed record Function(string Name, bool IsStatic, IReadOnlyList<Reg> Params, IReadOnlyDictionary<int, string> Sym, IReadOnlyList<Ir.Owned> Aggregates, IReadOnlyList<Ir.Owned> Saved, int RetW, IReadOnlyList<Block> Blocks);
 
     /// <summary>Moduł: funkcje w rejestrach, dane i deklaracje zewnętrzne jak w <see cref="Ir.Module"/>.</summary>
     /// <param name="Functions">Funkcje w kolejności źródła.</param>

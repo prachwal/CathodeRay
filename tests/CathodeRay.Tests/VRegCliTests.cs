@@ -50,7 +50,7 @@ public sealed class VRegCliTests
     public void VReg_Model_Holds_Blocks()
     {
         var block = new VReg.Block("__entry", false, [new VReg.Ret(new VReg.Imm(42, 2), 2)]);
-        var function = new VReg.Function("main", false, [], new Dictionary<int, string>(), [], 2, [block]);
+        var function = new VReg.Function("main", false, [], new Dictionary<int, string>(), [], [], 2, [block]);
         function.Blocks.Should().HaveCount(1);
         function.Blocks[0].Code.Should().HaveCount(1);
     }

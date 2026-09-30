@@ -11,8 +11,8 @@
     {
       "id": "2",
       "title": "[S] Lowering wyrazen/sterowania + VRegInterpreter + oracle vs Cell na skalarach (design §3, §8)",
-      "status": "todo",
-      "note": ""
+      "status": "done",
+      "note": "Lift Cell->VReg (bloki, Cmp+Br, Pinned/Addr) + VRegToCell (fuzja Br, negacja) + VRegInterpreter (adapter IrInterpreter) + VRegPipeline; roundtrip daje bajt-identyczny asm i zgodne interpretery (8 programow x3, 24 testy)."
     },
     {
       "id": "3",
