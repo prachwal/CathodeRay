@@ -211,7 +211,8 @@ public sealed class Z80Cpu
             {
                 int c = kind == 1 ? carryIn : 0;
                 int sum = a + operand + c;
-                SetFlags(sum, sum > 0xFF, ((a & 15) + (operand & 15) + c) > 15, (~(a ^ operand) & (a ^ sum) & 0x80) != 0, false);
+                bool pOrV = Intel8080 ? Parity((byte)sum) : (~(a ^ operand) & (a ^ sum) & 0x80) != 0;
+                SetFlags(sum, sum > 0xFF, ((a & 15) + (operand & 15) + c) > 15, pOrV, false);
                 A = (byte)sum;
                 break;
             }
@@ -222,7 +223,8 @@ public sealed class Z80Cpu
             {
                 int c = kind == 3 ? carryIn : 0;
                 int diff = a - operand - c;
-                SetFlags(diff, diff < 0, ((a & 15) - (operand & 15) - c) < 0, ((a ^ operand) & (a ^ diff) & 0x80) != 0, true);
+                bool pOrV = Intel8080 ? Parity((byte)diff) : ((a ^ operand) & (a ^ diff) & 0x80) != 0;
+                SetFlags(diff, diff < 0, ((a & 15) - (operand & 15) - c) < 0, pOrV, true);
                 if (kind != 7)
                 {
                     A = (byte)diff;
