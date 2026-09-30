@@ -19,19 +19,24 @@ public sealed class LeafFuzzTests
             .Where(static l => l.Length > 0)
             .Select(static l => l.Split(' '))
             .ToDictionary(static p => p[0], static p => int.Parse(p[1], System.Globalization.CultureInfo.InvariantCulture));
-        var mismatches = new List<string>();
-        foreach (string cpu in TargetHarness.Targets.Select(static t => t.Name))
+        var mismatches = new System.Collections.Concurrent.ConcurrentBag<string>();
+        var work = TargetHarness.Targets.Select(static t => t.Name).SelectMany(cpu => expected.Select(item => (Cpu: cpu, item.Key, item.Value))).ToList();
+        Parallel.ForEach(work, new ParallelOptions { MaxDegreeOfParallelism = Environment.ProcessorCount }, item =>
         {
-            foreach ((string name, int value) in expected)
+            try
             {
-                int actual = CcRun.RunOn(File.ReadAllText(Path.Combine(directory, name + "_ours.c")), cpu).Value;
-                if (actual != value)
+                int actual = CcRun.RunOn(File.ReadAllText(Path.Combine(directory, item.Key + "_ours.c")), item.Cpu).Value;
+                if (actual != item.Value)
                 {
-                    mismatches.Add($"{cpu} {name}: {actual} zamiast {value}");
+                    mismatches.Add($"{item.Cpu} {item.Key}: {actual} zamiast {item.Value}");
                 }
             }
-        }
+            catch (Exception e)
+            {
+                mismatches.Add($"{item.Cpu} {item.Key}: wyjątek {e.GetType().Name}: {e.Message.Split('\n')[0]}");
+            }
+        });
 
-        mismatches.Should().BeEmpty(string.Join("; ", mismatches));
+        mismatches.Order().Should().BeEmpty();
     }
 }
