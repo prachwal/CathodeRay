@@ -16,7 +16,7 @@ public sealed class CTargetTests
         CTargets.Find("STUB").Should().BeSameAs(CTargets.Default);
         CTargets.Find("Z80")!.Name.Should().Be("z80");
         CTargets.Find("pdp11").Should().BeNull();
-        CTargets.All.Select(static t => t.Name).Should().Equal("stub", "6502", "65c02", "z80", "8080", "6800");
+        CTargets.All.Select(static t => t.Name).Should().Equal("stub", "6502", "65c02", "nes", "6510", "z80", "8080", "6800");
         CTargets.Planned.Should().BeEmpty();
     }
 

@@ -1,6 +1,6 @@
 {
   "title": "VReg: wirtualne rejestry z opadaniem do Cell IR (projekt docs/vreg-design.md)",
-  "status": "queued",
+  "status": "closed",
   "items": [
     {
       "id": "1",
@@ -41,14 +41,14 @@
     {
       "id": "7",
       "title": "[M] LinearScanAllocator + pomiar vs conservative na celach z rejestrami (design §6, §10.6)",
-      "status": "todo",
-      "note": ""
+      "status": "done",
+      "note": "LinearScanAllocator (przedzialy z VRegLiveness, wygasanie, MaxRegs, spill W>2 bez par) + testy jednostkowe; pomiar: 278/660 trzymanych na samplach (vreg-alloc.txt/md); keep-set doradczy do czasu bezposredniego emitera."
     },
     {
       "id": "8",
       "title": "[S] Goldeny rozmiaru dla vreg (osobna tabela); SSA/GVN tylko pod pomiar jako osobna decyzja (design §8, §10.7)",
-      "status": "todo",
-      "note": ""
+      "status": "done",
+      "note": "VRegSizeTests: osobny golden vreg-sizes.txt + docs/vreg-sizes.md (192 pola x8 celow); 48/192 rozni sie od Cell (zwykle w dol, wyjatki Z80 w 04/23); SSA odroczone (decyzja w vreg-design §12)."
     }
   ]
 }

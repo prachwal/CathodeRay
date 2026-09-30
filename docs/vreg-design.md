@@ -1,6 +1,7 @@
 # VReg dla obecnego rozwiązania — projekt techniczny
 
-Status: **projekt** (nie zaimplementowany). Branch: `vreg/design`.
+Status: **zaimplementowany (plan 37)** — potok `--ir vreg` działa end-to-end, domyślny pozostaje `cell`.
+Branch: `vreg/design`.
 Punkt wyjścia: [ir-vreg-plan.md](ir-vreg-plan.md#goal) (propozycja ogólna).
 Ten dokument rozstrzyga kwestie, które tamten zostawia otwarte, i wiąże je z konkretnym kodem.
 
@@ -224,6 +225,18 @@ Testy: `VRegLoweringTests`, `VRegLivenessTests`, `VRegInterpreterTests`, `VRegCo
 - **6502/ZP**: spill tylko do komórek absolutnych/ZP, nigdy „slotów ramki" (§D2).
 - **BCD na NES**: flaga celu gasi ścieżki dziesiętne selektora 6502 (§D6).
 - **Dwa IR do utrzymania**: współdzielone testy semantyczne (§8); default = cell do pełnej konformancji.
+
+## 12. Stan po planie 37 (zaimplementowano)
+
+- Potok działa end-to-end: `--ir vreg` kompiluje całe `samples/minic` na wszystkich 8 celach
+  (matryca wartości i konsoli zgodna z Cell). Domyślna ścieżka Cell nie drgnęła (jej goldeny zielone).
+- **SSA odroczone** (osobna decyzja): lokalne CSE + zwijanie kopii + DCE wystarczają na start;
+  SSA wraca, gdy pomiary wskażą globalne straty (osobny plan, nie część tego dokumentu).
+- **LinearScan doradczy**: trzyma 278/660 rejestrów na samplach ([vreg-alloc.md](vreg-alloc.md)),
+  ale przy architekturze adaptera keep-set nie zmienia kodu (przydział robi `RegisterAllocator`
+  po opadnięciu). `--regalloc` w CLI dopiero z bezpośrednim emiterem VReg.
+- Rozmiary: [vreg-sizes.md](vreg-sizes.md) — zwykle mniejsze od Cell (druga runda przebiegów),
+  wyjątki w górę na Z80/8080 (`04_int_ops`, `23_types`: fazowanie z `RegisterAllocator`, osobne zadanie).
 
 ## Powiązane
 
