@@ -69,7 +69,7 @@
     {
       "id": "10",
       "title": "[S] Emulator 8080: P = parzystość dla add/sub | wykonawca: Haiku (plan-coder) | Plik: `tests/CathodeRay.Tests/Z80Cpu.cs` (`Alu`, 214 i 225: w trybie `Intel8080` podawać `Parity`). Akceptacja: nowy test w `Z80CpuTests.cs` (`sub` 8080 ustawia P wg parzystości); cały `dotnet test` zielony; tabela bez zmian.",
-      "status": "todo",
+      "status": "done",
       "note": "",
       "section": "B. Tanie optymalizacje modelu pamięci i 16-bitowe (Z80, 8080)"
     },
