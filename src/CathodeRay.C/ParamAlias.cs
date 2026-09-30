@@ -64,7 +64,7 @@ internal static class ParamAlias
             functions.Add(alias.Count == 0 ? function : function with
             {
                 Params = [.. function.Params.Select(p => Rename(p, alias))],
-                Body = [.. function.Body.Select(i => Rename(i, alias))],
+                Body = [.. function.Body.Select(i => Rename(i, alias)).Where(i => !IsNoOpMov(i))],
             });
         }
 
@@ -186,6 +186,22 @@ internal static class ParamAlias
         alias.TryGetValue(cell.Sym, out string? sym) ? cell with { Sym = sym } : cell;
 
     private static Ir.Op Rename(Ir.Op op, Dictionary<string, string> alias) => (op is Ir.Cell cell) ? Rename(cell, alias) : op;
+
+    /// <summary>Czy instrukcja to Mov z tą samą komórką po obu stronach (żaden efekt).</summary>
+    private static bool IsNoOpMov(Ir.Ins ins)
+    {
+        if (ins is not Ir.Mov mov)
+        {
+            return false;
+        }
+
+        if (mov.Src is not Ir.Cell src)
+        {
+            return false;
+        }
+
+        return mov.Dst.Sym == src.Sym && mov.Dst.W == src.W;
+    }
 
     private static Ir.Ins Rename(Ir.Ins ins, Dictionary<string, string> alias) => ins switch
     {

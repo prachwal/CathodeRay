@@ -124,4 +124,24 @@ public sealed class ParamAliasTests
             z80.Should().Contain(kept, "parametr żywy za wołaniem, argument na dalszej pozycji, wskaźnik wołania albo wzięty adres");
         }
     }
+
+    [Fact]
+    public void Aliased_Parameter_Self_Copy_Is_Removed()
+    {
+        const string Source = """
+            void putdec(int v);
+            int g(int x) { return x; }
+            int pick(uchar k, int v) { return k ? g(v) : g(v + 1); }
+            int main() { putdec(pick(1, 5) + pick(0, 5)); return 0; }
+            """;
+
+        Ir.Module module = Codegen.Lower(TypeChecker.Check(Parser.Parse(Source)), "t.c", objectMode: true);
+        string z80 = CTargets.Find("z80")!.Emit(module, optimize: true);
+        string i8080 = CTargets.Find("8080")!.Emit(module, optimize: true);
+
+        z80.Should().NotMatchRegex(@"ld hl,\((\w+)\)\r?\n\s*ld \(\1\),hl", "Z80: samodzielna kopia komórki");
+        i8080.Should().NotMatchRegex(@"lhld (\w+)\r?\n\s*shld \1", "8080: samodzielna kopia komórki");
+        CcRun.RunOn(Source, "z80").Console.Should().Be("11", "pick(1,5)=5, pick(0,5)=6, suma=11");
+        CcRun.RunOn(Source, "8080").Console.Should().Be("11", "pick(1,5)=5, pick(0,5)=6, suma=11");
+    }
 }
