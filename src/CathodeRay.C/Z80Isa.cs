@@ -17,6 +17,13 @@ internal sealed partial class Z80Isa : ByteIsa
 
     private int _position;
 
+    /// <summary>Rejestry, które prymitywy niszczą niezależnie od mapy rejestrów: A i HL (rejestr adresowy); wszystko niszczą
+    /// tylko wołania (<see cref="Call"/>, <see cref="CallIndirect"/>). Rejestry B, C, D, E przypisane komórkom przez
+    /// <see cref="AssignRegisters"/> prymitywy zachowują: parę pomocniczą (<see cref="TryAddWord"/>, <see cref="TryAddLong"/>,
+    /// <see cref="PtrSetup"/> z przesunięciem &gt; 3) biorą tylko wolną, inaczej <c>push de</c>/<c>pop de</c> albo łańcuch przez A.
+    /// Alokator może więc dać komórce dowolny z B, C, D, E, jeśli nie żyje przez wołanie.</summary>
+    public static IReadOnlySet<string> Clobbers { get; } = new HashSet<string>(["a", "h", "l"], StringComparer.Ordinal);
+
     public override IEnumerable<string> IndirectSymbols => ["__callhl"];
 
     public override bool HasOverflowFlag => true;
@@ -307,8 +314,19 @@ internal sealed partial class Z80Isa : ByteIsa
         }
         else if (offset > 3)
         {
-            L($"ld de,{offset}");
-            L("add hl,de");
+            // para pomocnicza tylko wolna (DE, potem BC); obie z komórkami: DE przechowane na stosie
+            string? pair = Scratch();
+            if (pair is null)
+            {
+                L("push de");
+            }
+
+            L($"ld {pair ?? "de"},{offset}");
+            L($"add hl,{pair ?? "de"}");
+            if (pair is null)
+            {
+                L("pop de");
+            }
         }
 
         _position = 0;

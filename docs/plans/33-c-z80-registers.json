@@ -97,7 +97,7 @@
     {
       "id": "14",
       "title": "[S] Deklaracja niszczonych rejestrów (`Clobbers`) + `PtrSetup` z offsetem > 3 | wykonawca: Haiku (plan-coder) | Plik: `Z80Isa.cs` (i analogicznie `Intel8080Isa.cs` w zadaniu 17). Akceptacja: test w `Z80RegisterIsaTests` (wartość w E przeżywa `Load` z `Off = 6`, bo alokator jej tam nie da albo ISA nie używa DE); tabela bez zmian.",
-      "status": "todo",
+      "status": "done",
       "note": "",
       "section": "C. Rejestry (Z80, potem 8080)"
     },

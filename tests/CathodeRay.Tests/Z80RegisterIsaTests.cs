@@ -3,7 +3,7 @@ using FluentAssertions;
 
 namespace CathodeRay.Tests;
 
-/// <summary>Plan 33, krok 13: mapa rejestrów w <see cref="Z80Isa"/> (ręczna, bez alokatora). Ręcznie zbudowane IR, listing
+/// <summary>Plan 33, kroki 13–14: mapa rejestrów w <see cref="Z80Isa"/> (ręczna, bez alokatora). Ręcznie zbudowane IR, listing
 /// z operandami-rejestrami, wynik z emulatora Z80 kontra <see cref="IrInterpreter"/> i wartość liczona ręcznie.</summary>
 public sealed class Z80RegisterIsaTests
 {
@@ -92,6 +92,47 @@ public sealed class Z80RegisterIsaTests
 
         code.Should().Contain("ld l,e").And.Contain("ld h,d").And.Contain("ld e,a").And.Contain("ld d,a");
         value.Should().Be(20 | (40 << 8)).And.Be(Interpret(module));
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void Value_In_E_Survives_Pointer_Load_With_Large_Offset(bool bcTaken)
+    {
+        var x = new Ir.Cell("main__x", 1);
+        var p = new Ir.Cell("main__p", 2);
+        var v = new Ir.Cell("main__v", 1);
+
+        // x = 5; v = *(p + 6) = arr[6] = 70; wynik x + v = 75 (zniszczone E dałoby 6 + 70 = 76)
+        List<Ir.Ins> body =
+        [
+            new Ir.Mov(x, new Ir.Imm(5, 1)),
+            new Ir.Mov(p, new Ir.AddrOf("arr", 0)),
+            new Ir.Load(v, p, 6, 1),
+            new Ir.Bin(Ir.BinOp.Add, v, x, v),
+            new Ir.Ret(v, 1),
+        ];
+        var arr = new Ir.Data("arr", "DATA", 8, [new Ir.Bytes([10, 20, 30, 40, 50, 60, 70, 80])], false);
+        Ir.Module module = Module(body, Bss("main__x", 1), Bss("main__p", 2), Bss("main__v", 1), arr);
+        var registers = new Dictionary<string, string> { ["main__x"] = "e" };
+        if (bcTaken)
+        {
+            registers["main__other"] = "bc";
+        }
+
+        (string code, int value) = Run(module, registers);
+
+        Z80Isa.Clobbers.Should().NotIntersectWith(["b", "c", "d", "e"], "prymitywy zachowują rejestry przypisane komórkom");
+        if (bcTaken)
+        {
+            code.Should().Contain(string.Join(Environment.NewLine, "push de", "ld de,6", "add hl,de", "pop de"));
+        }
+        else
+        {
+            code.Should().Contain(string.Join(Environment.NewLine, "ld bc,6", "add hl,bc")).And.NotContain("ld de,6");
+        }
+
+        value.Should().Be(75).And.Be(Interpret(module));
     }
 
     private static Ir.Data Bss(string sym, int size) => new(sym, "BSS", size, null, false);
