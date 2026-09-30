@@ -42,8 +42,8 @@ Metodyka: bajty **samej funkcji** (bez pełnego runtime ref), `cathode cc --cpu 
 | max3 | Z80 | 61 B | SDCC 53 B | **1.15×** |
 | fib | 8080 | 116 B | sccz80 ~50 B (+ runtime) | **~2.3×** |
 | max3 | 8080 | ~89 B | sccz80 ~90 B (+ helpers) | **~1.0×** |
-| fib | 6800 | 193 B | (brak ref C) | vs 6502 wyraźnie gorzej |
-| max3 | 6800 | 148 B | — | vs 6502 83 B |
+| fib | 6800 | 140 B (było 193 B przed planem 33 kr. 19-20) | (brak ref C) | vs 6502 144 B: porównywalnie |
+| max3 | 6800 | 95 B (było 148 B) | — | vs 6502 83 B |
 
 **Wniosek przekrojowy:** stosunek zależy od kształtu kodu, nie od „złych instrukcji”.
 Wołania/rekurencja 2–3×; prosty kod już ~0.9–1.2× ref.
@@ -111,14 +111,14 @@ ParamAlias; usuwanie z Saved komórek w reg.
 | Priorytet | Zmiana | Cele | Efekt |
 |-----------|--------|------|--------|
 | **P0** | Wynik W≤2 w rejestrze (HL / A:X) | Z80, 8080, potem 6502 | −4…12 B na wołanie; fib mocno |
-| **P0** | 6800 direct page + TryMoveWord | 6800 | max3 148→~100 B |
+| ~~P0~~ | ~~6800 direct page + TryMoveWord~~ (zrobione: plan 33 kr. 19-20, max3 148→95 B, fib 193→140 B) | 6800 | — |
 | **P1** | Prolog Saved: `push bc`/`de` nie `push af` | Z80, 8080 | −30% prologu ramki |
 | **P1** | Arg1 live-in w HL | Z80, 8080 | mniej `ld hl,(cc_arg1)` |
 | **P1** | Mniej kopiowania param → komórki funkcji | wszystkie | krótszy prolog |
 | **P2** | Lekki cache X na 6502 | 6502 | fib bliżej 1.3–1.5× |
 | **P2** | Dalsze Try* (dec hl, cmp0) | wszystkie | kilka % |
 
-Kolejność bezpieczna: 6800 DP → wynik HL → push par → arg w HL → 6502.
+Kolejność bezpieczna (po weryfikacji z listingiem `fib` Z80: push par w Saved oszczędza ok. 8 B bez zmiany ABI, wynik w HL ok. 10-14 B, ale dotyka rutyn asemblerowych `rt_mul.s`/`rt_div.s`, które zwracają przez `cc_ret`): push par → wynik HL (z regułą dla asm rt) → arg w HL → 6502. Zob. plan 35.
 
 Po każdym kroku: `dotnet test` + kolumna size **nie rośnie**.
 
@@ -232,8 +232,8 @@ Dalsze cięcie: arg w HL, `dec hl` na ścieżce argów, push par w Saved.
 | Plan | Temat | Status |
 |------|--------|--------|
 | 30 | Cele 6502/Z80/8080/6800, long, void* | zamknięty |
-| 32 | Wydajność 6502 / peephole | ~11/13 |
-| 33 | Z80 regalloc, Try*, 8080, 6800 DP | ~18/20 (HL-ret = follow-up) |
+| 32 | Wydajność 6502 / peephole | wstrzymany (kroki 5 i 9 zastąpione planem 33) |
+| 33 | Z80 regalloc, Try*, 8080, 6800 DP | zamknięty (20/20; HL-ret = plan 35) |
 | 34 | VM bytecode | kolejka — nie zmniejsza AOT |
 
 ---

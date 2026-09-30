@@ -1,0 +1,21 @@
+# Mini-C: Z80/8080 — push par w ramkach, wynik W<=2 w HL, parametry nie-liści (status: otwarty)
+
+Cel: zmniejszyć kod Z80/8080 tam, gdzie zostaje największa luka (rekurencja/wołania: `fib` Z80 95 B vs SDCC 31 B). Źródło: `docs/codegen-size-and-hl-plan.md` (analiza zbiorcza) z poprawkami z weryfikacji: w listingu `fib` Z80 prolog/epilog ramki `n` zajmuje 16 B (`ld a,(nn) / push af` po bajcie), push pary to ok. 8 B; wynik przez `cc_ret` kosztuje ok. 10-14 B na `fib`; parametr nie-liścia jest kopiowany do komórki.
+
+Kolejność: 1 (bez zmiany ABI, niskie ryzyko) -> 2 (zmiana ABI wyniku: UWAGA na rutyny asemblerowe `stdlib/target/z80/rt_mul.s`, `rt_div.s`, które zwracają przez `ld (cc_ret),hl`, oraz na moduły `.s` podawane do `cc`) -> 3.
+
+Bramki każdego zadania (jak w planie 33): pełny `dotnet test`, `RecursionFuzzTests` i `LeafFuzzTests` na 500 programach (`python3 tools/recursion_fuzz.py gen 500 DIR`, `RECURSION_FUZZ_DIR=DIR dotnet test --filter RecursionFuzzTests`; to samo `leaf_fuzz.py`/`LEAF_FUZZ_DIR`), `RandomIrTests`, tabela `target-sizes.txt` nie rośnie w żadnym wierszu i żadnej kolumnie (stub, 6502, 6800 bez zmian w zadaniach 1-2, chyba że zadanie mówi inaczej), mutacja kontrolna (zepsuj nową regułę i sprawdź, że test/fuzz robi się czerwony). Commit po każdym zadaniu; nie zostawiaj niezacommitowanej pracy.
+
+## A. Ramki
+
+- [ ] **1.** [M] Prolog/epilog `Saved`: `push`/`pop` pary zamiast bajt po bajcie (Z80: `ld hl,(n)` `push hl` ... `pop hl` `ld (n),hl`; 8080 analogicznie `lhld`/`push h`/`pop h`/`shld`). Pliki: `ByteSelector.SavedBytes`/prolog i epilog funkcji (`EmitFunctionBody`), `ByteIsa` (nowy wirtualny prymityw zapisu słowa, domyślnie bajtowy), `Z80Isa.cs`, `Intel8080Isa.cs`. Dotyczy tylko komórek 2-bajtowych leżących obok siebie; 1-bajtowe i 4-bajtowe zostają. Uwaga: HL jest scratchem ISA; epilog nie może zniszczyć wyniku (dziś w `cc_ret`). Akceptacja: `fib` na Z80 ≤ 87 B (dziś 95 B), na 8080 maleje; `RecursionFrameTests` i `IrLivenessTests` zielone; tabela z80/8080 nie rośnie.
+
+## B. ABI
+
+- [ ] **2.** [M] Wynik W<=2 w rejestrze HL na Z80/8080 (L dla W=1). `ByteIsa`: `ReturnsInResultReg`, `TryMoveToResultReg`, `TryMoveFromResultReg` (domyślnie false); `Z80Isa`/`Intel8080Isa` implementacja + crt0 po `call main` zapisuje `ld (cc_ret),hl` (8080: `shld cc_ret`); `ByteSelector.EmitRet`/`EmitCall` dla W<=2. HL nie wchodzi do `CellPairs`/`SavedAround`. WYMAGANE: reguła dla rutyn asemblerowych i modułów `.s` (Z80: `rt_mul.s`, `rt_div.s` i każdy moduł `.s` w repo/przykładach zwracający przez `cc_ret`): albo rutyny zwracają także w HL, albo wołanie ich (`__cc_mul`, `__cc_divu`, `__cc_modu` z Legalizera, funkcje z zewnętrznych `.s`) czyta nadal z `cc_ret` — zdecyduj i udokumentuj w `docs/stub-calling-conv.md`, z testem (wołanie `__cc_mul` i `__cc_divu` na Z80 z wynikiem policzonym ręcznie, plus program z wołaniem funkcji z modułu `.s`). `long`/struct/float bez zmian. Stub/6502/6800 bez zmian (rozmiar i ir-gate). Akceptacja: `fib` Z80 <= 80 B po zadaniu 1 + 2, `max3` Z80 <= 58 B; tabela stub/6502/65c02/6800 bez zmian, z80/8080 nie rosną.
+
+## C. Parametry
+
+- [ ] **3.** [M] Aliasowanie parametru funkcji NIE-liścia na `cc_argN`, tylko gdy bezpieczne: ostatnie użycie parametru (wg `IrLiveness`) poprzedza pierwszy `Call` w funkcji, a żaden wcześniejszy zapis do `cc_argN` nie koliduje (callee i `Legalizer` ustawiają `cc_argN` przed `Call`; param w `cc_arg1` jest niszczony przez własne wołanie). Dla `fib` parametr `n` jest żywy po wołaniu, więc nie dotyczy, ale dotyczy funkcji z krótkim użyciem parametru przed wołaniem (np. `f(x){ return g(x+1); }`). `ParamAlias.cs` (rozszerz warunek 'liść' na 'parametr martwy przed pierwszym Call'). Kontrprzykłady: parametr używany po wołaniu, w pętli z wołaniem, wzięty adres, `goto` wstecz przez `Call`. Akceptacja: test różnicowy fuzz (w generatorze liści dodaj funkcje nie-liście z parametrem używanym przed wołaniem i po nim), tabela nie rośnie; zmierz i zgłoś zysk (jeśli < 20 B w całej tabeli — zgłoś jako niski ROI i zostaw zmianę, o ile nie psuje niczego).
+
+Postęp: 0/3 gotowych.
