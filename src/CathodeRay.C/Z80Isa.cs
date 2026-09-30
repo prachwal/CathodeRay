@@ -497,11 +497,21 @@ internal sealed partial class Z80Isa : ByteIsa
         return text.ToString();
     }
 
+    /// <summary>Zmiany w tekście asemblera: usuwa zbędne przeniesienia bajtów (BC/DE ↔ HL po kopii).</summary>
+    /// <param name="text">Tekst funkcji.</param>
+    /// <returns>Tekst po zmianie.</returns>
+    internal static string Tidy(string text)
+    {
+        text = RedundantBcToHl().Replace(text, "$1");
+        text = RedundantDeToHl().Replace(text, "$1");
+        return text;
+    }
+
     /// <summary>Relaksacja <c>jp</c> → <c>jr</c> (bezwarunkowe i z/nz/c/nc; <c>jr</c> nie ma po/pe/p/m). Zasięg <c>jr</c>:
     /// cel − adres skoku w −126..+129 (przesunięcie −128..127 liczone od adresu po 2-bajtowym skoku).</summary>
     /// <param name="text">Tekst funkcji.</param>
     /// <returns>Tekst po relaksacji.</returns>
-    protected override string Relax(string text) => BranchRelaxer.Shorten(BranchRelaxer.DropJumpToNext(SkipOverJump().Replace(text, Invert)), Size, Shorten, -126, 129);
+    protected override string Relax(string text) => BranchRelaxer.Shorten(BranchRelaxer.DropJumpToNext(SkipOverJump().Replace(Tidy(text), Invert)), Size, Shorten, -126, 129);
 
     /// <summary><c>jp cc,X; jp T; X:</c> (skok przez skok z porównania na równość) → <c>jp !cc,T; X:</c>.</summary>
     private static string Invert(Match match)
@@ -584,6 +594,12 @@ internal sealed partial class Z80Isa : ByteIsa
     private static bool Pair(string operand) => operand is "bc" or "de" or "hl" or "sp";
 
     private static bool Paren(string operand) => operand.StartsWith('(');
+
+    [GeneratedRegex(@"(?m)^(\s*ld c,l\r?\n\s*ld b,h\r?\n)\s*ld l,c\r?\n\s*ld h,b\r?\n", RegexOptions.Multiline)]
+    private static partial Regex RedundantBcToHl();
+
+    [GeneratedRegex(@"(?m)^(\s*ld e,l\r?\n\s*ld d,h\r?\n)\s*ld l,e\r?\n\s*ld h,d\r?\n", RegexOptions.Multiline)]
+    private static partial Regex RedundantDeToHl();
 
     [GeneratedRegex(@"^\s*jp\s+((?:nz|z|nc|c),)?\s*([A-Za-z_.$][\w.$]*)\s*$")]
     private static partial Regex LongJump();

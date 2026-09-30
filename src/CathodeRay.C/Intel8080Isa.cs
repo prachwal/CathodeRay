@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Text;
+using System.Text.RegularExpressions;
 
 namespace CathodeRay.C;
 
@@ -7,7 +8,7 @@ namespace CathodeRay.C;
 /// wskaźniki przez <c>LHLD</c>), bez rejestrów IX/IY i bez instrukcji Z80. Komórki mogą leżeć w B, C, D, E (pary BC/DE) jak na
 /// <see cref="Z80Isa"/>: <c>mov a,c</c>, <c>add c</c>, <c>inr c</c>, <c>inx b</c>; słowo z pamięci do pary przez <c>lhld</c> i
 /// <c>mov c,l; mov b,h</c> (8080 nie ma <c>ld bc,(nn)</c>).</summary>
-internal sealed class Intel8080Isa : ByteIsa
+internal sealed partial class Intel8080Isa : ByteIsa
 {
     private static readonly HashSet<string> ReservedNames = new(
         ["A", "B", "C", "D", "E", "H", "L", "M", "SP", "PSW", "LOW", "HIGH", "MOD", "SHL", "SHR", "AND", "OR", "XOR", "NOT", "EQ", "NE", "LT", "LE", "GT", "GE"],
@@ -370,10 +371,27 @@ internal sealed class Intel8080Isa : ByteIsa
         return text.ToString();
     }
 
-    /// <summary>Usuwa skoki do etykiety tuż za nimi (<see cref="BranchRelaxer.DropJumpToNext"/>); 8080 nie ma krótkich skoków.</summary>
+    /// <summary>Zmiany w tekście asemblera: usuwa zbędne przeniesienia bajtów (BC/DE ↔ HL po kopii).</summary>
     /// <param name="text">Tekst funkcji.</param>
     /// <returns>Tekst po zmianie.</returns>
-    protected override string Relax(string text) => BranchRelaxer.DropJumpToNext(text);
+    internal static string Tidy(string text)
+    {
+        text = RedundantBcToHl().Replace(text, "$1");
+        text = RedundantDeToHl().Replace(text, "$1");
+        return text;
+    }
+
+    /// <summary>Usuwa skoki do etykiety tuż za nimi (<see cref="BranchRelaxer.DropJumpToNext"/>); 8080 nie ma krótkich skoków.
+    /// Usuwa też zbędne przeniesienia bajtów (BC/DE ↔ HL po kopii).</summary>
+    /// <param name="text">Tekst funkcji.</param>
+    /// <returns>Tekst po zmianie.</returns>
+    protected override string Relax(string text) => BranchRelaxer.DropJumpToNext(Tidy(text));
+
+    [GeneratedRegex(@"(?m)^(\s*mov c,l\r?\n\s*mov b,h\r?\n)\s*mov l,c\r?\n\s*mov h,b\r?\n", RegexOptions.Multiline)]
+    private static partial Regex RedundantBcToHl();
+
+    [GeneratedRegex(@"(?m)^(\s*mov e,l\r?\n\s*mov d,h\r?\n)\s*mov l,e\r?\n\s*mov h,d\r?\n", RegexOptions.Multiline)]
+    private static partial Regex RedundantDeToHl();
 
     private static IEnumerable<string> CrtCells()
     {
