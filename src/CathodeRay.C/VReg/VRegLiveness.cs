@@ -35,6 +35,9 @@ internal sealed class VRegLiveness
             flat.AddRange(block.Code);
         }
 
+        // Wartownik wyjścia dla spadku za ostatni blok (VRegLift daje wtedy "__end", nigdy nie jest celem skoku z kodu).
+        labels.TryAdd("__end", flat.Count);
+
         return (flat, labels);
     }
 

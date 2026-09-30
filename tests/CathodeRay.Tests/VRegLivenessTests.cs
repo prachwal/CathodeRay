@@ -199,6 +199,20 @@ public sealed class VRegLivenessTests
     }
 
     [Fact]
+    public void Fallthrough_Past_End_Is_Exit()
+    {
+        // Spadek za ostatni blok ("__end" z lifta): nie rzuca, traktowany jak wyjście.
+        var r0 = new VReg.Reg(0, 1);
+        var c = new VReg.Reg(1, 1);
+        var function = new VReg.Function("f", false, [r0], new Dictionary<int, string>(), [], [], 1, [
+            new VReg.Block("a", true, [new VReg.Cmp(Ir.Cond.Ne, c, r0, new VReg.Imm(0, 1)), new VReg.Br(c, "b", "__end")]),
+            new VReg.Block("b", true, [new VReg.Ret(new VReg.Imm(2, 1), 1)]),
+        ]);
+        VRegLiveness live = VRegLiveness.Of(function);
+        live.LiveIn(0).Should().Contain("r0");
+    }
+
+    [Fact]
     public void Branch_Reaches_Both_Targets()
     {
         var r0 = new VReg.Reg(0, 1);
