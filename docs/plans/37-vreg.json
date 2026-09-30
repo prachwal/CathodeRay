@@ -1,0 +1,54 @@
+{
+  "title": "VReg: wirtualne rejestry z opadaniem do Cell IR (projekt docs/vreg-design.md)",
+  "status": "queued",
+  "items": [
+    {
+      "id": "1",
+      "title": "[S] Faza 0: flaga --ir cell|vreg (vreg -> czytelny blad) + szkielet VReg.cs; kryterium: kompiluje return 42 (design §7, §D4)",
+      "status": "todo",
+      "note": ""
+    },
+    {
+      "id": "2",
+      "title": "[S] Lowering wyrazen/sterowania + VRegInterpreter + oracle vs Cell na skalarach (design §3, §8)",
+      "status": "todo",
+      "note": ""
+    },
+    {
+      "id": "3",
+      "title": "[S] VRegFacts + VRegLiveness (adaptacja IrLiveness) + testy, w tym kopie regresji goto/petla (design §5, §11)",
+      "status": "todo",
+      "note": ""
+    },
+    {
+      "id": "4",
+      "title": "[M] AccumulatorAllocator + VRegToCell + --ir vreg end-to-end na stub/6502/Z80 (design §4, §6)",
+      "status": "todo",
+      "note": ""
+    },
+    {
+      "id": "5",
+      "title": "[M] Wolania/ABI przez adapter; TargetMatrix x vreg zielona; goldeny cell bez zmian (design §8)",
+      "status": "todo",
+      "note": ""
+    },
+    {
+      "id": "6",
+      "title": "[S] Flagi nes/ioPort w Mos6502Target (N-6510 jako warianty rejestru CTargets, niezalezne od VReg; design §D6)",
+      "status": "todo",
+      "note": ""
+    },
+    {
+      "id": "7",
+      "title": "[M] LinearScanAllocator + pomiar vs conservative na celach z rejestrami (design §6, §10.6)",
+      "status": "todo",
+      "note": ""
+    },
+    {
+      "id": "8",
+      "title": "[S] Goldeny rozmiaru dla vreg (osobna tabela); SSA/GVN tylko pod pomiar jako osobna decyzja (design §8, §10.7)",
+      "status": "todo",
+      "note": ""
+    }
+  ]
+}
