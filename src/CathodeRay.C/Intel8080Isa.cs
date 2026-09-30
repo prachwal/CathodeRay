@@ -376,10 +376,10 @@ internal sealed partial class Intel8080Isa : ByteIsa
     /// <returns>Tekst po zmianie.</returns>
     internal static string Tidy(string text)
     {
-        text = DeadBcBeforeRet().Replace(text, string.Empty);
-        text = DeadDeBeforeRet().Replace(text, string.Empty);
         text = RedundantBcToHl().Replace(text, "$1");
         text = RedundantDeToHl().Replace(text, "$1");
+        text = DeadBcBeforeRet().Replace(text, string.Empty);
+        text = DeadDeBeforeRet().Replace(text, string.Empty);
         return text;
     }
 
@@ -395,10 +395,10 @@ internal sealed partial class Intel8080Isa : ByteIsa
     [GeneratedRegex(@"(?m)^(\s*mov e,l\r?\n\s*mov d,h\r?\n)\s*mov l,e\r?\n\s*mov h,d\r?\n", RegexOptions.Multiline)]
     private static partial Regex RedundantDeToHl();
 
-    [GeneratedRegex(@"(?m)^(\s*mov c,l\r?\n\s*mov b,h\r?\n)(?=ret\s*(?:\r?\n|$))", RegexOptions.Multiline)]
+    [GeneratedRegex(@"(?m)^(\s*mov c,l\r?\n\s*mov b,h\r?\n)(?=(?:[ \t]*(?:[\w@.$]+:|;[^\r\n]*)[ \t]*\r?\n)*[ \t]*ret[ \t]*(?:\r?\n|$))", RegexOptions.Multiline)]
     private static partial Regex DeadBcBeforeRet();
 
-    [GeneratedRegex(@"(?m)^(\s*mov e,l\r?\n\s*mov d,h\r?\n)(?=ret\s*(?:\r?\n|$))", RegexOptions.Multiline)]
+    [GeneratedRegex(@"(?m)^(\s*mov e,l\r?\n\s*mov d,h\r?\n)(?=(?:[ \t]*(?:[\w@.$]+:|;[^\r\n]*)[ \t]*\r?\n)*[ \t]*ret[ \t]*(?:\r?\n|$))", RegexOptions.Multiline)]
     private static partial Regex DeadDeBeforeRet();
 
     private static IEnumerable<string> CrtCells()
