@@ -6,6 +6,9 @@
 
 Domyślny katalog: /tmp/leaf-fuzz. Wymaga gcc. Liść walk przechodzi wskaźnikiem po tablicy z licznikiem (kandydaci na pary rejestrów Z80). Liście g0..g2 mają 1-3 parametry szerokości 1/2/4 (U8, I16, U16, I32), zmieniają je
 (także w pętlach), a main woła je wielokrotnie ze stałymi i własnymi zmiennymi (które potem też wchodzą do sumy kontrolnej).
+Plan 35, krok 3: do każdego g dochodzi nie-liść n (parametry g w innej kolejności), który zmienia parametry przed wołaniem g,
+podaje je jako argumenty na innych pozycjach niż własne i używa ich po wołaniu albo woła g w pętli (aliasowanie parametrów
+nie-liści na cc_argN tylko, gdy parametr jest martwy za każdym wołaniem).
 Tylko działania, które dają ten sam wynik mod 2^k w gcc i w naszym C (16-bitowy int): + - & | ^, jednoargumentowe - ~,
 stałe I32 także graniczne (0x7FFFFFFF, 0x80000000, 0xFFFFFFFF, przeniesienia przez bajty i połówki), porównania zmiennej ze stałą
 (także graniczną) albo ze zmienną tego samego typu,
@@ -101,6 +104,48 @@ def function(r, name, static):
     return "\n".join(lines), params
 
 
+def wrapper(r, name, gname, gparams, gret):
+    """Nie-liść: parametry to typy parametrów g w losowej kolejności; użycie przed wołaniem, po nim albo wołanie w pętli."""
+    ps = [(f"q{i}", t) for i, (_, t) in enumerate(r.sample(gparams, len(gparams)))]
+    lines = [f"{gret} {name}({', '.join(f'{t} {n}' for n, t in ps)}) {{", f"  {gret} r; U8 c;"]
+    for n, t in ps:
+        if r.random() < 0.5:
+            lines.append(f"  {n} = {n} {r.choice(['+', '-', '^', '|', '&'])} {const(r, t)};")
+
+    def call():
+        args = []
+        for _, t in gparams:
+            same = [n for n, tt in ps if tt == t]
+            k = r.random()
+            if same and k < 0.6:
+                args.append(r.choice(same))
+            elif same and k < 0.8:
+                args.append(f"({t})({r.choice(same)} + {const(r, t)})")
+            else:
+                args.append(const(r, t))
+        return f"{gname}({', '.join(args)})"
+
+    shape = r.random()
+    if shape < 0.4:
+        lines.append(f"  r = {call()};")
+    elif shape < 0.7:
+        lines.append(f"  r = {call()};")
+        n, t = r.choice(ps)
+        lines.append(f"  r = r ^ ({gret}){n};")
+        lines.append(f"  r = r + {call()};")
+    else:
+        n, t = r.choice(ps)
+        lines.append(f"  r = 0; c = {r.randint(1, 3)};")
+        lines.append("  while (c > 0) {")
+        lines.append(f"    r = r + {call()};")
+        lines.append(f"    {n} = {n} + 1;")
+        lines.append("    c = c - 1;")
+        lines.append("  }")
+    lines.append("  return r;")
+    lines.append("}")
+    return "\n".join(lines), ps
+
+
 def walker(r):
     """Liść z licznikiem i wskaźnikiem po tablicy (także przesunięcie > 3 bajtów): kandydaci na pary rejestrów."""
     ops = lambda: r.choice(["+", "-", "^", "|", "&"])
@@ -131,15 +176,20 @@ def program(seed):
         text, params = function(r, f"g{f}", static=r.random() < 0.3)
         functions.append(text)
         functions.append("")
-        for _ in range(r.randint(1, 3)):
+        ret = text.split("\n", 1)[0].split()
+        ret = ret[1] if ret[0] == "static" else ret[0]
+        wtext, wparams = wrapper(r, f"n{f}", f"g{f}", params, ret)
+        functions.append(wtext)
+        functions.append("")
+        for wname, wps in [(f"g{f}", params)] * r.randint(1, 3) + [(f"n{f}", wparams)] * r.randint(1, 2):
             args = []
-            for _, t in params:
+            for _, t in wps:
                 if r.random() < 0.4:
                     body.append(f"  m{t} = {const(r, t)};")
                     args.append(f"m{t}")
                 else:
                     args.append(const(r, t))
-            body.append(f"  h = h * 31 + (U16)g{f}({', '.join(args)});")
+            body.append(f"  h = h * 31 + (U16){wname}({', '.join(args)});")
             body.append("  h = h ^ (U16)mU8 ^ (U16)mI16 ^ (U16)mU16 ^ (U16)mI32;")
     main = ["int main() {", "  U16 h; U8 mU8; I16 mI16; U16 mU16; I32 mI32;", "  h = 0; mU8 = 1; mI16 = 2; mU16 = 3; mI32 = 4L;", *body, "  return h & 32767;", "}"]
     return "\n".join(functions + main)

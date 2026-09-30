@@ -20,8 +20,8 @@
     {
       "id": "3",
       "title": "[M] Aliasowanie parametru funkcji NIE-liścia na `cc_argN`, tylko gdy bezpieczne: ostatnie użycie parametru (wg `IrLiveness`) poprzedza pierwszy `Call` w funkcji, a żaden wcześniejszy zapis do `cc_argN` nie koliduje (callee i `Legalizer` ustawiają `cc_argN` przed `Call`; param w `cc_arg1` jest niszczony przez własne wołanie). Dla `fib` parametr `n` jest żywy po wołaniu, więc nie dotyczy, ale dotyczy funkcji z krótkim użyciem parametru przed wołaniem (np. `f(x){ return g(x+1); }`). `ParamAlias.cs` (rozszerz warunek 'liść' na 'parametr martwy przed pierwszym Call'). Kontrprzykłady: parametr używany po wołaniu, w pętli z wołaniem, wzięty adres, `goto` wstecz przez `Call`. Akceptacja: test różnicowy fuzz (w generatorze liści dodaj funkcje nie-liście z parametrem używanym przed wołaniem i po nim), tabela nie rośnie; zmierz i zgłoś zysk (jeśli < 20 B w całej tabeli — zgłoś jako niski ROI i zostaw zmianę, o ile nie psuje niczego).",
-      "status": "todo",
-      "note": "",
+      "status": "done",
+      "note": "nie-liscie: param martwy za kazdym Call; tabela -4314 B (6502/65c02 -1413, 8080 -798, z80 -690); fib bez zmian",
       "section": "C. Parametry"
     }
   ]

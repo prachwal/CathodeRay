@@ -1,10 +1,12 @@
 namespace CathodeRay.C;
 
-/// <summary>Aliasowanie parametrów liści na komórki argumentów (cele little-endian): parametr funkcji bez wywołań używa wprost
-/// <c>cc_argN</c> (starszy bajt to <c>cc_argN_h</c>, sąsiedni w crt0), więc znika kopia w prologu. Wołany może niszczyć
-/// <c>cc_argN</c> (konwencja: wołający nic nie zachowuje), a liść nie woła nikogo, więc nic innego ich nie nadpisze. Parametr
-/// odpada, gdy jest wzięty adresem, <c>volatile</c>, zapisywany w ramce albo jego symbol występuje w innej funkcji (np. ciało
-/// wstawione przez <see cref="IrInliner"/> w wołającym).</summary>
+/// <summary>Aliasowanie parametrów na komórki argumentów (cele little-endian): parametr używa wprost <c>cc_argN</c> (starszy bajt
+/// to <c>cc_argN_h</c>, sąsiedni w crt0), więc znika kopia w prologu. Wołany może niszczyć <c>cc_argN</c> (konwencja: wołający nic
+/// nie zachowuje), a wołanie samo je zapisuje (argumenty po kolei, od pierwszego). Liść nie woła nikogo, więc nic ich nie nadpisze;
+/// w funkcji z wołaniami (plan 35, krok 3) parametr nie może być żywy za żadnym wołaniem (<see cref="IrLiveness"/>: także pętla i
+/// <c>goto</c> wstecz), nie może być wskaźnikiem wołania pośredniego ani argumentem na pozycji dalszej niż własna (wcześniejsze
+/// argumenty nadpisałyby go przed odczytem). Parametr odpada też, gdy jest wzięty adresem, <c>volatile</c>, zapisywany w ramce
+/// albo jego symbol występuje w innej funkcji (np. ciało wstawione przez <see cref="IrInliner"/> w wołającym).</summary>
 internal static class ParamAlias
 {
     /// <summary>Aliasuje parametry liści modułu.</summary>
@@ -47,11 +49,17 @@ internal static class ParamAlias
             blocked.UnionWith(module.Volatile.Select(Base));
         }
 
+        var sizes = new Dictionary<string, int>(StringComparer.Ordinal);
+        foreach (Ir.Data data in module.Data)
+        {
+            sizes[data.Sym] = data.Size;
+        }
+
         var removed = new HashSet<string>(StringComparer.Ordinal);
         var functions = new List<Ir.Function>();
         foreach (Ir.Function function in module.Functions)
         {
-            Dictionary<string, string> alias = Aliases(function, blocked);
+            Dictionary<string, string> alias = Aliases(function, blocked, sizes);
             removed.UnionWith(alias.Keys.Select(Base));
             functions.Add(alias.Count == 0 ? function : function with
             {
@@ -103,14 +111,9 @@ internal static class ParamAlias
     }
 
     /// <summary>Parametry funkcji, które można przenieść do <c>cc_argN</c>: symbol parametru → symbol argumentu.</summary>
-    private static Dictionary<string, string> Aliases(Ir.Function function, HashSet<string> blocked)
+    private static Dictionary<string, string> Aliases(Ir.Function function, HashSet<string> blocked, Dictionary<string, int> sizes)
     {
         var alias = new Dictionary<string, string>(StringComparer.Ordinal);
-        if (function.Body.Any(static i => i is Ir.Call))
-        {
-            return alias;
-        }
-
         var widths = new Dictionary<string, int>(StringComparer.Ordinal);
         for (int i = 0; i < Math.Min(function.Params.Count, TypeChecker.MaxArgs); i++)
         {
@@ -133,12 +136,50 @@ internal static class ParamAlias
             }
         }
 
+        bad.UnionWith(ClobberedByCalls(function, alias, sizes));
         foreach (string sym in alias.Keys.Where(k => bad.Contains(Base(k))).ToList())
         {
             alias.Remove(sym);
         }
 
         return alias;
+    }
+
+    /// <summary>Obiekty parametrów, których <c>cc_argN</c> wołanie nadpisałoby, zanim przestaną być potrzebne: żywe za wołaniem,
+    /// wskaźnik wołania pośredniego (czytany po zapisie argumentów) albo argument na pozycji dalszej niż własny numer.</summary>
+    private static HashSet<string> ClobberedByCalls(Ir.Function function, Dictionary<string, string> alias, Dictionary<string, int> sizes)
+    {
+        var bad = new HashSet<string>(StringComparer.Ordinal);
+        if (alias.Count == 0 || !function.Body.Any(static i => i is Ir.Call))
+        {
+            return bad;
+        }
+
+        var index = alias.ToDictionary(static a => a.Key, a => int.Parse(a.Value.AsSpan(6), System.Globalization.CultureInfo.InvariantCulture) - 1, StringComparer.Ordinal);
+        IrLiveness live = IrLiveness.Of(function.Body, sym => sizes.GetValueOrDefault(sym));
+        for (int i = 0; i < function.Body.Count; i++)
+        {
+            if (function.Body[i] is not Ir.Call call)
+            {
+                continue;
+            }
+
+            bad.UnionWith(live.LiveOut(i));
+            if (call.Indirect is { } pointer)
+            {
+                bad.Add(Base(pointer.Sym));
+            }
+
+            for (int arg = 0; arg < call.Args.Count; arg++)
+            {
+                if (call.Args[arg] is Ir.Cell cell && index.TryGetValue(cell.Sym, out int own) && arg > own)
+                {
+                    bad.Add(Base(cell.Sym));
+                }
+            }
+        }
+
+        return bad;
     }
 
     private static Ir.Cell Rename(Ir.Cell cell, Dictionary<string, string> alias) =>
@@ -159,6 +200,12 @@ internal static class ParamAlias
         Ir.Fill fill => fill with { Dst = Rename(fill.Dst, alias) },
         Ir.BrCmp branch => branch with { A = Rename(branch.A, alias), B = Rename(branch.B, alias) },
         Ir.Ret ret => ret with { Value = (ret.Value is null) ? null : Rename(ret.Value, alias) },
+        Ir.Call call => call with
+        {
+            Indirect = (call.Indirect is null) ? null : Rename(call.Indirect, alias),
+            Args = [.. call.Args.Select(a => Rename(a, alias))],
+            Result = (call.Result is null) ? null : Rename(call.Result, alias),
+        },
         _ => ins,
     };
 }

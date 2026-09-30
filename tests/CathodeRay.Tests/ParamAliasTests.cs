@@ -18,6 +18,21 @@ public sealed class ParamAliasTests
         }
         """;
 
+    // wołane funkcje z wziętym adresem (bez inliningu); parametr martwy przed wołaniem tylko w inc
+    private const string NonLeaf = """
+        int g(int v) { return v * 3; }
+        int sub(int x, int y) { return x - y; }
+        int (*gp)(int);
+        int (*sp)(int, int);
+        int after(int x) { int r; r = g(1); return r + x; }
+        int loop(int x) { int r; uchar c; r = 0; c = 3; while (c > 0) { r = r + g(x); c = c - 1; } return r; }
+        int back(int x) { int r; r = 0; again: r = r + g(x); if (r < 20) goto again; return r; }
+        int swap(int a, int b) { sp = sub; return sub(b, a); }
+        int apply(int (*fp)(int), int x) { gp = g; return fp(x); }
+        int inc(int x) { return g(x + 1); }
+        int addr(int x) { int *p; p = &x; g(2); return *p; }
+        """;
+
     public static TheoryData<string> Targets()
     {
         var data = new TheoryData<string>();
@@ -78,5 +93,35 @@ public sealed class ParamAliasTests
         z80.Emit(module, optimize: true).Should().NotContain("count__n").And.NotContain("count__k").And.NotContain("count__acc");
         z80.Emit(module, optimize: false).Should().Contain("count__n");
         CTargets.Find("6800")!.Emit(module, optimize: true).Should().Contain("count__n");
+    }
+
+    [Theory]
+    [MemberData(nameof(Targets))]
+    public void Non_Leaf_Params_Keep_Their_Values_Around_Calls(string cpu)
+    {
+        const string Main = """
+            int main() {
+                putdec(after(10)); putchar(' '); putdec(loop(5)); putchar(' '); putdec(back(4)); putchar(' ');
+                putdec(swap(10, 3)); putchar(' '); putdec(apply(g, 7)); putchar(' '); putdec(inc(4)); putchar(' '); putdec(addr(9));
+                return 0;
+            }
+            """;
+
+        // after(10) = g(1) + 10 = 13; loop(5) = 3 * 15 = 45; back(4): 12, 24 → 24; swap(10, 3) = 3 - 10 = -7;
+        // apply(g, 7) = 21; inc(4) = g(5) = 15; addr(9) = 9
+        CcRun.RunOn(Io + NonLeaf + Main, cpu).Console.Should().Be("13 45 24 -7 21 15 9");
+    }
+
+    [Fact]
+    public void Non_Leaf_Param_Is_Aliased_Only_When_Dead_Before_Every_Call()
+    {
+        Ir.Module module = Codegen.Lower(TypeChecker.Check(Parser.Parse(NonLeaf)), "t.c", objectMode: true);
+        string z80 = CTargets.Find("z80")!.Emit(module, optimize: true);
+
+        z80.Should().Contain("call g").And.Contain("call sub").And.NotContain("inc__x");
+        foreach (string kept in new[] { "after__x", "loop__x", "back__x", "swap__a", "apply__fp", "addr__x" })
+        {
+            z80.Should().Contain(kept, "parametr żywy za wołaniem, argument na dalszej pozycji, wskaźnik wołania albo wzięty adres");
+        }
     }
 }
