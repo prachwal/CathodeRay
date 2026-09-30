@@ -132,7 +132,7 @@
     {
       "id": "19",
       "title": "[M] 6800: strona bezpośrednia | wykonawca: mocny model | Pliki: `src/CathodeRay.Assembler/Isa/Targets/M6800Set.cs` (formy `z:{b}`), `M6800Isa.cs` (`Mem` tylko dla mnemoników z trybem `d8`, `Size` = 2 dla `z:`, crt0 zeruje ZP, stałe `cc_arg1..3/cc_ret/cc_t*` na ZP), `M6800Target.cs` (obszar `C_ZP`, `Tune` z `ZeroPageAllocator`). Akceptacja: test asemblera `ldaa z:x` = 2 B z relokacją `Abs8`; `TargetMatrixTests` 6800 zielone; kolumna 6800 maleje w każdym wierszu.",
-      "status": "todo",
+      "status": "done",
       "note": "",
       "section": "D. 6800"
     },
