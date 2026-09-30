@@ -371,11 +371,13 @@ internal sealed partial class Intel8080Isa : ByteIsa
         return text.ToString();
     }
 
-    /// <summary>Zmiany w tekście asemblera: usuwa zbędne przeniesienia bajtów (BC/DE ↔ HL po kopii).</summary>
+    /// <summary>Zmiany w tekście asemblera: usuwa martwy zapis wyniku do BC/DE tuż przed ret, potem usuwa zbędne przeniesienia bajtów (BC/DE ↔ HL po kopii).</summary>
     /// <param name="text">Tekst funkcji.</param>
     /// <returns>Tekst po zmianie.</returns>
     internal static string Tidy(string text)
     {
+        text = DeadBcBeforeRet().Replace(text, string.Empty);
+        text = DeadDeBeforeRet().Replace(text, string.Empty);
         text = RedundantBcToHl().Replace(text, "$1");
         text = RedundantDeToHl().Replace(text, "$1");
         return text;
@@ -392,6 +394,12 @@ internal sealed partial class Intel8080Isa : ByteIsa
 
     [GeneratedRegex(@"(?m)^(\s*mov e,l\r?\n\s*mov d,h\r?\n)\s*mov l,e\r?\n\s*mov h,d\r?\n", RegexOptions.Multiline)]
     private static partial Regex RedundantDeToHl();
+
+    [GeneratedRegex(@"(?m)^(\s*mov c,l\r?\n\s*mov b,h\r?\n)(?=ret\s*(?:\r?\n|$))", RegexOptions.Multiline)]
+    private static partial Regex DeadBcBeforeRet();
+
+    [GeneratedRegex(@"(?m)^(\s*mov e,l\r?\n\s*mov d,h\r?\n)(?=ret\s*(?:\r?\n|$))", RegexOptions.Multiline)]
+    private static partial Regex DeadDeBeforeRet();
 
     private static IEnumerable<string> CrtCells()
     {

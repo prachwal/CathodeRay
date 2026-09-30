@@ -71,6 +71,69 @@ public sealed class AsmTidyTests
     }
 
     [Fact]
+    public void Z80_RemovesDead_BcBeforeRet()
+    {
+        string input = "ld c,l\nld b,h\nret";
+        string expected = "ret";
+
+        string result = Z80Isa.Tidy(input);
+
+        result.Should().Be(expected);
+    }
+
+    [Fact]
+    public void Z80_RemovesDead_DeBeforeRet()
+    {
+        string input = "ld e,l\nld d,h\nret";
+        string expected = "ret";
+
+        string result = Z80Isa.Tidy(input);
+
+        result.Should().Be(expected);
+    }
+
+    [Fact]
+    public void Z80_IgnoresDead_RetWithCondition()
+    {
+        string input = "ld c,l\nld b,h\nret z";
+        string expected = "ld c,l\nld b,h\nret z";
+
+        string result = Z80Isa.Tidy(input);
+
+        result.Should().Be(expected);
+    }
+
+    [Fact]
+    public void Z80_IgnoresDead_LabelBeforeRet()
+    {
+        string input = "ld c,l\nld b,h\nL:\nret";
+        string expected = "ld c,l\nld b,h\nL:\nret";
+
+        string result = Z80Isa.Tidy(input);
+
+        result.Should().Be(expected);
+    }
+
+    [Fact]
+    public void Z80_IgnoresDead_InstructionBeforeRet()
+    {
+        string input = "ld c,l\nld b,h\nld a,1\nret";
+        string expected = "ld c,l\nld b,h\nld a,1\nret";
+
+        string result = Z80Isa.Tidy(input);
+
+        result.Should().Be(expected);
+    }
+
+    [Fact]
+    public void Z80_TwiceFunctionTest()
+    {
+        const string Source = "int twice(int x) { return x + x; } int main() { return twice(21); }";
+
+        CcRun.RunOn(Source, "z80").Value.Should().Be(42);
+    }
+
+    [Fact]
     public void I8080_RemovesRedundant_BcToHl()
     {
         string input = "mov c,l\nmov b,h\nmov l,c\nmov h,b\nret";
@@ -121,5 +184,68 @@ public sealed class AsmTidyTests
         string result = Intel8080Isa.Tidy(input);
 
         result.Should().Be(expected);
+    }
+
+    [Fact]
+    public void I8080_RemovesDead_BcBeforeRet()
+    {
+        string input = "mov c,l\nmov b,h\nret";
+        string expected = "ret";
+
+        string result = Intel8080Isa.Tidy(input);
+
+        result.Should().Be(expected);
+    }
+
+    [Fact]
+    public void I8080_RemovesDead_DeBeforeRet()
+    {
+        string input = "mov e,l\nmov d,h\nret";
+        string expected = "ret";
+
+        string result = Intel8080Isa.Tidy(input);
+
+        result.Should().Be(expected);
+    }
+
+    [Fact]
+    public void I8080_IgnoresDead_RetWithCondition()
+    {
+        string input = "mov c,l\nmov b,h\nrz";
+        string expected = "mov c,l\nmov b,h\nrz";
+
+        string result = Intel8080Isa.Tidy(input);
+
+        result.Should().Be(expected);
+    }
+
+    [Fact]
+    public void I8080_IgnoresDead_LabelBeforeRet()
+    {
+        string input = "mov c,l\nmov b,h\nL:\nret";
+        string expected = "mov c,l\nmov b,h\nL:\nret";
+
+        string result = Intel8080Isa.Tidy(input);
+
+        result.Should().Be(expected);
+    }
+
+    [Fact]
+    public void I8080_IgnoresDead_InstructionBeforeRet()
+    {
+        string input = "mov c,l\nmov b,h\nmvi a,1\nret";
+        string expected = "mov c,l\nmov b,h\nmvi a,1\nret";
+
+        string result = Intel8080Isa.Tidy(input);
+
+        result.Should().Be(expected);
+    }
+
+    [Fact]
+    public void I8080_TwiceFunctionTest()
+    {
+        const string Source = "int twice(int x) { return x + x; } int main() { return twice(21); }";
+
+        CcRun.RunOn(Source, "8080").Value.Should().Be(42);
     }
 }
