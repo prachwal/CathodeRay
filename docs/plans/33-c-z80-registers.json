@@ -76,8 +76,8 @@
     {
       "id": "11",
       "title": "[M] Relaksacja `jp` → `jr` na Z80 | wykonawca: mocny model | Pliki: `Z80Isa.cs` (`Relax` przez `BranchRelaxer.Apply`, funkcja `Size` z formami ED/CB/rejestrowymi, tylko warunki z/nz/c/nc). Akceptacja: `dotnet test` zielony; sw na Z80 ≤ 135 B; tabela z80 maleje.",
-      "status": "todo",
-      "note": "",
+      "status": "done",
+      "note": "sw z80 149 -> 129 B; z80 -872 B w 20 wierszach; test granicy Z80JumpRelaxTests",
       "section": "B. Tanie optymalizacje modelu pamięci i 16-bitowe (Z80, 8080)"
     },
     {

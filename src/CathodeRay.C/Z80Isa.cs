@@ -1,11 +1,12 @@
 using System.Globalization;
 using System.Text;
+using System.Text.RegularExpressions;
 
 namespace CathodeRay.C;
 
 /// <summary>Prymitywy Z80 (składnia Zilog): A jako akumulator, HL jako rejestr adresowy (operandy pamięciowe ALU przez
 /// <c>LD HL,adres; op A,(HL)</c>, wskaźniki przez <c>LD HL,(komórka)</c>), zapis/odczyt komórek przez <c>LD A,(adres)</c>.</summary>
-internal sealed class Z80Isa : ByteIsa
+internal sealed partial class Z80Isa : ByteIsa
 {
     private static readonly HashSet<string> ReservedNames = new(
         ["A", "B", "C", "D", "E", "H", "L", "I", "R", "AF", "BC", "DE", "HL", "SP", "IX", "IY", "IXH", "IXL", "IYH", "IYL", "NZ", "Z", "NC", "PO", "PE", "P", "M", "LOW", "HIGH", "MOD", "SHL", "SHR", "AND", "OR", "XOR", "NOT"],
@@ -285,6 +286,80 @@ internal sealed class Z80Isa : ByteIsa
 
         return text.ToString();
     }
+
+    /// <summary>Relaksacja <c>jp</c> → <c>jr</c> (bezwarunkowe i z/nz/c/nc; <c>jr</c> nie ma po/pe/p/m). Zasięg <c>jr</c>:
+    /// cel − adres skoku w −126..+129 (przesunięcie −128..127 liczone od adresu po 2-bajtowym skoku).</summary>
+    /// <param name="text">Tekst funkcji.</param>
+    /// <returns>Tekst po relaksacji.</returns>
+    protected override string Relax(string text) => BranchRelaxer.Shorten(text, Size, Shorten, -126, 129);
+
+    private static (string Short, string Target)? Shorten(string line)
+    {
+        Match jump = LongJump().Match(line);
+        return jump.Success ? ($"jr {jump.Groups[1].Value}{jump.Groups[2].Value}", jump.Groups[2].Value) : null;
+    }
+
+    /// <summary>Rozmiar instrukcji w bajtach dla form, które emituje selektor; nieznana forma liczy się jako 4 B (najdłuższa
+    /// bez IX/IY), bo zawyżenie tylko osłabia relaksację, a zaniżenie dałoby <c>jr</c> poza zasięgiem.</summary>
+    private static int Size(string line)
+    {
+        string text = line.Trim().ToLowerInvariant();
+        int space = text.IndexOf(' ', StringComparison.Ordinal);
+        string op = space < 0 ? text : text[..space];
+        string[] args = space < 0 ? [] : text[(space + 1)..].Replace(" ", string.Empty, StringComparison.Ordinal).Split(',');
+        string last = args.Length == 0 ? string.Empty : args[^1];
+        return op switch
+        {
+            "global" or "extern" => 0,
+            "ret" or "halt" or "nop" or "exx" => 1,
+            "push" or "pop" => last.StartsWith('i') ? 2 : 1,
+            "ex" => args[0] is "de" or "af" ? 1 : 2,
+            "jr" or "djnz" => 2,
+            "jp" => last == "(hl)" ? 1 : 3,
+            "call" => 3,
+            "sla" or "sra" or "srl" or "sll" or "rl" or "rr" or "rlc" or "rrc" or "bit" or "set" or "res" => Reg8(last) ? 2 : 4,
+            "inc" or "dec" => (Reg8(last) || Pair(last)) ? 1 : 4,
+            "add" when args.Length == 2 && args[0] == "hl" => 1,
+            "adc" or "sbc" when args.Length == 2 && args[0] == "hl" => 2,
+            "add" or "adc" or "sub" or "sbc" or "and" or "or" or "xor" or "cp" => Reg8(last) ? 1 : (Paren(last) ? 4 : 2),
+            "ld" when args.Length == 2 => LoadSize(args[0], args[1]),
+            _ => 4,
+        };
+    }
+
+    private static int LoadSize(string dst, string src)
+    {
+        if (Reg8(dst) && Reg8(src))
+        {
+            return 1;
+        }
+
+        if ((dst == "a" && src is "(bc)" or "(de)") || (src == "a" && dst is "(bc)" or "(de)") || (dst == "sp" && src == "hl"))
+        {
+            return 1;
+        }
+
+        if (Reg8(dst) && !Paren(src))
+        {
+            return 2;
+        }
+
+        if ((dst == "a" && Paren(src)) || (src == "a" && Paren(dst)) || (dst == "hl" && (Paren(src) || !Reg8(src))) || (src == "hl" && Paren(dst)))
+        {
+            return 3;
+        }
+
+        return (Pair(dst) && !Paren(src)) ? 3 : 4;
+    }
+
+    private static bool Reg8(string operand) => operand is "a" or "b" or "c" or "d" or "e" or "h" or "l" or "(hl)";
+
+    private static bool Pair(string operand) => operand is "bc" or "de" or "hl" or "sp";
+
+    private static bool Paren(string operand) => operand.StartsWith('(');
+
+    [GeneratedRegex(@"^\s*jp\s+((?:nz|z|nc|c),)?\s*([A-Za-z_.$][\w.$]*)\s*$")]
+    private static partial Regex LongJump();
 
     private static IEnumerable<string> CrtCells()
     {
