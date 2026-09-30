@@ -3,7 +3,7 @@ using FluentAssertions;
 namespace CathodeRay.Tests;
 
 /// <summary>Test różnicowy rekurencji z <c>tools/recursion_fuzz.py</c>: włączony zmienną <c>RECURSION_FUZZ_DIR</c> (katalog z programami i <c>gcc.txt</c>);
-/// wynik naszego kompilatora na stub, 6502 i Z80 musi się zgadzać z gcc.</summary>
+/// wynik naszego kompilatora na wszystkich celach z runnerem musi się zgadzać z gcc.</summary>
 public sealed class RecursionFuzzTests
 {
     [Fact]
@@ -20,7 +20,7 @@ public sealed class RecursionFuzzTests
             .Select(static l => l.Split(' '))
             .ToDictionary(static p => p[0], static p => int.Parse(p[1], System.Globalization.CultureInfo.InvariantCulture));
         var mismatches = new System.Collections.Concurrent.ConcurrentBag<string>();
-        var work = new[] { "stub", "6502", "z80" }.SelectMany(cpu => expected.Select(item => (Cpu: cpu, item.Key, item.Value))).ToList();
+        var work = TargetHarness.Targets.Select(static t => t.Name).SelectMany(cpu => expected.Select(item => (Cpu: cpu, item.Key, item.Value))).ToList();
         Parallel.ForEach(work, new ParallelOptions { MaxDegreeOfParallelism = Environment.ProcessorCount }, item =>
         {
             try
