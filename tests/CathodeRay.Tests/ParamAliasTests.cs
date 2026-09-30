@@ -130,8 +130,10 @@ public sealed class ParamAliasTests
     {
         const string Source = """
             void putdec(int v);
-            int g(int x) { return x; }
-            int pick(uchar k, int v) { return k ? g(v) : g(v + 1); }
+            int id(int x) { return x; }
+            int inc(int x) { return x + 1; }
+            int apply(int (*f)(int), int v) { return f(v); }
+            int pick(uchar k, int v) { return k ? apply(id, v) : apply(inc, v); }
             int main() { putdec(pick(1, 5) + pick(0, 5)); return 0; }
             """;
 

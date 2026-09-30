@@ -777,6 +777,12 @@ internal sealed class ByteSelector
     {
         for (int i = 0; i < call.Args.Count; i++)
         {
+            if (call.Args[i] is Ir.Cell same && same.W == call.ParamWidths[i] && same.Sym == ArgSym(i, 0))
+            {
+                // parametr funkcji zaaliasowany na cc_argN jest już w komórce argumentu na tej samej pozycji
+                continue;
+            }
+
             if (call.ParamWidths[i] == 2 && TryMoveWord(Pair(ArgSym(i, 0), ArgSym(i, 1)), WordOf(call.Args[i])))
             {
                 continue;
