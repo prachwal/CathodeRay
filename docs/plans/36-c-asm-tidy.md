@@ -1,4 +1,4 @@
-# Mini-C: porządki w asemblerze Z80/8080 (fnptr, fib) i wywołanie ogonowe (status: otwarty)
+# Mini-C: porządki w asemblerze Z80/8080 (fnptr, fib) i wywołanie ogonowe (status: zamknięty)
 
 Cel: usunąć zbędne instrukcje widoczne w listingu `fnptr`/`fib` dla Z80 (i 8080) oraz, osobno i dla mocnego modelu, wywołanie ogonowe. Stan wyjściowy (zmierzony `python3 tools/disasm_compare.py --cpu z80 --all`): `fnptr` 98 B vs SDCC 33 B (3,0×), `fib` 78 B vs 31 B (2,5×). W `fnptr` powtarza się: (a) `ld c,l / ld b,h / ld l,c / ld h,b` (HL -> BC -> HL, cztery instrukcje, z czego dwie ostatnie nic nie robią); (b) `ld hl,(X) / ld (X),hl` (kopia komórki na samą siebie, po aliasowaniu parametru na `cc_argN`); (c) przed `ret` zapis wyniku do BC, który jest martwy.
 
