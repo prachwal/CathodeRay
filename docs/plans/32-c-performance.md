@@ -1,4 +1,4 @@
-# Mini-C: wydajność kodu 6502 — kopie przez tymczasowe, ramki rekurencji, peephole (status: w kolejce)
+# Mini-C: wydajność kodu 6502 — kopie przez tymczasowe, ramki rekurencji, peephole (status: otwarty)
 
 Cel: mniejszy i szybszy kod 6502 (i pośrednio Z80/8080/6800) bez zmiany semantyki. Baza pomiaru: `python3 tools/compare.py` = mini-C/cc65 1,74×, mini-C/SDCC 3,56× (`docs/compare.md`). Pomiar wzorców w listingach `samples/bench` (6502, 888 instrukcji kodu użytkownika): `sta M ; lda M` 193×, `lda M ; sta M` 133×, `sta M ; ldy #I` 22×, `jmp M` 31×; `fib` zapisuje na stosie także tymczasowe (10 B na cykl rekurencji).
 
@@ -27,7 +27,7 @@ Nie robić: ogólnego alokatora rejestrów (to osobny, duży plan po pomiarze ef
 
 ## C. Ramka rekurencji (`Lowering.Frames.cs`)
 
-- [ ] **5.** [S] Zapisuj na stosie tylko komórki żywe przez wołanie: dla funkcji na cyklu wołań (`FinalizeFrames`) oblicz zbiór komórek czytanych po jakimkolwiek `Ir.Call` w ciele bez wcześniejszego zapisu (liniowe skanowanie od wołania do końca funkcji, etykiety i skoki traktuj zachowawczo: wszystko po wołaniu w kolejności instrukcji + wszystko po etykietach wstecznych, czyli przy pętli cała funkcja). Komórki spoza zbioru wyjmij z `Saved` (nie z `Data`). Kryterium: `fib` na 6502 ma ramkę < 10 B/cykl (komunikat ostrzeżenia z `cathode cc samples/bench/fib.c … `), testy rekurencji (`CRecursionTests`, `CStackTests` — znajdź `grep -l recurs tests/CathodeRay.Tests/*.cs`) zielone. Zmierz. — WYCOFANY (poprawka po analizie Opus): skan liniowy CollectLive ignorowal skoki w przod, program z goto po wywolaniu rekurencyjnym dawal 100 zamiast 39. Przywrocono Lowering.Frames.cs sprzed kroku 5; test regresji w RecursionFrameTests. Wrocic po wspolnej analizie liveness (plan 33).
+- [x] **5.** [S] Zapisuj na stosie tylko komórki żywe przez wołanie: dla funkcji na cyklu wołań (`FinalizeFrames`) oblicz zbiór komórek czytanych po jakimkolwiek `Ir.Call` w ciele bez wcześniejszego zapisu (liniowe skanowanie od wołania do końca funkcji, etykiety i skoki traktuj zachowawczo: wszystko po wołaniu w kolejności instrukcji + wszystko po etykietach wstecznych, czyli przy pętli cała funkcja). Komórki spoza zbioru wyjmij z `Saved` (nie z `Data`). Kryterium: `fib` na 6502 ma ramkę < 10 B/cykl (komunikat ostrzeżenia z `cathode cc samples/bench/fib.c … `), testy rekurencji (`CRecursionTests`, `CStackTests` — znajdź `grep -l recurs tests/CathodeRay.Tests/*.cs`) zielone. Zmierz. — Zrealizowane przez plan 33 krok 3 (84f3c49): IrLiveness.Of na grafie przeplywu (Jmp/BrCmp/Ret, punkt staly), Saved=zywe-po-wolaniu+parametry+AddrOf; wczesniejszy liniowy CollectLive wycofany w 646d204 z regresja w RecursionFrameTests. Weryfikacja: fib 6502 6 B/cykl (<10, ostrzezenie cc), pomiary z 84f3c49: fib 10->6 B, tabela -768 B/22 wiersze, nic nie rosnie. Testy: RecursionFrame+IrLiveness+CRuntime (61) oraz CStructType+RecursionFuzz+RandomIr (20) zielone. Bez zmian kodu.
 - [x] **6.** [S] Test regresji dla kroku C: nowy test `RecursionFrameTests` z trzema programami (fib, silnia rekurencyjna na `int`, wzajemna rekurencja is_even/is_odd) uruchamianymi na `stub`, `6502`, `z80`, `6800` przez `CcRun.RunOn`; oczekiwane wartości policz ręcznie i wpisz jako stałe.
 
 ## D. Peephole 6502 (`Peephole.cs`, tekst asemblera po `ByteSelector`)
@@ -43,4 +43,4 @@ Nie robić: ogólnego alokatora rejestrów (to osobny, duży plan po pomiarze ef
 - [x] **12.** [S] Porównanie 16-bitowe z stałą 0 i `==`/`!=`: użyj `lda lo ; ora hi` (jest już dla zera na jednym bajcie — rozszerz na 2 bajty, jeśli nie ma). Test na 6502/z80: `if (x == 0)` dla `uint` przy x=0, 0x100, 0x01, 0xFFFF.
 - [x] **13.** [S] Zmierz i opisz: uruchom `python3 tools/hotspots.py --write` i `python3 tools/compare.py --write`, wklej do `docs/stub-calling-conv.md` sekcję „Plan 32: efekt” z liczbami przed/po (baza ze wstępu) i wnioskami; commit. Jeśli spadek sta;lda < 30% bazy, dodaj do planu następne zadania na podstawie nowych top-10 par.
 
-Postęp: 11/13 gotowych.
+Postęp: 12/13 gotowych.
