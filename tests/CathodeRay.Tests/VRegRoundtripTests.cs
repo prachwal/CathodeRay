@@ -57,13 +57,33 @@ public sealed class VRegRoundtripTests
 
     [Theory]
     [MemberData(nameof(Programs))]
-    public void Pipeline_Emits_Identical_Assembly(string name, string source, int expected)
+    public void Pipeline_Preserves_Semantics(string name, string source, int expected)
     {
         _ = name;
-        _ = expected;
         CheckedProgram program = TypeChecker.Check(Parser.Parse(source, StdLib.HeaderReader));
-        string before = Codegen.Emit(program, CTargets.Default, "t.c", objectMode: true);
-        string after = VRegPipeline.Emit(program, CTargets.Default, "t.c", objectMode: true);
-        after.Should().Be(before, "potok VReg daje ten sam asembler co Cell");
+        Ir.Module back = VRegPipeline.Lower(program, "t.c");
+        var interpreter = IrInterpreter.Load([back]);
+        (int value, _) = interpreter.RunMain();
+        value.Should().Be(expected);
+    }
+
+    [Fact]
+    public void Pipeline_Shrinks_Dead_Frame_Slot()
+    {
+        const string Source = """
+            int k(int n) {
+                int x;
+                int r;
+                x = n * 5;
+                if (n == 0) return x + 1;
+                r = k(n - 1);
+                x = n + 2;
+                return x + r;
+            }
+            int main() { return k(3); }
+            """;
+        CheckedProgram program = TypeChecker.Check(Parser.Parse(Source, StdLib.HeaderReader));
+        Ir.Function k = VRegPipeline.Lower(program, "t.c").Functions.Single(f => f.Name == "k");
+        k.Saved.Select(static o => o.Sym).Should().Contain("k__n").And.NotContain("k__x").And.NotContain("k__r");
     }
 }

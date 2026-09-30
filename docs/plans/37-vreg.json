@@ -23,14 +23,14 @@
     {
       "id": "4",
       "title": "[M] AccumulatorAllocator + VRegToCell + --ir vreg end-to-end na stub/6502/Z80 (design §4, §6)",
-      "status": "todo",
-      "note": ""
+      "status": "done",
+      "note": "AccumulatorAllocator (spill-all) + VRegTargetInfo.For + przebiegi i ShrinkSaved w potoku + --ir vreg w CLI (user+stdlib); conformance 42/42 na wszystkich celach."
     },
     {
       "id": "5",
       "title": "[M] Wolania/ABI przez adapter; TargetMatrix x vreg zielona; goldeny cell bez zmian (design §8)",
-      "status": "todo",
-      "note": ""
+      "status": "done",
+      "note": "VRegMatrixTests: 26 sampli x5 celow == stub Cell (wartosc+konsola); po drodze 2 fixy: lokalnosc przebiegow (globale cc_g_*, 113 vs 143) i skok do koncowej etykiety (IndexOutOfRange na inl_end_*)."
     },
     {
       "id": "6",

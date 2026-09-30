@@ -48,12 +48,7 @@ internal static partial class CcCommand
                 return 1;
             }
 
-            if (irKind.Equals("vreg", StringComparison.OrdinalIgnoreCase))
-            {
-                error.WriteLine("cc: IR 'vreg' not yet implemented (try --ir cell).");
-                return 1;
-            }
-
+            bool vreg = irKind.Equals("vreg", StringComparison.OrdinalIgnoreCase);
             FileInfo[] files = parse.GetRequiredValue(inputs);
             foreach (FileInfo input in files)
             {
@@ -95,12 +90,12 @@ internal static partial class CcCommand
                 modules.Add(("crt0.s", AssembleObject(target, cTarget.Crt0, "crt0.s", _ => null, includePaths)));
                 foreach (FileInfo input in files)
                 {
-                    modules.Add((input.Name, AssembleModule(target, cTarget, input, includePaths, warningText, ParseDefines(parse.GetValue(define)!), !parse.GetValue(noOpt))));
+                    modules.Add((input.Name, AssembleModule(target, cTarget, input, includePaths, warningText, ParseDefines(parse.GetValue(define)!), !parse.GetValue(noOpt), vreg)));
                 }
 
                 if (!parse.GetValue(noStdlib))
                 {
-                    LinkStdlib(target, cTarget, modules, includePaths, !parse.GetValue(noOpt));
+                    LinkStdlib(target, cTarget, modules, includePaths, !parse.GetValue(noOpt), vreg);
                 }
 
                 error.Write(warningText.ToString());
@@ -237,7 +232,7 @@ internal static partial class CcCommand
     /// <summary>Dokłada moduły biblioteki standardowej definiujące symbole, do których odwołują się
     /// dotychczasowe moduły (także moduły biblioteki między sobą); moduł, którego funkcję zdefiniował
     /// użytkownik, nie jest potrzebny.</summary>
-    private static void LinkStdlib(AssemblerTarget target, ICTarget cTarget, List<(string File, ObjectModule Module)> modules, string[] includePaths, bool optimize)
+    private static void LinkStdlib(AssemblerTarget target, ICTarget cTarget, List<(string File, ObjectModule Module)> modules, string[] includePaths, bool optimize, bool vreg)
     {
         var added = new HashSet<string>(StringComparer.Ordinal);
         while (true)
@@ -267,7 +262,9 @@ internal static partial class CcCommand
             if (!next.IsAssembly)
             {
                 CheckedProgram program = TypeChecker.Check(Parser.Parse(source, StdLib.HeaderReader));
-                source = Codegen.Emit(program, cTarget, next.Name, objectMode: true, optimize: optimize);
+                source = vreg
+                    ? VRegPipeline.Emit(program, cTarget, next.Name, objectMode: true, optimize: optimize)
+                    : Codegen.Emit(program, cTarget, next.Name, objectMode: true, optimize: optimize);
             }
 
             modules.Add(($"<stdlib>/{next.Name}", AssembleObject(target, source, next.Name, _ => null, includePaths)));
@@ -289,7 +286,7 @@ internal static partial class CcCommand
     private static string Where(string? file, int line) =>
         file is null ? string.Empty : line > 0 ? $"{file}:{line}: " : $"{file}: ";
 
-    private static ObjectModule AssembleModule(AssemblerTarget target, ICTarget cTarget, FileInfo input, string[] includePaths, TextWriter warnings, Dictionary<string, string> defines, bool optimize)
+    private static ObjectModule AssembleModule(AssemblerTarget target, ICTarget cTarget, FileInfo input, string[] includePaths, TextWriter warnings, Dictionary<string, string> defines, bool optimize, bool vreg)
     {
         string? dir = Path.GetDirectoryName(input.FullName);
         Func<string, string?> reader = path =>
@@ -314,7 +311,9 @@ internal static partial class CcCommand
             try
             {
                 CheckedProgram program = TypeChecker.Check(Parser.Parse(File.ReadAllText(input.FullName), reader, defines));
-                asm = Codegen.Emit(program, cTarget, input.Name, objectMode: true, optimize: optimize);
+                asm = vreg
+                    ? VRegPipeline.Emit(program, cTarget, input.Name, objectMode: true, optimize: optimize)
+                    : Codegen.Emit(program, cTarget, input.Name, objectMode: true, optimize: optimize);
                 foreach (string warning in program.Warnings)
                 {
                     warnings.WriteLine($"{input.Name}: warning: {warning}");

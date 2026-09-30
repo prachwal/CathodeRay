@@ -42,7 +42,64 @@ internal static class VRegToCell
             parameters.Add(CellOf(function, param));
         }
 
-        return new Ir.Function(function.Name, function.IsStatic, parameters, function.RetW, function.Saved, body);
+        return new Ir.Function(function.Name, function.IsStatic, parameters, function.RetW, ShrinkSaved(function), body);
+    }
+
+    /// <summary>Ramka po przebiegach VReg: z pierwotnego <c>Saved</c> zostają wpisy, których baza żyje przez
+    /// któreś wołanie (reguła <c>LiveAcrossCalls</c>), więc martwe po DCE komórki nie idą na stos.</summary>
+    private static IReadOnlyList<Ir.Owned> ShrinkSaved(VReg.Function function)
+    {
+        VRegLiveness live = VRegLiveness.Of(function);
+        var across = new HashSet<string>(function.Params.Select(p => BaseSymbol(function.Sym[p.Id])), StringComparer.Ordinal);
+        for (int i = 0; i < live.Count; i++)
+        {
+            if (live.At(i) is VReg.Call call)
+            {
+                string? result = call.Result is null ? null : "r" + call.Result.Id;
+                foreach (string key in live.LiveOut(i))
+                {
+                    if (key != result && MapKey(function, key) is { } sym)
+                    {
+                        across.Add(sym);
+                    }
+                }
+            }
+
+            foreach (VReg.Op op in VRegFacts.Uses(live.At(i)))
+            {
+                if (op is VReg.Addr addr)
+                {
+                    across.Add(addr.Sym);
+                }
+                else if (op is VReg.Pinned pinned)
+                {
+                    across.Add(BaseSymbol(pinned.Sym));
+                }
+            }
+        }
+
+        return [.. function.Saved.Where(o => across.Contains(BaseSymbol(o.Sym)))];
+    }
+
+    private static string? MapKey(VReg.Function function, string key)
+    {
+        if (key.StartsWith('r'))
+        {
+            if (int.TryParse(key[1..], out int id) && function.Sym.TryGetValue(id, out string? sym))
+            {
+                return BaseSymbol(sym);
+            }
+
+            throw new CCodegenException($"vreg: rejestr syntezowany r{key[1..]} żyje przez wołanie w funkcji '{function.Name}'.");
+        }
+
+        return key.StartsWith('m') ? key[1..] : null;
+    }
+
+    private static string BaseSymbol(string symbol)
+    {
+        int plus = symbol.IndexOf('+', StringComparison.Ordinal);
+        return plus < 0 ? symbol : symbol[..plus];
     }
 
     private static void LowerBlock(VReg.Function function, VReg.Block block, string next, List<Ir.Ins> body)

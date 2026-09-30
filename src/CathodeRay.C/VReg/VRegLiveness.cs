@@ -52,13 +52,16 @@ internal sealed class VRegLiveness
         {
             VReg.Ins ins = flat[i];
             int[] next = (i + 1 < flat.Count) ? [i + 1] : [];
-            successors[i] = ins switch
+            int count = flat.Count;
+
+            // Cel za końcem (pusta końcowa etykieta, np. inl_end_* inlinera) to wyjście jak po Ret.
+            successors[i] = (ins switch
             {
-                VReg.Jmp jump => [Target(jump.Target)],
+                VReg.Jmp jump => (int[])[Target(jump.Target)],
                 VReg.Br branch => [Target(branch.Then), Target(branch.Else)],
                 VReg.Ret => [],
                 _ => next,
-            };
+            }).Where(t => t < count).ToArray();
             uses[i] = [.. VRegFacts.Uses(ins).Select(static op => VRegFacts.Key(op)).OfType<string>()];
             kills[i] = VRegFacts.Def(ins) is { } def ? "r" + def.Id : null;
         }

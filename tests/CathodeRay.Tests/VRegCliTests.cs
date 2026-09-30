@@ -24,11 +24,10 @@ public sealed class VRegCliTests
     }
 
     [Fact]
-    public void Ir_Vreg_Reports_Not_Implemented()
+    public void Ir_Vreg_Compiles()
     {
         (int exit, string stderr) = CcRun.Compile("int main() { return 42; }", "--ir", "vreg");
-        exit.Should().NotBe(0);
-        stderr.Should().Contain("not yet implemented");
+        exit.Should().Be(0, stderr);
     }
 
     [Fact]

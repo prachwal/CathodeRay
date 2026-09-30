@@ -3,10 +3,10 @@
 - [x] **1.** [S] Faza 0: flaga --ir cell|vreg (vreg -> czytelny blad) + szkielet VReg.cs; kryterium: kompiluje return 42 (design §7, §D4) — Flaga --ir (cell|vreg|list) w CcCommand; vreg -> czytelny blad; VReg.cs (model rekordow); VRegCliTests 5/5.
 - [x] **2.** [S] Lowering wyrazen/sterowania + VRegInterpreter + oracle vs Cell na skalarach (design §3, §8) — Lift Cell->VReg (bloki, Cmp+Br, Pinned/Addr) + VRegToCell (fuzja Br, negacja) + VRegInterpreter (adapter IrInterpreter) + VRegPipeline; roundtrip daje bajt-identyczny asm i zgodne interpretery (8 programow x3, 24 testy).
 - [x] **3.** [S] VRegFacts + VRegLiveness (adaptacja IrLiveness) + testy, w tym kopie regresji goto/petla (design §5, §11) — VRegFacts + VRegLiveness (punkt staly, bloki) + VRegPasses (CSE/CSE-kopii/coalesce/DCE); zbiory across VReg==Cell na k/g/h (regresje goto/petla); Passes_Preserve_Semantics fib=55. 42 testy VReg zielone.
-- [ ] **4.** [M] AccumulatorAllocator + VRegToCell + --ir vreg end-to-end na stub/6502/Z80 (design §4, §6)
-- [ ] **5.** [M] Wolania/ABI przez adapter; TargetMatrix x vreg zielona; goldeny cell bez zmian (design §8)
+- [x] **4.** [M] AccumulatorAllocator + VRegToCell + --ir vreg end-to-end na stub/6502/Z80 (design §4, §6) — AccumulatorAllocator (spill-all) + VRegTargetInfo.For + przebiegi i ShrinkSaved w potoku + --ir vreg w CLI (user+stdlib); conformance 42/42 na wszystkich celach.
+- [x] **5.** [M] Wolania/ABI przez adapter; TargetMatrix x vreg zielona; goldeny cell bez zmian (design §8) — VRegMatrixTests: 26 sampli x5 celow == stub Cell (wartosc+konsola); po drodze 2 fixy: lokalnosc przebiegow (globale cc_g_*, 113 vs 143) i skok do koncowej etykiety (IndexOutOfRange na inl_end_*).
 - [ ] **6.** [S] Flagi nes/ioPort w Mos6502Target (N-6510 jako warianty rejestru CTargets, niezalezne od VReg; design §D6)
 - [ ] **7.** [M] LinearScanAllocator + pomiar vs conservative na celach z rejestrami (design §6, §10.6)
 - [ ] **8.** [S] Goldeny rozmiaru dla vreg (osobna tabela); SSA/GVN tylko pod pomiar jako osobna decyzja (design §8, §10.7)
 
-Postęp: 3/8 gotowych.
+Postęp: 5/8 gotowych.
