@@ -1,4 +1,4 @@
-# Mini-C: Z80/8080 — push par w ramkach, wynik W<=2 w HL, parametry nie-liści (status: otwarty)
+# Mini-C: Z80/8080 — push par w ramkach, wynik W<=2 w HL, parametry nie-liści (status: zamknięty)
 
 Cel: zmniejszyć kod Z80/8080 tam, gdzie zostaje największa luka (rekurencja/wołania: `fib` Z80 95 B vs SDCC 31 B). Źródło: `docs/codegen-size-and-hl-plan.md` (analiza zbiorcza) z poprawkami z weryfikacji: w listingu `fib` Z80 prolog/epilog ramki `n` zajmuje 16 B (`ld a,(nn) / push af` po bajcie), push pary to ok. 8 B; wynik przez `cc_ret` kosztuje ok. 10-14 B na `fib`; parametr nie-liścia jest kopiowany do komórki.
 

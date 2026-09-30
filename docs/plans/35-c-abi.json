@@ -1,6 +1,6 @@
 {
   "title": "Mini-C: Z80/8080 — push par w ramkach, wynik W<=2 w HL, parametry nie-liści",
-  "status": "open",
+  "status": "closed",
   "intro": "Cel: zmniejszyć kod Z80/8080 tam, gdzie zostaje największa luka (rekurencja/wołania: `fib` Z80 95 B vs SDCC 31 B). Źródło: `docs/codegen-size-and-hl-plan.md` (analiza zbiorcza) z poprawkami z weryfikacji: w listingu `fib` Z80 prolog/epilog ramki `n` zajmuje 16 B (`ld a,(nn) / push af` po bajcie), push pary to ok. 8 B; wynik przez `cc_ret` kosztuje ok. 10-14 B na `fib`; parametr nie-liścia jest kopiowany do komórki.\n\nKolejność: 1 (bez zmiany ABI, niskie ryzyko) -> 2 (zmiana ABI wyniku: UWAGA na rutyny asemblerowe `stdlib/target/z80/rt_mul.s`, `rt_div.s`, które zwracają przez `ld (cc_ret),hl`, oraz na moduły `.s` podawane do `cc`) -> 3.\n\nBramki każdego zadania (jak w planie 33): pełny `dotnet test`, `RecursionFuzzTests` i `LeafFuzzTests` na 500 programach (`python3 tools/recursion_fuzz.py gen 500 DIR`, `RECURSION_FUZZ_DIR=DIR dotnet test --filter RecursionFuzzTests`; to samo `leaf_fuzz.py`/`LEAF_FUZZ_DIR`), `RandomIrTests`, tabela `target-sizes.txt` nie rośnie w żadnym wierszu i żadnej kolumnie (stub, 6502, 6800 bez zmian w zadaniach 1-2, chyba że zadanie mówi inaczej), mutacja kontrolna (zepsuj nową regułę i sprawdź, że test/fuzz robi się czerwony). Commit po każdym zadaniu; nie zostawiaj niezacommitowanej pracy.",
   "items": [
     {
