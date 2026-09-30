@@ -148,6 +148,36 @@ internal sealed partial class Z80Isa : ByteIsa
         return true;
     }
 
+    /// <summary>Słowo z pamięci na stos: <c>ld hl,(n); push hl</c>.</summary>
+    /// <param name="word">Słowo.</param>
+    /// <returns><see langword="false"/>, gdy bajty nie są sąsiednie w pamięci.</returns>
+    public override bool TryPushWord(Word word)
+    {
+        if (!InMemoryWord(word))
+        {
+            return false;
+        }
+
+        L($"ld hl,({word.Lo})");
+        L("push hl");
+        return true;
+    }
+
+    /// <summary>Słowo ze stosu do pamięci: <c>pop hl; ld (n),hl</c>.</summary>
+    /// <param name="word">Słowo.</param>
+    /// <returns><see langword="false"/>, gdy bajty nie są sąsiednie w pamięci.</returns>
+    public override bool TryPopWord(Word word)
+    {
+        if (!InMemoryWord(word))
+        {
+            return false;
+        }
+
+        L("pop hl");
+        L($"ld ({word.Lo}),hl");
+        return true;
+    }
+
     /// <summary>Dodawanie/odejmowanie przez HL: <c>ld hl,a; add hl,de</c> albo <c>or a; sbc hl,de</c>, stała ±1..3 przez
     /// <c>inc hl</c>/<c>dec hl</c>, odjęcie stałej liczbowej jako dodanie jej przeciwieństwa.</summary>
     /// <param name="dst">Cel.</param>

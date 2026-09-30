@@ -275,6 +275,11 @@ internal sealed class ByteSelector
         Raw($"{_isa.Sym(function.Name)}:");
         foreach (Ir.Owned owned in function.Saved)
         {
+            if (SavedWord(owned) is { } word && _isa.TryPushWord(word))
+            {
+                continue;
+            }
+
             foreach (string address in SavedBytes(owned))
             {
                 LoadA(new Octet(false, address));
@@ -305,6 +310,11 @@ internal sealed class ByteSelector
         Raw($"{Mangle(function, "ret")}:");
         foreach (Ir.Owned owned in function.Saved.Reverse())
         {
+            if (SavedWord(owned) is { } word && _isa.TryPopWord(word))
+            {
+                continue;
+            }
+
             foreach (string address in SavedBytes(owned).Reverse())
             {
                 PopA();
@@ -314,6 +324,10 @@ internal sealed class ByteSelector
 
         _isa.Return();
     }
+
+    /// <summary>Komórka ramki jako słowo (skalar 2-bajtowy) do odłożenia parą albo <see langword="null"/>.</summary>
+    private Word? SavedWord(Ir.Owned owned) =>
+        (owned.Size == 2 && !owned.Aggregate) ? Pair(_isa.Loc(owned.Sym, 2, 0), _isa.Loc(owned.Sym, 2, 1)) : null;
 
     private IEnumerable<string> SavedBytes(Ir.Owned owned)
     {

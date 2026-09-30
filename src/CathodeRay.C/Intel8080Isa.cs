@@ -150,6 +150,36 @@ internal sealed class Intel8080Isa : ByteIsa
         return true;
     }
 
+    /// <summary>Słowo z pamięci na stos: <c>lhld n; push h</c>.</summary>
+    /// <param name="word">Słowo.</param>
+    /// <returns><see langword="false"/>, gdy bajty nie są sąsiednie w pamięci.</returns>
+    public override bool TryPushWord(Word word)
+    {
+        if (!InMemoryWord(word))
+        {
+            return false;
+        }
+
+        L($"lhld {word.Lo}");
+        L("push h");
+        return true;
+    }
+
+    /// <summary>Słowo ze stosu do pamięci: <c>pop h; shld n</c>.</summary>
+    /// <param name="word">Słowo.</param>
+    /// <returns><see langword="false"/>, gdy bajty nie są sąsiednie w pamięci.</returns>
+    public override bool TryPopWord(Word word)
+    {
+        if (!InMemoryWord(word))
+        {
+            return false;
+        }
+
+        L("pop h");
+        L($"shld {word.Lo}");
+        return true;
+    }
+
     public override void PushPair(string pair) => L($"push {pair[..1]}");
 
     public override void PopPair(string pair) => L($"pop {pair[..1]}");

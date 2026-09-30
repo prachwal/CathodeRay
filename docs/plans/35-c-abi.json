@@ -6,8 +6,8 @@
     {
       "id": "1",
       "title": "[M] Prolog/epilog `Saved`: `push`/`pop` pary zamiast bajt po bajcie (Z80: `ld hl,(n)` `push hl` ... `pop hl` `ld (n),hl`; 8080 analogicznie `lhld`/`push h`/`pop h`/`shld`). Pliki: `ByteSelector.SavedBytes`/prolog i epilog funkcji (`EmitFunctionBody`), `ByteIsa` (nowy wirtualny prymityw zapisu słowa, domyślnie bajtowy), `Z80Isa.cs`, `Intel8080Isa.cs`. Dotyczy tylko komórek 2-bajtowych leżących obok siebie; 1-bajtowe i 4-bajtowe zostają. Uwaga: HL jest scratchem ISA; epilog nie może zniszczyć wyniku (dziś w `cc_ret`). Akceptacja: `fib` na Z80 ≤ 87 B (dziś 95 B), na 8080 maleje; `RecursionFrameTests` i `IrLivenessTests` zielone; tabela z80/8080 nie rośnie.",
-      "status": "todo",
-      "note": "",
+      "status": "done",
+      "note": "Z80 fib 95->87 B, 8080 fib 116->108 B; tabela z80 -88, 8080 -88",
       "section": "A. Ramki"
     },
     {

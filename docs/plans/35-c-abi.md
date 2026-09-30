@@ -8,7 +8,7 @@ Bramki każdego zadania (jak w planie 33): pełny `dotnet test`, `RecursionFuzzT
 
 ## A. Ramki
 
-- [ ] **1.** [M] Prolog/epilog `Saved`: `push`/`pop` pary zamiast bajt po bajcie (Z80: `ld hl,(n)` `push hl` ... `pop hl` `ld (n),hl`; 8080 analogicznie `lhld`/`push h`/`pop h`/`shld`). Pliki: `ByteSelector.SavedBytes`/prolog i epilog funkcji (`EmitFunctionBody`), `ByteIsa` (nowy wirtualny prymityw zapisu słowa, domyślnie bajtowy), `Z80Isa.cs`, `Intel8080Isa.cs`. Dotyczy tylko komórek 2-bajtowych leżących obok siebie; 1-bajtowe i 4-bajtowe zostają. Uwaga: HL jest scratchem ISA; epilog nie może zniszczyć wyniku (dziś w `cc_ret`). Akceptacja: `fib` na Z80 ≤ 87 B (dziś 95 B), na 8080 maleje; `RecursionFrameTests` i `IrLivenessTests` zielone; tabela z80/8080 nie rośnie.
+- [x] **1.** [M] Prolog/epilog `Saved`: `push`/`pop` pary zamiast bajt po bajcie (Z80: `ld hl,(n)` `push hl` ... `pop hl` `ld (n),hl`; 8080 analogicznie `lhld`/`push h`/`pop h`/`shld`). Pliki: `ByteSelector.SavedBytes`/prolog i epilog funkcji (`EmitFunctionBody`), `ByteIsa` (nowy wirtualny prymityw zapisu słowa, domyślnie bajtowy), `Z80Isa.cs`, `Intel8080Isa.cs`. Dotyczy tylko komórek 2-bajtowych leżących obok siebie; 1-bajtowe i 4-bajtowe zostają. Uwaga: HL jest scratchem ISA; epilog nie może zniszczyć wyniku (dziś w `cc_ret`). Akceptacja: `fib` na Z80 ≤ 87 B (dziś 95 B), na 8080 maleje; `RecursionFrameTests` i `IrLivenessTests` zielone; tabela z80/8080 nie rośnie. — Z80 fib 95->87 B, 8080 fib 116->108 B; tabela z80 -88, 8080 -88
 
 ## B. ABI
 
@@ -18,4 +18,4 @@ Bramki każdego zadania (jak w planie 33): pełny `dotnet test`, `RecursionFuzzT
 
 - [ ] **3.** [M] Aliasowanie parametru funkcji NIE-liścia na `cc_argN`, tylko gdy bezpieczne: ostatnie użycie parametru (wg `IrLiveness`) poprzedza pierwszy `Call` w funkcji, a żaden wcześniejszy zapis do `cc_argN` nie koliduje (callee i `Legalizer` ustawiają `cc_argN` przed `Call`; param w `cc_arg1` jest niszczony przez własne wołanie). Dla `fib` parametr `n` jest żywy po wołaniu, więc nie dotyczy, ale dotyczy funkcji z krótkim użyciem parametru przed wołaniem (np. `f(x){ return g(x+1); }`). `ParamAlias.cs` (rozszerz warunek 'liść' na 'parametr martwy przed pierwszym Call'). Kontrprzykłady: parametr używany po wołaniu, w pętli z wołaniem, wzięty adres, `goto` wstecz przez `Call`. Akceptacja: test różnicowy fuzz (w generatorze liści dodaj funkcje nie-liście z parametrem używanym przed wołaniem i po nim), tabela nie rośnie; zmierz i zgłoś zysk (jeśli < 20 B w całej tabeli — zgłoś jako niski ROI i zostaw zmianę, o ile nie psuje niczego).
 
-Postęp: 0/3 gotowych.
+Postęp: 1/3 gotowych.

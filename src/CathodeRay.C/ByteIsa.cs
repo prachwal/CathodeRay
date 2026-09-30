@@ -256,6 +256,18 @@ internal abstract class ByteIsa
     /// <returns><see langword="true"/>, gdy sekwencja została wyemitowana.</returns>
     public virtual bool TryMoveWord(Word dst, Word src) => false;
 
+    /// <summary>Odkłada na stos słowo z pamięci (prolog ramki) jedną sekwencją CPU, bez zmiany A. Decyzja zależy tylko od
+    /// <paramref name="word"/>, tak samo jak w <see cref="TryPopWord"/>, więc prolog i epilog grupują bajty identycznie.
+    /// Domyślnie <see langword="false"/>: selektor odkłada bajty przez A.</summary>
+    /// <param name="word">Słowo w pamięci (bajty sąsiednie).</param>
+    /// <returns><see langword="true"/>, gdy sekwencja została wyemitowana.</returns>
+    public virtual bool TryPushWord(Word word) => false;
+
+    /// <summary>Zdejmuje ze stosu słowo do pamięci (epilog ramki), bez zmiany A; para przeciwna do <see cref="TryPushWord"/>.</summary>
+    /// <param name="word">Słowo w pamięci (bajty sąsiednie).</param>
+    /// <returns><see langword="true"/>, gdy sekwencja została wyemitowana.</returns>
+    public virtual bool TryPopWord(Word word) => false;
+
     /// <summary>Dodawanie albo odejmowanie słów 16-bitowych <c>dst ← a ± b</c> jedną sekwencją CPU, bez zmiany A (może zmienić
     /// rejestry adresowe i flagi; flagi po niej są nieokreślone, selektor ich nie używa). Domyślnie <see langword="false"/>:
     /// selektor liczy bajt po bajcie przez A.</summary>
@@ -345,6 +357,11 @@ internal abstract class ByteIsa
     /// <param name="word">Słowo.</param>
     /// <returns><see langword="true"/>, gdy słowo da się przenieść parą.</returns>
     protected bool Usable(Word word) => word.IsImmediate || InRegisters(word) || (!IsRegister(word.Lo) && !IsRegister(word.Hi) && Adjacent(word));
+
+    /// <summary>Oba bajty słowa w pamięci, obok siebie (bez rejestrów).</summary>
+    /// <param name="word">Słowo.</param>
+    /// <returns><see langword="true"/>, gdy słowo da się przenieść jednym <c>ld hl,(n)</c>/<c>lhld n</c>.</returns>
+    protected bool InMemoryWord(Word word) => !word.IsImmediate && !IsRegister(word.Lo) && !IsRegister(word.Hi) && Adjacent(word);
 
     /// <summary>Para z <see cref="CellPairs"/>, gdy słowo leży w niej w całości (młodszy bajt w młodszym rejestrze).</summary>
     /// <param name="word">Słowo.</param>
