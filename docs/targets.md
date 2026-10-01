@@ -47,6 +47,17 @@ Rozmiar kodu programów przykładowych na każdym celu: [target-sizes.md](target
 5. **Testy**: interpreter w `tests/` (`ICpuRunner`, rejestr `Runners`) — wtedy `IrConformanceTests`, `TargetMatrixTests` i testy
    funkcji (`CCastTests`, `CLongTests` …) uruchamiają się na nowym celu same. Odstępstwa od konwencji trzeba opisać w
    `stub-calling-conv.md`.
+6. **Model**: wpis w `CpuModels` (rejestry, aliasy, `ClobberedByCall`, `Scratch`, `ResultReg`, `ArgRegs`, `PrimEffects`) —
+   testy `CpuModel*Tests` pilnują zgodności z `CellRegisters`/`CellPairs` i emiterem.
+
+## Kontrakt rejestrowy (`CpuModel`, plan 38)
+
+Jawny model maszyny dla optymalizatora (`src/CathodeRay.C/Cpu*.cs`): rejestry i aliasy (`hl=[h,l]`),
+co wołanie niszczy (`ClobberedByCall`), czym prymitywy drapią (`Scratch`, dawne `Clobbers`),
+gdzie wraca wynik (`ResultReg`), dokąd idą argumenty (`ArgRegs`, dziś puste = ABI v1)
+i efekty prymitywów (`PrimEffects`: czytane/zapisywane rejestry, flagi — sprawdzone fuzzem
+`PrimEffectsFuzzTests` przeciw emulatorom, ~9k sekwencji). Selektor czyta model zamiast zgadywać
+(`Taken` przez aliasy, `ArgCell`, walidacja w `AssignRegisters`).
 
 ## Ograniczenia celów bajtowych
 

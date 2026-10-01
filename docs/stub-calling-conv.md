@@ -440,3 +440,10 @@ Bajty mini-C Z80 przed/po (przed = `ea53a28`, po = ten commit; kolumny: bench, p
 Skąd spadki: `apply` w `fnptr` woła ogonowo (`call f + ret` → `jp (hl)`, −2 B na miejscu; reszta z kroków 2–4), `bubble` z peepholi. `fib` bez miejsc ogonowych (wołania karmią `+`) stoi. Nic nie rośnie w żadnej kolumnie (`target-sizes.txt`: maleją tylko wiersze z80/8080).
 
 Wywołanie ogonowe (`ByteSelector`, tylko Z80/8080): `Call` z wynikiem i zaraz `Ret` tej samej komórki (void albo 1–2 B, wynik już w miejscu docelowym) zamienia się w `jp`/`jmp` (pośrednie: `jp (hl)`/`pchl`), gdy ramka pusta (`Saved`) i brak zapisów par wokół wołania. Epilog z `ret` zostaje (inne powroty go używają). Rekurencja wzajemna z ramką nie optymalizuje się (test mutacją warunku).
+
+## Plan 38: CpuModel a zamrożone ABI
+
+Konwencja (argumenty `cc_argN`, wynik `cc_ret`/`HL`) jest opisana jawnie w `CpuModel`
+(`ArgRegs` puste = ABI v1, `ResultReg` = `hl` tylko na Z80/8080). Opt 1 (argumenty w rejestrach)
+wypełni `ArgRegs` bez rewolucji w selektorze (`ByteIsa.ArgCell` już czyta model); zmiana i tak
+wymaga decyzji ABI (dual-ABI albo pilotaż na `nes`/`6510`), bo łamie ręczne `.s` i obiekty.

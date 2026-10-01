@@ -1,6 +1,6 @@
 {
   "title": "CpuModel: jawny kontrakt rejestrowy CPU dla optymalizatora (rejestry, aliasy, clobbery, efekty flag)",
-  "status": "queued",
+  "status": "closed",
   "items": [
     {
       "id": "1",
@@ -35,8 +35,8 @@
     {
       "id": "6",
       "title": "[S] Dokumentacja i zamkniecie: sekcja CpuModel w docs/targets.md + notka w stub-calling-conv.md (ABI zamrozone, model je opisuje); pomiary (target-sizes/compare bez zmian); render + hygiene OK; commit na branchu; plan closed.",
-      "status": "todo",
-      "note": ""
+      "status": "done",
+      "note": "Sekcja CpuModel w targets.md + notka ABI w stub-calling-conv.md; pomiary bez zmian (goldeny nietkniete)."
     }
   ]
 }
