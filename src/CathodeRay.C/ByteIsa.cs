@@ -70,6 +70,16 @@ internal abstract class ByteIsa
     /// <returns><see langword="true"/>, gdy sekwencja została wyemitowana.</returns>
     public virtual bool TryBranchZeroSigned(Word value, Ir.Cond cond, string target) => false;
 
+    /// <summary>Lokalizacja argumentu: rejestr z <see cref="CpuModel.ArgRegs"/> (ABI v2, przyszłe)
+    /// albo komórka <c>cc_argN</c> (ABI v1 — dziś zawsze, bo <see cref="CpuModel.ArgRegs"/> puste).</summary>
+    /// <param name="index">Numer argumentu od zera.</param>
+    /// <param name="part">0 = młodszy bajt, 1 = starszy.</param>
+    /// <returns>Symbol komórki albo nazwa rejestru.</returns>
+    public string ArgCell(int index, int part) =>
+        Model.ArgRegs.Count > index
+            ? Model.ArgRegs[index]
+            : part == 0 ? $"cc_arg{index + 1}" : $"cc_arg{index + 1}_h";
+
     /// <summary>Adres bajtu komórki (indeks 0 = młodszy). Komórka 32-bitowa <c>cc_argN</c> (parametr <c>long</c> liścia po
     /// <see cref="ParamAlias"/>) ma starszą połowę w <c>cc_argN+1</c>.</summary>
     /// <param name="sym">Symbol komórki.</param>

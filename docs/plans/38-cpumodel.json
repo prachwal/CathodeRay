@@ -29,8 +29,8 @@
     {
       "id": "5",
       "title": "[S] ArgRegs: pole + plumbing (puste = obecne ABI, dowod: brak zmian w kodzie) + test; dokumentacja jak Opt 1 (argumenty w rejestrach) wypelni to pole bez rewolucji w selektorze. Pilot nes/6510 jako osobny plan (AbiV2), nie tutaj. Akceptacja: test NoRegArgs_Emits_Identical_Code (porownanie asm z i bez plumbing).",
-      "status": "todo",
-      "note": ""
+      "status": "done",
+      "note": "ByteIsa.ArgCell czyta model (puste = cc_argN); selektor przepiety (6 miejsc), ArgSym usuniete; test Empty_ArgRegs; matrix 168 + goldeny zielone, listingi 05_calls/fib identyczne."
     },
     {
       "id": "6",

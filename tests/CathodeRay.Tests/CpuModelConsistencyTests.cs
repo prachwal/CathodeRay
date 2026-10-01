@@ -128,4 +128,21 @@ public sealed class CpuModelConsistencyTests
             }
         }
     }
+
+    /// <summary>Plan 38, zadanie 5: puste <c>ArgRegs</c> to dzisiejsze ABI (komórki <c>cc_argN</c>);
+    /// Opt 1 (argumenty w rejestrach) wypełni to pole, a <c>ByteIsa.ArgCell</c> już je czyta.</summary>
+    [Fact]
+    public void Empty_ArgRegs_Means_Memory_ABI()
+    {
+        foreach (ByteTarget target in CTargets.All.OfType<ByteTarget>())
+        {
+            ByteIsa isa = target.CreateIsa();
+            CpuModels.For(target).ArgRegs.Should().BeEmpty(target.Name);
+            for (int i = 0; i < 6; i++)
+            {
+                isa.ArgCell(i, 0).Should().Be($"cc_arg{i + 1}", target.Name);
+                isa.ArgCell(i, 1).Should().Be($"cc_arg{i + 1}_h", target.Name);
+            }
+        }
+    }
 }

@@ -60,8 +60,6 @@ internal sealed class ByteSelector
         _ => 2,
     };
 
-    private static string ArgSym(int index, int part) => part == 0 ? $"cc_arg{index + 1}" : $"cc_arg{index + 1}_h";
-
     private static string RetSym(int part) => part == 0 ? "cc_ret" : "cc_ret_h";
 
     private static string Number(int value) => value.ToString(CultureInfo.InvariantCulture);
@@ -290,14 +288,14 @@ internal sealed class ByteSelector
         for (int i = 0; i < function.Params.Count; i++)
         {
             Ir.Cell param = function.Params[i];
-            if (param.Sym == ArgSym(i, 0) || (param.W == 2 && TryMoveWord(WordOf(param), Pair(ArgSym(i, 0), ArgSym(i, 1)))))
+            if (param.Sym == _isa.ArgCell(i, 0) || (param.W == 2 && TryMoveWord(WordOf(param), Pair(_isa.ArgCell(i, 0), _isa.ArgCell(i, 1)))))
             {
                 continue;
             }
 
             for (int part = 0; part < param.W; part++)
             {
-                LoadA(new Octet(false, ArgSym(i, part)));
+                LoadA(new Octet(false, _isa.ArgCell(i, part)));
                 StoreA(Dst(param, part));
             }
         }
@@ -906,13 +904,13 @@ internal sealed class ByteSelector
     {
         for (int i = 0; i < call.Args.Count; i++)
         {
-            if (call.Args[i] is Ir.Cell same && same.W == call.ParamWidths[i] && same.Sym == ArgSym(i, 0))
+            if (call.Args[i] is Ir.Cell same && same.W == call.ParamWidths[i] && same.Sym == _isa.ArgCell(i, 0))
             {
                 // parametr funkcji zaaliasowany na cc_argN jest już w komórce argumentu na tej samej pozycji
                 continue;
             }
 
-            if (call.ParamWidths[i] == 2 && TryMoveWord(Pair(ArgSym(i, 0), ArgSym(i, 1)), WordOf(call.Args[i])))
+            if (call.ParamWidths[i] == 2 && TryMoveWord(Pair(_isa.ArgCell(i, 0), _isa.ArgCell(i, 1)), WordOf(call.Args[i])))
             {
                 continue;
             }
@@ -920,7 +918,7 @@ internal sealed class ByteSelector
             for (int part = 0; part < call.ParamWidths[i]; part++)
             {
                 LoadA(ByteOf(call.Args[i], part));
-                StoreA(ArgSym(i, part));
+                StoreA(_isa.ArgCell(i, part));
             }
         }
     }
