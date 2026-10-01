@@ -55,4 +55,24 @@ public sealed class AbiCliTests
     {
         CTargets.All.Where(static t => t.SupportsAbiV2).Select(static t => t.Name).Should().BeEquivalentTo("nes");
     }
+
+    [Fact]
+    public void V2_Requires_Single_C_Module()
+    {
+        string dir = Directory.CreateTempSubdirectory("cathode-abi-v2-multi-").FullName;
+        try
+        {
+            string first = Path.Combine(dir, "a.c");
+            string second = Path.Combine(dir, "b.c");
+            File.WriteAllText(first, "int f() { return 1; }\n");
+            File.WriteAllText(second, "int main() { return 1; }\n");
+            (int exit, _, string stderr) = Invoke("cc", first, second, "-o", Path.Combine(dir, "p.bin"), "--cpu", "nes", "--abi", "v2");
+            exit.Should().NotBe(0);
+            stderr.Should().Contain("exactly one .c module");
+        }
+        finally
+        {
+            Directory.Delete(dir, recursive: true);
+        }
+    }
 }

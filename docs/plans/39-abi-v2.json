@@ -11,14 +11,14 @@
     {
       "id": "2",
       "title": "[M] Pilot nes: prolog (arg1 A / A-X) + EmitCallArgs + wynik W1->A, W2->A/X + crt0 writeback do cc_ret (decyzja D3). Weryfikacja rt na nes (brak .s?). Kryterium: fib/sw/add na nes assemble+run.",
-      "status": "todo",
-      "note": ""
+      "status": "done",
+      "note": "Pilot nes/v2 działa: prolog arg1 A/X (park cc_t0), EmitCallArgs 2-fazowe, wynik A/X, crt0 writeback; NesAbiTests 11/11 (fib/mul/add/sw/struct/fptr/indirect/u8wrap). Fixy: __crt_halt, Crt0For z AbiV2, EntryParkCell, PopByte via cc_t0, RegArgsAllowed+RegCall (helpery v1), FreshBinInResultReg tylko Z80/8080, _acc Clear po Fetch/Store/SetupFp. Full suite 2951/2951 przed matrycą."
     },
     {
       "id": "3",
       "title": "[M] Macierz nes v1 vs vreg+v2 (wartosc+konsola, wszystkie sample) + goldeny v2 (osobne pliki, wzor vreg-sizes) + bramka planu: >=15% w dol na programach wolaniowych, inaczej STOP i rewizja D2.",
-      "status": "todo",
-      "note": ""
+      "status": "done",
+      "note": "Matryca nes/v2 24/24 zielona (AbiV2MatrixTests, oracle stub); goldeny v2-sizes.txt + docs/v2-sizes.md; bramka -15% NIE przeszła (05_calls -0.9%, średnia +1.7 B) - rewizja zrobiona (ParamAlias-mem, stopka 1x park, pha/pla-guard, stdlib-v1); sufit strukturalny (arg0-only, helpery v1) -> item 5."
     },
     {
       "id": "4",

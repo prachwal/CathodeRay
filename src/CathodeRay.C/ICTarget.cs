@@ -39,6 +39,12 @@ public interface ICTarget
     /// <summary>Drukuje moduł jako tekst asemblera celu.</summary>
     /// <param name="module">Kod pośredni.</param>
     /// <param name="optimize">Włącz optymalizacje celu.</param>
+    /// <param name="abiV2">Ścieżka ABI v2 (tylko cele z <see cref="SupportsAbiV2"/>).</param>
     /// <returns>Źródło dla asemblera.</returns>
-    string Emit(Ir.Module module, bool optimize);
+    string Emit(Ir.Module module, bool optimize, bool abiV2 = false);
+
+    /// <summary>Kod startowy dla wybranej ABI (domyślnie ten sam; v2 może dopisać zwrot wyniku do <c>cc_ret</c>).</summary>
+    /// <param name="abiV2">Ścieżka v2.</param>
+    /// <returns>Źródło dla asemblera.</returns>
+    string Crt0For(bool abiV2) => Crt0;
 }

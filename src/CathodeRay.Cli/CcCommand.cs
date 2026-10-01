@@ -96,6 +96,7 @@ internal static partial class CcCommand
                 return 1;
             }
 
+            bool useV2 = abiKind.Equals("v2", StringComparison.OrdinalIgnoreCase);
             AssemblerTarget target = AssemblerTargets.Find(cTarget.AssemblerCpu)!;
             if (abiKind.Equals("v2", StringComparison.OrdinalIgnoreCase) && !cTarget.SupportsAbiV2)
             {
@@ -104,14 +105,21 @@ internal static partial class CcCommand
                 return 1;
             }
 
+            if (useV2 && (files.Count(static f => f.Extension.Equals(".c", StringComparison.OrdinalIgnoreCase)) != 1
+                || files.Any(static f => f.Extension.Equals(".s", StringComparison.OrdinalIgnoreCase))))
+            {
+                error.WriteLine("cc: ABI 'v2' pilot supports exactly one .c module and no .s inputs (register args are same-module only).");
+                return 1;
+            }
+
             var modules = new List<(string File, ObjectModule Module)>();
             var warningText = new StringWriter();
             try
             {
-                modules.Add(("crt0.s", AssembleObject(target, cTarget.Crt0, "crt0.s", _ => null, includePaths)));
+                modules.Add(("crt0.s", AssembleObject(target, cTarget.Crt0For(useV2), "crt0.s", _ => null, includePaths)));
                 foreach (FileInfo input in files)
                 {
-                    modules.Add((input.Name, AssembleModule(target, cTarget, input, includePaths, warningText, ParseDefines(parse.GetValue(define)!), !parse.GetValue(noOpt), vreg)));
+                    modules.Add((input.Name, AssembleModule(target, cTarget, input, includePaths, warningText, ParseDefines(parse.GetValue(define)!), !parse.GetValue(noOpt), vreg, useV2)));
                 }
 
                 if (!parse.GetValue(noStdlib))
@@ -282,10 +290,12 @@ internal static partial class CcCommand
             string source = next.Source;
             if (!next.IsAssembly)
             {
+                // Helpery C stdlib zawsze v1: wołający (RegCall) marszuje je przez cc_argN/cc_ret, więc ich
+                // prologi też muszą czytać pamięć (rejestry v2 są same-module).
                 CheckedProgram program = TypeChecker.Check(Parser.Parse(source, StdLib.HeaderReader));
                 source = vreg
-                    ? VRegPipeline.Emit(program, cTarget, next.Name, objectMode: true, optimize: optimize)
-                    : Codegen.Emit(program, cTarget, next.Name, objectMode: true, optimize: optimize);
+                    ? VRegPipeline.Emit(program, cTarget, next.Name, objectMode: true, optimize: optimize, abiV2: false)
+                    : Codegen.Emit(program, cTarget, next.Name, objectMode: true, optimize: optimize, abiV2: false);
             }
 
             modules.Add(($"<stdlib>/{next.Name}", AssembleObject(target, source, next.Name, _ => null, includePaths)));
@@ -307,7 +317,7 @@ internal static partial class CcCommand
     private static string Where(string? file, int line) =>
         file is null ? string.Empty : line > 0 ? $"{file}:{line}: " : $"{file}: ";
 
-    private static ObjectModule AssembleModule(AssemblerTarget target, ICTarget cTarget, FileInfo input, string[] includePaths, TextWriter warnings, Dictionary<string, string> defines, bool optimize, bool vreg)
+    private static ObjectModule AssembleModule(AssemblerTarget target, ICTarget cTarget, FileInfo input, string[] includePaths, TextWriter warnings, Dictionary<string, string> defines, bool optimize, bool vreg, bool abiV2)
     {
         string? dir = Path.GetDirectoryName(input.FullName);
         Func<string, string?> reader = path =>
@@ -333,8 +343,8 @@ internal static partial class CcCommand
             {
                 CheckedProgram program = TypeChecker.Check(Parser.Parse(File.ReadAllText(input.FullName), reader, defines));
                 asm = vreg
-                    ? VRegPipeline.Emit(program, cTarget, input.Name, objectMode: true, optimize: optimize)
-                    : Codegen.Emit(program, cTarget, input.Name, objectMode: true, optimize: optimize);
+                    ? VRegPipeline.Emit(program, cTarget, input.Name, objectMode: true, optimize: optimize, abiV2: abiV2)
+                    : Codegen.Emit(program, cTarget, input.Name, objectMode: true, optimize: optimize, abiV2: abiV2);
                 foreach (string warning in program.Warnings)
                 {
                     warnings.WriteLine($"{input.Name}: warning: {warning}");

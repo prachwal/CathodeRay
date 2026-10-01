@@ -11,7 +11,7 @@ public static class CpuModels
         ["stub"] = new("stub", [new("a", 1, []), new("x", 1, [])], ScratchOf("a", "x"), ScratchOf("a", "x"), null, [], new Dictionary<string, FlagEffects>()),
         ["6502"] = new("6502", [new("a", 1, []), new("x", 1, []), new("y", 1, [])], ScratchOf("a", "x", "y"), ScratchOf("a", "x", "y"), null, [], Mos6502Effects()),
         ["65c02"] = new("65c02", [new("a", 1, []), new("x", 1, []), new("y", 1, [])], ScratchOf("a", "x", "y"), ScratchOf("a", "x", "y"), null, [], Mos6502Effects()),
-        ["nes"] = new("nes", [new("a", 1, []), new("x", 1, []), new("y", 1, [])], ScratchOf("a", "x", "y"), ScratchOf("a", "x", "y"), null, [], Mos6502Effects()),
+        ["nes"] = new("nes", [new("a", 1, []), new("x", 1, []), new("y", 1, [])], ScratchOf("a", "x", "y"), ScratchOf("a", "x", "y"), null, ["a", "x"], Mos6502Effects()),
         ["6510"] = new("6510", [new("a", 1, []), new("x", 1, []), new("y", 1, [])], ScratchOf("a", "x", "y"), ScratchOf("a", "x", "y"), null, [], Mos6502Effects()),
         ["z80"] = new(
             "z80",

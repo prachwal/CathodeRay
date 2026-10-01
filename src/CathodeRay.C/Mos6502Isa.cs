@@ -24,6 +24,13 @@ internal sealed class Mos6502Isa : ByteIsa
     /// <summary>Cel obsługuje wywołanie ogonowe (bezpośrednie: <c>jmp</c>; pośrednie: <c>jmp __icall</c>).</summary>
     public override bool SupportsTailCall => true;
 
+    /// <summary>Wynik w rejestrze tylko na ścieżce v2 (A dla W1, A/X dla W2); v1 wraca przez <c>cc_ret</c>.</summary>
+    public override bool ReturnsInResultReg => AbiV2;
+
+    /// <summary>Push ramki czyta komórki przez A, więc A wejściowe (młodszy bajt parametru) parkuje w <c>cc_t0</c>
+    /// na czas pushy (X je przeżywa); scratch ginie dopiero w ciele funkcji.</summary>
+    public override string? EntryParkCell => "cc_t0";
+
     protected override IReadOnlySet<string> Reserved => ReservedNames;
 
     /// <summary>Nazwa CPU w <see cref="CpuModels"/> (warianty nes/6510 dzielą model 6502).</summary>
@@ -166,7 +173,7 @@ internal sealed class Mos6502Isa : ByteIsa
 
     public override void CallIndirect(string cell)
     {
-        SetupIcall(cell);
+        SetupFp(cell);
         L("jsr __icall");
     }
 
@@ -174,8 +181,95 @@ internal sealed class Mos6502Isa : ByteIsa
     /// <param name="cell">Symbol komórki z adresem.</param>
     public override void TailCallIndirect(string cell)
     {
-        SetupIcall(cell);
+        SetupFp(cell);
         L("jmp __icall");
+    }
+
+    /// <summary>Wskaźnik wołania pośredniego do <c>cc_fp</c> (bez skoku; selektor stawia go przed argumentami v2).</summary>
+    /// <param name="cell">Symbol komórki z adresem.</param>
+    public override void SetupFp(string cell)
+    {
+        L($"lda {Mem(cell)}");
+        L("sta cc_fp");
+        L($"lda {Mem(cell + "+1")}");
+        L("sta cc_fp+1");
+    }
+
+    /// <summary>Lokalizacja argumentu na v2: pierwszy argument W≤2 w A (W1) albo A/X (W2, młodszy/starszy);
+    /// reszta i szersze w <c>cc_argN</c> pozycyjnie (nadmiar wariadyczny też tam).</summary>
+    /// <param name="index">Numer argumentu od zera.</param>
+    /// <param name="part">0 = młodszy bajt, 1 = starszy.</param>
+    /// <param name="width">Szerokość argumentu (pary tylko dla W≤2).</param>
+    /// <returns>Nazwa rejestru albo symbol komórki.</returns>
+    public override string ArgCell(int index, int part, int width) =>
+        AbiV2 && RegArgsAllowed && index == 0 && width <= 2 ? (part == 0 ? "a" : "x") : base.ArgCell(index, part, width);
+
+    /// <summary>Bajt wyniku do rejestru: w A już leży (nic do roboty) albo <c>tax</c> dla starszego do X.</summary>
+    /// <param name="index">0 = młodszy (już w A), 1 = starszy (A → X).</param>
+    public override void ResultByteFromA(int index)
+    {
+        if (index != 0)
+        {
+            L("tax");
+        }
+    }
+
+    /// <summary>A z rejestru wyniku: już w A (nic) albo <c>txa</c> dla starszego z X.</summary>
+    /// <param name="index">0 = młodszy (już w A), 1 = starszy (X → A).</param>
+    public override void ResultByteToA(int index)
+    {
+        if (index != 0)
+        {
+            L("txa");
+        }
+    }
+
+    /// <summary>A ← rejestr argumentu (v2): <c>a</c> już w A, <c>x</c> przez <c>txa</c>.</summary>
+    /// <param name="reg">Rejestr argumentu z modelu.</param>
+    public override void FetchArg(string reg)
+    {
+        if (reg == "x")
+        {
+            L("txa");
+        }
+        else if (reg != "a")
+        {
+            throw new ArgumentException($"6502 nie trzyma argumentów w '{reg}'.", nameof(reg));
+        }
+    }
+
+    /// <summary>Rejestr argumentu ← A (v2): <c>a</c> już w A, <c>x</c> przez <c>tax</c>.</summary>
+    /// <param name="reg">Rejestr argumentu z modelu.</param>
+    public override void StoreArg(string reg)
+    {
+        if (reg == "x")
+        {
+            L("tax");
+        }
+        else if (reg != "a")
+        {
+            throw new ArgumentException($"6502 nie trzyma argumentów w '{reg}'.", nameof(reg));
+        }
+    }
+
+    /// <summary>Zdejmuje bajt ze stosu z zachowaniem wyniku w A/X: wynik parkuje w scratchu <c>cc_t0</c>
+    /// (na wejściu do stopki nic w nim nie żyje), bo <c>pha</c> zakopałby zdejmowany bajt pod wynikiem.
+    /// X (starszy bajt wyniku) nietknięty.</summary>
+    /// <param name="address">Cel w pamięci.</param>
+    /// <param name="keepResult">Wynik żyje w A/X.</param>
+    public override void PopByte(string address, bool keepResult)
+    {
+        if (!keepResult)
+        {
+            PopA();
+            StoreA(address);
+            return;
+        }
+
+        StoreA("cc_t0");
+        PopA();
+        StoreA(address);
+        LoadA(new Octet(false, "cc_t0"));
     }
 
     /// <summary>Skok na znaku i zerze słowa bez odejmowania: starszy bajt do A, potem N/Z.
@@ -381,7 +475,14 @@ internal sealed class Mos6502Isa : ByteIsa
 
         text.AppendLine("cc_fp: .res 2");
         text.AppendLine(".global cc_fp");
-        return text.ToString();
+        string code = text.ToString();
+        if (AbiV2)
+        {
+            // wynik main w A/X wraca też do cc_ret (harness, mapy i narzędzia czytają pamięć)
+            code = code.Replace("__crt_id: jsr main", "__crt_id: jsr main\n            sta cc_ret\n            stx cc_ret_h", StringComparison.Ordinal);
+        }
+
+        return code;
     }
 
     protected override string Relax(string text) => BranchRelaxer.Apply(text, Size, Invert);
@@ -436,16 +537,6 @@ internal sealed class Mos6502Isa : ByteIsa
         }
 
         return operand.StartsWith('#') || operand.StartsWith("z:", StringComparison.Ordinal) || operand.StartsWith('(') || operand.StartsWith("0,x", StringComparison.Ordinal) ? 2 : 3;
-    }
-
-    /// <summary>Wskaźnik wołania pośredniego do <c>cc_fp</c>.</summary>
-    /// <param name="cell">Symbol komórki z adresem.</param>
-    private void SetupIcall(string cell)
-    {
-        L($"lda {Mem(cell)}");
-        L("sta cc_fp");
-        L($"lda {Mem(cell + "+1")}");
-        L("sta cc_fp+1");
     }
 
     /// <summary>Adres z przedrostkiem <c>z:</c> (strona zerowa), gdy symbol bazowy leży na stronie zerowej.</summary>

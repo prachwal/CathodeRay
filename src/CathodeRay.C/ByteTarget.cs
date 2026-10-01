@@ -57,13 +57,25 @@ public abstract class ByteTarget : ICTarget
     /// <summary>Ręcznie pisane procedury wykonawcze celu; wygrywają z wersjami z C przy linkowaniu (stoją przed nimi).</summary>
     protected virtual IReadOnlyList<StdModule> AssemblyRuntime => [];
 
+    /// <summary>Kod startowy z ABI wpisaną w świeżą instancję ISA (właściwość <c>Crt0</c> tworzy instancję dziewiczą
+    /// z <c>AbiV2=false</c>, więc domyślne <c>Crt0For</c> z interfejsu gubiłoby flagę v2 i writeback wyniku).</summary>
+    /// <param name="abiV2">Ścieżka v2.</param>
+    /// <returns>Źródło dla asemblera.</returns>
+    public string Crt0For(bool abiV2)
+    {
+        ByteIsa isa = CreateIsa();
+        isa.AbiV2 = abiV2;
+        return isa.Crt0();
+    }
+
     /// <inheritdoc/>
-    public string Emit(Ir.Module module, bool optimize)
+    public string Emit(Ir.Module module, bool optimize, bool abiV2 = false)
     {
         ArgumentNullException.ThrowIfNull(module);
         Ir.Module wide = WideLegalizer.Run(Legalizer.Run(CaseFold.Apply(module), wide: true), ByteOrder, keepArithmetic: true);
         Ir.Module legal = Legalizer.Run(wide);
         ByteIsa isa = CreateIsa();
+        isa.AbiV2 = abiV2;
         if (isa.SupportsIndexed)
         {
             legal = IndexFusion.Run(legal);
@@ -71,7 +83,11 @@ public abstract class ByteTarget : ICTarget
 
         if (optimize && ByteOrder == TargetByteOrder.Little)
         {
-            legal = ParamAlias.Run(legal);
+            // v2: parametry w rejestrach zostają w komórkach (alias tylko dla pamięciowych, np. arg2+);
+            // inaczej prolog czytałby rejestry, a ciało komórki cc_argN.
+            legal = abiV2
+                ? ParamAlias.Run(legal, (function, i) => !IsRegParam(isa, function, i))
+                : ParamAlias.Run(legal);
         }
 
         Ir.Module tuned = optimize ? Tune(legal, isa) : legal;
@@ -87,4 +103,15 @@ public abstract class ByteTarget : ICTarget
     /// <summary>Tworzy nowy zestaw prymitywów CPU (ma stan emisji).</summary>
     /// <returns>Prymitywy.</returns>
     internal abstract ByteIsa CreateIsa();
+
+    /// <summary>Parametr funkcji jedzie rejestrem v2 (A/X na nes): nie wolno aliasować go na <c>cc_argN</c>.</summary>
+    /// <param name="isa">Prymitywy celu (z wpisaną flagą ABI).</param>
+    /// <param name="function">Funkcja.</param>
+    /// <param name="index">Numer parametru.</param>
+    /// <returns>Czy parametr idzie rejestrem.</returns>
+    private static bool IsRegParam(ByteIsa isa, Ir.Function function, int index)
+    {
+        Ir.Cell param = function.Params[index];
+        return param.W <= 2 && isa.Model.HasRegister(isa.ArgCell(index, 0, param.W));
+    }
 }
