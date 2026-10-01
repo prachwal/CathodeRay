@@ -61,6 +61,12 @@
       "title": "[S] Pomiary i zamkniecie: compare.py + target-sizes + disasm na nowo (cel: mean/SDCC ~1.15 po batchach 1-2), render + hygiene OK, commit, plan closed.",
       "status": "todo",
       "note": ""
+    },
+    {
+      "id": "11",
+      "title": "[S] switch uchar: porownanie bajtowe (Lowering)",
+      "status": "done",
+      "note": "LowerSwitch zwęża do 1B gdy typ uchar i wszystkie stałe case <=255 (inaczej 2B). sw Z80 77->64, 6502 120->91; matryce 336/336; SwitchNarrowTests 5/5 (szerokosc IR, wartosci, case 256/255)."
     }
   ]
 }

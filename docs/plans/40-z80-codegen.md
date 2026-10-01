@@ -10,5 +10,6 @@
 - [ ] **8.** [M] Tail-call przez join (fnptr): Call+Ret rozdzielone kopiami joinowymi if-else (obie galezie zbiegaja do Ret tej samej wartosci) tez zamieniane w skoki. Pliki: ByteSelector. Akceptacja: pick -15 B, testy mutacja (ramka blokuje jak w planie 36).
 - [ ] **9.** [L] Ramka na stosie + induction w parach: wartosci zywe w petli (wskazniki, liczniki, n w fib) w DE/HL/BC z push-pop wokol wolan zamiast statycznych komorek + reloadow. Bez lamania ABI (konwencja wejscia/wyjscia bez zmian). Pliki: RegisterAllocator, Lowering.Frames, ByteSelector. Akceptacja: copy 48->~23 B, fib -14 B, RecursionFrameTests zielone.
 - [ ] **10.** [S] Pomiary i zamkniecie: compare.py + target-sizes + disasm na nowo (cel: mean/SDCC ~1.15 po batchach 1-2), render + hygiene OK, commit, plan closed.
+- [x] **11.** [S] switch uchar: porownanie bajtowe (Lowering) — LowerSwitch zwęża do 1B gdy typ uchar i wszystkie stałe case <=255 (inaczej 2B). sw Z80 77->64, 6502 120->91; matryce 336/336; SwitchNarrowTests 5/5 (szerokosc IR, wartosci, case 256/255).
 
-Postęp: 4/10 gotowych.
+Postęp: 5/11 gotowych.

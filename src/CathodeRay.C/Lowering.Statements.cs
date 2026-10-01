@@ -214,17 +214,21 @@ internal sealed partial class Lowering
     }
 
     /// <summary>switch: wartość do własnej komórki (chronionej ramką), łańcuch porównań ze stałymi,
-    /// potem ciała po kolei (przechodzą dalej jak w C).</summary>
+    /// potem ciała po kolei (przechodzą dalej jak w C). Wartość <c>uchar</c> ze stałymi 0..255 porównuje się
+    /// bajtem (bez testu starszego bajtu); inaczej 16 bitów.</summary>
     private void LowerSwitch(Ast.Switch stmt)
     {
+        CType type = TypeOf(stmt.Value);
+        int width = Width(type) == 1 && type.Kind == "uchar" && CasesFitByte(stmt) ? 1 : 2;
         string sym = $"{_prefix}__sw@{_switches++}";
-        AddBss(sym, 2);
-        _extraOwned.Add(new Ir.Owned(sym, 2, false));
-        var cell = new Ir.Cell(sym, 2);
+        AddBss(sym, width);
+        _extraOwned.Add(new Ir.Owned(sym, width, false));
+        var cell = new Ir.Cell(sym, width);
         Emit(new Ir.Mov(cell, Value(stmt.Value, 0)));
         string done = Label("swend");
         var labels = new List<string>();
         string? defaultLabel = null;
+        int mask = width == 1 ? 0xFF : 0xFFFF;
         foreach (Ast.SwitchCase item in stmt.Cases)
         {
             string label = Label("case");
@@ -236,7 +240,7 @@ internal sealed partial class Lowering
             }
 
             TryConstValue(item.Value, out int value);
-            Emit(new Ir.BrCmp(Ir.Cond.Eq, cell, new Ir.Imm(value & 0xFFFF, 2), label));
+            Emit(new Ir.BrCmp(Ir.Cond.Eq, cell, new Ir.Imm(value & mask, width), label));
         }
 
         Emit(new Ir.Jmp(defaultLabel ?? done));
@@ -252,6 +256,22 @@ internal sealed partial class Lowering
 
         _loopLabels.Pop();
         Emit(new Ir.Label(done));
+    }
+
+    /// <summary>Wszystkie stałe case mieszczą się w bajcie (0..255) — zwężenie porównania <c>uchar</c> do 1 B jest bezpieczne.</summary>
+    /// <param name="stmt">Instrukcja switch.</param>
+    /// <returns>Czy każda stała case jest ≤ 255.</returns>
+    private bool CasesFitByte(Ast.Switch stmt)
+    {
+        foreach (Ast.SwitchCase item in stmt.Cases)
+        {
+            if (item.Value is not null && (!TryConstValue(item.Value, out int value) || value > 0xFF))
+            {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     /// <summary>Lokalna tablica/struktura z <c>{…}</c> lub napisem: zerowanie (gdy inicjalizator nie pokrywa całości),

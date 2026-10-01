@@ -1,7 +1,12 @@
 ---
-description: Pomiar rozmiaru kodu mini-C vs cc65/SDCC (mean/SDCC)
+description: Rozmiar kodu mini-C vs cc65/SDCC (mean/SDCC); baseline przed zmianą
 ---
 
-Uruchom `python3 tools/compare.py` i podaj wiersz „Średnia geometryczna … mini-C / SDCC = X.XX" (to główna metryka).
+`python3 tools/compare.py` wypisuje tabelę funkcji z `samples/bench` i wiersz
+„Średnia geometryczna … mini-C / SDCC = X.XX" — **to główna metryka**.
 
-Jeśli `$ARGUMENTS` zawiera nazwę funkcji (np. `fib`), wypisz też jej wiersz z tabeli. Jeśli w kontekście jest poprzedni odczyt mean/SDCC, porównaj. Nie zmieniaj plików.
+- Przed zmianą codegen zapisz baseline mean/SDCC; po zmianie uruchom ponownie i porównaj (regresja → cofnij lub zawęź zmianę).
+- `$ARGUMENTS` = nazwa funkcji (np. `fib`) → wypisz też jej wiersz.
+- Wymaga `cc65`/`ca65`/`od65`/`sdcc` w PATH; brak narzędzia → kolumna `n/a`, powiedz o tym.
+
+Nie zmieniaj plików. `docs/compare.md` odświeża dopiero `python3 tools/compare.py --write` — tylko gdy wyraźnie poproszono.

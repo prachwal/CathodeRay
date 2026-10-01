@@ -1,14 +1,15 @@
 ---
-description: Build z -warnaserror i testy celowane (nazwa klasy lub pełny filtr)
+description: Build -warnaserror, potem testy celowane (filtr w argumencie)
 ---
 
-Uruchom po kolei i zaraportuj wynik liczbowo (Passed/Failed):
+Wykonaj po kolei:
 
-1. `dotnet build -warnaserror`
-2. `dotnet test tests/CathodeRay.Tests/CathodeRay.Tests.csproj --filter "<FILTR>"`
+1. `dotnet build -warnaserror --nologo`
+   - Jeśli build NIE przejdzie: zatrzymaj się, pokaż błędy i NIE uruchamiaj testów.
+2. Ustal filtr z `$ARGUMENTS`:
+   - puste → pomiń testy i powiedz o tym wprost;
+   - zawiera `~` lub `=` → użyj dosłownie (np. `FullyQualifiedName~TargetSizeTests`);
+   - inaczej → `FullyQualifiedName~$ARGUMENTS`.
+3. `dotnet test tests/CathodeRay.Tests/CathodeRay.Tests.csproj --nologo --filter "<FILTR>"`
 
-Gdzie `<FILTR>`:
-- jeśli `$ARGUMENTS` zawiera `~` lub `=`, użyj go dosłownie (np. `FullyQualifiedName~TargetSizeTests`);
-- w przeciwnym razie opakuj: `FullyQualifiedName~$ARGUMENTS`.
-
-Jeśli `$ARGUMENTS` jest puste, pomiń krok 2 i powiedz o tym wprost. Nie zmieniaj kodu ani plików — to wyłącznie weryfikacja.
+Zaraportuj wynik liczbowo (Passed/Failed). Nie zmieniaj kodu ani plików — to wyłącznie weryfikacja.
