@@ -24,6 +24,9 @@ internal sealed class M6800Isa : ByteIsa
 
     protected override IReadOnlySet<string> Reserved => ReservedNames;
 
+    /// <summary>Nazwa CPU w <see cref="CpuModels"/>.</summary>
+    protected override string CpuName => "6800";
+
     public override string Segment(string name) => $".segment \"{name}\"";
 
     public override string Global(string sym) => $".global {sym}";

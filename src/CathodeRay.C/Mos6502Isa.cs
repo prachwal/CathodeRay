@@ -26,6 +26,9 @@ internal sealed class Mos6502Isa : ByteIsa
 
     protected override IReadOnlySet<string> Reserved => ReservedNames;
 
+    /// <summary>Nazwa CPU w <see cref="CpuModels"/> (warianty nes/6510 dzielą model 6502).</summary>
+    protected override string CpuName => "6502";
+
     public override string Segment(string name) => $".segment \"{name}\"";
 
     public override string Global(string sym) => $".global {sym}";

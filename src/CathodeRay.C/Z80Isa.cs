@@ -14,13 +14,6 @@ internal sealed partial class Z80Isa : ByteIsa
 
     private int _position;
 
-    /// <summary>Rejestry, które prymitywy niszczą niezależnie od mapy rejestrów: A i HL (rejestr adresowy); wszystko niszczą
-    /// tylko wołania (<see cref="Call"/>, <see cref="CallIndirect"/>). Rejestry B, C, D, E przypisane komórkom przez
-    /// <see cref="ByteIsa.AssignRegisters"/> prymitywy zachowują: parę pomocniczą (<see cref="TryAddWord"/>, <see cref="TryAddLong"/>,
-    /// <see cref="PtrSetup"/> z przesunięciem &gt; 3) biorą tylko wolną, inaczej <c>push de</c>/<c>pop de</c> albo łańcuch przez A.
-    /// Alokator może więc dać komórce dowolny z B, C, D, E, jeśli nie żyje przez wołanie.</summary>
-    public static IReadOnlySet<string> Clobbers { get; } = new HashSet<string>(["a", "h", "l"], StringComparer.Ordinal);
-
     public override IEnumerable<string> IndirectSymbols => ["__callhl"];
 
     public override IReadOnlyList<string> CellRegisters { get; } = ["c", "b", "e", "d"];
@@ -35,6 +28,9 @@ internal sealed partial class Z80Isa : ByteIsa
     public override bool SupportsTailCall => true;
 
     protected override IReadOnlySet<string> Reserved => ReservedNames;
+
+    /// <summary>Nazwa CPU w <see cref="CpuModels"/>.</summary>
+    protected override string CpuName => "z80";
 
     public override string Segment(string name) => $"SEGMENT \"{name}\"";
 

@@ -17,8 +17,8 @@
     {
       "id": "3",
       "title": "[M] Przepiecie Clobbers/SavedAround/Taken na model: Z80.Clobbers znika jako osobny byt (dane z CpuModel), Taken/_active liczone z aliasow modelu, SavedAround weryfikowane przeciw modelowi. Akceptacja: full suite zielony, target-sizes.txt bajt-w-bajt bez zmian, diff listingow 05_calls/fib na 4 CPU pusty.",
-      "status": "todo",
-      "note": ""
+      "status": "done",
+      "note": "CpuModel.Scratch (ex-Clobbers) + CpuName/Model w ByteIsa + Taken przez AliasesOf; Clobbers usuniete (2 testy na model); SavedAround-test; full suite 2932/2932, goldeny i listingi 05_calls/fib na 4 CPU bajt-w-bajt."
     },
     {
       "id": "4",

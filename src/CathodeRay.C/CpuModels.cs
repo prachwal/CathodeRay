@@ -1,20 +1,22 @@
 namespace CathodeRay.C;
 
-/// <summary>Rejestr modeli: jeden wpis na nazwę z <c>cc --cpu</c> (<c>nes</c>/<c>6510</c> jak <c>6502</c>).</summary>
+/// <summary>Rejestr modeli: jeden wpis na nazwę z <c>cc --cpu</c> (<c>nes</c>/<c>6510</c> jak <c>6502</c>).
+/// <c>Scratch</c> to dawne <c>Z80Isa.Clobbers</c> (przeniesione do modelu); gdzie indziej całość, konserwatywnie.</summary>
 public static class CpuModels
 {
     private static readonly Dictionary<string, CpuModel> Models = new(StringComparer.OrdinalIgnoreCase)
     {
-        ["stub"] = new("stub", [new("a", 1, []), new("x", 1, [])], new HashSet<string>(["a", "x"], StringComparer.Ordinal), null, [], new Dictionary<string, FlagEffects>()),
-        ["6502"] = new("6502", [new("a", 1, []), new("x", 1, []), new("y", 1, [])], new HashSet<string>(["a", "x", "y"], StringComparer.Ordinal), null, [], new Dictionary<string, FlagEffects>()),
-        ["65c02"] = new("65c02", [new("a", 1, []), new("x", 1, []), new("y", 1, [])], new HashSet<string>(["a", "x", "y"], StringComparer.Ordinal), null, [], new Dictionary<string, FlagEffects>()),
-        ["nes"] = new("nes", [new("a", 1, []), new("x", 1, []), new("y", 1, [])], new HashSet<string>(["a", "x", "y"], StringComparer.Ordinal), null, [], new Dictionary<string, FlagEffects>()),
-        ["6510"] = new("6510", [new("a", 1, []), new("x", 1, []), new("y", 1, [])], new HashSet<string>(["a", "x", "y"], StringComparer.Ordinal), null, [], new Dictionary<string, FlagEffects>()),
+        ["stub"] = new("stub", [new("a", 1, []), new("x", 1, [])], ScratchOf("a", "x"), ScratchOf("a", "x"), null, [], new Dictionary<string, FlagEffects>()),
+        ["6502"] = new("6502", [new("a", 1, []), new("x", 1, []), new("y", 1, [])], ScratchOf("a", "x", "y"), ScratchOf("a", "x", "y"), null, [], new Dictionary<string, FlagEffects>()),
+        ["65c02"] = new("65c02", [new("a", 1, []), new("x", 1, []), new("y", 1, [])], ScratchOf("a", "x", "y"), ScratchOf("a", "x", "y"), null, [], new Dictionary<string, FlagEffects>()),
+        ["nes"] = new("nes", [new("a", 1, []), new("x", 1, []), new("y", 1, [])], ScratchOf("a", "x", "y"), ScratchOf("a", "x", "y"), null, [], new Dictionary<string, FlagEffects>()),
+        ["6510"] = new("6510", [new("a", 1, []), new("x", 1, []), new("y", 1, [])], ScratchOf("a", "x", "y"), ScratchOf("a", "x", "y"), null, [], new Dictionary<string, FlagEffects>()),
         ["z80"] = new(
             "z80",
             [new("a", 1, []), new("b", 1, []), new("c", 1, []), new("d", 1, []), new("e", 1, []), new("h", 1, []), new("l", 1, []),
                 new("bc", 2, ["b", "c"]), new("de", 2, ["d", "e"]), new("hl", 2, ["h", "l"])],
-            new HashSet<string>(["a", "b", "c", "d", "e", "h", "l"], StringComparer.Ordinal),
+            ScratchOf("a", "b", "c", "d", "e", "h", "l"),
+            ScratchOf("a", "h", "l"),
             "hl",
             [],
             new Dictionary<string, FlagEffects>()),
@@ -22,11 +24,12 @@ public static class CpuModels
             "8080",
             [new("a", 1, []), new("b", 1, []), new("c", 1, []), new("d", 1, []), new("e", 1, []), new("h", 1, []), new("l", 1, []),
                 new("bc", 2, ["b", "c"]), new("de", 2, ["d", "e"]), new("hl", 2, ["h", "l"])],
-            new HashSet<string>(["a", "b", "c", "d", "e", "h", "l"], StringComparer.Ordinal),
+            ScratchOf("a", "b", "c", "d", "e", "h", "l"),
+            ScratchOf("a", "h", "l"),
             "hl",
             [],
             new Dictionary<string, FlagEffects>()),
-        ["6800"] = new("6800", [new("a", 1, []), new("b", 1, []), new("x", 2, [])], new HashSet<string>(["a", "b", "x"], StringComparer.Ordinal), null, [], new Dictionary<string, FlagEffects>()),
+        ["6800"] = new("6800", [new("a", 1, []), new("b", 1, []), new("x", 2, [])], ScratchOf("a", "b", "x"), ScratchOf("a", "b", "x"), null, [], new Dictionary<string, FlagEffects>()),
     };
 
     /// <summary>Model po nazwie celu.</summary>
@@ -43,4 +46,6 @@ public static class CpuModels
         ArgumentNullException.ThrowIfNull(target);
         return For(target.Name);
     }
+
+    private static HashSet<string> ScratchOf(params string[] registers) => new(registers, StringComparer.Ordinal);
 }

@@ -86,4 +86,46 @@ public sealed class CpuModelConsistencyTests
         z80.AliasesOf("hl").Should().BeEquivalentTo("hl", "h", "l");
         z80.AliasesOf("a").Should().BeEquivalentTo("a");
     }
+
+    [Fact]
+    public void Scratch_Is_Scratch_And_Never_Cell_Assigned()
+    {
+        foreach (ICTarget target in CTargets.All)
+        {
+            CpuModel model = CpuModels.For(target);
+            model.Scratch.Should().BeSubsetOf(model.ClobberedByCall, target.Name);
+            foreach (string register in model.Scratch)
+            {
+                model.HasRegister(register).Should().BeTrue($"{register} na {target.Name}");
+            }
+        }
+
+        foreach (ByteTarget target in CTargets.All.OfType<ByteTarget>())
+        {
+            ByteIsa isa = target.CreateIsa();
+            CpuModels.For(target).Scratch.Should().NotIntersectWith(isa.CellRegisters, $"prymitywy zachowują komórki ({target.Name})");
+        }
+    }
+
+    [Fact]
+    public void SavedAround_Pairs_Exist_In_Model()
+    {
+        string source = File.ReadAllText(Repo.Path("samples", "minic", "05_calls.c"));
+        Ir.Module module = Codegen.Lower(TypeChecker.Check(Parser.Parse(source, StdLib.HeaderReader)), "05_calls.c");
+        foreach (ByteTarget target in CTargets.All.OfType<ByteTarget>())
+        {
+            ByteIsa isa = target.CreateIsa();
+            Ir.Module tuned = RegisterAllocator.Tune(module, isa);
+            CpuModel model = CpuModels.For(target);
+            foreach (Ir.Call call in tuned.Functions.SelectMany(static f => f.Body).OfType<Ir.Call>())
+            {
+                foreach (string pair in isa.SavedAround(call))
+                {
+                    CpuRegister? entry = model.Find(pair);
+                    entry.Should().NotBeNull($"para {pair} na {target.Name}");
+                    entry!.Parts.Should().HaveCount(2, pair);
+                }
+            }
+        }
+    }
 }

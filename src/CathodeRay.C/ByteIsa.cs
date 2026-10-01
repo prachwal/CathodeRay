@@ -56,6 +56,12 @@ internal abstract class ByteIsa
     /// <summary>Nazwy, których asembler nie przyjmie jako symbole użytkownika (bez rozróżniania wielkości liter).</summary>
     protected virtual IReadOnlySet<string> Reserved { get; } = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
+    /// <summary>Nazwa CPU w <see cref="CpuModels"/> (jednoznaczna z klasą ISA).</summary>
+    protected abstract string CpuName { get; }
+
+    /// <summary>Jawny kontrakt rejestrowy tego CPU.</summary>
+    protected CpuModel Model => CpuModels.For(CpuName);
+
     /// <summary>Skok, gdy słowo spełnia warunek ze znakiem względem zera — bez odejmowania (test bitu znaku
     /// i zera). Wołane tylko dla <c>Lt/Ge/Le/Gt</c> o szerokości 2 z jedną stroną zerową.</summary>
     /// <param name="value">Słowo 2-bajtowe (nie natychmiastowe).</param>
@@ -428,5 +434,8 @@ internal abstract class ByteIsa
     protected void L(string line) => _out.AppendLine(line);
 
     /// <summary>Rejestr należy do komórki bieżącej funkcji (bez <see cref="BeginFunction"/>: do którejkolwiek komórki).</summary>
-    private bool Taken(string register) => _active?.Contains(register) ?? _registers.ContainsValue(register);
+    private bool Taken(string register) =>
+        _active is { } active
+            ? active.Contains(register) || Model.AliasesOf(register).Any(active.Contains)
+            : _registers.ContainsValue(register) || Model.AliasesOf(register).Any(_registers.ContainsValue);
 }

@@ -16,11 +16,6 @@ internal sealed partial class Intel8080Isa : ByteIsa
 
     private int _position;
 
-    /// <summary>Rejestry, które prymitywy niszczą niezależnie od mapy rejestrów: A i HL (rejestr adresowy); wszystko niszczą tylko
-    /// wołania. Rejestry B, C, D, E przypisane komórkom prymitywy zachowują: parę pomocniczą (<see cref="PtrSetup"/> z przesunięciem
-    /// &gt; 3) biorą tylko wolną, inaczej <c>push d</c>/<c>pop d</c>.</summary>
-    public static IReadOnlySet<string> Clobbers { get; } = new HashSet<string>(["a", "h", "l"], StringComparer.Ordinal);
-
     public override IEnumerable<string> IndirectSymbols => ["__callhl"];
 
     public override IReadOnlyList<string> CellRegisters { get; } = ["c", "b", "e", "d"];
@@ -33,6 +28,9 @@ internal sealed partial class Intel8080Isa : ByteIsa
     public override bool SupportsTailCall => true;
 
     protected override IReadOnlySet<string> Reserved => ReservedNames;
+
+    /// <summary>Nazwa CPU w <see cref="CpuModels"/>.</summary>
+    protected override string CpuName => "8080";
 
     public override string Segment(string name) => $"SEGMENT \"{name}\"";
 

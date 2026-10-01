@@ -126,7 +126,7 @@ public sealed class Intel8080RegisterIsaTests
 
         (string code, int value) = Run(module, registers);
 
-        Intel8080Isa.Clobbers.Should().NotIntersectWith(["b", "c", "d", "e"], "prymitywy zachowują rejestry przypisane komórkom");
+        CpuModels.For("8080").Scratch.Should().NotIntersectWith(["b", "c", "d", "e"], "prymitywy zachowują rejestry przypisane komórkom");
         if (bcTaken)
         {
             code.Should().Contain(string.Join(Environment.NewLine, "push d", "lxi d,6", "dad d", "pop d"));

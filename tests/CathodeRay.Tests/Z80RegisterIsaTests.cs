@@ -125,7 +125,7 @@ public sealed class Z80RegisterIsaTests
 
         (string code, int value) = Run(module, registers);
 
-        Z80Isa.Clobbers.Should().NotIntersectWith(["b", "c", "d", "e"], "prymitywy zachowują rejestry przypisane komórkom");
+        CpuModels.For("z80").Scratch.Should().NotIntersectWith(["b", "c", "d", "e"], "prymitywy zachowują rejestry przypisane komórkom");
         if (bcTaken)
         {
             code.Should().Contain(string.Join(Environment.NewLine, "push de", "ld de,6", "add hl,de", "pop de"));
