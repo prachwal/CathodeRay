@@ -153,13 +153,17 @@ internal sealed class M6800Isa : ByteIsa
                 L($"{geSkip}:");
                 break;
             case Ir.Cond.Gt:
+                // N testowane przed oraa (oraa nadpisuje A); osobne skipy, bo BranchRelaxer kasuje
+                // etykietę z trójki (beq S; jmp T; S:) — współdzielona zawisłaby w bmi.
                 L($"ldaa {hi}");
+                string gtNeg = LocalLabel();
+                L($"bmi {gtNeg}");
                 L($"oraa {lo}");
-                string gtSkip = LocalLabel();
-                L($"beq {gtSkip}");
-                L($"bmi {gtSkip}");
+                string gtZero = LocalLabel();
+                L($"beq {gtZero}");
                 L($"jmp {target}");
-                L($"{gtSkip}:");
+                L($"{gtNeg}:");
+                L($"{gtZero}:");
                 break;
             default:
                 L($"ldaa {hi}");

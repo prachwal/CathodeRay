@@ -207,13 +207,17 @@ internal sealed class Mos6502Isa : ByteIsa
                 L($"{geSkip}:");
                 break;
             case Ir.Cond.Gt:
+                // N testowane przed ora (ora nadpisuje A); osobne skipy, bo BranchRelaxer kasuje
+                // etykietę z trójki (beq S; jmp T; S:) — współdzielona zawisłaby w bmi.
                 L($"lda {hi}");
+                string gtNeg = LocalLabel();
+                L($"bmi {gtNeg}");
                 L($"ora {lo}");
-                string gtSkip = LocalLabel();
-                L($"beq {gtSkip}");
-                L($"bmi {gtSkip}");
+                string gtZero = LocalLabel();
+                L($"beq {gtZero}");
                 L($"jmp {target}");
-                L($"{gtSkip}:");
+                L($"{gtNeg}:");
+                L($"{gtZero}:");
                 break;
             default:
                 L($"lda {hi}");

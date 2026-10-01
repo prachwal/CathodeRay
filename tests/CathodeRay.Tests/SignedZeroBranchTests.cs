@@ -28,6 +28,37 @@ public sealed class SignedZeroBranchTests
     [InlineData("8080")]
     [InlineData("6502")]
     [InlineData("6800")]
+    public void Gt_With_Low_Byte_Sign_Bit(string cpu)
+    {
+        // Regresja: ora/oraa nadpisywało A i bmi testowało znak (hi|lo) zamiast hi.
+        // Wołanie pośrednie blokuje wstawianie i fałdowanie stałych — porównanie idzie na CPU.
+        const string Source = """
+            int gt0(int n) { return n > 0 ? 1 : 0; }
+            int le0(int n) { return n <= 0 ? 1 : 0; }
+            int apply(int (*f)(int), int v) { return f(v); }
+            int main() {
+                int r = 0;
+                r = r * 2 + apply(gt0, 129);
+                r = r * 2 + apply(gt0, 255);
+                r = r * 2 + apply(gt0, 32767);
+                r = r * 2 + apply(gt0, 0);
+                r = r * 2 + apply(gt0, 0 - 129);
+                r = r * 2 + apply(le0, 129);
+                r = r * 2 + apply(le0, 0);
+                r = r * 2 + apply(le0, 0 - 1);
+                return r;
+            }
+            """;
+
+        // gt: 1,1,1,0,0; le: 0,1,1 → 11100011b = 227
+        CcRun.RunOn(Source, cpu).Value.Should().Be(227);
+    }
+
+    [Theory]
+    [InlineData("z80")]
+    [InlineData("8080")]
+    [InlineData("6502")]
+    [InlineData("6800")]
     public void All_Signed_Zero_Compares_Compute_Correctly(string cpu)
     {
         const string Source = """
