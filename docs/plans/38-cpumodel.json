@@ -11,8 +11,8 @@
     {
       "id": "2",
       "title": "[S] Test spojnosci model-alokator: kazda komorka z RegisterAllocator.Resolve istnieje w modelu; pary z CellPairs to aliasy dwoch rejestrow 8-bit; VRegTargetInfo.For zgodne z CpuModel (te same rejestry). Akceptacja: nowy test zielony, zero zmian w src (tylko testy).",
-      "status": "todo",
-      "note": ""
+      "status": "done",
+      "note": "CpuModelAllocatorTests 6/6 (mapa alokatora tylko z modelu, VRegTargetInfo zgodne, pary to aliasy 2x8b). Zero zmian w src."
     },
     {
       "id": "3",
