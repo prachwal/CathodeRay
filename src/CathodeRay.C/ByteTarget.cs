@@ -42,6 +42,9 @@ public abstract class ByteTarget : ICTarget
     /// najwyżej wszystkie pary (<see cref="ByteIsa.SavedAround"/>).</summary>
     public int CallSaveBytes => 2 * CreateIsa().CellPairs.Count;
 
+    /// <summary>Cel obsługuje ABI v2 (domyślnie tylko v1).</summary>
+    public virtual bool SupportsAbiV2 => false;
+
     /// <inheritdoc/>
     public virtual TargetLayout Layout => FlatLayout;
 

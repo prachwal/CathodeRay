@@ -31,7 +31,8 @@ internal static partial class CcCommand
         var stats = new Option<bool>("--stats") { Description = "Wypisz rozmiary segmentów zlinkowanego programu." };
         var cpu = new Option<string>("--cpu") { Description = "Cel kompilatora: nazwa z rejestru celów (domyślnie stub).", DefaultValueFactory = _ => CTargets.Default.Name };
         var ir = new Option<string>("--ir") { Description = "Reprezentacja pośrednia: cell (domyślnie) albo vreg; --ir list wypisuje rodzaje.", DefaultValueFactory = _ => "cell" };
-        var command = new Command("cc", "Kompiluje program mini-C na wybrany cel (domyślnie stub): C→obiekt→link.") { inputs, output, format, listing, map, config, incdir, define, noStdlib, noOpt, werror, cpu, ir, stats };
+        var abi = new Option<string>("--abi") { Description = "Konwencja wołań: v1 (domyślnie) albo v2 (rejestry, tylko wybrane cele); --abi list wypisuje rodzaje.", DefaultValueFactory = _ => "v1" };
+        var command = new Command("cc", "Kompiluje program mini-C na wybrany cel (domyślnie stub): C→obiekt→link.") { inputs, output, format, listing, map, config, incdir, define, noStdlib, noOpt, werror, cpu, ir, abi, stats };
         command.SetAction(parse =>
         {
             TextWriter error = parse.InvocationConfiguration.Error;
@@ -49,6 +50,19 @@ internal static partial class CcCommand
             }
 
             bool vreg = irKind.Equals("vreg", StringComparison.OrdinalIgnoreCase);
+            string abiKind = parse.GetValue(abi)!;
+            if (abiKind == "list")
+            {
+                parse.InvocationConfiguration.Output.WriteLine("v1, v2");
+                return 0;
+            }
+
+            if (!abiKind.Equals("v1", StringComparison.OrdinalIgnoreCase) && !abiKind.Equals("v2", StringComparison.OrdinalIgnoreCase))
+            {
+                error.WriteLine($"cc: unknown ABI '{abiKind}' (available: v1, v2).");
+                return 1;
+            }
+
             FileInfo[] files = parse.GetRequiredValue(inputs);
             foreach (FileInfo input in files)
             {
@@ -83,6 +97,13 @@ internal static partial class CcCommand
             }
 
             AssemblerTarget target = AssemblerTargets.Find(cTarget.AssemblerCpu)!;
+            if (abiKind.Equals("v2", StringComparison.OrdinalIgnoreCase) && !cTarget.SupportsAbiV2)
+            {
+                string supported = string.Join(", ", CTargets.All.Where(static t => t.SupportsAbiV2).Select(static t => t.Name));
+                error.WriteLine($"cc: ABI 'v2' not implemented for '{cpuName}' (available: {supported}).");
+                return 1;
+            }
+
             var modules = new List<(string File, ObjectModule Module)>();
             var warningText = new StringWriter();
             try

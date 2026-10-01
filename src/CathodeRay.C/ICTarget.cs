@@ -24,6 +24,9 @@ public interface ICTarget
     /// kontrola głębokości stosu dolicza je do ramki każdej funkcji. Domyślnie 0.</summary>
     int CallSaveBytes => 0;
 
+    /// <summary>Cel obsługuje ABI v2 (argumenty i wyniki w rejestrach, <c>cc --abi v2</c>); domyślnie tylko v1.</summary>
+    bool SupportsAbiV2 => false;
+
     /// <summary>Domyślny układ pamięci dla linkera.</summary>
     TargetLayout Layout { get; }
 

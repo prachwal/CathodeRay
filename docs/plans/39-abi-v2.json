@@ -5,8 +5,8 @@
     {
       "id": "1",
       "title": "[S] Flaga --ir-wzorzec: --abi v1|v2 w CcCommand (default v1; v2 na CPU bez implementacji -> czytelny blad jak CTargets.Planned) + ArgRegs w CpuModels (puste = v1). Kryterium: flaga przechodzi, v2 nigdzie nie zmienia kodu (goldeny v1 nietkniete).",
-      "status": "todo",
-      "note": ""
+      "status": "done",
+      "note": "Flaga --abi v1|v2|list + SupportsAbiV2 (virtual w ByteTarget, DIM w ICTarget) + gate; tylko nes wspiera v2; AbiCliTests 8/8. Lekcja: DIM + zwykla redeklaracja NIE dispatchuje (potrzebny virtual+override jak CallSaveBytes)."
     },
     {
       "id": "2",
