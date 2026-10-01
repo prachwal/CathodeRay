@@ -12,13 +12,13 @@ Odświeżenie: `python3 tools/compare.py --write` (po `dotnet build`; wymaga cc6
 | div16* | 562 | 38 | 396 | 25 |
 | fib | 144 | 52 | 76 | 31 |
 | find | 119 | 80 | 67 | 106 |
-| fnptr | 165 | 104 | 76 | 33 |
+| fnptr | 149 | 104 | 76 | 33 |
 | max3 | 83 | 70 | 55 | 53 |
-| mul16* | 59 | 19 | 29 | 3 |
-| shift* | 175 | 27 | 117 | 21 |
+| mul16* | 43 | 19 | 29 | 3 |
+| shift* | 159 | 27 | 117 | 21 |
 | str_len | 43 | 56 | 25 | 14 |
 | structs | 167 | 135 | 131 | 107 |
 | sum_bytes | 54 | 71 | 38 | 37 |
 | sw | 120 | 57 | 78 | 47 |
 
-Średnia geometryczna bez wierszy z `*`: mini-C / cc65 = 1.33, mini-C / SDCC = 1.31.
+Średnia geometryczna bez wierszy z `*`: mini-C / cc65 = 1.32, mini-C / SDCC = 1.31.
