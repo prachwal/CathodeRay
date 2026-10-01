@@ -1,0 +1,10 @@
+# CpuModel: jawny kontrakt rejestrowy CPU dla optymalizatora (rejestry, aliasy, clobbery, efekty flag) (status: w kolejce)
+
+- [ ] **1.** [S] Typy CpuModel/CpuRegister/FlagEffects + dane 5 CPU (stub/6502/65c02/Z80/8080/6800 + nes/6510 jak 6502): rejestry, aliasy (hl=[h,l], pary bc/de, cc_argN_h), ClobberedByCall, ResultReg (HL/null), ArgRegs=[] (ABI v1). Plik: src/CathodeRay.C/CpuModel.cs. Akceptacja: build czysty; test CpuModelConsistencyTests (kazdy CellRegisters/CellPairs istnieje w modelu, aliasy symetryczne, ResultReg zgodne z ReturnsInResultReg).
+- [ ] **2.** [S] Test spojnosci model-alokator: kazda komorka z RegisterAllocator.Resolve istnieje w modelu; pary z CellPairs to aliasy dwoch rejestrow 8-bit; VRegTargetInfo.For zgodne z CpuModel (te same rejestry). Akceptacja: nowy test zielony, zero zmian w src (tylko testy).
+- [ ] **3.** [M] Przepiecie Clobbers/SavedAround/Taken na model: Z80.Clobbers znika jako osobny byt (dane z CpuModel), Taken/_active liczone z aliasow modelu, SavedAround weryfikowane przeciw modelowi. Akceptacja: full suite zielony, target-sizes.txt bajt-w-bajt bez zmian, diff listingow 05_calls/fib na 4 CPU pusty.
+- [ ] **4.** [M] PrimEffects dla ~10 prymitywow sciezek Opt3/6 (LoadA/StoreA/Alu/Cmp/ShlA/ShrA/TryAddWord/TryBranchZeroSigned/Call/Ret): deklaracje (reads/writes/flags) w CpuModel + fuzz roznicowy model-vs-emulator (Mos6502/Z80Cpu/Mc6800Cpu/StubCpu, losowe sekwencje, porownanie rejestrow i flag). Akceptacja: fuzz 10k sekwencji zielony; znalezione rozjazdy naprawione albo udokumentowane jako ograniczenia modelu.
+- [ ] **5.** [S] ArgRegs: pole + plumbing (puste = obecne ABI, dowod: brak zmian w kodzie) + test; dokumentacja jak Opt 1 (argumenty w rejestrach) wypelni to pole bez rewolucji w selektorze. Pilot nes/6510 jako osobny plan (AbiV2), nie tutaj. Akceptacja: test NoRegArgs_Emits_Identical_Code (porownanie asm z i bez plumbing).
+- [ ] **6.** [S] Dokumentacja i zamkniecie: sekcja CpuModel w docs/targets.md + notka w stub-calling-conv.md (ABI zamrozone, model je opisuje); pomiary (target-sizes/compare bez zmian); render + hygiene OK; commit na branchu; plan closed.
+
+Postęp: 0/6 gotowych.
