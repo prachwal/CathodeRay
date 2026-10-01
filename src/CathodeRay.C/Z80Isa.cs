@@ -374,6 +374,50 @@ internal sealed partial class Z80Isa : ByteIsa
         L(less ? $"jp m,{label}" : $"jp p,{label}");
     }
 
+    /// <summary>Skok na znaku i zerze słowa bez odejmowania: wartość do HL, potem bit 7 albo OR.</summary>
+    /// <param name="value">Słowo 2-bajtowe (nie natychmiastowe).</param>
+    /// <param name="cond">Warunek w postaci <c>wartość cond 0</c>.</param>
+    /// <param name="target">Etykieta docelowa.</param>
+    /// <returns><see langword="true"/>, gdy sekwencja została wyemitowana.</returns>
+    public override bool TryBranchZeroSigned(Word value, Ir.Cond cond, string target)
+    {
+        if (value.IsImmediate || !Usable(value) || cond is not (Ir.Cond.Lt or Ir.Cond.Ge or Ir.Cond.Le or Ir.Cond.Gt))
+        {
+            return false;
+        }
+
+        LoadPair("hl", value);
+        switch (cond)
+        {
+            case Ir.Cond.Lt:
+                L("bit 7,h");
+                L($"jp nz,{target}");
+                break;
+            case Ir.Cond.Ge:
+                L("bit 7,h");
+                L($"jp z,{target}");
+                break;
+            case Ir.Cond.Le:
+                L("ld a,h");
+                L("or l");
+                L($"jp z,{target}");
+                L("bit 7,h");
+                L($"jp nz,{target}");
+                break;
+            default:
+                string skip = LocalLabel();
+                L("ld a,h");
+                L("or l");
+                L($"jp z,{skip}");
+                L("bit 7,h");
+                L($"jp z,{target}");
+                L($"{skip}:");
+                break;
+        }
+
+        return true;
+    }
+
     public override void PushPair(string pair) => L($"push {pair}");
 
     public override void PopPair(string pair) => L($"pop {pair}");

@@ -709,6 +709,38 @@ internal sealed class ByteSelector
         }
     }
 
+    /// <summary>Porównanie ze znakiem z zerem bez odejmowania: jedna strona to stała 0,
+    /// druga idzie do <see cref="ByteIsa.TryBranchZeroSigned"/> jako <c>wartość cond 0</c>.</summary>
+    /// <param name="branch">Skok warunkowy.</param>
+    /// <param name="target">Etykieta docelowa (zmanglowana).</param>
+    /// <returns><see langword="true"/>, gdy sekwencja została wyemitowana.</returns>
+    private bool TryBranchZeroSigned(Ir.BrCmp branch, string target)
+    {
+        bool zeroLeft = IsZero(branch.A);
+        bool zeroRight = IsZero(branch.B);
+        if (zeroLeft == zeroRight)
+        {
+            return false;
+        }
+
+        Ir.Op value = zeroLeft ? branch.B : branch.A;
+        Ir.Cond cond = (zeroLeft, branch.C) switch
+        {
+            (true, Ir.Cond.Lt) => Ir.Cond.Gt,
+            (true, Ir.Cond.Gt) => Ir.Cond.Lt,
+            (true, Ir.Cond.Ge) => Ir.Cond.Le,
+            (true, Ir.Cond.Le) => Ir.Cond.Ge,
+            _ => branch.C,
+        };
+        if (WordOf(value) is not { } word || !_isa.TryBranchZeroSigned(word, cond, target))
+        {
+            return false;
+        }
+
+        _acc.Clear();
+        return true;
+    }
+
     private void EmitBranch(Ir.Function function, Ir.BrCmp branch)
     {
         string target = Mangle(function, branch.Target);
@@ -748,6 +780,11 @@ internal sealed class ByteSelector
         }
 
         bool signed = cond is Ir.Cond.Lt or Ir.Cond.Le or Ir.Cond.Gt or Ir.Cond.Ge;
+        if (signed && width == 2 && TryBranchZeroSigned(branch, target))
+        {
+            return;
+        }
+
         bool swap = cond is Ir.Cond.Gt or Ir.Cond.Le or Ir.Cond.Gtu or Ir.Cond.Leu;
         bool onBorrow = cond is Ir.Cond.Lt or Ir.Cond.Gt or Ir.Cond.Ltu or Ir.Cond.Gtu;
         Ir.Op x = swap ? branch.B : branch.A;

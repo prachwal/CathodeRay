@@ -270,6 +270,54 @@ internal sealed partial class Intel8080Isa : ByteIsa
         L("pchl");
     }
 
+    /// <summary>Skok na znaku i zerze słowa bez odejmowania: wartość do HL, potem bit 7 przez <c>ani</c> albo OR.</summary>
+    /// <param name="value">Słowo 2-bajtowe (nie natychmiastowe).</param>
+    /// <param name="cond">Warunek w postaci <c>wartość cond 0</c>.</param>
+    /// <param name="target">Etykieta docelowa.</param>
+    /// <returns><see langword="true"/>, gdy sekwencja została wyemitowana.</returns>
+    public override bool TryBranchZeroSigned(Word value, Ir.Cond cond, string target)
+    {
+        if (value.IsImmediate || !Usable(value) || cond is not (Ir.Cond.Lt or Ir.Cond.Ge or Ir.Cond.Le or Ir.Cond.Gt))
+        {
+            return false;
+        }
+
+        LoadPair("hl", value);
+        switch (cond)
+        {
+            case Ir.Cond.Lt:
+                L("mov a,h");
+                L("ani 128");
+                L($"jnz {target}");
+                break;
+            case Ir.Cond.Ge:
+                L("mov a,h");
+                L("ani 128");
+                L($"jz {target}");
+                break;
+            case Ir.Cond.Le:
+                L("mov a,h");
+                L("ora l");
+                L($"jz {target}");
+                L("mov a,h");
+                L("ani 128");
+                L($"jnz {target}");
+                break;
+            default:
+                string skip = LocalLabel();
+                L("mov a,h");
+                L("ora l");
+                L($"jz {skip}");
+                L("mov a,h");
+                L("ani 128");
+                L($"jz {target}");
+                L($"{skip}:");
+                break;
+        }
+
+        return true;
+    }
+
     public override void Return() => L("ret");
 
     public override void PtrSetup(string cell, int offset, bool mustCopy = false)

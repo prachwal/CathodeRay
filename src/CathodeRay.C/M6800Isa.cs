@@ -121,6 +121,63 @@ internal sealed class M6800Isa : ByteIsa
         L("jsr 0,x");
     }
 
+    /// <summary>Skok na znaku i zerze słowa bez odejmowania: starszy bajt do A, potem N/Z.
+    /// Skoki warunkowe 6800 są krótkie, więc daleki cel idzie trampoliną jak w <see cref="JumpIf"/>.</summary>
+    /// <param name="value">Słowo 2-bajtowe (nie natychmiastowe).</param>
+    /// <param name="cond">Warunek w postaci <c>wartość cond 0</c>.</param>
+    /// <param name="target">Etykieta docelowa.</param>
+    /// <returns><see langword="true"/>, gdy sekwencja została wyemitowana.</returns>
+    public override bool TryBranchZeroSigned(Word value, Ir.Cond cond, string target)
+    {
+        if (value.IsImmediate || cond is not (Ir.Cond.Lt or Ir.Cond.Ge or Ir.Cond.Le or Ir.Cond.Gt))
+        {
+            return false;
+        }
+
+        string hi = Mem(value.Hi);
+        string lo = Mem(value.Lo);
+        switch (cond)
+        {
+            case Ir.Cond.Lt:
+                L($"ldaa {hi}");
+                string ltSkip = LocalLabel();
+                L($"bpl {ltSkip}");
+                L($"jmp {target}");
+                L($"{ltSkip}:");
+                break;
+            case Ir.Cond.Ge:
+                L($"ldaa {hi}");
+                string geSkip = LocalLabel();
+                L($"bmi {geSkip}");
+                L($"jmp {target}");
+                L($"{geSkip}:");
+                break;
+            case Ir.Cond.Gt:
+                L($"ldaa {hi}");
+                L($"oraa {lo}");
+                string gtSkip = LocalLabel();
+                L($"beq {gtSkip}");
+                L($"bmi {gtSkip}");
+                L($"jmp {target}");
+                L($"{gtSkip}:");
+                break;
+            default:
+                L($"ldaa {hi}");
+                string leMid = LocalLabel();
+                L($"bpl {leMid}");
+                L($"jmp {target}");
+                L($"{leMid}:");
+                L($"oraa {lo}");
+                string leSkip = LocalLabel();
+                L($"bne {leSkip}");
+                L($"jmp {target}");
+                L($"{leSkip}:");
+                break;
+        }
+
+        return true;
+    }
+
     /// <summary>Kopia słowa przez X: <c>ldx źródło</c> (albo <c>ldx #stała</c>), <c>stx cel</c>. Obie strony w pamięci big-endian
     /// (starszy bajt tuż przed młodszym: <c>Lo</c> = <c>Hi+1</c>); para <c>cc_argN</c>/<c>cc_argN_h</c> leży odwrotnie (młodszy pod
     /// <c>cc_argN</c>), więc zostaje przy kopii bajtowej. A się nie zmienia; X i flagi N/Z/V tak (X nie trzyma stanu między prymitywami).</summary>

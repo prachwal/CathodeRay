@@ -56,6 +56,14 @@ internal abstract class ByteIsa
     /// <summary>Nazwy, których asembler nie przyjmie jako symbole użytkownika (bez rozróżniania wielkości liter).</summary>
     protected virtual IReadOnlySet<string> Reserved { get; } = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
+    /// <summary>Skok, gdy słowo spełnia warunek ze znakiem względem zera — bez odejmowania (test bitu znaku
+    /// i zera). Wołane tylko dla <c>Lt/Ge/Le/Gt</c> o szerokości 2 z jedną stroną zerową.</summary>
+    /// <param name="value">Słowo 2-bajtowe (nie natychmiastowe).</param>
+    /// <param name="cond">Warunek w postaci <c>wartość cond 0</c>.</param>
+    /// <param name="target">Etykieta docelowa.</param>
+    /// <returns><see langword="true"/>, gdy sekwencja została wyemitowana.</returns>
+    public virtual bool TryBranchZeroSigned(Word value, Ir.Cond cond, string target) => false;
+
     /// <summary>Adres bajtu komórki (indeks 0 = młodszy). Komórka 32-bitowa <c>cc_argN</c> (parametr <c>long</c> liścia po
     /// <see cref="ParamAlias"/>) ma starszą połowę w <c>cc_argN+1</c>.</summary>
     /// <param name="sym">Symbol komórki.</param>

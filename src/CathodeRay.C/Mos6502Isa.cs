@@ -175,6 +175,63 @@ internal sealed class Mos6502Isa : ByteIsa
         L("jmp __icall");
     }
 
+    /// <summary>Skok na znaku i zerze słowa bez odejmowania: starszy bajt do A, potem N/Z.
+    /// Skoki warunkowe 6502 są krótkie, więc daleki cel idzie trampoliną jak w <see cref="JumpIf"/>.</summary>
+    /// <param name="value">Słowo 2-bajtowe (nie natychmiastowe).</param>
+    /// <param name="cond">Warunek w postaci <c>wartość cond 0</c>.</param>
+    /// <param name="target">Etykieta docelowa.</param>
+    /// <returns><see langword="true"/>, gdy sekwencja została wyemitowana.</returns>
+    public override bool TryBranchZeroSigned(Word value, Ir.Cond cond, string target)
+    {
+        if (value.IsImmediate || cond is not (Ir.Cond.Lt or Ir.Cond.Ge or Ir.Cond.Le or Ir.Cond.Gt))
+        {
+            return false;
+        }
+
+        string hi = Mem(value.Hi);
+        string lo = Mem(value.Lo);
+        switch (cond)
+        {
+            case Ir.Cond.Lt:
+                L($"lda {hi}");
+                string ltSkip = LocalLabel();
+                L($"bpl {ltSkip}");
+                L($"jmp {target}");
+                L($"{ltSkip}:");
+                break;
+            case Ir.Cond.Ge:
+                L($"lda {hi}");
+                string geSkip = LocalLabel();
+                L($"bmi {geSkip}");
+                L($"jmp {target}");
+                L($"{geSkip}:");
+                break;
+            case Ir.Cond.Gt:
+                L($"lda {hi}");
+                L($"ora {lo}");
+                string gtSkip = LocalLabel();
+                L($"beq {gtSkip}");
+                L($"bmi {gtSkip}");
+                L($"jmp {target}");
+                L($"{gtSkip}:");
+                break;
+            default:
+                L($"lda {hi}");
+                string leMid = LocalLabel();
+                L($"bpl {leMid}");
+                L($"jmp {target}");
+                L($"{leMid}:");
+                L($"ora {lo}");
+                string leSkip = LocalLabel();
+                L($"bne {leSkip}");
+                L($"jmp {target}");
+                L($"{leSkip}:");
+                break;
+        }
+
+        return true;
+    }
+
     public override void Return() => L("rts");
 
     public override void PtrSetup(string cell, int offset, bool mustCopy = false)
