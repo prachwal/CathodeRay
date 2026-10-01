@@ -22,6 +22,9 @@ internal sealed class M6800Isa : ByteIsa
 
     public override bool BigEndian => true;
 
+    /// <summary><c>eora</c>/<c>anda</c>/<c>oraa</c> nie ruszają C (model <c>CpuModels</c>): bias może iść wprost w A.</summary>
+    public override bool XorPreservesCarry => true;
+
     protected override IReadOnlySet<string> Reserved => ReservedNames;
 
     /// <summary>Nazwa CPU w <see cref="CpuModels"/>.</summary>

@@ -5,12 +5,14 @@ CathodeRay is a multi-target assembler and Mini-C compiler written in C# (.NET).
 ## Features
 
 ### Assembler
+
 - Multi-ISA support: **Z80**, **Intel 8080**, **MOS 6502 / 65C02**, **Motorola 6800**, and a minimal **stub** CPU
 - Multiple syntax dialects (Zilog, Intel, MOS/ca65-style, Motorola)
 - Macros, conditionals, includes, segments, scopes, local labels, `.incbin`, alignment, expressions
 - Object modules with relocations and a simple linker (CODE / DATA / BSS / INIT segments)
 
 ### Mini-C compiler (`cathode cc`)
+
 - Subset of C compiling to the same targets via a shared frontend and backend IRs
 - Pipeline: preprocessor → lexer → parser → type checker → IR lowering → IR passes → allocation (VReg path) → target emit → assemble → link
 - Types: `uchar`/`char`, `int`, `uint`, `long`, `ulong`, pointers, arrays (including multi-dimensional), structs, unions, enums, `typedef`, function pointers
@@ -46,7 +48,7 @@ cathode cc hello.c -o hello.bin --cpu stub
 
 ## Project layout
 
-```
+```text
 src/
   CathodeRay.Assembler/   # multi-target assembler + linker
   CathodeRay.C/           # Mini-C frontend, IR, targets, stdlib

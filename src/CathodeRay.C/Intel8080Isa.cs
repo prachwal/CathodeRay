@@ -129,6 +129,24 @@ internal sealed partial class Intel8080Isa : ByteIsa
         return true;
     }
 
+    /// <summary>Słowo &lt;&lt; 1: załaduj HL, <c>dad h</c>, odłóż (wynik zostaje w HL).</summary>
+    /// <param name="dst">Cel.</param>
+    /// <param name="src">Źródło.</param>
+    /// <returns><see langword="false"/>, gdy bajty nie są sąsiednie.</returns>
+    public override bool TryShlWord1(Word dst, Word src)
+    {
+        if (dst.IsImmediate || !Usable(dst) || !Usable(src))
+        {
+            return false;
+        }
+
+        LoadPair("hl", src);
+        L("dad h");
+        StorePair("hl", dst);
+        FreshAddInHL = true;
+        return true;
+    }
+
     /// <summary>Kopia słowa przez HL (<c>lxi h,wartość</c> albo <c>lhld adres</c>; <c>shld adres</c>), gdy bajty obu stron leżą obok
     /// siebie; cel w parze BC/DE: <c>lxi b,wartość</c>, <c>mov c,e; mov b,d</c> albo <c>lhld adres; mov c,l; mov b,h</c>.</summary>
     /// <param name="dst">Cel.</param>

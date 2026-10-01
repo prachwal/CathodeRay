@@ -24,6 +24,9 @@ internal sealed class Mos6502Isa : ByteIsa
     /// <summary>Cel obsługuje wywołanie ogonowe (bezpośrednie: <c>jmp</c>; pośrednie: <c>jmp __icall</c>).</summary>
     public override bool SupportsTailCall => true;
 
+    /// <summary><c>eor</c>/<c>and</c>/<c>ora</c> nie ruszają C (model <c>CpuModels</c>): bias może iść wprost w A.</summary>
+    public override bool XorPreservesCarry => true;
+
     protected override IReadOnlySet<string> Reserved => ReservedNames;
 
     /// <summary>Nazwa CPU w <see cref="CpuModels"/> (warianty nes/6510 dzielą model 6502).</summary>

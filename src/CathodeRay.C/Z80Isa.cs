@@ -231,6 +231,24 @@ internal sealed partial class Z80Isa : ByteIsa
 
     public override void ResultByteToA(int index) => L(index == 0 ? "ld a,l" : "ld a,h");
 
+    /// <summary>Słowo &lt;&lt; 1: <c>ld hl,src; add hl,hl; ld (dst),hl</c> (wynik zostaje w HL).</summary>
+    /// <param name="dst">Cel.</param>
+    /// <param name="src">Źródło.</param>
+    /// <returns><see langword="false"/>, gdy bajty nie są sąsiednie.</returns>
+    public override bool TryShlWord1(Word dst, Word src)
+    {
+        if (dst.IsImmediate || !Usable(dst) || !Usable(src))
+        {
+            return false;
+        }
+
+        LoadPair("hl", src);
+        L("add hl,hl");
+        StorePair("hl", dst);
+        FreshAddInHL = true;
+        return true;
+    }
+
     /// <summary>Dodawanie/odejmowanie przez HL: <c>ld hl,a; add hl,de</c> albo <c>or a; sbc hl,de</c>, stała ±1..3 przez
     /// <c>inc hl</c>/<c>dec hl</c>, odjęcie stałej liczbowej jako dodanie jej przeciwieństwa.</summary>
     /// <param name="dst">Cel.</param>
@@ -380,6 +398,38 @@ internal sealed partial class Z80Isa : ByteIsa
         L("xor 128");
         L($"{skip}:");
         L(less ? $"jp m,{label}" : $"jp p,{label}");
+    }
+
+    /// <summary>Skoki po porównaniu ze stałą bez trampoliny. Przepełnienie (V=1) pcha też znak (S=1 przy
+    /// C &lt; 0, S=0 przy C &gt; 0), więc pojedynczy skok po znaku kłamie — gdy V rozstrzyga na spadek,
+    /// materializuję pustą etykietę else (0 B). Układ: <c>Lt</c> z C &gt; 0 to <c>jp pe,T; jp m,T</c>,
+    /// z C &lt; 0 to <c>jp pe,E; jp m,T; E:</c>, z C = 0 (V niemożliwe) samo <c>jp m,T</c>; <c>Ge</c> dualnie.</summary>
+    /// <param name="less"><c>x &lt; C</c> albo <c>x &gt;= C</c>.</param>
+    /// <param name="constant">Stała ze znakiem.</param>
+    /// <param name="target">Etykieta gałęzi prawdy (spadek to fałsz).</param>
+    /// <returns>Zawsze <see langword="true"/>.</returns>
+    public override bool TryBranchSignedConst(bool less, int constant, string target)
+    {
+        string sign = less ? $"jp m,{target}" : $"jp p,{target}";
+        if (constant == 0)
+        {
+            L(sign);
+            return true;
+        }
+
+        bool overMeansTrue = less == (constant > 0);
+        if (overMeansTrue)
+        {
+            L($"jp pe,{target}");
+            L(sign);
+            return true;
+        }
+
+        string skip = LocalLabel();
+        L($"jp pe,{skip}");
+        L(sign);
+        L($"{skip}:");
+        return true;
     }
 
     /// <summary>Skok na znaku i zerze słowa bez odejmowania: wartość do HL, potem bit 7 albo OR.</summary>
