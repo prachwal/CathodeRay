@@ -5,8 +5,8 @@
     {
       "id": "1",
       "title": "[S] Typy CpuModel/CpuRegister/FlagEffects + dane 5 CPU (stub/6502/65c02/Z80/8080/6800 + nes/6510 jak 6502): rejestry, aliasy (hl=[h,l], pary bc/de, cc_argN_h), ClobberedByCall, ResultReg (HL/null), ArgRegs=[] (ABI v1). Plik: src/CathodeRay.C/CpuModel.cs. Akceptacja: build czysty; test CpuModelConsistencyTests (kazdy CellRegisters/CellPairs istnieje w modelu, aliasy symetryczne, ResultReg zgodne z ReturnsInResultReg).",
-      "status": "todo",
-      "note": ""
+      "status": "done",
+      "note": "CpuRegister/FlagEffects/CpuModel/CpuModels (osobne pliki, SA1402) + dane 8 celow (aliasy hl=[h,l], ClobberedByCall, ResultReg=hl na Z80/8080, ArgRegs=[]); CpuModelConsistencyTests 8/8 (model vs CellRegisters/CellPairs/ReturnsInResultReg). Zero zmian w istniejacym kodzie."
     },
     {
       "id": "2",
