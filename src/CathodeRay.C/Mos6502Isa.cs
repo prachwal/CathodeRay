@@ -21,6 +21,9 @@ internal sealed class Mos6502Isa : ByteIsa
 
     public override bool SupportsIndexed => true;
 
+    /// <summary>Cel obsługuje wywołanie ogonowe (bezpośrednie: <c>jmp</c>; pośrednie: <c>jmp __icall</c>).</summary>
+    public override bool SupportsTailCall => true;
+
     protected override IReadOnlySet<string> Reserved => ReservedNames;
 
     public override string Segment(string name) => $".segment \"{name}\"";
@@ -160,11 +163,16 @@ internal sealed class Mos6502Isa : ByteIsa
 
     public override void CallIndirect(string cell)
     {
-        L($"lda {Mem(cell)}");
-        L("sta cc_fp");
-        L($"lda {Mem(cell + "+1")}");
-        L("sta cc_fp+1");
+        SetupIcall(cell);
         L("jsr __icall");
+    }
+
+    /// <summary>Skok pośredni w pozycji ogonowej: ten sam wskaźnik <c>cc_fp</c>, ale skok zamiast wołania.</summary>
+    /// <param name="cell">Symbol komórki z adresem.</param>
+    public override void TailCallIndirect(string cell)
+    {
+        SetupIcall(cell);
+        L("jmp __icall");
     }
 
     public override void Return() => L("rts");
@@ -364,6 +372,16 @@ internal sealed class Mos6502Isa : ByteIsa
         }
 
         return operand.StartsWith('#') || operand.StartsWith("z:", StringComparison.Ordinal) || operand.StartsWith('(') || operand.StartsWith("0,x", StringComparison.Ordinal) ? 2 : 3;
+    }
+
+    /// <summary>Wskaźnik wołania pośredniego do <c>cc_fp</c>.</summary>
+    /// <param name="cell">Symbol komórki z adresem.</param>
+    private void SetupIcall(string cell)
+    {
+        L($"lda {Mem(cell)}");
+        L("sta cc_fp");
+        L($"lda {Mem(cell + "+1")}");
+        L("sta cc_fp+1");
     }
 
     /// <summary>Adres z przedrostkiem <c>z:</c> (strona zerowa), gdy symbol bazowy leży na stronie zerowej.</summary>
