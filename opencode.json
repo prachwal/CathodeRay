@@ -18,5 +18,25 @@
       "command": ["dotnet", "format", "--include", "$FILE"],
       "extensions": [".cs"]
     }
+  },
+  "permission": {
+    "bash": {
+      "*": "ask",
+      "git status*": "allow",
+      "git diff*": "allow",
+      "git log*": "allow",
+      "git branch*": "allow",
+      "rg *": "allow",
+      "dotnet build*": "allow",
+      "dotnet test*": "allow",
+      "UPDATE_TARGET_SIZES=1 dotnet test*": "allow",
+      "UPDATE_VREG_SIZES=1 dotnet test*": "allow",
+      "LEAF_FUZZ_DIR=* dotnet test*": "allow",
+      "RECURSION_FUZZ_DIR=* dotnet test*": "allow",
+      "python3 tools/plan.py*": "allow",
+      "python3 tools/compare.py*": "allow",
+      "python3 tools/leaf_fuzz.py*": "allow",
+      "python3 tools/recursion_fuzz.py*": "allow"
+    }
   }
 }
