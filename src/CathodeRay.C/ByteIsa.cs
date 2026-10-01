@@ -37,6 +37,11 @@ internal abstract class ByteIsa
     /// crt0 po <c>call main</c> zapisuje go do <c>cc_ret</c>. Domyślnie <see langword="false"/>.</summary>
     public virtual bool ReturnsInResultReg => false;
 
+    /// <summary>Ostatnie słowo z <see cref="TryAddWord"/> zostało w HL (ścieżka świeżego wyniku do <c>Ret</c> w selektorze
+    /// jest wtedy poprawna); <c>false</c> po zamianie <c>ex de,hl</c>/<c>xchg</c> do pary DE. Czytane tylko tuż po
+    /// <c>Bin</c> W2 (pętla selektora i tak gasi świeżość na każdej innej instrukcji).</summary>
+    public bool FreshAddInHL { get; set; } = true;
+
     /// <summary>Czy cel obsługuje wywołanie ogonowe (skok zamiast call+ret).</summary>
     public virtual bool SupportsTailCall => false;
 

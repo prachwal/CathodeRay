@@ -435,6 +435,8 @@ internal sealed partial class Intel8080Isa : ByteIsa
         text = RedundantDeToHl().Replace(text, "$1");
         text = DeadBcBeforeRet().Replace(text, string.Empty);
         text = DeadDeBeforeRet().Replace(text, string.Empty);
+        text = XorAfterLabel().Replace(text, "$1$2xra a");
+        text = XorAfterCall().Replace(text, "$1$2xra a");
         return text;
     }
 
@@ -455,6 +457,14 @@ internal sealed partial class Intel8080Isa : ByteIsa
 
     [GeneratedRegex(@"(?m)^(\s*mov e,l\r?\n\s*mov d,h\r?\n)(?=(?:[ \t]*(?:[\w@.$]+:|;[^\r\n]*)[ \t]*\r?\n)*[ \t]*ret[ \t]*(?:\r?\n|$))", RegexOptions.Multiline)]
     private static partial Regex DeadDeBeforeRet();
+
+    /// <summary><c>mvi a,0</c> tuż za etykietą → <c>xra a</c> (1 B mniej); ten sam argument co w <c>Z80Isa</c>.</summary>
+    [GeneratedRegex(@"(?m)^([ \t]*[\w@.$]+:\r?\n(?:[ \t]*;[^\r\n]*\r?\n)*)([ \t]*)mvi a,0(?![\w])", RegexOptions.Multiline)]
+    private static partial Regex XorAfterLabel();
+
+    /// <summary><c>mvi a,0</c> tuż za bezwarunkowym <c>call</c> → <c>xra a</c>: wołany gubi flagi.</summary>
+    [GeneratedRegex(@"(?m)^([ \t]*call (?![np]?[zc],|p[eo],|[pm],)[^\r\n]*\r?\n(?:[ \t]*;[^\r\n]*\r?\n)*)([ \t]*)mvi a,0(?![\w])", RegexOptions.Multiline)]
+    private static partial Regex XorAfterCall();
 
     private static IEnumerable<string> CrtCells()
     {

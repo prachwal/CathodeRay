@@ -262,4 +262,50 @@ public sealed class AsmTidyTests
         Z80Isa.Tidy("ld c,l\nld b,h\nld l,c\nld h,b\nf__ret:\nret").Should().Be("f__ret:\nret");
         Intel8080Isa.Tidy("mov c,l\nmov b,h\nmov l,c\nmov h,b\nf__ret:\nret").Should().Be("f__ret:\nret");
     }
+
+    [Fact]
+    public void Z80_XorA_After_Label_And_Call()
+    {
+        Z80Isa.Tidy("L:\nld a,0\nld c,a").Should().Be("L:\nxor a\nld c,a");
+        Z80Isa.Tidy("L:\n;c:x.c:1\nld a,0").Should().Be("L:\n;c:x.c:1\nxor a");
+        Z80Isa.Tidy("call f\nld a,0").Should().Be("call f\nxor a");
+    }
+
+    [Fact]
+    public void Z80_XorA_Ignored_When_Flags_Live()
+    {
+        // łańcuch sub/sbc: C niesie pożyczkę
+        Z80Isa.Tidy("sub (hl)\nld a,0\nsbc a,(hl)").Should().Be("sub (hl)\nld a,0\nsbc a,(hl)");
+
+        // skok warunkowy i wołanie warunkowe zostawiają znane flagi na spadku
+        Z80Isa.Tidy("call z,f\nld a,0").Should().Be("call z,f\nld a,0");
+        Z80Isa.Tidy("ld b,1\nld a,0").Should().Be("ld b,1\nld a,0");
+    }
+
+    [Fact]
+    public void I8080_XorA_After_Label_And_Call()
+    {
+        Intel8080Isa.Tidy("L:\nmvi a,0\nmov c,a").Should().Be("L:\nxra a\nmov c,a");
+        Intel8080Isa.Tidy("call f\nmvi a,0").Should().Be("call f\nxra a");
+    }
+
+    [Fact]
+    public void I8080_XorA_Ignored_When_Flags_Live()
+    {
+        Intel8080Isa.Tidy("sub m\nmvi a,0\nsbb m").Should().Be("sub m\nmvi a,0\nsbb m");
+        Intel8080Isa.Tidy("call z,f\nmvi a,0").Should().Be("call z,f\nmvi a,0");
+    }
+
+    [Fact]
+    public void Z80_SwapReload_Collapses_To_Copy()
+    {
+        Z80Isa.Tidy("ex de,hl\nld l,e\nld h,d\nld a,(hl)").Should().Be("ld e,l\nld d,h\nld a,(hl)");
+        Z80Isa.Tidy("ex de,hl\r\nld l,e\r\nld h,d\r\nld a,(hl)").Should().Be("ld e,l\r\nld d,h\r\nld a,(hl)");
+    }
+
+    [Fact]
+    public void Z80_SwapReload_Ignores_Label_Between()
+    {
+        Z80Isa.Tidy("ex de,hl\nL:\nld l,e\nld h,d").Should().Be("ex de,hl\nL:\nld l,e\nld h,d");
+    }
 }

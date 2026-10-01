@@ -301,7 +301,19 @@ internal sealed partial class Z80Isa : ByteIsa
             L("pop de");
         }
 
-        StorePair("hl", dst);
+        // Cel w parze DE: zamiana zamiast dwóch kopii (1 B mniej); HL po niej nie niesie wyniku
+        // (flaga dla ścieżki świeżego wyniku w selektorze). Martwe DE: nadpisane tak czy owak.
+        if (PairOf(dst) == "de")
+        {
+            L("ex de,hl");
+            FreshAddInHL = false;
+        }
+        else
+        {
+            StorePair("hl", dst);
+            FreshAddInHL = true;
+        }
+
         return true;
     }
 
@@ -553,8 +565,11 @@ internal sealed partial class Z80Isa : ByteIsa
     {
         text = RedundantBcToHl().Replace(text, "$1");
         text = RedundantDeToHl().Replace(text, "$1");
+        text = SwapReloadDe().Replace(text, "$1ld e,l$2$1ld d,h$3");
         text = DeadBcBeforeRet().Replace(text, string.Empty);
         text = DeadDeBeforeRet().Replace(text, string.Empty);
+        text = XorAfterLabel().Replace(text, "$1$2xor a");
+        text = XorAfterCall().Replace(text, "$1$2xor a");
         return text;
     }
 
@@ -652,11 +667,27 @@ internal sealed partial class Z80Isa : ByteIsa
     [GeneratedRegex(@"(?m)^(\s*ld e,l\r?\n\s*ld d,h\r?\n)\s*ld l,e\r?\n\s*ld h,d\r?\n", RegexOptions.Multiline)]
     private static partial Regex RedundantDeToHl();
 
+    /// <summary><c>ex de,hl</c> z natychmiastowym przeładowaniem HL z DE → zwykła kopia <c>ld e,l; ld d,h</c>
+    /// (1 B mniej; HL i tak wraca do starej wartości, a kopia nie rusza niczego). Para do
+    /// <see cref="RedundantDeToHl"/>: tamta zjada kopię+reload, ta cofa zamianę+reload do kopii.</summary>
+    [GeneratedRegex(@"(?m)^([ \t]*)ex de,hl(\r?\n)[ \t]*ld l,e\2[ \t]*ld h,d(\r?\n)", RegexOptions.Multiline)]
+    private static partial Regex SwapReloadDe();
+
     [GeneratedRegex(@"(?m)^(\s*ld c,l\r?\n\s*ld b,h\r?\n)(?=(?:[ \t]*(?:[\w@.$]+:|;[^\r\n]*)[ \t]*\r?\n)*[ \t]*ret[ \t]*(?:\r?\n|$))", RegexOptions.Multiline)]
     private static partial Regex DeadBcBeforeRet();
 
     [GeneratedRegex(@"(?m)^(\s*ld e,l\r?\n\s*ld d,h\r?\n)(?=(?:[ \t]*(?:[\w@.$]+:|;[^\r\n]*)[ \t]*\r?\n)*[ \t]*ret[ \t]*(?:\r?\n|$))", RegexOptions.Multiline)]
     private static partial Regex DeadDeBeforeRet();
+
+    /// <summary><c>ld a,0</c> tuż za etykietą → <c>xor a</c> (1 B mniej). Flagi za etykietą są nieokreślone
+    /// (ścieżki się rozjeżdżają; selektor i tak nigdy nie czyta flag dalej niż tuż za zapisem — skoki warunkowe
+    /// i łańcuchy adc/sbc zawsze stoją przy swoim setterze), więc czyszczenie C/Z przez xor jest legalne.</summary>
+    [GeneratedRegex(@"(?m)^([ \t]*[\w@.$]+:\r?\n(?:[ \t]*;[^\r\n]*\r?\n)*)([ \t]*)ld a,0(?![\w])", RegexOptions.Multiline)]
+    private static partial Regex XorAfterLabel();
+
+    /// <summary><c>ld a,0</c> tuż za bezwarunkowym <c>call</c> → <c>xor a</c>: wołany gubi flagi (koniec na ret).</summary>
+    [GeneratedRegex(@"(?m)^([ \t]*call (?![np]?[zc],|p[eo],|[pm],)[^\r\n]*\r?\n(?:[ \t]*;[^\r\n]*\r?\n)*)([ \t]*)ld a,0(?![\w])", RegexOptions.Multiline)]
+    private static partial Regex XorAfterCall();
 
     [GeneratedRegex(@"^\s*jp\s+((?:nz|z|nc|c),)?\s*([A-Za-z_.$][\w.$]*)\s*$")]
     private static partial Regex LongJump();

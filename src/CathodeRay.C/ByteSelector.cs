@@ -26,6 +26,9 @@ internal sealed class ByteSelector
 
     private bool _usesIcall;
 
+    /// <summary>Skoki do etykiety powrotu bieżącej funkcji (gdy zero i ciało kończy skokiem — stopka martwa).</summary>
+    private int _retJumps;
+
     public ByteSelector(Ir.Module module, ByteIsa isa)
     {
         _module = module;
@@ -252,6 +255,7 @@ internal sealed class ByteSelector
     {
         int mark = _isa.Mark;
         _isa.BeginFunction(function);
+        _retJumps = 0;
         EmitFunctionBody(function);
         _isa.RelaxFrom(mark);
     }
@@ -302,11 +306,13 @@ internal sealed class ByteSelector
 
         int bodyIndex = start;
         string? resCell = null;
+        bool endsWithJump = false;
         while (bodyIndex < function.Body.Count)
         {
             if (TryEmitTailCall(function, bodyIndex, out int next))
             {
                 resCell = null;
+                endsWithJump = next == function.Body.Count;
                 bodyIndex = next;
                 continue;
             }
@@ -322,18 +328,34 @@ internal sealed class ByteSelector
 
             if (current is Ir.Ret ret2 && resCell is not null && ret2.W == 2 && ret2.Value is Ir.Cell cell2
                 && cell2.Sym == resCell && cell2.W == 2 && cell2.Sym.StartsWith(function.Name + "__", StringComparison.Ordinal)
-                && _isa.ReturnsInResultReg)
+                && _isa.ReturnsInResultReg && _isa.FreshAddInHL)
             {
-                // rejestr wyniku trzyma wartość (świeży wynik Bin): pomiń ładowanie
+                // rejestr wyniku trzyma wartość (świeży wynik Bin w HL): pomiń ładowanie
                 EmitRet(function, ret2, bodyIndex == function.Body.Count - 1, valueInResultReg: true);
                 resCell = null;
                 bodyIndex++;
                 continue;
             }
 
+            if (current is Ir.Jmp)
+            {
+                endsWithJump = bodyIndex == function.Body.Count - 1;
+            }
+            else
+            {
+                endsWithJump = false;
+            }
+
             bool fresh = EmitIns(function, current, bodyIndex == function.Body.Count - 1);
             resCell = (fresh && current is Ir.Bin bin && bin.Dst.W == 2) ? bin.Dst.Sym : null;
             bodyIndex++;
+        }
+
+        if (endsWithJump && _retJumps == 0 && function.Saved.Count == 0)
+        {
+            // nic nie skacze do etykiety powrotu, ramki brak, a ciało kończy skokiem bezwarunkowym:
+            // stopka (etykieta + ret) nieosiągalna
+            return;
         }
 
         Raw($"{Mangle(function, "ret")}:");
@@ -999,6 +1021,7 @@ internal sealed class ByteSelector
 
         if (!last)
         {
+            _retJumps++;
             _isa.Jump(Mangle(function, "ret"));
         }
     }

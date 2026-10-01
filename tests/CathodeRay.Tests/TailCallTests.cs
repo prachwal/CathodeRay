@@ -104,4 +104,15 @@ public sealed class TailCallTests
         CcRun.RunOn(Source, "z80").Value.Should().Be(0 + 1);
         CcRun.RunOn(Source, "8080").Value.Should().Be(0 + 1);
     }
+
+    [Fact]
+    public void Terminal_Tail_Call_Skips_Dead_Footer()
+    {
+        const string Source = "int target(int x) { return x + 1; }\nint wrap(int x) { return target(x); }\nint use(int (*f)(int)) { return f(0); }\nint main() { return wrap(7) + use(target); }\n";
+
+        EmitZ80(Source).Should().Contain("jp target").And.NotContain("wrap__ret:");
+        Emit8080(Source).Should().Contain("jmp target").And.NotContain("wrap__ret:");
+        CcRun.RunOn(Source, "z80").Value.Should().Be(9);
+        CcRun.RunOn(Source, "8080").Value.Should().Be(9);
+    }
 }
