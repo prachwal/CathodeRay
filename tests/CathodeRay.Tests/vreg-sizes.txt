@@ -139,7 +139,7 @@
 19_struct_value.c 65c02 2397
 19_struct_value.c nes 2397
 19_struct_value.c 6510 2397
-19_struct_value.c z80 2177
+19_struct_value.c z80 2151
 19_struct_value.c 8080 2289
 19_struct_value.c 6800 2489
 20_matrix.c stub 2384

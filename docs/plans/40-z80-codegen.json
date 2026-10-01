@@ -29,20 +29,20 @@
     {
       "id": "5",
       "title": "[M] LDIR dla CopyBlock/Fill na Z80 (ld hl,src; ld de,dst; ld bc,n; ldir); 8080 zostaje na petli. Pliki: Z80Isa (TryCopyBlock), ByteSelector. Akceptacja: copy w dol o ~20 B.",
-      "status": "todo",
-      "note": ""
+      "status": "done",
+      "note": "Zrobione: matcher petli w selektorze (while n / n>0, cialo [Load,Store,d+1,s+1,n-1], single-use, brak obcych skokow) + TryCopyLoop w Z80 (test zera, push bc/de, ldir, pop; L_end emitowane). copy 48->22B. Eq ze znakiem ujemnym: oryginał wisi, zamiana nieobserwowalna w konczacych sie programach. CopyLoopTests 4/4 (wartosci, n=0, Le, W2-nie-ldir). 8080 bez zmian (base false)."
     },
     {
       "id": "6",
       "title": "[M] DJNZ dla petli licznikowych z licznikiem w B (wzorzec for i++/i--, 2 B zamiast ~5 B). Pliki: Lowering i/lub peephole IR. Akceptacja: testy petli + matryca.",
       "status": "todo",
-      "note": ""
+      "note": "PRZENIESIONE do batcha 4: licznik w B wymaga liveness + rezerwacji rejestru (ten sam warsztat co item 9)."
     },
     {
       "id": "7",
       "title": "[M] RST dla helperow runtime (__cc_mul/__cc_divu/float): rst 08h (1 B) zamiast call (3 B) + tablica wektorow w crt0 + legalizer. Akceptacja: wiersze z * w dol, linkowanie wszystkich celow zielone.",
       "status": "todo",
-      "note": ""
+      "note": "ODROCZONE swiadomie: RST oszczedza 2B/site, ale tylko ~5 site'ow w div16 (wiersz spoza sredniej!); koszt: strona 0 (niezmapowana), wektory w crt0, emulator RST (dziś throw), harness, linker + staly koszt kazdego binaria. Zysk/ryzyko nieuzasadnione; wrocic gdyby wiersze * weszly do sredniej."
     },
     {
       "id": "8",

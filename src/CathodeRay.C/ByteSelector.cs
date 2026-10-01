@@ -98,6 +98,72 @@ internal sealed class ByteSelector
         return true;
     }
 
+    /// <summary>Pomija komentarze źródłowe, zbierając je do późniejszej emisji.</summary>
+    /// <param name="function">Funkcja.</param>
+    /// <param name="comments">Zebrane komentarze.</param>
+    /// <param name="i">Pozycja (przesuwana za komentarze).</param>
+    /// <returns>Czy pozycja w zakresie ciała.</returns>
+    private static bool SkipComments(Ir.Function function, List<Ir.Src> comments, ref int i)
+    {
+        while (i < function.Body.Count && function.Body[i] is Ir.Src src)
+        {
+            comments.Add(src);
+            i++;
+        }
+
+        return i < function.Body.Count;
+    }
+
+    /// <summary>Krok licznika/wskaźnika o 1 (<c>x = x + 1</c> albo <c>x = x - 1</c>).</summary>
+    /// <param name="ins">Instrukcja.</param>
+    /// <param name="sym">Oczekiwany symbol.</param>
+    /// <param name="width">Szerokość.</param>
+    /// <param name="increment">Plus 1 albo minus 1.</param>
+    /// <returns>Czy instrukcja to taki krok.</returns>
+    private static bool IsStep(Ir.Ins ins, string sym, int width, bool increment)
+    {
+        return ins is Ir.Bin step
+            && (increment ? step.Kind == Ir.BinOp.Add : step.Kind == Ir.BinOp.Sub)
+            && step.Dst is { W: 2 } dst && dst.Sym == sym && dst.W == width
+            && step.A is Ir.Cell a && a.Sym == sym && a.W == width
+            && step.B is Ir.Imm { Value: 1 };
+    }
+
+    /// <summary>Komórki pętli nie występują nigdzie indziej w funkcji, a do jej etykiet nie skacze nikt obcy.</summary>
+    /// <param name="function">Funkcja.</param>
+    /// <param name="from">Początek dopasowania.</param>
+    /// <param name="to">Koniec dopasowania.</param>
+    /// <param name="syms">Symbole pętli.</param>
+    /// <param name="top">Etykieta góry.</param>
+    /// <param name="end">Etykieta końca.</param>
+    /// <returns>Czy pojedyncze użycie.</returns>
+    private static bool SingleUse(Ir.Function function, int from, int to, string[] syms, string top, string end)
+    {
+        for (int k = 0; k < function.Body.Count; k++)
+        {
+            if (k >= from && k <= to)
+            {
+                continue;
+            }
+
+            foreach (Ir.Op op in IrFacts.Operands(function.Body[k]))
+            {
+                if ((op is Ir.Cell cell && syms.Contains(cell.Sym)) || (op is Ir.AddrOf addr && syms.Contains(addr.Sym)))
+                {
+                    return false;
+                }
+            }
+
+            if ((function.Body[k] is Ir.Jmp jmp && (jmp.Target == top || jmp.Target == end))
+                || (function.Body[k] is Ir.BrCmp other && (other.Target == top || other.Target == end)))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
     private string At(string sym, int offset) => _isa.At(sym, offset);
 
     private bool IsVolatile(string address)
@@ -337,6 +403,14 @@ internal sealed class ByteSelector
                 resCell = null;
                 endsWithJump = next == function.Body.Count;
                 bodyIndex = next;
+                continue;
+            }
+
+            if (TryEmitCopyLoop(function, bodyIndex, out int after))
+            {
+                resCell = null;
+                endsWithJump = false;
+                bodyIndex = after;
                 continue;
             }
 
@@ -1022,6 +1096,126 @@ internal sealed class ByteSelector
 
         biasInLoop = true;
         return bytes;
+    }
+
+    /// <summary>Pętla kopiująca bajty (<c>while (n) { *d = *s; d++; s++; n--; }</c> albo z <c>n &gt; 0</c>)
+    /// jako blok z prymitywu <see cref="ByteIsa.TryCopyLoop"/> (dziś tylko Z80 z <c>ldir</c>; reszta zwraca
+    /// <c>false</c> i pętla idzie starą drogą). Warunki: elementy W1, wskaźniki i licznik W2, ciało dokładnie
+    /// [Load, Store, d+1, s+1, n-1], brak innych odwołań do d/s/n/t w funkcji (writeback zbędny) i brak obcych
+    /// skoków do etykiet pętli. Licznik <c>Eq</c> ze znakiem ujemnym zawiesiłby oryginał (nieskończona pętla),
+    /// więc zamiana jest nieobserwowalna w każdym kończącym się programie.</summary>
+    /// <param name="function">Emitowana funkcja.</param>
+    /// <param name="index">Pozycja kandydata (etykieta pętli lub wcześniejszy komentarz).</param>
+    /// <param name="next">Pozycja za etykietą końca (gdy dopasowano).</param>
+    /// <returns>Czy wyemitowano blok kopiujący.</returns>
+    private bool TryEmitCopyLoop(Ir.Function function, int index, out int next)
+    {
+        next = index;
+        int i = index;
+        var comments = new List<Ir.Src>();
+        while (i < function.Body.Count && function.Body[i] is Ir.Src lead)
+        {
+            comments.Add(lead);
+            i++;
+        }
+
+        if (i >= function.Body.Count || function.Body[i] is not Ir.Label top)
+        {
+            return false;
+        }
+
+        i++;
+        string? end = null;
+        Ir.Cell? n = null;
+        if (!SkipComments(function, comments, ref i) || function.Body[i] is not Ir.BrCmp branch
+            || branch.C is not (Ir.Cond.Eq or Ir.Cond.Le) || branch.A is not Ir.Cell count || count.W != 2
+            || branch.B is not Ir.Imm { Value: 0 })
+        {
+            return false;
+        }
+
+        end = branch.Target;
+        n = count;
+        i++;
+        if (!SkipComments(function, comments, ref i) || function.Body[i] is not Ir.Load load
+            || load.Dst is not { W: 1 } t || load.Ptr is not Ir.Cell { W: 2 } s || load.Off != 0
+            || load.Bytes != 1 || load.Volatile)
+        {
+            return false;
+        }
+
+        i++;
+        if (!SkipComments(function, comments, ref i) || function.Body[i] is not Ir.Store store
+            || store.Ptr is not Ir.Cell { W: 2 } d || store.Off != 0 || store.Value is not Ir.Cell vt
+            || vt.W != 1 || vt.Sym != t.Sym || store.Bytes != 1 || store.Volatile)
+        {
+            return false;
+        }
+
+        string dst = d.Sym;
+        string src = s.Sym;
+        i++;
+        if (!SkipComments(function, comments, ref i) || !IsStep(function.Body[i], dst, 2, true))
+        {
+            return false;
+        }
+
+        i++;
+        if (!SkipComments(function, comments, ref i) || !IsStep(function.Body[i], src, 2, true))
+        {
+            return false;
+        }
+
+        i++;
+        if (!SkipComments(function, comments, ref i) || !IsStep(function.Body[i], n.Sym, 2, false))
+        {
+            return false;
+        }
+
+        i++;
+        if (!SkipComments(function, comments, ref i) || function.Body[i] is not Ir.Jmp jmp || jmp.Target != top.Name)
+        {
+            return false;
+        }
+
+        i++;
+        if (!SkipComments(function, comments, ref i) || function.Body[i] is not Ir.Label endLabel || endLabel.Name != end)
+        {
+            return false;
+        }
+
+        if (dst == src || dst == n.Sym || src == n.Sym)
+        {
+            return false;
+        }
+
+        if (!SingleUse(function, index, i, [dst, src, n.Sym, t.Sym], top.Name, end))
+        {
+            return false;
+        }
+
+        Word? dstWord = Pair(_isa.Loc(dst, 2, 0), _isa.Loc(dst, 2, 1));
+        Word? srcWord = Pair(_isa.Loc(src, 2, 0), _isa.Loc(src, 2, 1));
+        Word? countWord = Pair(_isa.Loc(n.Sym, 2, 0), _isa.Loc(n.Sym, 2, 1));
+        if (dstWord is not { } dstW || srcWord is not { } srcW || countWord is not { } countW)
+        {
+            return false;
+        }
+
+        foreach (Ir.Src comment in comments)
+        {
+            EmitSource(comment);
+        }
+
+        if (!_isa.TryCopyLoop(dstW, srcW, countW))
+        {
+            return false;
+        }
+
+        _acc.Clear();
+        Raw($"{Mangle(function, end)}:");
+        next = i + 1;
+        return true;
     }
 
     /// <summary>Wywołanie ogonowe: <c>Call</c> z wynikiem i zaraz <c>Ret</c> tej samej wartości

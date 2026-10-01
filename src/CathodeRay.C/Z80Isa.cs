@@ -249,6 +249,37 @@ internal sealed partial class Z80Isa : ByteIsa
         return true;
     }
 
+    /// <summary>Kopia bloku o liczbie z pary BC: test zera, <c>push bc; push de; ld hl,src; ld de,dst;
+    /// ld bc,count; ldir; pop de; pop bc</c>. Push chroni pary z komórkami (selektor nie sprawdza
+    /// zajętości); liczba niezerowa z konstrukcji (wejście tylko spadkiem testu).</summary>
+    /// <param name="dst">Cel.</param>
+    /// <param name="src">Źródło.</param>
+    /// <param name="count">Liczba bajtów.</param>
+    /// <returns><see langword="false"/>, gdy operandy nieużywalne.</returns>
+    public override bool TryCopyLoop(Word dst, Word src, Word count)
+    {
+        if (dst.IsImmediate || src.IsImmediate || count.IsImmediate
+            || !Usable(dst) || !Usable(src) || !Usable(count))
+        {
+            return false;
+        }
+
+        LoadPair("bc", count);
+        L("ld a,b");
+        L("or c");
+        string skip = LocalLabel();
+        L($"jp z,{skip}");
+        L("push bc");
+        L("push de");
+        LoadPair("hl", src);
+        LoadPair("de", dst);
+        L("ldir");
+        L("pop de");
+        L("pop bc");
+        L($"{skip}:");
+        return true;
+    }
+
     /// <summary>Dodawanie/odejmowanie przez HL: <c>ld hl,a; add hl,de</c> albo <c>or a; sbc hl,de</c>, stała ±1..3 przez
     /// <c>inc hl</c>/<c>dec hl</c>, odjęcie stałej liczbowej jako dodanie jej przeciwieństwa.</summary>
     /// <param name="dst">Cel.</param>

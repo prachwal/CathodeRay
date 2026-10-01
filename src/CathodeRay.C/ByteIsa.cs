@@ -348,13 +348,22 @@ internal abstract class ByteIsa
     /// <returns><see langword="true"/>, gdy sekwencja została wyemitowana.</returns>
     public virtual bool TryAddWord(Word dst, Word a, Word b, bool subtract) => false;
 
-    /// <summary>Słowo &lt;&lt; 1 przez HL (<c>add hl,hl</c> / <c>dad h</c>); po niej HL niesie wynik
-    /// (jak w <see cref="TryAddWord"/>: flaga świeżości w selektorze). Domyślnie <see langword="false"/>:
+    /// <summary>Słowo &lt;&lt; 1 przez HL (<c>add hl,hl</c> / <c>dad h</c>); po niej HL niesie wynik    /// (jak w <see cref="TryAddWord"/>: flaga świeżości w selektorze). Domyślnie <see langword="false"/>:
     /// selektor przesuwa bajt po bajcie.</summary>
     /// <param name="dst">Cel (pamięć albo para).</param>
     /// <param name="src">Źródło: stała, pamięć albo para.</param>
     /// <returns><see langword="true"/>, gdy sekwencja została wyemitowana.</returns>
     public virtual bool TryShlWord1(Word dst, Word src) => false;
+
+    /// <summary>Kopia bloku (liczba bajtów w czasie wykonania) przez <c>ldir</c>: wołający (matcher pętli
+    /// w selektorze) gwarantuje liczbę niezerową na wejściu, rozłączność par chroni push/pop w środku,
+    /// a komórki Dst/Src/Count są martwe za pętlą (bez writebacku). Flagi po niej nieokreślone.
+    /// Domyślnie <see langword="false"/>: selektor emituje zwykłą pętlę.</summary>
+    /// <param name="dst">Cel (wskaźnik w pamięci albo parze).</param>
+    /// <param name="src">Źródło (wskaźnik w pamięci albo parze).</param>
+    /// <param name="count">Liczba bajtów (słowo w pamięci albo parze, niezerowe).</param>
+    /// <returns><see langword="true"/>, gdy sekwencja została wyemitowana.</returns>
+    public virtual bool TryCopyLoop(Word dst, Word src, Word count) => false;
 
     /// <summary>Skoki po porównaniu ze znakiem ze stałą 16-bitową (odejmowanie już wyemitowane przez selektor,
     /// spadek = gałąź else). Przepełnienie (V) rozstrzyga samo tam, gdzie jego sens zgadza się z gałęzią prawdy;
