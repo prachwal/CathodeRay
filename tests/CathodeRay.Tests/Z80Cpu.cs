@@ -408,7 +408,8 @@ public sealed class Z80Cpu
             {
                 int carry = A >> 7;
                 A = (byte)((A << 1) | (Flag(FlagC) ? 1 : 0));
-                F = (byte)((F & ~(FlagC | FlagN | FlagH)) | carry);
+                bool ac = Intel8080 && (F & FlagH) != 0;
+                SetFlags(A, carry != 0, ac, Parity(A), false);
                 break;
             }
 
@@ -416,7 +417,8 @@ public sealed class Z80Cpu
             {
                 int carry = A & 1;
                 A = (byte)((A >> 1) | (Flag(FlagC) ? 0x80 : 0));
-                F = (byte)((F & ~(FlagC | FlagN | FlagH)) | carry);
+                bool ac = Intel8080 && (F & FlagH) != 0;
+                SetFlags(A, carry != 0, ac, Parity(A), false);
                 break;
             }
 

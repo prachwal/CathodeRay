@@ -23,8 +23,8 @@
     {
       "id": "4",
       "title": "[M] PrimEffects dla ~10 prymitywow sciezek Opt3/6 (LoadA/StoreA/Alu/Cmp/ShlA/ShrA/TryAddWord/TryBranchZeroSigned/Call/Ret): deklaracje (reads/writes/flags) w CpuModel + fuzz roznicowy model-vs-emulator (Mos6502/Z80Cpu/Mc6800Cpu/StubCpu, losowe sekwencje, porownanie rejestrow i flag). Akceptacja: fuzz 10k sekwencji zielony; znalezione rozjazdy naprawione albo udokumentowane jako ograniczenia modelu.",
-      "status": "todo",
-      "note": ""
+      "status": "done",
+      "note": "PrimEffects 10 prymitywow x4 CPU + PrimEffectsFuzzTests (~9k sekwencji, seed 38): model prowadzi symulacje, emiter+emulator wykonuja. Znaleziska: peephole cp0->or-a (kontrakt Z/C, V/N inne - udokumentowany w Z80Isa + wyjatek w tescie), bug emulatora RLA/RRA bez S/Z/P (naprawiony), bug emulatora STAA ruszal N/Z/V (naprawiony), model LSRA-V=C (bylo 0). Pokrycie: kazda flaga maski zmienia sie + zadnych zmian poza maska/wyjatkami."
     },
     {
       "id": "5",

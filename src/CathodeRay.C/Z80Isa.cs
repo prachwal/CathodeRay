@@ -682,7 +682,8 @@ internal sealed partial class Z80Isa : ByteIsa
     {
         if (mnemonic == "cp " && value is { IsImmediate: true, Text: "0" })
         {
-            // A - 0: te same Z i C (zero), 1 B krócej
+            // A - 0: te same Z i C (zero), 1 B krócej. V (parzystość zamiast 0) i N (0 zamiast 1)
+            // inne niż CP — wolno, bo konsumenci (Eq/Ne) czytają tylko Z/C (test PrimEffectsFuzzTests).
             L("or a");
             return;
         }

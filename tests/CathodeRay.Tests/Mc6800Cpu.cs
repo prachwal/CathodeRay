@@ -284,8 +284,6 @@ public sealed class Mc6800Cpu
                 case "BIT": Nz((byte)(a & m)); Set(Overflow, false); return;
                 case "STA":
                     Memory[address] = a;
-                    Nz(a);
-                    Set(Overflow, false);
                     return;
             }
 
