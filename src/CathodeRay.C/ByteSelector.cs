@@ -303,15 +303,38 @@ internal sealed class ByteSelector
         }
 
         int bodyIndex = start;
+        string? resCell = null;
         while (bodyIndex < function.Body.Count)
         {
             if (TryEmitTailCall(function, bodyIndex, out int next))
             {
+                resCell = null;
                 bodyIndex = next;
                 continue;
             }
 
-            EmitIns(function, function.Body[bodyIndex], bodyIndex == function.Body.Count - 1);
+            Ir.Ins current = function.Body[bodyIndex];
+            if (current is Ir.Src)
+            {
+                // tylko komentarz: rejestr wyniku i pamięć bez zmian
+                EmitIns(function, current, false);
+                bodyIndex++;
+                continue;
+            }
+
+            if (current is Ir.Ret ret2 && resCell is not null && ret2.W == 2 && ret2.Value is Ir.Cell cell2
+                && cell2.Sym == resCell && cell2.W == 2 && cell2.Sym.StartsWith(function.Name + "__", StringComparison.Ordinal)
+                && _isa.ReturnsInResultReg)
+            {
+                // rejestr wyniku trzyma wartość (świeży wynik Bin): pomiń ładowanie
+                EmitRet(function, ret2, bodyIndex == function.Body.Count - 1, valueInResultReg: true);
+                resCell = null;
+                bodyIndex++;
+                continue;
+            }
+
+            bool fresh = EmitIns(function, current, bodyIndex == function.Body.Count - 1);
+            resCell = (fresh && current is Ir.Bin bin && bin.Dst.W == 2) ? bin.Dst.Sym : null;
             bodyIndex++;
         }
 
@@ -361,49 +384,50 @@ internal sealed class ByteSelector
     private void EmitSource(Ir.Src source) =>
         Raw(source.File is null ? $";c:{source.Line}" : $";c:{source.File}:{source.Line}");
 
-    private void EmitIns(Ir.Function function, Ir.Ins ins, bool last)
+    /// <summary>Emuluje instrukcję; zwraca <see langword="true"/>, gdy wynik słowa został w rejestrze wyniku
+    /// (ścieżka <see cref="ByteIsa.TryAddWord"/>: pętla może pominąć ładowanie do <c>Ret</c>).</summary>
+    private bool EmitIns(Ir.Function function, Ir.Ins ins, bool last)
     {
         switch (ins)
         {
             case Ir.Src source:
                 EmitSource(source);
-                break;
+                return false;
             case Ir.Label label:
                 Raw($"{Mangle(function, label.Name)}:");
-                break;
+                return false;
             case Ir.Jmp jump:
                 _isa.Jump(Mangle(function, jump.Target));
-                break;
+                return false;
             case Ir.Mov mov:
                 EmitMov(mov.Dst, mov.Src);
-                break;
+                return false;
             case Ir.Bin bin:
-                EmitBin(bin);
-                break;
+                return EmitBin(bin);
             case Ir.Un un:
                 EmitUn(un);
-                break;
+                return false;
             case Ir.Load load:
                 EmitLoad(load);
-                break;
+                return false;
             case Ir.Store store:
                 EmitStore(store);
-                break;
+                return false;
             case Ir.LoadIdx loadIdx:
                 EmitLoadIdx(loadIdx);
-                break;
+                return false;
             case Ir.StoreIdx storeIdx:
                 EmitStoreIdx(storeIdx);
-                break;
+                return false;
             case Ir.BrCmp branch:
                 EmitBranch(function, branch);
-                break;
+                return false;
             case Ir.Call call:
                 EmitCall(call);
-                break;
+                return false;
             case Ir.Ret ret:
                 EmitRet(function, ret, last);
-                break;
+                return false;
             default:
                 throw new InvalidOperationException($"ByteSelector cannot select {ins.GetType().Name} (Legalizer should have removed it).");
         }
@@ -434,7 +458,7 @@ internal sealed class ByteSelector
         }
     }
 
-    private void EmitBin(Ir.Bin bin)
+    private bool EmitBin(Ir.Bin bin)
     {
         if (bin.Kind is Ir.BinOp.Add or Ir.BinOp.Sub && bin.Dst.W <= 2 && bin.A is Ir.Cell same && same.Sym == bin.Dst.Sym && same.W == bin.Dst.W && bin.B is Ir.Imm { Value: 1 })
         {
@@ -442,7 +466,7 @@ internal sealed class ByteSelector
             if (_isa.TryStep(cells, bin.Kind == Ir.BinOp.Add))
             {
                 _acc.Clear();
-                return;
+                return false;
             }
         }
 
@@ -463,36 +487,31 @@ internal sealed class ByteSelector
             Raw($"{skip}:");
 
             _acc.Clear();
-            return;
+            return false;
         }
 
         switch (bin.Kind)
         {
             case Ir.BinOp.Add:
-                EmitChain(ByteAlu.Add, bin);
-                break;
+                return EmitChain(ByteAlu.Add, bin);
             case Ir.BinOp.Sub:
-                EmitChain(ByteAlu.Sub, bin);
-                break;
+                return EmitChain(ByteAlu.Sub, bin);
             case Ir.BinOp.And:
-                EmitChain(ByteAlu.And, bin);
-                break;
+                return EmitChain(ByteAlu.And, bin);
             case Ir.BinOp.Or:
-                EmitChain(ByteAlu.Or, bin);
-                break;
+                return EmitChain(ByteAlu.Or, bin);
             case Ir.BinOp.Xor:
-                EmitChain(ByteAlu.Xor, bin);
-                break;
+                return EmitChain(ByteAlu.Xor, bin);
             case Ir.BinOp.Shl:
             case Ir.BinOp.Shr:
                 EmitShift(bin);
-                break;
+                return false;
             default:
                 throw new InvalidOperationException($"ByteSelector cannot select {bin.Kind} (Legalizer should have removed it).");
         }
     }
 
-    private void EmitChain(ByteAlu alu, Ir.Bin bin)
+    private bool EmitChain(ByteAlu alu, Ir.Bin bin)
     {
         if (alu is ByteAlu.Add or ByteAlu.Sub && bin.Dst.W == 2 && WordOf(bin.Dst) is { } dst && WordOf(bin.A) is { } a && WordOf(bin.B) is { } b
             && _isa.TryAddWord(dst, a, b, alu == ByteAlu.Sub))
@@ -500,7 +519,7 @@ internal sealed class ByteSelector
             // A bez zmian, ale bajty celu już nie są mu równe
             _acc.Remove(dst.Lo);
             _acc.Remove(dst.Hi);
-            return;
+            return true;
         }
 
         if (alu is ByteAlu.Add or ByteAlu.Sub && bin.Dst.W == 4 && HalfOf(bin.Dst, 0) is { } dl && HalfOf(bin.Dst, 1) is { } dh
@@ -512,7 +531,7 @@ internal sealed class ByteSelector
                 _acc.Remove(address);
             }
 
-            return;
+            return false;
         }
 
         for (int i = 0; i < bin.Dst.W; i++)
@@ -521,6 +540,8 @@ internal sealed class ByteSelector
             Alu(alu, ByteOf(bin.B, i), i == 0);
             StoreA(Dst(bin.Dst, i));
         }
+
+        return false;
     }
 
     private void EmitShift(Ir.Bin bin)
@@ -919,9 +940,9 @@ internal sealed class ByteSelector
         }
     }
 
-    private void EmitRet(Ir.Function function, Ir.Ret ret, bool last)
+    private void EmitRet(Ir.Function function, Ir.Ret ret, bool last, bool valueInResultReg = false)
     {
-        if (ret.Value is not null && InResultReg(ret.W))
+        if (!valueInResultReg && ret.Value is not null && InResultReg(ret.W))
         {
             if (!(ret.W == 2 && WordOf(ret.Value) is { } word && _isa.TryMoveToResultReg(word)))
             {
@@ -932,7 +953,7 @@ internal sealed class ByteSelector
                 }
             }
         }
-        else if (ret.Value is not null && !(ret.W == 2 && TryMoveWord(Pair(RetSym(0), RetSym(1)), WordOf(ret.Value))))
+        else if (!valueInResultReg && ret.Value is not null && !(ret.W == 2 && TryMoveWord(Pair(RetSym(0), RetSym(1)), WordOf(ret.Value))))
         {
             for (int part = 0; part < ret.W; part++)
             {
