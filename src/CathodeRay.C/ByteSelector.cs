@@ -575,7 +575,7 @@ internal sealed class ByteSelector
         Raw(source.File is null ? $";c:{source.Line}" : $";c:{source.File}:{source.Line}");
 
     /// <summary>Emuluje instrukcję; zwraca <see langword="true"/>, gdy wynik słowa został w rejestrze wyniku
-    /// (ścieżka <see cref="ByteIsa.TryAddWord"/>: pętla może pominąć ładowanie do <c>Ret</c>).</summary>
+    /// (ścieżka <see cref="IWordArithmetic.TryAddWord"/>: pętla może pominąć ładowanie do <c>Ret</c>).</summary>
     private WordResult EmitIns(Ir.Function function, Ir.Ins ins, bool last)
     {
         switch (ins)
@@ -714,7 +714,7 @@ internal sealed class ByteSelector
         }
 
         if (alu is ByteAlu.Add or ByteAlu.Sub && bin.Dst.W == 2 && WordOf(bin.Dst) is { } dst && WordOf(bin.A) is { } a && WordOf(bin.B) is { } b
-            && _isa.TryAddWord(dst, a, b, alu == ByteAlu.Sub) is { Emitted: true } add)
+            && _isa is IWordArithmetic word && word.TryAddWord(dst, a, b, alu == ByteAlu.Sub) is { Emitted: true } add)
         {
             // A bez zmian, ale bajty celu już nie są mu równe
             _acc.Remove(dst.Lo);
@@ -724,7 +724,7 @@ internal sealed class ByteSelector
 
         if (alu is ByteAlu.Add or ByteAlu.Sub && bin.Dst.W == 4 && HalfOf(bin.Dst, 0) is { } dl && HalfOf(bin.Dst, 1) is { } dh
             && HalfOf(bin.A, 0) is { } al && HalfOf(bin.A, 1) is { } ah && HalfOf(bin.B, 0) is { } bl && HalfOf(bin.B, 1) is { } bh
-            && _isa.TryAddLong((dl, dh), (al, ah), (bl, bh), alu == ByteAlu.Sub))
+            && _isa is IWordArithmetic longArith && longArith.TryAddLong((dl, dh), (al, ah), (bl, bh), alu == ByteAlu.Sub))
         {
             foreach (string address in (string[])[dl.Lo, dl.Hi, dh.Lo, dh.Hi])
             {

@@ -5,7 +5,7 @@ namespace CathodeRay.C;
 
 /// <summary>Prymitywy Z80 (składnia Zilog): A jako akumulator, HL jako rejestr adresowy (operandy pamięciowe ALU przez
 /// <c>LD HL,adres; op A,(HL)</c>, wskaźniki przez <c>LD HL,(komórka)</c>), zapis/odczyt komórek przez <c>LD A,(adres)</c>.</summary>
-internal sealed partial class Z80Isa : ByteIsa, ICopyLoop, ISignedBranch
+internal sealed partial class Z80Isa : ByteIsa, ICopyLoop, ISignedBranch, IWordArithmetic
 {
     private static readonly HashSet<string> ReservedNames = new(
         ["A", "B", "C", "D", "E", "H", "L", "I", "R", "AF", "BC", "DE", "HL", "SP", "IX", "IY", "IXH", "IXL", "IYH", "IYL", "NZ", "Z", "NC", "PO", "PE", "P", "M", "LOW", "HIGH", "MOD", "SHL", "SHR", "AND", "OR", "XOR", "NOT"],
@@ -285,7 +285,7 @@ internal sealed partial class Z80Isa : ByteIsa, ICopyLoop, ISignedBranch
     /// <param name="b">Prawy operand.</param>
     /// <param name="subtract">Odejmowanie.</param>
     /// <returns><see langword="false"/>, gdy bajty nie są sąsiednie albo oba operandy są stałymi.</returns>
-    public override WordResult TryAddWord(Word dst, Word a, Word b, bool subtract)
+    public WordResult TryAddWord(Word dst, Word a, Word b, bool subtract)
     {
         if (dst.IsImmediate || (a.IsImmediate && b.IsImmediate) || !Usable(dst) || !Usable(a) || !Usable(b))
         {
@@ -367,7 +367,7 @@ internal sealed partial class Z80Isa : ByteIsa, ICopyLoop, ISignedBranch
     /// <param name="b">Prawy operand.</param>
     /// <param name="subtract">Odejmowanie.</param>
     /// <returns><see langword="false"/>, gdy bajty którejś połówki nie są sąsiednie.</returns>
-    public override bool TryAddLong((Word Lo, Word Hi) dst, (Word Lo, Word Hi) a, (Word Lo, Word Hi) b, bool subtract)
+    public bool TryAddLong((Word Lo, Word Hi) dst, (Word Lo, Word Hi) a, (Word Lo, Word Hi) b, bool subtract)
     {
         Word[] memory = [dst.Lo, dst.Hi, a.Lo, a.Hi, b.Lo, b.Hi];
         if (dst.Lo.IsImmediate || dst.Hi.IsImmediate

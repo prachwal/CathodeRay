@@ -369,32 +369,12 @@ internal abstract class ByteIsa
     /// <returns><see langword="true"/>, gdy sekwencja została wyemitowana.</returns>
     public virtual bool TryPopWord(Word word, bool keepResult) => false;
 
-    /// <summary>Dodawanie albo odejmowanie słów 16-bitowych <c>dst ← a ± b</c> jedną sekwencją CPU, bez zmiany A (może zmienić
-    /// rejestry adresowe i flagi; flagi po niej są nieokreślone, selektor ich nie używa). Domyślnie niewyemitowane:
-    /// selektor liczy bajt po bajcie przez A.</summary>
-    /// <param name="dst">Cel (pamięć).</param>
-    /// <param name="a">Lewy operand: stała albo pamięć.</param>
-    /// <param name="b">Prawy operand: stała albo pamięć.</param>
-    /// <param name="subtract"><see langword="true"/>: <c>a - b</c>.</param>
-    /// <returns>Wynik jawny (<see cref="WordResult"/>).</returns>
-    public virtual WordResult TryAddWord(Word dst, Word a, Word b, bool subtract) => new(false, false);
-
     /// <summary>Słowo &lt;&lt; 1 przez HL (<c>add hl,hl</c> / <c>dad h</c>); po niej HL niesie wynik.
     /// Domyślnie niewyemitowane: selektor przesuwa bajt po bajcie.</summary>
     /// <param name="dst">Cel (pamięć albo para).</param>
     /// <param name="src">Źródło: stała, pamięć albo para.</param>
     /// <returns>Wynik jawny (<see cref="WordResult"/>).</returns>
     public virtual WordResult TryShlWord1(Word dst, Word src) => new(false, false);
-
-    /// <summary>Dodawanie albo odejmowanie liczb 32-bitowych <c>dst ← a ± b</c> podanych jako połówki (młodsza, starsza) jedną
-    /// sekwencją CPU z przeniesieniem między połówkami, bez zmiany A (flagi po niej nieokreślone). Domyślnie <see langword="false"/>:
-    /// selektor liczy łańcuchem bajtów przez A.</summary>
-    /// <param name="dst">Cel (pamięć): młodsza i starsza połowa.</param>
-    /// <param name="a">Lewy operand: połówki (stałe albo pamięć).</param>
-    /// <param name="b">Prawy operand: połówki (stałe albo pamięć).</param>
-    /// <param name="subtract"><see langword="true"/>: <c>a - b</c>.</param>
-    /// <returns><see langword="true"/>, gdy sekwencja została wyemitowana.</returns>
-    public virtual bool TryAddLong((Word Lo, Word Hi) dst, (Word Lo, Word Hi) a, (Word Lo, Word Hi) b, bool subtract) => false;
 
     /// <summary>Zamienia tekst od znacznika na jego wersję po relaksacji skoków (krótkie skoki warunkowe tam, gdzie cel jest w zasięgu).</summary>
     /// <param name="mark">Znacznik z <see cref="Mark"/>.</param>
