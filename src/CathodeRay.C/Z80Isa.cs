@@ -1,6 +1,5 @@
 using System.Globalization;
 using System.Text;
-using System.Text.RegularExpressions;
 
 namespace CathodeRay.C;
 
@@ -638,36 +637,73 @@ internal sealed partial class Z80Isa : ByteIsa
     /// cel − adres skoku w −126..+129 (przesunięcie −128..127 liczone od adresu po 2-bajtowym skoku).</summary>
     /// <param name="text">Tekst funkcji.</param>
     /// <returns>Tekst po relaksacji.</returns>
-    protected override string Relax(string text) => BranchRelaxer.Shorten(BranchRelaxer.DropJumpToNext(SkipOverJump().Replace(AsmPeephole.TidyZ80(text), Invert)), Size, Shorten, -126, 129);
-
-    /// <summary><c>jp cc,X; jp T; X:</c> (skok przez skok z porównania na równość) → <c>jp !cc,T; X:</c>.</summary>
-    private static string Invert(Match match)
+    protected override string Relax(string text)
     {
-        string condition = match.Groups[2].Value switch
+        List<AsmInsn> lines = [.. AsmInsn.ParseAll(AsmPeephole.TidyZ80(text))];
+        lines = BranchRelaxer.SkipOverJump(lines, NegateCondition);
+        lines = BranchRelaxer.DropJumpToNext(lines);
+        lines = BranchRelaxer.Shorten(lines, Size, Shorten, -126, 129);
+        return AsmInsn.EmitAll(lines);
+    }
+
+    /// <summary>Negacja warunku skoku Z80 (te same 8 co w starym tekście).</summary>
+    /// <param name="condition">Warunek (<c>nz</c>, <c>z</c>, <c>nc</c>, <c>c</c>, <c>po</c>, <c>pe</c>, <c>p</c>, <c>m</c>).</param>
+    /// <returns>Warunek przeciwny albo null.</returns>
+    private static string? NegateCondition(string condition) => condition switch
+    {
+        "nz" => "z",
+        "z" => "nz",
+        "nc" => "c",
+        "c" => "nc",
+        "po" => "pe",
+        "pe" => "po",
+        "p" => "m",
+        "m" => "p",
+        _ => null,
+    };
+
+    /// <summary>Krótka postać skoku Z80 (<c>jp [cc,]cel</c> → <c>jr [cc,]cel</c>) albo null.</summary>
+    /// <param name="line">Linia.</param>
+    /// <returns>Krótka linia i cel.</returns>
+    private static (AsmInsn Short, string Target)? Shorten(AsmInsn line)
+    {
+        if (line.Label is not null || line.Comment is not null || line.Mnemonic != "jp" || line.Gap.Length == 0)
         {
-            "nz" => "z",
-            "z" => "nz",
-            "nc" => "c",
-            "c" => "nc",
-            "po" => "pe",
-            "pe" => "po",
-            "p" => "m",
-            _ => "p",
-        };
-        return $"{match.Groups[1].Value}jp {condition},{match.Groups[4].Value}{Environment.NewLine}{match.Groups[5].Value}";
+            return null;
+        }
+
+        string ops = line.Operands.TrimEnd();
+        string cond = string.Empty;
+        string target = ops;
+        int comma = ops.IndexOf(',');
+        if (comma >= 0)
+        {
+            cond = ops[..comma];
+            target = ops[(comma + 1)..].TrimStart();
+            if (cond is not ("nz" or "z" or "nc" or "c"))
+            {
+                return null;
+            }
+
+            cond += ",";
+        }
+
+        if (!IsJumpTarget(target))
+        {
+            return null;
+        }
+
+        return (new(string.Empty, null, string.Empty, "jr", " ", cond + target, null, line.Newline), target);
     }
 
-    private static (string Short, string Target)? Shorten(string line)
-    {
-        Match jump = LongJump().Match(line);
-        return jump.Success ? ($"jr {jump.Groups[1].Value}{jump.Groups[2].Value}", jump.Groups[2].Value) : null;
-    }
+    /// <summary>Cel skoku (litera, <c>_.$</c>, potem to samo i cyfry).</summary>
+    private static bool IsJumpTarget(string target) =>
+        target.Length > 0 && (char.IsLetter(target[0]) || target[0] is '_' or '.' or '$')
+        && target.All(static c => char.IsLetterOrDigit(c) || c is '_' or '.' or '$');
 
     /// <summary>Rozmiar instrukcji w bajtach dla form, które emituje selektor; nieznana forma liczy się jako 4 B (najdłuższa
-    /// bez IX/IY), bo zawyżenie tylko osłabia relaksację, a zaniżenie dałoby <c>jr</c> poza zasięgiem.</summary>
-    private static int Size(string line) => Size(AsmInsn.ParseLine(line));
-
-    /// <summary>Jak <see cref="Size(string)"/>, ale na rozłożonej linii (bez ponownego parsowania tekstu).</summary>
+    /// bez IX/IY), bo zawyżenie tylko osłabia relaksację, a zaniżenie dałoby <c>jr</c> poza zasięgiem. Liczy na rozłożonej
+    /// linii (bez ponownego parsowania tekstu).</summary>
     /// <param name="ins">Linia.</param>
     /// <returns>Rozmiar w bajtach.</returns>
     private static int Size(AsmInsn ins)
@@ -724,12 +760,6 @@ internal sealed partial class Z80Isa : ByteIsa
     private static bool Pair(string operand) => operand is "bc" or "de" or "hl" or "sp";
 
     private static bool Paren(string operand) => operand.StartsWith('(');
-
-    [GeneratedRegex(@"^\s*jp\s+((?:nz|z|nc|c),)?\s*([A-Za-z_.$][\w.$]*)\s*$")]
-    private static partial Regex LongJump();
-
-    [GeneratedRegex(@"^([ \t]*)jp (nz|z|nc|c|po|pe|p|m),([A-Za-z_.$][\w.$]*)\r?\n[ \t]*jp ([A-Za-z_.$][\w.$]*)\r?\n([ \t]*\3:)", RegexOptions.Multiline)]
-    private static partial Regex SkipOverJump();
 
     private static IEnumerable<string> CrtCells()
     {

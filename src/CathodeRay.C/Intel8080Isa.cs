@@ -1,6 +1,5 @@
 using System.Globalization;
 using System.Text;
-using System.Text.RegularExpressions;
 
 namespace CathodeRay.C;
 
@@ -447,7 +446,8 @@ internal sealed partial class Intel8080Isa : ByteIsa
     /// Usuwa też zbędne przeniesienia bajtów (BC/DE ↔ HL po kopii).</summary>
     /// <param name="text">Tekst funkcji.</param>
     /// <returns>Tekst po zmianie.</returns>
-    protected override string Relax(string text) => BranchRelaxer.DropJumpToNext(AsmPeephole.Tidy8080(text));
+    protected override string Relax(string text) =>
+        AsmInsn.EmitAll(BranchRelaxer.DropJumpToNext([.. AsmInsn.ParseAll(AsmPeephole.Tidy8080(text))]));
 
     private static IEnumerable<string> CrtCells()
     {

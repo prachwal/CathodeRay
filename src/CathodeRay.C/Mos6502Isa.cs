@@ -488,7 +488,8 @@ internal sealed class Mos6502Isa : ByteIsa
         return code;
     }
 
-    protected override string Relax(string text) => BranchRelaxer.Apply(text, Size, Invert);
+    protected override string Relax(string text) =>
+        AsmInsn.EmitAll(BranchRelaxer.Apply([.. AsmInsn.ParseAll(text)], Size, Invert));
 
     private static IEnumerable<string> Cells()
     {
@@ -514,9 +515,6 @@ internal sealed class Mos6502Isa : ByteIsa
     };
 
     /// <summary>Rozmiar instrukcji 6502 w bajtach (do relaksacji skoków).</summary>
-    private static int Size(string line) => Size(AsmInsn.ParseLine(line));
-
-    /// <summary>Jak <see cref="Size(string)"/>, ale na rozłożonej linii (bez ponownego parsowania tekstu).</summary>
     /// <param name="ins">Linia (tu docierają tylko instrukcje — puste, komentarze i etykiety filtruje wołający).</param>
     /// <returns>Rozmiar w bajtach.</returns>
     private static int Size(AsmInsn ins)

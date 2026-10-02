@@ -296,7 +296,8 @@ internal sealed class M6800Isa : ByteIsa
         return text.ToString();
     }
 
-    protected override string Relax(string text) => BranchRelaxer.Apply(text, Size, Invert);
+    protected override string Relax(string text) =>
+        AsmInsn.EmitAll(BranchRelaxer.Apply([.. AsmInsn.ParseAll(text)], Size, Invert));
 
     private static string? Invert(string branch) => branch switch
     {
@@ -308,9 +309,6 @@ internal sealed class M6800Isa : ByteIsa
     };
 
     /// <summary>Rozmiar instrukcji 6800 w bajtach (do relaksacji skoków).</summary>
-    private static int Size(string line) => Size(AsmInsn.ParseLine(line));
-
-    /// <summary>Jak <see cref="Size(string)"/>, ale na rozłożonej linii (bez ponownego parsowania tekstu).</summary>
     /// <param name="ins">Linia (tu docierają tylko instrukcje — puste, komentarze i etykiety filtruje wołający).</param>
     /// <returns>Rozmiar w bajtach.</returns>
     private static int Size(AsmInsn ins)
