@@ -1,6 +1,6 @@
 {
   "title": "ABI v2: argumenty i wyniki w rejestrach (projekt docs/abi-v2-design.md)",
-  "status": "queued",
+  "status": "closed",
   "items": [
     {
       "id": "1",
@@ -22,21 +22,21 @@
     },
     {
       "id": "4",
-      "title": "[M] Kolejne CPU w kolejnosci 6502/6510/65c02 -> 6800 (A/B/X, wynik D) -> Z80/8080 (HL/DE/BC): implementacja + macierz + goldeny v2 na kazdy. stdlib .s (rt_mul/rt_div x2) przepisane na v2.",
-      "status": "todo",
-      "note": ""
+      "title": "[M] Kolejne CPU w kolejnosci 6502/6510/65c02 -> 6800 (A/B/X, wynik D) -> Z80/8080 (HL/DE/BC): implementacja + macierz + goldeny v2 na kazdy. stdlib .s (rt_mul/rt_div x2) przepisane na v2. (ODROCZONE)",
+      "status": "done",
+      "note": "ODROCZONE: pilot nes nie przeszedł bramki -15% (strukturalny sufit: arg0-only, helpery v1), a plan 40 dał już parametry w rejestrach i wynik w HL na v1 (mean/SDCC 1.31->1.15), więc szacunek 'Z80 05_calls 296->~180 B' jest nieaktualny. Wznowić tylko, gdy pomiar po planie 42 pokaże >=15% na programach wołaniowych Z80; wymaga osobnego planu."
     },
     {
       "id": "5",
       "title": "[S] ParamAlias rejestrowy (alias parametru na rejestr argumentu, reguly zywotnosci z planu 35) albo wygaszenie na v2 + RecursionFrameTests i TailCallTests x --abi v2. Kryterium: brak regresji v1, v2 uzywa aliasow.",
-      "status": "todo",
-      "note": ""
+      "status": "done",
+      "note": "PRZENIESIONE do planu 42 (poz. 4, caller-saved/liveness): ten sam warsztat co alias parametru na rejestr. Wariant v2 tylko jeśli item 4 wróci."
     },
     {
       "id": "6",
       "title": "[S] Decyzja o defaulcie: osobny mini-plan (macierz v2 na wszystkich CPU zielona + jakosc vs v1); ten plan konczy sie na closed z default v1.",
-      "status": "todo",
-      "note": ""
+      "status": "done",
+      "note": "ODRZUCONE: bez przedmiotu, dopóki v2 nie dogoni v1 na CPU innym niż nes. Default zostaje v1."
     }
   ]
 }

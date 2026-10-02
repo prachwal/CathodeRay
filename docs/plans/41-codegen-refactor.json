@@ -28,43 +28,49 @@
     },
     {
       "id": "5",
-      "title": "[S] Zabić FreshAddInHL (ByteIsa:48, Z80Isa:248/358/363, Intel8080Isa:146, ByteSelector:428): Try* zwracają wynik (Emitted + ResultInHL) zamiast bool + mutacji. Robione przed ISP, żeby sygnatury Try* zmienić raz. Akceptacja: diff listingów vs baseline pusty, build -warnaserror, test celowany zielony.",
+      "title": "[S] Siatka listingów: dopisać przebieg nes --abi v2 do tools/listing-diff.sh (dziś tylko v1, więc pilot ABI v2 z planu 39 nie jest chroniony podczas refaktoru) + sumy CODE osobno dla v1/v2. Akceptacja: HEAD vs HEAD pusty na v1 i v2.",
       "status": "todo",
-      "note": ""
+      "note": "Po scaleniu planu 39."
     },
     {
       "id": "6",
-      "title": "[S] Typowany AsmInsn + dekoder, tylko dodany (konsumenci bez zmian). Test round-trip na korpusie listingów z siatki (pozycja 4). Akceptacja: diff listingów vs baseline pusty, build -warnaserror, test celowany zielony.",
+      "title": "[S] Zabić FreshAddInHL, FreshBinInResultReg i RegArgsAllowed (ByteIsa:48, Z80Isa:248/358/363, Intel8080Isa:146, ByteSelector:428): Try* zwracają wynik (Emitted + ResultInHL) zamiast bool + mutacji. Robione przed ISP, żeby sygnatury Try* zmienić raz. Akceptacja: diff listingów vs baseline pusty, build -warnaserror, test celowany zielony. Po scaleniu planu 39: RegArgsAllowed (ByteSelector 1339/1373/1544/1593/1613) to to samo sprzężenie czasowe (flaga mutowana wokół wołań), FreshBinInResultReg czytany razem z FreshAddInHL (ByteSelector:479). Wynik/opcje przekazywane jawnie.",
       "status": "todo",
       "note": ""
     },
     {
       "id": "7",
-      "title": "[M] Migracja konsumentów na AsmInsn, po jednym commicie: Size, potem Tidy (Peephole.cs), potem Relax (BranchRelaxer.cs, Z80Isa, Intel8080Isa). Po każdym diff listingów pusty. Akceptacja: diff listingów vs baseline pusty, build -warnaserror, test celowany zielony.",
+      "title": "[S] Typowany AsmInsn + dekoder, tylko dodany (konsumenci bez zmian). Test round-trip na korpusie listingów z siatki (pozycja 4). Akceptacja: diff listingów vs baseline pusty, build -warnaserror, test celowany zielony.",
       "status": "todo",
       "note": ""
     },
     {
       "id": "8",
-      "title": "[M] ISP z ByteIsa, po jednym interfejsie na commit w kolejności: ICopyLoop, ISignedBranch, IWordArithmetic, IPairMoves, IResultReg. Selektor sprawdza zdolność przez is; zombie-defaulty (=> false, throw NotSupported) znikają. Cel: ByteIsa.cs < ~250 linii (obecnie 489). Akceptacja: diff listingów vs baseline pusty, build -warnaserror, test celowany zielony. Cel końcowy: nowe prymitywy planu 42 powstają jako interfejsy zdolności, bez virtual-defaultów.",
+      "title": "[M] Migracja konsumentów na AsmInsn, po jednym commicie: Size, potem Tidy (Peephole.cs), potem Relax (BranchRelaxer.cs, Z80Isa, Intel8080Isa). Po każdym diff listingów pusty. Akceptacja: diff listingów vs baseline pusty, build -warnaserror, test celowany zielony.",
       "status": "todo",
       "note": ""
     },
     {
       "id": "9",
-      "title": "[S] Podział ByteSelector (1537 linii) na partiale: prolog/stopka, wołania, skoki, matchery. Wyłącznie mechaniczne przeniesienie (git diff -M = same przesunięcia), pliki do ~400 linii. Akceptacja: diff listingów vs baseline pusty, build -warnaserror, test celowany zielony.",
+      "title": "[M] ISP z ByteIsa, po jednym interfejsie na commit w kolejności: ICopyLoop, ISignedBranch, IWordArithmetic, IPairMoves, IResultReg. Selektor sprawdza zdolność przez is; zombie-defaulty (=> false, throw NotSupported) znikają. Cel: ByteIsa.cs < ~250 linii (obecnie 489). Akceptacja: diff listingów vs baseline pusty, build -warnaserror, test celowany zielony. Cel końcowy: nowe prymitywy planu 42 powstają jako interfejsy zdolności, bez virtual-defaultów. Po scaleniu planu 39 do podziału wchodzą też SupportsAbiV2 (virtual w ByteTarget/DIM w ICTarget), EntryParkCell, ArgCell (v2) — jako interfejs zdolności rejestrowych argumentów (np. IRegArgs).",
       "status": "todo",
       "note": ""
     },
     {
       "id": "10",
-      "title": "[S] IR: najpierw audyt (grep łańcuchów is w konsumentach IR), potem rekordy + wyczerpujący switch tylko tam, gdzie zyskuje (nowy typ IR wymusza obsługę). Brak zysku w danym miejscu = pominąć z notą. Akceptacja: diff listingów vs baseline pusty, build -warnaserror, test celowany zielony.",
+      "title": "[S] Podział ByteSelector (1537 linii) na partiale: prolog/stopka, wołania, skoki, matchery. Wyłącznie mechaniczne przeniesienie (git diff -M = same przesunięcia), pliki do ~400 linii. Akceptacja: diff listingów vs baseline pusty, build -warnaserror, test celowany zielony. RegCall/HasRegParams i ścieżka v2 trafiają do partiala wołań/prologu.",
       "status": "todo",
       "note": ""
     },
     {
       "id": "11",
-      "title": "[S] Pomiary i zamknięcie refaktoru: full suite, goldeny bez wzrostu, /fuzz, /bench (mean/SDCC bez zmian), render + hygiene, commit; potwierdzić start planu 42 na zielonym HEAD z czystymi goldenami.",
+      "title": "[S] IR: najpierw audyt (grep łańcuchów is w konsumentach IR), potem rekordy + wyczerpujący switch tylko tam, gdzie zyskuje (nowy typ IR wymusza obsługę). Brak zysku w danym miejscu = pominąć z notą. Akceptacja: diff listingów vs baseline pusty, build -warnaserror, test celowany zielony.",
+      "status": "todo",
+      "note": ""
+    },
+    {
+      "id": "12",
+      "title": "[S] Pomiary i zamknięcie refaktoru: full suite, goldeny bez wzrostu, /fuzz, /bench (mean/SDCC bez zmian), render + hygiene, commit; potwierdzić start planu 42 na zielonym HEAD z czystymi goldenami. Dodatkowo goldeny v2 (v2-sizes) bez zmian.",
       "status": "todo",
       "note": ""
     }

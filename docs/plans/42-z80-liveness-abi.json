@@ -24,7 +24,7 @@
       "id": "4",
       "title": "[M] Caller-saved rejestry dla komórek żywych przez wołanie (część itemu 9): push/pop wokół call tylko gdy waga > koszt (2 B + 21 T x waga pętli), komórki w rejestrach znikają z Saved, ostrzeżenie o głębokości stosu uwzględnia te push. Akceptacja: fib -14 B, copy ~23 B, RecursionFrameTests zielone, ABI bez zmian Nowy prymityw jako interfejs zdolności z planu 41 (bez virtual-defaultów w ByteIsa, wynik zwracany jawnie, bez FreshAddInHL).",
       "status": "todo",
-      "note": "W tym podcel ze starego 40-item-2: kopie BC<->HL wokół wołań (cel cząstkowy fib -4 B)."
+      "note": "W tym podcel ze starego 40-item-2: kopie BC<->HL wokół wołań (cel cząstkowy fib -4 B). Przejęte z planu 39 poz. 5 (alias parametru na rejestr)."
     },
     {
       "id": "5",
@@ -34,7 +34,7 @@
     },
     {
       "id": "6",
-      "title": "[S] Pomiary i zamknięcie: compare.py, target-sizes, vreg-sizes; ujednolicić docs/codegen-size-and-hl-plan.md i docs/targets.md (stare 95 B i 1.7x/3.6x) z compare.md; potwierdzić zamknięcie planu 40 (itemy 2, 6, 8, 9); render + hygiene; commit",
+      "title": "[S] Pomiary i zamknięcie: compare.py, target-sizes, vreg-sizes; ujednolicić docs/codegen-size-and-hl-plan.md i docs/targets.md (stare 95 B i 1.7x/3.6x) z compare.md; potwierdzić zamknięcie planu 40 (itemy 2, 6, 8, 9); render + hygiene; commit Dodatkowo: pomiar wołaniowych Z80 (05_calls) vs wzorzec ABI v2 — warunek wznowienia planu 39 poz. 4 (>=15%).",
       "status": "todo",
       "note": "RST odrzucone świadomie (nie odroczone): ~5 site'ów w div16 (wiersz spoza średniej) vs strona 0 + wektory + emulator + harness; powrót tylko gdyby wiersze * weszły do średniej."
     }
