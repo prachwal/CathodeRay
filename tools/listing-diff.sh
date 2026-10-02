@@ -1,6 +1,7 @@
 #!/bin/bash
-# Siatka porównań listingów (plan 41, poz. 4): generuje listingi (cc --listing)
+# Siatka porównań listingów (plan 41, poz. 4-5): generuje listingi (cc --listing)
 # wszystkich próbek samples/minic/??_.c na celach stub 6502 65c02 nes 6510 z80 8080 6800
+# (ścieżka v1) oraz dodatkowy przebieg nes --abi v2 (pilot ABI v2 z planu 39),
 # dla bieżącego drzewa i dla commita bazowego (git worktree), pokazuje diff i sumy CODE per cel.
 # Dla refaktoru (plan 41) diff musi być pusty; w planie 42 diff przeglądany ręcznie.
 #
@@ -13,6 +14,8 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 BASE="${1:-HEAD}"
 OUT="${2:-/tmp/listing-diff}"
 CPUS="stub 6502 65c02 nes 6510 z80 8080 6800"
+# Dodatkowe przebiegi:cpu|flagi|sufiks (sumy CODE osobno, np. nes-v2)
+EXTRA="nes|--abi v2|nes-v2"
 INCDIR="$ROOT/samples/minic"
 
 build_dll() {
@@ -26,28 +29,38 @@ gen_tree() {
     : > "$dest/failures.txt"
     export DLL="$dll" DEST="$dest" INCDIR
     gen_one() {
-        local sample="$1" cpu="$2"
-        local base
+        # $1 = linia "sample|TAB|cpu|TAB|flagi|TAB|sufiks" ("-" = brak flag)
+        local sample cpu flags suffix
+        IFS="$(printf '\t')" read -r sample cpu flags suffix <<< "$1"
+        if [ "$flags" = "-" ]; then flags=""; fi
+        local base out
         base="$(basename "$sample" .c)"
-        local out="$DEST/$base.$cpu"
-        if ! dotnet "$DLL" cc "$sample" --cpu "$cpu" -o "$out.bin" --listing "$out.lst" --incdir "$INCDIR" --stats > "$out.stats" 2>"$out.err"; then
-            echo "FAIL $base $cpu" >> "$DEST/failures.txt"
+        out="$DEST/$base.$suffix"
+        # shellcheck disable=SC2086: flags celowo bez cudzysłowu (lista flag)
+        if ! dotnet "$DLL" cc "$sample" --cpu "$cpu" $flags -o "$out.bin" --listing "$out.lst" --incdir "$INCDIR" --stats > "$out.stats" 2>"$out.err"; then
+            echo "FAIL $base $suffix" >> "$DEST/failures.txt"
         fi
     }
     export -f gen_one
-    for sample in "$ROOT"/samples/minic/??_*.c; do
-        for cpu in $CPUS; do
-            echo "$sample $cpu"
+    {
+        for sample in "$ROOT"/samples/minic/??_*.c; do
+            for cpu in $CPUS; do
+                printf '%s\t%s\t-\t%s\n' "$sample" "$cpu" "$cpu"
+            done
+            local cpu flags suffix
+            while IFS='|' read -r cpu flags suffix; do
+                printf '%s\t%s\t%s\t%s\n' "$sample" "$cpu" "$flags" "$suffix"
+            done <<< "$EXTRA"
         done
-    done | xargs -P8 -n2 bash -c 'gen_one "$@"' _
+    } | xargs -P8 -d'\n' -n1 bash -c 'gen_one "$1"' _
 }
 
 sizes() {
     local dest="$1"
-    for cpu in $CPUS; do
+    for tag in $CPUS nes-v2; do
         local total
-        total=$(grep -h -o 'CODE [0-9]*' "$dest"/*."$cpu".stats 2>/dev/null | awk '{s+=$2} END {print s+0}' || true)
-        echo "$cpu ${total:-0}"
+        total=$(grep -h -o 'CODE [0-9]*' "$dest"/*."$tag".stats 2>/dev/null | awk '{s+=$2} END {print s+0}' || true)
+        echo "$tag ${total:-0}"
     done
 }
 

@@ -29,8 +29,8 @@
     {
       "id": "5",
       "title": "[S] Siatka listingów: dopisać przebieg nes --abi v2 do tools/listing-diff.sh (dziś tylko v1, więc pilot ABI v2 z planu 39 nie jest chroniony podczas refaktoru) + sumy CODE osobno dla v1/v2. Akceptacja: HEAD vs HEAD pusty na v1 i v2.",
-      "status": "todo",
-      "note": "Po scaleniu planu 39."
+      "status": "done",
+      "note": "Zrobione: przebieg nes --abi v2 w siatce (EXTRA cpu|flagi|sufiks, sumy CODE osobno: wiersz nes-v2). Akceptacja: HEAD vs HEAD pusty na v1 i v2 (exit 0). Po drodze 2 bugi skryptu (xargs dzielił po TAB -> -d newline; puste pole flag znikało w read -> placeholder '-')."
     },
     {
       "id": "6",
