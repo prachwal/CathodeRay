@@ -1,6 +1,6 @@
 {
   "title": "Z80/8080 codegen: peephole par, idiomy CPU i ramki na stosie (domyka luke do SDCC)",
-  "status": "queued",
+  "status": "closed",
   "items": [
     {
       "id": "1",
@@ -11,8 +11,8 @@
     {
       "id": "2",
       "title": "[M] ex-swap par: TrySwapWord (ld c,l; ld b,h + ld l,c; ld h,b -> ex de,hl tam gdzie legalne) + eliminacja zbednych kopii BC<->HL wokol wołan. Pliki: ByteIsa/Z80Isa/Intel8080Isa, ByteSelector. Akceptacja: fib -4 B, testy par.",
-      "status": "partial",
-      "note": "Zrobione: ex de,hl w epilogu TryAddWord do pary DE + flaga FreshAddInHL (dowód emulatorem) + SwapReloadDe w Tidy (cofa ex+reload do kopii); fib -2 B. Reszta (kopie BC<->HL wokół wołań, pełne -4 B) wymaga liveness -> item 9."
+      "status": "done",
+      "note": "Zrobione: ex de,hl w epilogu TryAddWord do pary DE + flaga FreshAddInHL (dowód emulatorem) + SwapReloadDe w Tidy (cofa ex+reload do kopii); fib -2 B. Reszta (kopie BC<->HL wokół wołań, pełne -4 B) wymaga liveness -> item 9. Reszta -> plan 42 item 4 (kopie BC<->HL wokół wołań). Reszta (kopie BC<->HL wokół wołań) -> plan 42 poz. 4."
     },
     {
       "id": "3",
@@ -33,34 +33,22 @@
       "note": "Zrobione: matcher petli w selektorze (while n / n>0, cialo [Load,Store,d+1,s+1,n-1], single-use, brak obcych skokow) + TryCopyLoop w Z80 (test zera, push bc/de, ldir, pop; L_end emitowane). copy 48->22B. Eq ze znakiem ujemnym: oryginał wisi, zamiana nieobserwowalna w konczacych sie programach. CopyLoopTests 4/4 (wartosci, n=0, Le, W2-nie-ldir). 8080 bez zmian (base false)."
     },
     {
-      "id": "6",
-      "title": "[M] DJNZ dla petli licznikowych z licznikiem w B (wzorzec for i++/i--, 2 B zamiast ~5 B). Pliki: Lowering i/lub peephole IR. Akceptacja: testy petli + matryca.",
-      "status": "todo",
-      "note": "PRZENIESIONE do batcha 4: licznik w B wymaga liveness + rezerwacji rejestru (ten sam warsztat co item 9)."
-    },
-    {
       "id": "7",
-      "title": "[M] RST dla helperow runtime (__cc_mul/__cc_divu/float): rst 08h (1 B) zamiast call (3 B) + tablica wektorow w crt0 + legalizer. Akceptacja: wiersze z * w dol, linkowanie wszystkich celow zielone.",
-      "status": "todo",
-      "note": "ODROCZONE swiadomie: RST oszczedza 2B/site, ale tylko ~5 site'ow w div16 (wiersz spoza sredniej!); koszt: strona 0 (niezmapowana), wektory w crt0, emulator RST (dziś throw), harness, linker + staly koszt kazdego binaria. Zysk/ryzyko nieuzasadnione; wrocic gdyby wiersze * weszly do sredniej."
-    },
-    {
-      "id": "8",
-      "title": "[M] Tail-call przez join (fnptr): Call+Ret rozdzielone kopiami joinowymi if-else (obie galezie zbiegaja do Ret tej samej wartosci) tez zamieniane w skoki. Pliki: ByteSelector. Akceptacja: pick -15 B, testy mutacja (ramka blokuje jak w planie 36).",
-      "status": "todo",
-      "note": ""
+      "title": "[M] RST dla helperow runtime (__cc_mul/__cc_divu/float): rst 08h (1 B) zamiast call (3 B) + tablica wektorow w crt0 + legalizer. (ODRZUCONE)",
+      "status": "done",
+      "note": "ODRZUCONE świadomie: RST oszczędza 2 B/site na ~5 miejscach (div16, spoza średniej); koszt: strona 0, wektory w crt0, emulator RST, harness, linker + stały koszt każdego binarium. Wrócić tylko, gdyby wiersze z * weszły do średniej."
     },
     {
       "id": "9",
       "title": "[L] Ramka na stosie + induction w parach: wartosci zywe w petli (wskazniki, liczniki, n w fib) w DE/HL/BC z push-pop wokol wolan zamiast statycznych komorek + reloadow. Bez lamania ABI (konwencja wejscia/wyjscia bez zmian). Pliki: RegisterAllocator, Lowering.Frames, ByteSelector. Akceptacja: copy 48->~23 B, fib -14 B, RecursionFrameTests zielone.",
-      "status": "partial",
-      "note": "CZĘŚĆ: parametry w rejestrach. RegisterAllocator nie blokuje już Params, nie wyrzuca ich z puli za 'żywe na wejściu' (prolog je wstawia) i dodaje klikę interferencji param-param. Prolog selektora już obsługiwał param w parze (TryMoveWord). Efekt: fib 72->68, fnptr 70->67, mean/SDCC 1.16->1.15, goldeny netto -471 (22 pola; jeden outlier 13_strings +5 przez heurystykę isalnum). Skutek: mutual-recursion bez ramki dostaje poprawny tail-call (test zaktualizowany). NIE zrobione: wartosci zywe w petli (n/wskaźniki) poza parametrami, ramka na stosie — to reszta itemu 9. Odrzucone: globalne pominięcie ParamAlias na Z80 (mean 1.15->1.35, koszt prologu liści)."
+      "status": "done",
+      "note": "CZĘŚĆ: parametry w rejestrach. RegisterAllocator nie blokuje już Params, nie wyrzuca ich z puli za 'żywe na wejściu' (prolog je wstawia) i dodaje klikę interferencji param-param. Prolog selektora już obsługiwał param w parze (TryMoveWord). Efekt: fib 72->68, fnptr 70->67, mean/SDCC 1.16->1.15, goldeny netto -471 (22 pola; jeden outlier 13_strings +5 przez heurystykę isalnum). Skutek: mutual-recursion bez ramki dostaje poprawny tail-call (test zaktualizowany). NIE zrobione: wartosci zywe w petli (n/wskaźniki) poza parametrami, ramka na stosie — to reszta itemu 9. Odrzucone: globalne pominięcie ParamAlias na Z80 (mean 1.15->1.35, koszt prologu liści). Reszta (wartości żywe w pętli, caller-saved) -> plan 42 poz. 2 i 4."
     },
     {
       "id": "10",
       "title": "[S] Pomiary i zamkniecie: compare.py + target-sizes + disasm na nowo (cel: mean/SDCC ~1.15 po batchach 1-2), render + hygiene OK, commit, plan closed.",
       "status": "done",
-      "note": "Pomiary: mean/SDCC 1.31 (start) -> 1.15 (cel ~1.15 OSIAGNIETY), mean/cc65 1.32 -> 1.27; docs/compare.md odswiezony. Goldeny target/vreg/vreg-alloc/ir-gate odswiezone w commitach itemow. Uwaga: pozostale itemy 6/8 (DJNZ, tail-join) i reszta 9 (caller-saved/wartosci w petli) ma osobny plan 41-z80-liveness-abi (itemy 7/5/6)."
+      "note": "Pomiary: mean/SDCC 1.31 (start) -> 1.15 (cel ~1.15 OSIAGNIETY), mean/cc65 1.32 -> 1.27; docs/compare.md odswiezony. Goldeny target/vreg/vreg-alloc/ir-gate odswiezone w commitach itemow. Uwaga: pozostale itemy 6/8 (DJNZ, tail-join) i reszta 9 (caller-saved/wartosci w petli) ma plan 42-z80-liveness-abi, poprzedzony refaktorem: plan 41-codegen-refactor (itemy 3-5). Pozycje 6 (DJNZ) i 8 (tail-join) przeniesione do planu 42 (poz. 5 i 3); plan 40 zamknięty."
     },
     {
       "id": "11",
