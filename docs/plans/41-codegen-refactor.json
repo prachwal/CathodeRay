@@ -65,8 +65,8 @@
     {
       "id": "11",
       "title": "[S] IR: najpierw audyt (grep łańcuchów is w konsumentach IR), potem rekordy + wyczerpujący switch tylko tam, gdzie zyskuje (nowy typ IR wymusza obsługę). Brak zysku w danym miejscu = pominąć z notą. Akceptacja: diff listingów vs baseline pusty, build -warnaserror, test celowany zielony.",
-      "status": "todo",
-      "note": ""
+      "status": "done",
+      "note": "Audyt: IR jest juz na rekordach (Op/Ins/Piece sealed records). Zysk: oracle IrInterpreter mial CICHE domyslne wartosci dla nieznanych wartosci enumow — Compare `_ => a >= b` (nowy Cond traktowany jak >=), Binary `default` liczyl `%` (nowy BinOp), Un `kind == Neg ? -a : ~a` (nowy UnOp = Cpl). Zamienione na wyczerpujace switch-expression: Binary (wszystkie 13 BinOp), Compare (wszystkie 10 Cond), Un (2 UnOp). Enabler: NoWarn CS8524 (nienazwane wartosci enuma) w Directory.Build.props — wtedy CS8509 wymusza obsluge nowej nazwanej wartosci (zweryfikowane eksperymentem). Hierarchii rekordow nie da sie wymusic compile-time (CS8509 zawsze bez `_`); potrzebny visitor — odroczone, bo miejsca bez cichego bledu maja juz jawne `_ => throw` (Get) albo bezpieczny default (WidthOf), a switche podzbiorow (WideLegalizer/Wide8Legalizer/StubSelector.Ops/IrPasses.Evaluate) celowo obsluguja podzbior z tozsamosciowym/brak-foldem defaultem — zostawione. Bramki: build -warnaserror, siatka HEAD-vs-387aa82 IDENTICAL (interpreter poza codegen), pelna suita 3288/3288, IrInterpreterTests+VRegRoundtripTests 32/32. Commit d2151c6."
     },
     {
       "id": "12",
