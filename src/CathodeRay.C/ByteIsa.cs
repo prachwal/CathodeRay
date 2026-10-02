@@ -390,16 +390,6 @@ internal abstract class ByteIsa
     /// <returns>Wynik jawny (<see cref="WordResult"/>).</returns>
     public virtual WordResult TryShlWord1(Word dst, Word src) => new(false, false);
 
-    /// <summary>Kopia bloku (liczba bajtów w czasie wykonania) przez <c>ldir</c>: wołający (matcher pętli
-    /// w selektorze) gwarantuje liczbę niezerową na wejściu, rozłączność par chroni push/pop w środku,
-    /// a komórki Dst/Src/Count są martwe za pętlą (bez writebacku). Flagi po niej nieokreślone.
-    /// Domyślnie <see langword="false"/>: selektor emituje zwykłą pętlę.</summary>
-    /// <param name="dst">Cel (wskaźnik w pamięci albo parze).</param>
-    /// <param name="src">Źródło (wskaźnik w pamięci albo parze).</param>
-    /// <param name="count">Liczba bajtów (słowo w pamięci albo parze, niezerowe).</param>
-    /// <returns><see langword="true"/>, gdy sekwencja została wyemitowana.</returns>
-    public virtual bool TryCopyLoop(Word dst, Word src, Word count) => false;
-
     /// <summary>Skoki po porównaniu ze znakiem ze stałą 16-bitową (odejmowanie już wyemitowane przez selektor,
     /// spadek = gałąź else). Przepełnienie (V) rozstrzyga samo tam, gdzie jego sens zgadza się z gałęzią prawdy;
     /// w przeciwną stronę wołający materializuje pustą etykietę else — i tak taniej niż trampolina S^V.

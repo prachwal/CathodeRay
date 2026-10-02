@@ -5,7 +5,7 @@ namespace CathodeRay.C;
 
 /// <summary>Prymitywy Z80 (składnia Zilog): A jako akumulator, HL jako rejestr adresowy (operandy pamięciowe ALU przez
 /// <c>LD HL,adres; op A,(HL)</c>, wskaźniki przez <c>LD HL,(komórka)</c>), zapis/odczyt komórek przez <c>LD A,(adres)</c>.</summary>
-internal sealed partial class Z80Isa : ByteIsa
+internal sealed partial class Z80Isa : ByteIsa, ICopyLoop
 {
     private static readonly HashSet<string> ReservedNames = new(
         ["A", "B", "C", "D", "E", "H", "L", "I", "R", "AF", "BC", "DE", "HL", "SP", "IX", "IY", "IXH", "IXL", "IYH", "IYL", "NZ", "Z", "NC", "PO", "PE", "P", "M", "LOW", "HIGH", "MOD", "SHL", "SHR", "AND", "OR", "XOR", "NOT"],
@@ -254,7 +254,7 @@ internal sealed partial class Z80Isa : ByteIsa
     /// <param name="src">Źródło.</param>
     /// <param name="count">Liczba bajtów.</param>
     /// <returns><see langword="false"/>, gdy operandy nieużywalne.</returns>
-    public override bool TryCopyLoop(Word dst, Word src, Word count)
+    public bool TryCopyLoop(Word dst, Word src, Word count)
     {
         if (dst.IsImmediate || src.IsImmediate || count.IsImmediate
             || !Usable(dst) || !Usable(src) || !Usable(count))

@@ -1172,7 +1172,7 @@ internal sealed class ByteSelector
     }
 
     /// <summary>Pętla kopiująca bajty (<c>while (n) { *d = *s; d++; s++; n--; }</c> albo z <c>n &gt; 0</c>)
-    /// jako blok z prymitywu <see cref="ByteIsa.TryCopyLoop"/> (dziś tylko Z80 z <c>ldir</c>; reszta zwraca
+    /// jako blok z prymitywu <see cref="ICopyLoop.TryCopyLoop"/> (dziś tylko Z80 z <c>ldir</c>; reszta nie ma
     /// <c>false</c> i pętla idzie starą drogą). Warunki: elementy W1, wskaźniki i licznik W2, ciało dokładnie
     /// [Load, Store, d+1, s+1, n-1], brak innych odwołań do d/s/n/t w funkcji (writeback zbędny) i brak obcych
     /// skoków do etykiet pętli. Licznik <c>Eq</c> ze znakiem ujemnym zawiesiłby oryginał (nieskończona pętla),
@@ -1280,7 +1280,7 @@ internal sealed class ByteSelector
             EmitSource(comment);
         }
 
-        if (!_isa.TryCopyLoop(dstW, srcW, countW))
+        if (_isa is not ICopyLoop copy || !copy.TryCopyLoop(dstW, srcW, countW))
         {
             return false;
         }
