@@ -30,7 +30,7 @@
       "id": "5",
       "title": "[M] DJNZ dla pętli licznikowych z licznikiem w B (item 6 planu 40), po rezerwacji rejestru z pozycji 4. Akceptacja: testy pętli i matryca celów Nowy prymityw jako interfejs zdolności z planu 41 (bez virtual-defaultów w ByteIsa, wynik zwracany jawnie, bez FreshAddInHL).",
       "status": "todo",
-      "note": ""
+      "note": "Recon: pętla `int f(uchar n){int s=0; while(n){s=s+n; n=n-1;} return s;}` generuje licznik w pamieci `f__n` i adresowany (`ld hl,f__n; add a,(hl)`), wiec `f__n` jest AddrOf -> blocked w alokatorze (brak rejestru). DJNZ wymaga licznika w B (1-bajtowy) i petli testowanej na dole (`dec n; if n!=0 goto top`). ZALEZNOSC: poz. 5 potrzebuje rezerwacji rejestru/licznika z poz. 4 (partial) i usuniecia adresowania licznika (AddrOf z `s+n` w loweringu) — inaczej wzorzec nigdy nie wystapi. Zablokowane do domkniecia poz. 4/7. Dodatkowo nowy prymityw jako interfejs zdolnosci (`IDjnz`/`ICountLoop`) z planu 41."
     },
     {
       "id": "6",
