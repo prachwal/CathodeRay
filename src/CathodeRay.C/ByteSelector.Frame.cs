@@ -116,6 +116,15 @@ internal sealed partial class ByteSelector
                 continue;
             }
 
+            if (TryEmitJoinTailCall(function, bodyIndex, out int joinNext))
+            {
+                resCell = null;
+                freshHL = false;
+                endsWithJump = joinNext == function.Body.Count;
+                bodyIndex = joinNext;
+                continue;
+            }
+
             if (TryEmitCopyLoop(function, bodyIndex, out int after))
             {
                 resCell = null;

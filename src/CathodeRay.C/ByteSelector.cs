@@ -178,6 +178,43 @@ internal sealed partial class ByteSelector
         return true;
     }
 
+    /// <summary>Pozycja etykiety o nazwie od <paramref name="from"/> w głąb ciała albo -1.</summary>
+    /// <param name="function">Funkcja.</param>
+    /// <param name="name">Nazwa etykiety.</param>
+    /// <param name="from">Indeks początkowy.</param>
+    /// <returns>Indeks etykiety albo -1.</returns>
+    private static int FindLabel(Ir.Function function, string name, int from)
+    {
+        for (int k = from; k < function.Body.Count; k++)
+        {
+            if (function.Body[k] is Ir.Label label && label.Name == name)
+            {
+                return k;
+            }
+        }
+
+        return -1;
+    }
+
+    /// <summary>Liczba skoków (<c>Jmp</c>/<c>BrCmp</c>) do etykiety, bez instrukcji o indeksie <paramref name="skip"/>.</summary>
+    /// <param name="function">Funkcja.</param>
+    /// <param name="name">Nazwa etykiety.</param>
+    /// <param name="skip">Indeks pomijany.</param>
+    /// <returns>Liczba skoków.</returns>
+    private static int CountJumpsTo(Ir.Function function, string name, int skip)
+    {
+        int count = 0;
+        for (int k = 0; k < function.Body.Count; k++)
+        {
+            if (k != skip && ((function.Body[k] is Ir.Jmp jmp && jmp.Target == name) || (function.Body[k] is Ir.BrCmp br && br.Target == name)))
+            {
+                count++;
+            }
+        }
+
+        return count;
+    }
+
     private string At(string sym, int offset) => _isa.At(sym, offset);
 
     private bool IsVolatile(string address)

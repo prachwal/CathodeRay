@@ -180,6 +180,17 @@ internal sealed partial class ByteSelector
             EmitSource(comment);
         }
 
+        EmitTailJump(call);
+
+        next = retIndex + 1;
+        return true;
+    }
+
+    /// <summary>Emituje argumenty i skok ogonowy do wołania (wołający sprawdził już zdolność <see cref="ITailCall"/>
+    /// i brak ramki).</summary>
+    /// <param name="call">Wołanie.</param>
+    private void EmitTailJump(Ir.Call call)
+    {
         bool earlyFp = false;
         if (call.Indirect is { } indirect && HasRegArgs(call))
         {
@@ -206,8 +217,108 @@ internal sealed partial class ByteSelector
         {
             _isa.TailCall(_isa.Sym(call.Direct!));
         }
+    }
 
-        next = retIndex + 1;
+    /// <summary>Wywołanie ogonowe rozdzielone joinem: obie gałęzie <c>if</c> kończą wołaniem, którego wynik trafia kopią
+    /// do wspólnej komórki zwracanej przez jeden <c>Ret</c> (typowy <c>k ? f() : g()</c>). Każde wołanie staje się skokiem
+    /// ogonowym, a kopia i wspólny powrót znikają. Konserwatywnie: dokładnie dwie gałęzie, wołania znane w module (W1-2),
+    /// brak ramki i zapisów par wokół wołań, a cel joinu i else są osiągalne tylko z tych miejsc.</summary>
+    /// <param name="function">Emitowana funkcja.</param>
+    /// <param name="index">Pozycja skoku warunkowego <c>if</c>.</param>
+    /// <param name="next">Pozycja za wspólnym <c>Ret</c> (gdy dopasowano).</param>
+    /// <returns>Czy wyemitowano dwie gałęzie jako skoki ogonowe.</returns>
+    private bool TryEmitJoinTailCall(Ir.Function function, int index, out int next)
+    {
+        next = index;
+        if (_isa is not ITailCall || function.Saved.Count != 0 || function.Body[index] is not Ir.BrCmp branch)
+        {
+            return false;
+        }
+
+        int i = index + 1;
+        var thenComments = new List<Ir.Src>();
+        if (!SkipComments(function, thenComments, ref i) || function.Body[i] is not Ir.Call c1 || c1.Result is not { W: 1 or 2 } r1)
+        {
+            return false;
+        }
+
+        i++;
+        var copyComments = new List<Ir.Src>();
+        if (!SkipComments(function, copyComments, ref i)
+            || function.Body[i] is not Ir.Mov { Dst: Ir.Cell join, Src: Ir.Cell from } || from.Sym != r1.Sym || from.W != r1.W
+            || join.Sym == from.Sym || join.W != r1.W)
+        {
+            return false;
+        }
+
+        i++;
+        if (!SkipComments(function, [], ref i) || function.Body[i] is not Ir.Jmp jmpDone)
+        {
+            return false;
+        }
+
+        int elseAt = FindLabel(function, branch.Target, index + 1);
+        if (elseAt < 0)
+        {
+            return false;
+        }
+
+        int j = elseAt + 1;
+        var elseComments = new List<Ir.Src>();
+        if (!SkipComments(function, elseComments, ref j) || function.Body[j] is not Ir.Call c2 || c2.Result is not { W: 1 or 2 } r2)
+        {
+            return false;
+        }
+
+        j++;
+        var elseCopyComments = new List<Ir.Src>();
+        if (!SkipComments(function, elseCopyComments, ref j)
+            || function.Body[j] is not Ir.Mov { Dst: Ir.Cell join2, Src: Ir.Cell from2 } || join2.Sym != join.Sym
+            || from2.Sym != r2.Sym || from2.W != r2.W)
+        {
+            return false;
+        }
+
+        j++;
+        if (!SkipComments(function, [], ref j) || function.Body[j] is not Ir.Label done || done.Name != jmpDone.Target)
+        {
+            return false;
+        }
+
+        j++;
+        if (!SkipComments(function, [], ref j) || function.Body[j] is not Ir.Ret ret || ret.Value is not Ir.Cell retCell
+            || retCell.Sym != join.Sym || ret.W != join.W)
+        {
+            return false;
+        }
+
+        if (CountJumpsTo(function, jmpDone.Target, index) != 1 || CountJumpsTo(function, branch.Target, index) != 0
+            || !TailEligible(c1) || !TailEligible(c2))
+        {
+            return false;
+        }
+
+        EmitIns(function, branch, false);
+        foreach (Ir.Src comment in thenComments.Concat(copyComments))
+        {
+            EmitSource(comment);
+        }
+
+        EmitTailJump(c1);
+        Raw($"{Mangle(function, branch.Target)}:");
+        foreach (Ir.Src comment in elseComments.Concat(elseCopyComments))
+        {
+            EmitSource(comment);
+        }
+
+        EmitTailJump(c2);
+        next = j + 1;
         return true;
     }
+
+    /// <summary>Wołanie nadaje się na skok ogonowy z wynikiem: znane w module, W1-2, bez zapisu par wokół.</summary>
+    /// <param name="call">Wołanie.</param>
+    /// <returns>Czy wynik wraca w miejscu docelowym.</returns>
+    private bool TailEligible(Ir.Call call) =>
+        RegCall(call) && call.Result is { W: 1 or 2 } && _isa.Cells.SavedAround(call).Count == 0;
 }

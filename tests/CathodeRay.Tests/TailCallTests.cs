@@ -115,4 +115,23 @@ public sealed class TailCallTests
         CcRun.RunOn(Source, "z80").Value.Should().Be(9);
         CcRun.RunOn(Source, "8080").Value.Should().Be(9);
     }
+
+    [Fact]
+    public void Join_Tail_Call_In_Both_Arms()
+    {
+        const string Source = """
+            int twice(int x) { return x + x; }
+            int neg(int x) { return -x; }
+            int apply(int (*f)(int), int v) { return f(v); }
+            int pick(uchar k, int v) { return k ? apply(twice, v) : apply(neg, v); }
+            int main() { return pick(1, 5) + pick(0, 5); }
+            """;
+        string z80 = EmitZ80(Source);
+
+        z80.Should().Contain("jp apply");
+        z80.Should().NotContain("pick__ret:");
+        CcRun.RunOn(Source, "z80").Value.Should().Be((2 * 5) + (-5));
+        CcRun.RunOn(Source, "8080").Value.Should().Be((2 * 5) + (-5));
+        CcRun.RunOn(Source, "6502").Value.Should().Be((2 * 5) + (-5));
+    }
 }
