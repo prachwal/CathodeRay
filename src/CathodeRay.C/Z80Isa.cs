@@ -5,7 +5,7 @@ namespace CathodeRay.C;
 
 /// <summary>Prymitywy Z80 (składnia Zilog): A jako akumulator, HL jako rejestr adresowy (operandy pamięciowe ALU przez
 /// <c>LD HL,adres; op A,(HL)</c>, wskaźniki przez <c>LD HL,(komórka)</c>), zapis/odczyt komórek przez <c>LD A,(adres)</c>.</summary>
-internal sealed partial class Z80Isa : ByteIsa, ICopyLoop, ISignedBranch, IWordArithmetic, IWordShift, IPairMoves, IPairStack, IResultReg
+internal sealed partial class Z80Isa : ByteIsa, ICopyLoop, ISignedBranch, IWordArithmetic, IWordShift, IPairMoves, IPairStack, IResultReg, IResultPairs
 {
     private static readonly HashSet<string> ReservedNames = new(
         ["A", "B", "C", "D", "E", "H", "L", "I", "R", "AF", "BC", "DE", "HL", "SP", "IX", "IY", "IXH", "IXL", "IYH", "IYL", "NZ", "Z", "NC", "PO", "PE", "P", "M", "LOW", "HIGH", "MOD", "SHL", "SHR", "AND", "OR", "XOR", "NOT"],
@@ -183,7 +183,7 @@ internal sealed partial class Z80Isa : ByteIsa, ICopyLoop, ISignedBranch, IWordA
     /// <summary>HL ← słowo (<c>ld hl,nn</c>, <c>ld hl,(n)</c>, <c>ld l,c; ld h,b</c>, z DE <c>ex de,hl</c>).</summary>
     /// <param name="value">Wartość.</param>
     /// <returns><see langword="false"/>, gdy bajty nie leżą parą.</returns>
-    public override bool TryMoveToResultReg(Word value)
+    public bool TryMoveToResultReg(Word value)
     {
         if (!Usable(value))
         {
@@ -206,7 +206,7 @@ internal sealed partial class Z80Isa : ByteIsa, ICopyLoop, ISignedBranch, IWordA
     /// <summary>Słowo ← HL (<c>ld (n),hl</c>, <c>ld c,l; ld b,h</c>, do DE <c>ex de,hl</c>).</summary>
     /// <param name="dst">Cel.</param>
     /// <returns><see langword="false"/>, gdy bajty nie leżą parą.</returns>
-    public override bool TryMoveFromResultReg(Word dst)
+    public bool TryMoveFromResultReg(Word dst)
     {
         if (dst.IsImmediate || !Usable(dst))
         {

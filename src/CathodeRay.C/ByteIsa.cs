@@ -318,17 +318,6 @@ internal abstract class ByteIsa
     /// <returns><see langword="true"/>, gdy sekwencja została wyemitowana; inaczej selektor użyje ogólnego łańcucha ADD/SUB.</returns>
     public virtual bool TryStep(IReadOnlyList<string> bytes, bool increment) => false;
 
-    /// <summary>Rejestr wyniku ← słowo (stała, para rejestrów albo pamięć obok siebie), bez zmiany A. Wołane tylko, gdy
-    /// <see cref="IResultReg.ReturnsInResultReg"/>.</summary>
-    /// <param name="value">Wartość.</param>
-    /// <returns><see langword="false"/>, gdy słowa nie da się przenieść parą (selektor przeniesie je bajtami przez A).</returns>
-    public virtual bool TryMoveToResultReg(Word value) => false;
-
-    /// <summary>Słowo ← rejestr wyniku, bez zmiany A. Wołane tylko, gdy <see cref="IResultReg.ReturnsInResultReg"/>.</summary>
-    /// <param name="dst">Cel (para rejestrów albo pamięć obok siebie).</param>
-    /// <returns><see langword="false"/>, gdy celu nie da się zapisać parą.</returns>
-    public virtual bool TryMoveFromResultReg(Word dst) => false;
-
     /// <summary>Zamienia tekst od znacznika na jego wersję po relaksacji skoków (krótkie skoki warunkowe tam, gdzie cel jest w zasięgu).</summary>
     /// <param name="mark">Znacznik z <see cref="Mark"/>.</param>
     public void RelaxFrom(int mark)

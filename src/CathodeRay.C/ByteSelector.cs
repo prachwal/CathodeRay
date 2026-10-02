@@ -1602,7 +1602,7 @@ internal sealed class ByteSelector
 
         if (call.Result is not null && RegCall(call) && InResultReg(call.Result.W))
         {
-            if (call.Result.W == 2 && WordOf(call.Result) is { } dst && _isa.TryMoveFromResultReg(dst))
+            if (call.Result.W == 2 && WordOf(call.Result) is { } dst && _isa is IResultPairs resultPairs && resultPairs.TryMoveFromResultReg(dst))
             {
                 _acc.Remove(dst.Lo);
                 _acc.Remove(dst.Hi);
@@ -1630,7 +1630,7 @@ internal sealed class ByteSelector
     {
         if (!valueInResultReg && ret.Value is not null && InResultReg(ret.W))
         {
-            if (!(ret.W == 2 && WordOf(ret.Value) is { } word && _isa.TryMoveToResultReg(word)))
+            if (!(ret.W == 2 && WordOf(ret.Value) is { } word && _isa is IResultPairs resultPairs && resultPairs.TryMoveToResultReg(word)))
             {
                 // v2/6502: od starszego, bo A niesie po jednym bajcie (A kończy z młodszym, X ze starszym,
                 // oba przeżywają restore w stopce); v1: bez zmian (Z80 ładuje L i H niezależnie).

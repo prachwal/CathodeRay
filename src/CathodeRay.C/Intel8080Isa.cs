@@ -7,7 +7,7 @@ namespace CathodeRay.C;
 /// wskaźniki przez <c>LHLD</c>), bez rejestrów IX/IY i bez instrukcji Z80. Komórki mogą leżeć w B, C, D, E (pary BC/DE) jak na
 /// <see cref="Z80Isa"/>: <c>mov a,c</c>, <c>add c</c>, <c>inr c</c>, <c>inx b</c>; słowo z pamięci do pary przez <c>lhld</c> i
 /// <c>mov c,l; mov b,h</c> (8080 nie ma <c>ld bc,(nn)</c>).</summary>
-internal sealed partial class Intel8080Isa : ByteIsa, IWordShift, IPairMoves, IPairStack, IResultReg
+internal sealed partial class Intel8080Isa : ByteIsa, IWordShift, IPairMoves, IPairStack, IResultReg, IResultPairs
 {
     private static readonly HashSet<string> ReservedNames = new(
         ["A", "B", "C", "D", "E", "H", "L", "M", "SP", "PSW", "LOW", "HIGH", "MOD", "SHL", "SHR", "AND", "OR", "XOR", "NOT", "EQ", "NE", "LT", "LE", "GT", "GE"],
@@ -215,7 +215,7 @@ internal sealed partial class Intel8080Isa : ByteIsa, IWordShift, IPairMoves, IP
     /// <summary>HL ← słowo (<c>lxi h,nn</c>, <c>lhld n</c>, <c>mov l,c; mov h,b</c>, z DE <c>xchg</c>).</summary>
     /// <param name="value">Wartość.</param>
     /// <returns><see langword="false"/>, gdy bajty nie leżą parą.</returns>
-    public override bool TryMoveToResultReg(Word value)
+    public bool TryMoveToResultReg(Word value)
     {
         if (!Usable(value))
         {
@@ -238,7 +238,7 @@ internal sealed partial class Intel8080Isa : ByteIsa, IWordShift, IPairMoves, IP
     /// <summary>Słowo ← HL (<c>shld n</c>, <c>mov c,l; mov b,h</c>, do DE <c>xchg</c>).</summary>
     /// <param name="dst">Cel.</param>
     /// <returns><see langword="false"/>, gdy bajty nie leżą parą.</returns>
-    public override bool TryMoveFromResultReg(Word dst)
+    public bool TryMoveFromResultReg(Word dst)
     {
         if (dst.IsImmediate || !Usable(dst))
         {
