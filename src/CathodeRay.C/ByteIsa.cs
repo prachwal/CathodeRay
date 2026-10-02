@@ -316,7 +316,7 @@ internal abstract class ByteIsa
     /// <param name="bytes">Adresy bajtów od najmłodszego do najstarszego.</param>
     /// <param name="increment"><see langword="true"/>: +1, <see langword="false"/>: -1.</param>
     /// <returns><see langword="true"/>, gdy sekwencja została wyemitowana; inaczej selektor użyje ogólnego łańcucha ADD/SUB.</returns>
-    public virtual bool TryStep(IReadOnlyList<string> bytes, bool increment) => false;
+    public abstract bool TryStep(IReadOnlyList<string> bytes, bool increment);
 
     /// <summary>Zamienia tekst od znacznika na jego wersję po relaksacji skoków (krótkie skoki warunkowe tam, gdzie cel jest w zasięgu).</summary>
     /// <param name="mark">Znacznik z <see cref="Mark"/>.</param>
