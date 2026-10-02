@@ -27,18 +27,226 @@ internal static class RegisterAllocator
     /// <returns>Moduł dla selektora (te same instrukcje).</returns>
     public static Ir.Module Tune(Ir.Module module, ByteIsa isa)
     {
-        (Dictionary<string, string> map, Dictionary<Ir.Call, List<string>> saves) = Allocate(module, isa);
-        isa.Cells.AssignRegisters(map, saves.Select(static p => (p.Key, (IReadOnlyList<string>)p.Value)));
-        return module with
+        (HashSet<string> blocked, Dictionary<string, int> owner, Dictionary<string, int> extent, Dictionary<string, int> size) = Analyze(module);
+        Dictionary<string, string> map0 = Allocate(module, isa).Map;
+        Dictionary<int, Dictionary<string, List<(int Start, int End)>>> plan = PlanSplits(module, map0, blocked, owner, extent, size);
+        Ir.Module split = module;
+        Dictionary<string, string> map;
+        Dictionary<Ir.Call, List<string>> saves;
+        if (plan.Count == 0)
         {
-            Functions = [.. module.Functions.Select(f => f.Saved.Any(o => map.ContainsKey(o.Sym)) ? f with { Saved = [.. f.Saved.Where(o => !map.ContainsKey(o.Sym))] } : f)],
+            (map, saves) = Allocate(module, isa);
+        }
+        else
+        {
+            Ir.Module tried = BuildSplit(module, size, plan, static (_, _) => true);
+            Dictionary<string, string> map1 = Allocate(tried, isa).Map;
+            bool Keep(int fi, string b)
+            {
+                List<(int Start, int End)> tails = plan[fi][b];
+                for (int t = 0; t < tails.Count; t++)
+                {
+                    if (!map1.ContainsKey($"{b}_s{t + 1}"))
+                    {
+                        return false;
+                    }
+                }
+
+                return true;
+            }
+
+            split = BuildSplit(module, size, plan, Keep);
+            (map, saves) = Allocate(split, isa);
+        }
+
+        isa.Cells.AssignRegisters(map, saves.Select(static p => (p.Key, (IReadOnlyList<string>)p.Value)));
+        return split with
+        {
+            Functions = [.. split.Functions.Select(f => f.Saved.Any(o => map.ContainsKey(o.Sym)) ? f with { Saved = [.. f.Saved.Where(o => !map.ContainsKey(o.Sym))] } : f)],
         };
     }
 
-    private static (Dictionary<string, string> Map, Dictionary<Ir.Call, List<string>> Saves) Allocate(Ir.Module module, ByteIsa isa)
+    /// <summary>Plan dzielenia przedziałów: dla każdej funkcji symbole-kandydatów, które po zwykłym przydziale zostały
+    /// w pamięci i mają więcej niż jeden rozłączny przedział żywotności. Zwraca per funkcja: symbol → przedziały do
+    /// wydzielenia (bez pierwszego).</summary>
+    private static Dictionary<int, Dictionary<string, List<(int Start, int End)>>> PlanSplits(
+        Ir.Module module, IReadOnlyDictionary<string, string> map, HashSet<string> blocked, Dictionary<string, int> owner, Dictionary<string, int> extent, Dictionary<string, int> size)
     {
-        ArgumentNullException.ThrowIfNull(module);
-        ArgumentNullException.ThrowIfNull(isa);
+        var plan = new Dictionary<int, Dictionary<string, List<(int Start, int End)>>>();
+        for (int fi = 0; fi < module.Functions.Count; fi++)
+        {
+            Ir.Function function = module.Functions[fi];
+            IReadOnlyList<Ir.Ins> body = function.Body;
+            var live = IrLiveness.Of(body, s => size.GetValueOrDefault(s, 0));
+            var paramSyms = new HashSet<string>(function.Params.Select(static p => IrLiveness.BaseSymbol(p.Sym)), StringComparer.Ordinal);
+            var savedSyms = new HashSet<string>(function.Saved.Select(static o => IrLiveness.BaseSymbol(o.Sym)), StringComparer.Ordinal);
+            Dictionary<string, List<(int Start, int End)>>? functionPlan = null;
+            foreach (string sym in Symbols(body))
+            {
+                if (map.ContainsKey(sym) || extent.GetValueOrDefault(sym) is < 1 or > 2 || !size.ContainsKey(sym)
+                    || !owner.TryGetValue(sym, out int o) || o != fi
+                    || paramSyms.Contains(sym) || savedSyms.Contains(sym) || blocked.Contains(sym))
+                {
+                    continue;
+                }
+
+                List<(int Start, int End)> runs = Runs(live, body.Count, sym);
+                if (runs.Count < 2)
+                {
+                    continue;
+                }
+
+                (functionPlan ??= [])[sym] = runs.GetRange(1, runs.Count - 1);
+            }
+
+            if (functionPlan is not null)
+            {
+                plan[fi] = functionPlan;
+            }
+        }
+
+        return plan;
+    }
+
+    /// <summary>Buduje moduł z wydzielonymi przedziałami wg planu, o ile <paramref name="keep"/> pozwala na dany symbol
+    /// (użyte do odrzucenia splitu, gdy któryś potomny symbol nie dostał rejestru).</summary>
+    private static Ir.Module BuildSplit(Ir.Module module, Dictionary<string, int> size, Dictionary<int, Dictionary<string, List<(int Start, int End)>>> plan, Func<int, string, bool> keep)
+    {
+        var data = new List<Ir.Data>(module.Data);
+        var functions = new List<Ir.Function>(module.Functions.Count);
+        for (int fi = 0; fi < module.Functions.Count; fi++)
+        {
+            Ir.Function function = module.Functions[fi];
+            IReadOnlyList<Ir.Ins> body = function.Body;
+            var aliases = new Dictionary<int, Dictionary<string, string>>();
+            if (plan.TryGetValue(fi, out Dictionary<string, List<(int Start, int End)>>? functionPlan))
+            {
+                foreach ((string sym, List<(int Start, int End)> tails) in functionPlan)
+                {
+                    if (!keep(fi, sym))
+                    {
+                        continue;
+                    }
+
+                    for (int t = 0; t < tails.Count; t++)
+                    {
+                        string nsym = $"{sym}_s{t + 1}";
+                        data.Add(new Ir.Data(nsym, "BSS", size.GetValueOrDefault(sym), null, false));
+                        for (int i = tails[t].Start; i <= tails[t].End; i++)
+                        {
+                            if (!aliases.TryGetValue(i, out Dictionary<string, string>? alias))
+                            {
+                                aliases[i] = alias = new Dictionary<string, string>(StringComparer.Ordinal);
+                            }
+
+                            alias[sym] = nsym;
+                        }
+                    }
+                }
+            }
+
+            if (aliases.Count == 0)
+            {
+                functions.Add(function);
+                continue;
+            }
+
+            var rewritten = new List<Ir.Ins>(body.Count);
+            for (int i = 0; i < body.Count; i++)
+            {
+                rewritten.Add(aliases.TryGetValue(i, out Dictionary<string, string>? alias) ? Rename(body[i], alias) : body[i]);
+            }
+
+            functions.Add(function with { Body = rewritten });
+        }
+
+        return module with { Functions = functions, Data = data };
+    }
+
+    /// <summary>Symbole bazowe komórek użyte w ciele funkcji.</summary>
+    private static IEnumerable<string> Symbols(IReadOnlyList<Ir.Ins> body)
+    {
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+        foreach (Ir.Ins ins in body)
+        {
+            foreach (Ir.Op op in IrFacts.Operands(ins))
+            {
+                string? sym = op switch
+                {
+                    Ir.Cell cell => IrLiveness.BaseSymbol(cell.Sym),
+                    Ir.AddrOf address => IrLiveness.BaseSymbol(address.Sym),
+                    _ => null,
+                };
+                if (sym is not null)
+                {
+                    seen.Add(sym);
+                }
+            }
+        }
+
+        return seen;
+    }
+
+    /// <summary>Rozłączne przedziały (start, koniec) instrukcji, w których symbol jest żywy.</summary>
+    private static List<(int Start, int End)> Runs(IrLiveness live, int count, string sym)
+    {
+        var runs = new List<(int Start, int End)>();
+        int start = -1;
+        for (int i = 0; i < count; i++)
+        {
+            bool on = live.LiveIn(i).Contains(sym) || live.LiveOut(i).Contains(sym);
+            if (on && start < 0)
+            {
+                start = i;
+            }
+            else if (!on && start >= 0)
+            {
+                runs.Add((start, i - 1));
+                start = -1;
+            }
+        }
+
+        if (start >= 0)
+        {
+            runs.Add((start, count - 1));
+        }
+
+        return runs;
+    }
+
+    /// <summary>Podmienia symbole komórek w instrukcji.</summary>
+    private static Ir.Ins Rename(Ir.Ins ins, Dictionary<string, string> alias) => ins switch
+    {
+        Ir.Mov mov => new Ir.Mov(Rename(mov.Dst, alias), RenameOp(mov.Src, alias)),
+        Ir.Bin bin => bin with { Dst = Rename(bin.Dst, alias), A = RenameOp(bin.A, alias), B = RenameOp(bin.B, alias) },
+        Ir.Un un => un with { Dst = Rename(un.Dst, alias), A = RenameOp(un.A, alias) },
+        Ir.Load load => load with { Dst = Rename(load.Dst, alias), Ptr = RenameOp(load.Ptr, alias) },
+        Ir.Store store => store with { Ptr = RenameOp(store.Ptr, alias), Value = RenameOp(store.Value, alias) },
+        Ir.LoadIdx load => load with { Dst = Rename(load.Dst, alias), Index = Rename(load.Index, alias) },
+        Ir.StoreIdx store => store with { Index = Rename(store.Index, alias), Value = RenameOp(store.Value, alias) },
+        Ir.CopyBlock copy => copy with { Dst = RenameOp(copy.Dst, alias), Src = RenameOp(copy.Src, alias) },
+        Ir.Fill fill => fill with { Dst = RenameOp(fill.Dst, alias) },
+        Ir.BrCmp branch => branch with { A = RenameOp(branch.A, alias), B = RenameOp(branch.B, alias) },
+        Ir.Ret ret => ret with { Value = ret.Value is null ? null : RenameOp(ret.Value, alias) },
+        Ir.Call call => call with
+        {
+            Indirect = call.Indirect is null ? null : Rename(call.Indirect, alias),
+            Args = [.. call.Args.Select(a => RenameOp(a, alias))],
+            Result = call.Result is null ? null : Rename(call.Result, alias),
+        },
+        _ => ins,
+    };
+
+    private static Ir.Cell Rename(Ir.Cell cell, Dictionary<string, string> alias) =>
+        alias.TryGetValue(cell.Sym, out string? sym) ? cell with { Sym = sym } : cell;
+
+    private static Ir.Op RenameOp(Ir.Op op, Dictionary<string, string> alias) => op is Ir.Cell cell ? Rename(cell, alias) : op;
+
+    /// <summary>Analiza modułu dla przydziału: symbole zablokowane, właściciel (jedna funkcja), zakres bajtów i rozmiar obiektu.</summary>
+    /// <param name="module">Moduł.</param>
+    /// <returns>Zablokowane, właściciele, zakresy, rozmiary.</returns>
+    private static (HashSet<string> Blocked, Dictionary<string, int> Owner, Dictionary<string, int> Extent, Dictionary<string, int> Size) Analyze(Ir.Module module)
+    {
         var blocked = new HashSet<string>(StringComparer.Ordinal);
         var owner = new Dictionary<string, int>(StringComparer.Ordinal);
         var extent = new Dictionary<string, int>(StringComparer.Ordinal);
@@ -74,12 +282,33 @@ internal static class RegisterAllocator
             }
         }
 
-        blocked.UnionWith(module.Data.Where(static d => d.Init is not null).SelectMany(static d => d.Init!.OfType<Ir.SymWord>()).Select(static w => IrLiveness.BaseSymbol(w.Sym)));
+        var size = new Dictionary<string, int>(StringComparer.Ordinal);
+        foreach (Ir.Data data in module.Data)
+        {
+            if (data.Sym.Length > 0)
+            {
+                size[data.Sym] = Math.Max(size.GetValueOrDefault(data.Sym), data.Size);
+                if (data.Init is not null)
+                {
+                    blocked.UnionWith(data.Init.OfType<Ir.SymWord>().Select(static w => IrLiveness.BaseSymbol(w.Sym)));
+                }
+            }
+        }
+
         blocked.UnionWith(module.ExternCells.Select(IrLiveness.BaseSymbol));
         if (module.Volatile is not null)
         {
             blocked.UnionWith(module.Volatile.Select(IrLiveness.BaseSymbol));
         }
+
+        return (blocked, owner, extent, size);
+    }
+
+    private static (Dictionary<string, string> Map, Dictionary<Ir.Call, List<string>> Saves) Allocate(Ir.Module module, ByteIsa isa)
+    {
+        ArgumentNullException.ThrowIfNull(module);
+        ArgumentNullException.ThrowIfNull(isa);
+        (HashSet<string> blocked, Dictionary<string, int> owner, Dictionary<string, int> extent, _) = Analyze(module);
 
         var candidates = new Dictionary<int, List<string>>();
         foreach (Ir.Data data in module.Data)
