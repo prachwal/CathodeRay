@@ -13,7 +13,8 @@
     <ContinuousIntegrationBuild Condition="'$(GITHUB_ACTIONS)' == 'true'">true</ContinuousIntegrationBuild>
     <!-- Włącza analizę /// (CS1591) i reguły dokumentacyjne StyleCop (strict). -->
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
-    <!-- Bez nagłówków plików (brak takiej zasady w tym repo). -->
-    <NoWarn>$(NoWarn);SA1633;SA1635</NoWarn>
+    <!-- Bez nagłówków plików (brak takiej zasady w tym repo). CS8524 (nienazwane wartości enuma) wyciszony,
+         żeby wyczerpujące switch-expression na enumach IR wymuszały obsługę nowych wartości przez CS8509. -->
+    <NoWarn>$(NoWarn);SA1633;SA1635;CS8524</NoWarn>
   </PropertyGroup>
 </Project>

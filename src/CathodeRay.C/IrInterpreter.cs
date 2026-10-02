@@ -249,7 +249,7 @@ public sealed class IrInterpreter
                 case Ir.Un un:
                 {
                     long a = Get(un.A, local);
-                    Put(un.Dst, un.Kind == Ir.UnOp.Neg ? -a : ~a, local);
+                    Put(un.Dst, un.Kind switch { Ir.UnOp.Neg => -a, Ir.UnOp.Cpl => ~a }, local);
                     break;
                 }
 
@@ -351,48 +351,24 @@ public sealed class IrInterpreter
         long a = Get(bin.A, local);
         long b = Get(bin.B, local);
         int bits = width * 8;
-        switch (bin.Kind)
+        long sa = Signed(a, WidthOf(bin.A));
+        long sb = Signed(b, WidthOf(bin.B));
+        return bin.Kind switch
         {
-            case Ir.BinOp.Add:
-                return a + b;
-            case Ir.BinOp.Sub:
-                return a - b;
-            case Ir.BinOp.And:
-                return a & b;
-            case Ir.BinOp.Or:
-                return a | b;
-            case Ir.BinOp.Xor:
-                return a ^ b;
-            case Ir.BinOp.Mul:
-                return a * b;
-            case Ir.BinOp.Shl:
-                return (b & 0xFF) >= bits ? 0 : a << (int)(b & 0xFF);
-            case Ir.BinOp.Shr:
-                return (b & 0xFF) >= bits ? 0 : a >> (int)(b & 0xFF);
-            case Ir.BinOp.Sar:
-            {
-                long signed = Signed(a, WidthOf(bin.A));
-                return signed >> (int)Math.Min(b & 0xFF, 31);
-            }
-
-            case Ir.BinOp.Div:
-                return b == 0 ? 0 : a / b;
-            case Ir.BinOp.Mod:
-                return b == 0 ? 0 : a % b;
-            case Ir.BinOp.DivS:
-            {
-                long sa = Signed(a, WidthOf(bin.A));
-                long sb = Signed(b, WidthOf(bin.B));
-                return sb == 0 ? 0 : sa / sb;
-            }
-
-            default:
-            {
-                long sa = Signed(a, WidthOf(bin.A));
-                long sb = Signed(b, WidthOf(bin.B));
-                return sb == 0 ? 0 : sa % sb;
-            }
-        }
+            Ir.BinOp.Add => a + b,
+            Ir.BinOp.Sub => a - b,
+            Ir.BinOp.And => a & b,
+            Ir.BinOp.Or => a | b,
+            Ir.BinOp.Xor => a ^ b,
+            Ir.BinOp.Mul => a * b,
+            Ir.BinOp.Shl => (b & 0xFF) >= bits ? 0 : a << (int)(b & 0xFF),
+            Ir.BinOp.Shr => (b & 0xFF) >= bits ? 0 : a >> (int)(b & 0xFF),
+            Ir.BinOp.Sar => sa >> (int)Math.Min(b & 0xFF, 31),
+            Ir.BinOp.Div => b == 0 ? 0 : a / b,
+            Ir.BinOp.Mod => b == 0 ? 0 : a % b,
+            Ir.BinOp.DivS => sb == 0 ? 0 : sa / sb,
+            Ir.BinOp.ModS => sb == 0 ? 0 : sa % sb,
+        };
     }
 
     private bool Compare(Ir.BrCmp branch, Dictionary<string, int> local)
@@ -414,7 +390,7 @@ public sealed class IrInterpreter
             Ir.Cond.Lt or Ir.Cond.Ltu => a < b,
             Ir.Cond.Le or Ir.Cond.Leu => a <= b,
             Ir.Cond.Gt or Ir.Cond.Gtu => a > b,
-            _ => a >= b,
+            Ir.Cond.Ge or Ir.Cond.Geu => a >= b,
         };
     }
 }
