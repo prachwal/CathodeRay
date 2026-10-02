@@ -37,6 +37,12 @@
       "title": "[S] Pomiary i zamknięcie: compare.py, target-sizes, vreg-sizes; ujednolicić docs/codegen-size-and-hl-plan.md i docs/targets.md (stare 95 B i 1.7x/3.6x) z compare.md; potwierdzić zamknięcie planu 40 (itemy 2, 6, 8, 9); render + hygiene; commit Dodatkowo: pomiar wołaniowych Z80 (05_calls) vs wzorzec ABI v2 — warunek wznowienia planu 39 poz. 4 (>=15%).",
       "status": "todo",
       "note": "RST odrzucone świadomie (nie odroczone): ~5 site'ów w div16 (wiersz spoza średniej) vs strona 0 + wektory + emulator + harness; powrót tylko gdyby wiersze * weszły do średniej."
+    },
+    {
+      "id": "7",
+      "title": "[M] Lepszy podzial przedzialow zywotnosci (domkniecie poz. 4): koloruj najpierw, potem dziel komorke z wieloma przedzialami TYLKO gdy po splicie kazdy nowy symbol dostaje rejestr; inaczej scal z powrotem, zeby nie tworzyc martwych komorek BSS. Cel: fib bez spillu przy zerowych wzrostach (mean/SDCC <= 1.14), fuzz/suita zielone. Punkt wyjscia: SplitRanges z cofnietej proby (osobny symbol per przedzial + rename w IR).",
+      "status": "todo",
+      "note": ""
     }
   ]
 }
