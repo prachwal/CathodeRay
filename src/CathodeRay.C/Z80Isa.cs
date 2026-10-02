@@ -680,12 +680,15 @@ internal sealed partial class Z80Isa : ByteIsa
 
     /// <summary>Rozmiar instrukcji w bajtach dla form, które emituje selektor; nieznana forma liczy się jako 4 B (najdłuższa
     /// bez IX/IY), bo zawyżenie tylko osłabia relaksację, a zaniżenie dałoby <c>jr</c> poza zasięgiem.</summary>
-    private static int Size(string line)
+    private static int Size(string line) => Size(AsmInsn.ParseLine(line));
+
+    /// <summary>Jak <see cref="Size(string)"/>, ale na rozłożonej linii (bez ponownego parsowania tekstu).</summary>
+    /// <param name="ins">Linia.</param>
+    /// <returns>Rozmiar w bajtach.</returns>
+    private static int Size(AsmInsn ins)
     {
-        string text = line.Trim().ToLowerInvariant();
-        int space = text.IndexOf(' ', StringComparison.Ordinal);
-        string op = space < 0 ? text : text[..space];
-        string[] args = space < 0 ? [] : text[(space + 1)..].Replace(" ", string.Empty, StringComparison.Ordinal).Split(',');
+        string op = ins.Mnemonic?.ToLowerInvariant() ?? string.Empty;
+        string[] args = ins.Mnemonic is null ? [] : ins.Operands.ToLowerInvariant().Replace(" ", string.Empty, StringComparison.Ordinal).Split(',');
         string last = args.Length == 0 ? string.Empty : args[^1];
         return op switch
         {

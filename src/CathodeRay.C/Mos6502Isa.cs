@@ -514,16 +514,20 @@ internal sealed class Mos6502Isa : ByteIsa
     };
 
     /// <summary>Rozmiar instrukcji 6502 w bajtach (do relaksacji skoków).</summary>
-    private static int Size(string line)
+    private static int Size(string line) => Size(AsmInsn.ParseLine(line));
+
+    /// <summary>Jak <see cref="Size(string)"/>, ale na rozłożonej linii (bez ponownego parsowania tekstu).</summary>
+    /// <param name="ins">Linia (tu docierają tylko instrukcje — puste, komentarze i etykiety filtruje wołający).</param>
+    /// <returns>Rozmiar w bajtach.</returns>
+    private static int Size(AsmInsn ins)
     {
-        string[] parts = line.Split(' ', 2, StringSplitOptions.RemoveEmptyEntries);
-        string mnemonic = parts[0];
-        if (parts.Length == 1)
+        string mnemonic = ins.Mnemonic ?? string.Empty;
+        if (ins.Gap.Length == 0)
         {
             return 1;
         }
 
-        string operand = parts[1];
+        string operand = ins.Operands;
         if (mnemonic is "jmp" or "jsr")
         {
             return 3;

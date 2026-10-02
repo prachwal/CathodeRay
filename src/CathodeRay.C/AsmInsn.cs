@@ -20,8 +20,7 @@ internal readonly record struct AsmInsn(string Indent, string? Label, string Gap
     /// <returns>Tekst linii z terminatorem.</returns>
     public readonly string Emit() => Indent + Label + Gap1 + (Mnemonic is null ? string.Empty : Mnemonic + Gap + Operands) + Comment + Newline;
 
-    /// <summary>Dzieli tekst na linie (<see cref="AsmInsn"/>).</summary>
-    /// <param name="text">Tekst asemblera.</param>
+    /// <summary>Dzieli tekst na linie (<see cref="AsmInsn"/>).</summary>    /// <param name="text">Tekst asemblera.</param>
     /// <returns>Linie w kolejności.</returns>
     public static AsmInsn[] ParseAll(string text)
     {
@@ -69,6 +68,21 @@ internal readonly record struct AsmInsn(string Indent, string? Label, string Gap
         }
 
         return text.ToString();
+    }
+
+    /// <summary>Dzieli pojedynczą linię (bez terminatora) na <see cref="AsmInsn"/>.</summary>
+    /// <param name="line">Linia bez <c>\r\n</c> (końcowy <c>\r</c> zdjęty jak w <c>Trim</c>).</param>
+    /// <returns>Linia.</returns>
+    /// <exception cref="InvalidOperationException">Linia nie pasuje do gramatyki.</exception>
+    public static AsmInsn ParseLine(string line)
+    {
+        string stripped = line.TrimEnd('\r', '\n');
+        if (!TryParse(stripped, string.Empty, out AsmInsn ins))
+        {
+            throw new InvalidOperationException($"AsmInsn nie parsuje linii: '{line}'.");
+        }
+
+        return ins;
     }
 
     private static bool TryParse(string line, string newline, out AsmInsn ins)
