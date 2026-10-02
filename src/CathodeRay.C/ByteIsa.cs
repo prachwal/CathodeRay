@@ -29,10 +29,6 @@ internal abstract class ByteIsa
     /// <summary>CPU ma adresowanie indeksowane z 8-bitowym rejestrem indeksowym (<see cref="Ir.LoadIdx"/>).</summary>
     public virtual bool SupportsIndexed => false;
 
-    /// <summary>CPU ma flagę przepełnienia po odejmowaniu (wynik ze znakiem to S xor V): selektor nie odwraca najstarszych bajtów
-    /// przy porównaniu ze znakiem (bias <c>xor 80h</c>), tylko odejmuje (SUB/SBC, nie CMP) i woła <see cref="JumpIfSigned"/>.</summary>
-    public virtual bool HasOverflowFlag => false;
-
     /// <summary>Wynik funkcji o szerokości 1 lub 2 wraca w rejestrze CPU (Z80/8080: HL, dla 1 bajtu L), nie w <c>cc_ret</c>;
     /// crt0 po <c>call main</c> zapisuje go do <c>cc_ret</c>. Domyślnie <see langword="false"/>.</summary>
     public virtual bool ReturnsInResultReg => false;
@@ -80,7 +76,7 @@ internal abstract class ByteIsa
     /// <param name="cond">Warunek w postaci <c>wartość cond 0</c>.</param>
     /// <param name="target">Etykieta docelowa.</param>
     /// <returns><see langword="true"/>, gdy sekwencja została wyemitowana.</returns>
-    public virtual bool TryBranchZeroSigned(Word value, Ir.Cond cond, string target) => false;
+    public abstract bool TryBranchZeroSigned(Word value, Ir.Cond cond, string target);
 
     /// <summary>Lokalizacja argumentu: rejestr z <see cref="CpuModel.ArgRegs"/> (ABI v2)
     /// albo komórka <c>cc_argN</c> (ABI v1 — gdy model nie zna rejestrów).</summary>
@@ -390,17 +386,6 @@ internal abstract class ByteIsa
     /// <returns>Wynik jawny (<see cref="WordResult"/>).</returns>
     public virtual WordResult TryShlWord1(Word dst, Word src) => new(false, false);
 
-    /// <summary>Skoki po porównaniu ze znakiem ze stałą 16-bitową (odejmowanie już wyemitowane przez selektor,
-    /// spadek = gałąź else). Przepełnienie (V) rozstrzyga samo tam, gdzie jego sens zgadza się z gałęzią prawdy;
-    /// w przeciwną stronę wołający materializuje pustą etykietę else — i tak taniej niż trampolina S^V.
-    /// Wołane tylko dla <c>Lt</c>/<c>Ge</c> (resztę selektor sprowadza do nich przez +1).
-    /// Domyślnie <see langword="false"/>: selektor używa trampoliny <see cref="JumpIfSigned"/>.</summary>
-    /// <param name="less">Skok przy <c>x &lt; C</c>; inaczej przy <c>x &gt;= C</c>.</param>
-    /// <param name="constant">Stała (ze znakiem, -32768..32767).</param>
-    /// <param name="target">Etykieta gałęzi prawdy.</param>
-    /// <returns><see langword="true"/>, gdy sekwencja została wyemitowana.</returns>
-    public virtual bool TryBranchSignedConst(bool less, int constant, string target) => false;
-
     /// <summary>Dodawanie albo odejmowanie liczb 32-bitowych <c>dst ← a ± b</c> podanych jako połówki (młodsza, starsza) jedną
     /// sekwencją CPU z przeniesieniem między połówkami, bez zmiany A (flagi po niej nieokreślone). Domyślnie <see langword="false"/>:
     /// selektor liczy łańcuchem bajtów przez A.</summary>
@@ -410,12 +395,6 @@ internal abstract class ByteIsa
     /// <param name="subtract"><see langword="true"/>: <c>a - b</c>.</param>
     /// <returns><see langword="true"/>, gdy sekwencja została wyemitowana.</returns>
     public virtual bool TryAddLong((Word Lo, Word Hi) dst, (Word Lo, Word Hi) a, (Word Lo, Word Hi) b, bool subtract) => false;
-
-    /// <summary>Skok po odejmowaniu ze znakiem <c>x - y</c> (A = najstarszy bajt różnicy, flagi S i V po nim); może zmienić A.
-    /// Wołane tylko, gdy <see cref="HasOverflowFlag"/>.</summary>
-    /// <param name="less"><see langword="true"/>: skok, gdy <c>x &lt; y</c>; inaczej, gdy <c>x &gt;= y</c>.</param>
-    /// <param name="label">Etykieta.</param>
-    public virtual void JumpIfSigned(bool less, string label) => throw new NotSupportedException();
 
     /// <summary>Zamienia tekst od znacznika na jego wersję po relaksacji skoków (krótkie skoki warunkowe tam, gdzie cel jest w zasięgu).</summary>
     /// <param name="mark">Znacznik z <see cref="Mark"/>.</param>

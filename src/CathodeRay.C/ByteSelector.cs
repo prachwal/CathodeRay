@@ -996,8 +996,8 @@ internal sealed class ByteSelector
             return;
         }
 
-        if (signed && width == 2 && _isa.HasOverflowFlag
-            && EmitBranchSignedConst(cond, branch.A, branch.B, width, target))
+        if (signed && width == 2 && _isa is ISignedBranch signedIsa
+            && EmitBranchSignedConst(signedIsa, cond, branch.A, branch.B, width, target))
         {
             return;
         }
@@ -1006,7 +1006,7 @@ internal sealed class ByteSelector
         bool onBorrow = cond is Ir.Cond.Lt or Ir.Cond.Gt or Ir.Cond.Ltu or Ir.Cond.Gtu;
         Ir.Op x = swap ? branch.B : branch.A;
         Ir.Op y = swap ? branch.A : branch.B;
-        bool overflow = signed && _isa.HasOverflowFlag;
+        bool overflow = signed && _isa is ISignedBranch;
         bool bias = signed && !overflow;
         Octet[] xs;
         bool biasX = false;
@@ -1024,7 +1024,7 @@ internal sealed class ByteSelector
 
         if (overflow)
         {
-            _isa.JumpIfSigned(onBorrow, target);
+            ((ISignedBranch)_isa).JumpIfSigned(onBorrow, target);
             return;
         }
 
@@ -1063,13 +1063,14 @@ internal sealed class ByteSelector
     /// ze stałą po prawej (<c>Le</c>/<c>Gt</c> przez +1, gdy wynik mieści się w int), odejmowanie wspólną pętlą
     /// i skoki prymitywem bez trampoliny (V rozstrzyga samo). Zwraca <c>false</c> (wołający idzie starą drogą),
     /// gdy brak stałej W2 albo +1 nielegalne.</summary>
+    /// <param name="isa">ISA ze zdolnością <see cref="ISignedBranch"/>.</param>
     /// <param name="cond">Warunek.</param>
     /// <param name="a">Lewy operand.</param>
     /// <param name="b">Prawy operand.</param>
     /// <param name="width">Szerokość (zawsze 2).</param>
     /// <param name="target">Etykieta gałęzi prawdy (spadek to fałsz).</param>
     /// <returns>Czy wyemitowano porównanie.</returns>
-    private bool EmitBranchSignedConst(Ir.Cond cond, Ir.Op a, Ir.Op b, int width, string target)
+    private bool EmitBranchSignedConst(ISignedBranch isa, Ir.Cond cond, Ir.Op a, Ir.Op b, int width, string target)
     {
         // Stała jako Imm W1/W2 (węższe ujemne nie docierają tu: promocja typów poszerza je ze znakiem
         // do W2 wcześniej, co widać po sub/sbc z pełnym 0xFFFF dla -1); wartość z bajtów faktycznie
@@ -1111,9 +1112,9 @@ internal sealed class ByteSelector
         Octet[] xs = [ByteOf(constLeft ? b : a, 0), ByteOf(constLeft ? b : a, 1)];
         Octet[] ys = [new Octet(true, Number(adjusted & 0xFF)), new Octet(true, Number((adjusted >> 8) & 0xFF))];
         EmitSubBytes(xs, ys, width, overflow: true, biasX: false);
-        if (!_isa.TryBranchSignedConst(less, adjusted, target))
+        if (!isa.TryBranchSignedConst(less, adjusted, target))
         {
-            _isa.JumpIfSigned(less, target);
+            isa.JumpIfSigned(less, target);
         }
 
         return true;

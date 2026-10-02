@@ -5,7 +5,7 @@ namespace CathodeRay.C;
 
 /// <summary>Prymitywy Z80 (składnia Zilog): A jako akumulator, HL jako rejestr adresowy (operandy pamięciowe ALU przez
 /// <c>LD HL,adres; op A,(HL)</c>, wskaźniki przez <c>LD HL,(komórka)</c>), zapis/odczyt komórek przez <c>LD A,(adres)</c>.</summary>
-internal sealed partial class Z80Isa : ByteIsa, ICopyLoop
+internal sealed partial class Z80Isa : ByteIsa, ICopyLoop, ISignedBranch
 {
     private static readonly HashSet<string> ReservedNames = new(
         ["A", "B", "C", "D", "E", "H", "L", "I", "R", "AF", "BC", "DE", "HL", "SP", "IX", "IY", "IXH", "IXL", "IYH", "IYL", "NZ", "Z", "NC", "PO", "PE", "P", "M", "LOW", "HIGH", "MOD", "SHL", "SHR", "AND", "OR", "XOR", "NOT"],
@@ -19,7 +19,7 @@ internal sealed partial class Z80Isa : ByteIsa, ICopyLoop
 
     public override IReadOnlyList<string> CellPairs { get; } = ["bc", "de"];
 
-    public override bool HasOverflowFlag => true;
+    public bool HasOverflowFlag => true;
 
     public override bool ReturnsInResultReg => true;
 
@@ -416,7 +416,7 @@ internal sealed partial class Z80Isa : ByteIsa, ICopyLoop
     /// <summary>S xor V po odejmowaniu: przy przepełnieniu (P/V = 1) odwraca bit znaku A, wtedy S niesie wynik.</summary>
     /// <param name="less">Skok przy <c>x &lt; y</c> (<c>jp m</c>), inaczej przy <c>x &gt;= y</c> (<c>jp p</c>).</param>
     /// <param name="label">Etykieta.</param>
-    public override void JumpIfSigned(bool less, string label)
+    public void JumpIfSigned(bool less, string label)
     {
         string skip = LocalLabel();
         L($"jp po,{skip}");
@@ -433,7 +433,7 @@ internal sealed partial class Z80Isa : ByteIsa, ICopyLoop
     /// <param name="constant">Stała ze znakiem.</param>
     /// <param name="target">Etykieta gałęzi prawdy (spadek to fałsz).</param>
     /// <returns>Zawsze <see langword="true"/>.</returns>
-    public override bool TryBranchSignedConst(bool less, int constant, string target)
+    public bool TryBranchSignedConst(bool less, int constant, string target)
     {
         string sign = less ? $"jp m,{target}" : $"jp p,{target}";
         if (constant == 0)
