@@ -1,12 +1,12 @@
 {
   "title": "Z80/8080 szlifowanie po refaktorze (plan 41): rejestry z liveness, tail-join, caller-saved, DJNZ (domyka itemy 2, 6, 8, 9 planu 40)",
-  "status": "queued",
+  "status": "active",
   "items": [
     {
       "id": "1",
       "title": "[S] Warunek startu: plan 41 (refaktor) zamknięty, HEAD zielony, goldeny czyste, tools/listing-diff.sh działa. Brak = nie ruszać pozycji niżej.",
-      "status": "todo",
-      "note": ""
+      "status": "done",
+      "note": "Spelnione przed startem: plan 41 zamkniety 12/12; HEAD zielony (pelna suita 3288/3288); goldeny czyste (git status pusty; siatka HEAD-vs-387aa82 IDENTICAL); tools/listing-diff.sh dziala. Plan 32 (6502 perf) odlozony do queued, zeby 42 mogl byc active."
     },
     {
       "id": "2",
