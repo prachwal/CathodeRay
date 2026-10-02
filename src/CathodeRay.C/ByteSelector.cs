@@ -314,7 +314,7 @@ internal sealed class ByteSelector
 
     private string Dst(Ir.Cell cell, int index) => _isa.Loc(cell.Sym, cell.W, index);
 
-    /// <summary>Operand jako słowo 16-bitowe dla <see cref="ByteIsa.TryMoveWord"/> albo <see langword="null"/> (komórka węższa, <c>volatile</c>).</summary>
+    /// <summary>Operand jako słowo 16-bitowe dla <see cref="IPairMoves.TryMoveWord"/> albo <see langword="null"/> (komórka węższa, <c>volatile</c>).</summary>
     private Word? WordOf(Ir.Op op) => op switch
     {
         Ir.Cell { W: 2 } cell => Pair(Dst(cell, 0), Dst(cell, 1)),
@@ -338,7 +338,7 @@ internal sealed class ByteSelector
     /// <summary>Kopia słowa przez ISA; A się nie zmienia, ale bajty celu już nie są równe A.</summary>
     private bool TryMoveWord(Word? dst, Word? src)
     {
-        if (dst is not { } target || src is not { } source || !_isa.TryMoveWord(target, source))
+        if (dst is not { } target || src is not { } source || _isa is not IPairMoves pairMoves || !pairMoves.TryMoveWord(target, source))
         {
             return false;
         }

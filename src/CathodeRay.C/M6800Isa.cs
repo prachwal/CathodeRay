@@ -7,7 +7,7 @@ namespace CathodeRay.C;
 /// big-endian (komórka 2-bajtowa: starszy bajt pod <c>sym</c>, więc <c>LDX komórka</c> ładuje wskaźnik). Komórki na stronie
 /// bezpośredniej (<c>$00xx</c>) dostają przedrostek <c>z:</c>, ale tylko w instrukcjach z trybem bezpośrednim (INC/DEC/TST/CLR/NEG/COM
 /// i przesunięcia pamięci go nie mają, więc zostają przy adresie rozszerzonym).</summary>
-internal sealed class M6800Isa : ByteIsa
+internal sealed class M6800Isa : ByteIsa, IPairMoves
 {
     private static readonly HashSet<string> ReservedNames = new(["A", "B", "X"], StringComparer.OrdinalIgnoreCase);
 
@@ -194,7 +194,7 @@ internal sealed class M6800Isa : ByteIsa
     /// <param name="dst">Cel.</param>
     /// <param name="src">Źródło.</param>
     /// <returns><see langword="false"/>, gdy któraś strona nie jest słowem big-endian w pamięci.</returns>
-    public override bool TryMoveWord(Word dst, Word src)
+    public bool TryMoveWord(Word dst, Word src)
     {
         if (!InMemory(dst) || !(src.IsImmediate || InMemory(src)))
         {
