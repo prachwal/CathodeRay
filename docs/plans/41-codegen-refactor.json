@@ -59,8 +59,8 @@
     {
       "id": "10",
       "title": "[S] Podział ByteSelector (1537 linii) na partiale: prolog/stopka, wołania, skoki, matchery. Wyłącznie mechaniczne przeniesienie (git diff -M = same przesunięcia), pliki do ~400 linii. Akceptacja: diff listingów vs baseline pusty, build -warnaserror, test celowany zielony. RegCall/HasRegParams i ścieżka v2 trafiają do partiala wołań/prologu.",
-      "status": "todo",
-      "note": ""
+      "status": "done",
+      "note": "Zrobione: ByteSelector (1818 linii, 1 plik) -> 6 partiali (wszystkie <400): ByteSelector.cs (core: pola/ctor/static helpers/prymitywy/TryMoveWord, 350), ByteSelector.Ins.cs (EmitIns..EmitStore, 355), ByteSelector.Call.cs (EmitCallArgs..EmitRet, 293), ByteSelector.Branch.cs (TryBranchZeroSigned..BiasedBytes, 259), ByteSelector.Frame.cs (EmitFunction/EmitFunctionBody/intake/stopka, 233), ByteSelector.Loop.cs (TryEmitCopyLoop/TryEmitTailCall, 213), ByteSelector.Module.cs (Header/Print*/Append*, 157). Klasa -> `internal sealed partial class`; wylacznie mechaniczne przeniesienie (zmiana tylko deklaracji klasy i usuniecie pustych linii przed zamykajaca klamra). Bramki: build -warnaserror, siatka HEAD-vs-387aa82 IDENTICAL (v1+v2), pelna suita 3288/3288. Commit f6fd743."
     },
     {
       "id": "11",
