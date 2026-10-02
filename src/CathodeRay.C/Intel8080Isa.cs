@@ -443,45 +443,11 @@ internal sealed partial class Intel8080Isa : ByteIsa
         return text.ToString();
     }
 
-    /// <summary>Zmiany w tekście asemblera: usuwa martwy zapis wyniku do BC/DE tuż przed ret, potem usuwa zbędne przeniesienia bajtów (BC/DE ↔ HL po kopii).</summary>
-    /// <param name="text">Tekst funkcji.</param>
-    /// <returns>Tekst po zmianie.</returns>
-    internal static string Tidy(string text)
-    {
-        text = RedundantBcToHl().Replace(text, "$1");
-        text = RedundantDeToHl().Replace(text, "$1");
-        text = DeadBcBeforeRet().Replace(text, string.Empty);
-        text = DeadDeBeforeRet().Replace(text, string.Empty);
-        text = XorAfterLabel().Replace(text, "$1$2xra a");
-        text = XorAfterCall().Replace(text, "$1$2xra a");
-        return text;
-    }
-
     /// <summary>Usuwa skoki do etykiety tuż za nimi (<see cref="BranchRelaxer.DropJumpToNext"/>); 8080 nie ma krótkich skoków.
     /// Usuwa też zbędne przeniesienia bajtów (BC/DE ↔ HL po kopii).</summary>
     /// <param name="text">Tekst funkcji.</param>
     /// <returns>Tekst po zmianie.</returns>
-    protected override string Relax(string text) => BranchRelaxer.DropJumpToNext(Tidy(text));
-
-    [GeneratedRegex(@"(?m)^(\s*mov c,l\r?\n\s*mov b,h\r?\n)\s*mov l,c\r?\n\s*mov h,b\r?\n", RegexOptions.Multiline)]
-    private static partial Regex RedundantBcToHl();
-
-    [GeneratedRegex(@"(?m)^(\s*mov e,l\r?\n\s*mov d,h\r?\n)\s*mov l,e\r?\n\s*mov h,d\r?\n", RegexOptions.Multiline)]
-    private static partial Regex RedundantDeToHl();
-
-    [GeneratedRegex(@"(?m)^(\s*mov c,l\r?\n\s*mov b,h\r?\n)(?=(?:[ \t]*(?:[\w@.$]+:|;[^\r\n]*)[ \t]*\r?\n)*[ \t]*ret[ \t]*(?:\r?\n|$))", RegexOptions.Multiline)]
-    private static partial Regex DeadBcBeforeRet();
-
-    [GeneratedRegex(@"(?m)^(\s*mov e,l\r?\n\s*mov d,h\r?\n)(?=(?:[ \t]*(?:[\w@.$]+:|;[^\r\n]*)[ \t]*\r?\n)*[ \t]*ret[ \t]*(?:\r?\n|$))", RegexOptions.Multiline)]
-    private static partial Regex DeadDeBeforeRet();
-
-    /// <summary><c>mvi a,0</c> tuż za etykietą → <c>xra a</c> (1 B mniej); ten sam argument co w <c>Z80Isa</c>.</summary>
-    [GeneratedRegex(@"(?m)^([ \t]*[\w@.$]+:\r?\n(?:[ \t]*;[^\r\n]*\r?\n)*)([ \t]*)mvi a,0(?![\w])", RegexOptions.Multiline)]
-    private static partial Regex XorAfterLabel();
-
-    /// <summary><c>mvi a,0</c> tuż za bezwarunkowym <c>call</c> → <c>xra a</c>: wołany gubi flagi.</summary>
-    [GeneratedRegex(@"(?m)^([ \t]*call (?![np]?[zc],|p[eo],|[pm],)[^\r\n]*\r?\n(?:[ \t]*;[^\r\n]*\r?\n)*)([ \t]*)mvi a,0(?![\w])", RegexOptions.Multiline)]
-    private static partial Regex XorAfterCall();
+    protected override string Relax(string text) => BranchRelaxer.DropJumpToNext(AsmPeephole.Tidy8080(text));
 
     private static IEnumerable<string> CrtCells()
     {
