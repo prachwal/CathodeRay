@@ -38,6 +38,9 @@ public sealed class Mos6502Target : ByteTarget
     /// <inheritdoc/>
     public override string AssemblerCpu => (_nes || _ioPort) ? "6502" : Name;
 
+    /// <summary>ABI v2 tylko na NES (pilot planu 39).</summary>
+    public override bool SupportsAbiV2 => _nes;
+
     /// <inheritdoc/>
     public override TargetLayout Layout { get; } = new(
         [.. FlatLayout.Areas, new TargetArea("C_ZP", 0x0010, 0x00F0)],

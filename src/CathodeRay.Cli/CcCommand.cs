@@ -31,7 +31,8 @@ internal static partial class CcCommand
         var stats = new Option<bool>("--stats") { Description = "Wypisz rozmiary segmentów zlinkowanego programu." };
         var cpu = new Option<string>("--cpu") { Description = "Cel kompilatora: nazwa z rejestru celów (domyślnie stub).", DefaultValueFactory = _ => CTargets.Default.Name };
         var ir = new Option<string>("--ir") { Description = "Reprezentacja pośrednia: cell (domyślnie) albo vreg; --ir list wypisuje rodzaje.", DefaultValueFactory = _ => "cell" };
-        var command = new Command("cc", "Kompiluje program mini-C na wybrany cel (domyślnie stub): C→obiekt→link.") { inputs, output, format, listing, map, config, incdir, define, noStdlib, noOpt, werror, cpu, ir, stats };
+        var abi = new Option<string>("--abi") { Description = "Konwencja wołań: v1 (domyślnie) albo v2 (rejestry, tylko wybrane cele); --abi list wypisuje rodzaje.", DefaultValueFactory = _ => "v1" };
+        var command = new Command("cc", "Kompiluje program mini-C na wybrany cel (domyślnie stub): C→obiekt→link.") { inputs, output, format, listing, map, config, incdir, define, noStdlib, noOpt, werror, cpu, ir, abi, stats };
         command.SetAction(parse =>
         {
             TextWriter error = parse.InvocationConfiguration.Error;
@@ -49,6 +50,19 @@ internal static partial class CcCommand
             }
 
             bool vreg = irKind.Equals("vreg", StringComparison.OrdinalIgnoreCase);
+            string abiKind = parse.GetValue(abi)!;
+            if (abiKind == "list")
+            {
+                parse.InvocationConfiguration.Output.WriteLine("v1, v2");
+                return 0;
+            }
+
+            if (!abiKind.Equals("v1", StringComparison.OrdinalIgnoreCase) && !abiKind.Equals("v2", StringComparison.OrdinalIgnoreCase))
+            {
+                error.WriteLine($"cc: unknown ABI '{abiKind}' (available: v1, v2).");
+                return 1;
+            }
+
             FileInfo[] files = parse.GetRequiredValue(inputs);
             foreach (FileInfo input in files)
             {
@@ -82,15 +96,30 @@ internal static partial class CcCommand
                 return 1;
             }
 
+            bool useV2 = abiKind.Equals("v2", StringComparison.OrdinalIgnoreCase);
             AssemblerTarget target = AssemblerTargets.Find(cTarget.AssemblerCpu)!;
+            if (abiKind.Equals("v2", StringComparison.OrdinalIgnoreCase) && !cTarget.SupportsAbiV2)
+            {
+                string supported = string.Join(", ", CTargets.All.Where(static t => t.SupportsAbiV2).Select(static t => t.Name));
+                error.WriteLine($"cc: ABI 'v2' not implemented for '{cpuName}' (available: {supported}).");
+                return 1;
+            }
+
+            if (useV2 && (files.Count(static f => f.Extension.Equals(".c", StringComparison.OrdinalIgnoreCase)) != 1
+                || files.Any(static f => f.Extension.Equals(".s", StringComparison.OrdinalIgnoreCase))))
+            {
+                error.WriteLine("cc: ABI 'v2' pilot supports exactly one .c module and no .s inputs (register args are same-module only).");
+                return 1;
+            }
+
             var modules = new List<(string File, ObjectModule Module)>();
             var warningText = new StringWriter();
             try
             {
-                modules.Add(("crt0.s", AssembleObject(target, cTarget.Crt0, "crt0.s", _ => null, includePaths)));
+                modules.Add(("crt0.s", AssembleObject(target, cTarget.Crt0For(useV2), "crt0.s", _ => null, includePaths)));
                 foreach (FileInfo input in files)
                 {
-                    modules.Add((input.Name, AssembleModule(target, cTarget, input, includePaths, warningText, ParseDefines(parse.GetValue(define)!), !parse.GetValue(noOpt), vreg)));
+                    modules.Add((input.Name, AssembleModule(target, cTarget, input, includePaths, warningText, ParseDefines(parse.GetValue(define)!), !parse.GetValue(noOpt), vreg, useV2)));
                 }
 
                 if (!parse.GetValue(noStdlib))
@@ -261,10 +290,12 @@ internal static partial class CcCommand
             string source = next.Source;
             if (!next.IsAssembly)
             {
+                // Helpery C stdlib zawsze v1: wołający (RegCall) marszuje je przez cc_argN/cc_ret, więc ich
+                // prologi też muszą czytać pamięć (rejestry v2 są same-module).
                 CheckedProgram program = TypeChecker.Check(Parser.Parse(source, StdLib.HeaderReader));
                 source = vreg
-                    ? VRegPipeline.Emit(program, cTarget, next.Name, objectMode: true, optimize: optimize)
-                    : Codegen.Emit(program, cTarget, next.Name, objectMode: true, optimize: optimize);
+                    ? VRegPipeline.Emit(program, cTarget, next.Name, objectMode: true, optimize: optimize, abiV2: false)
+                    : Codegen.Emit(program, cTarget, next.Name, objectMode: true, optimize: optimize, abiV2: false);
             }
 
             modules.Add(($"<stdlib>/{next.Name}", AssembleObject(target, source, next.Name, _ => null, includePaths)));
@@ -286,7 +317,7 @@ internal static partial class CcCommand
     private static string Where(string? file, int line) =>
         file is null ? string.Empty : line > 0 ? $"{file}:{line}: " : $"{file}: ";
 
-    private static ObjectModule AssembleModule(AssemblerTarget target, ICTarget cTarget, FileInfo input, string[] includePaths, TextWriter warnings, Dictionary<string, string> defines, bool optimize, bool vreg)
+    private static ObjectModule AssembleModule(AssemblerTarget target, ICTarget cTarget, FileInfo input, string[] includePaths, TextWriter warnings, Dictionary<string, string> defines, bool optimize, bool vreg, bool abiV2)
     {
         string? dir = Path.GetDirectoryName(input.FullName);
         Func<string, string?> reader = path =>
@@ -312,8 +343,8 @@ internal static partial class CcCommand
             {
                 CheckedProgram program = TypeChecker.Check(Parser.Parse(File.ReadAllText(input.FullName), reader, defines));
                 asm = vreg
-                    ? VRegPipeline.Emit(program, cTarget, input.Name, objectMode: true, optimize: optimize)
-                    : Codegen.Emit(program, cTarget, input.Name, objectMode: true, optimize: optimize);
+                    ? VRegPipeline.Emit(program, cTarget, input.Name, objectMode: true, optimize: optimize, abiV2: abiV2)
+                    : Codegen.Emit(program, cTarget, input.Name, objectMode: true, optimize: optimize, abiV2: abiV2);
                 foreach (string warning in program.Warnings)
                 {
                     warnings.WriteLine($"{input.Name}: warning: {warning}");

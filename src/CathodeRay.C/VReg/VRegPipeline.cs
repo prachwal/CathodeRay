@@ -33,11 +33,12 @@ public static class VRegPipeline
     /// <param name="fileName">Nazwa pliku C do adnotacji <c>;c:</c> (null = sama linia).</param>
     /// <param name="objectMode">Tryb obiektowy (linker).</param>
     /// <param name="optimize">Optymalizacje celu.</param>
+    /// <param name="abiV2">Ścieżka ABI v2 (tylko cele z <see cref="ICTarget.SupportsAbiV2"/>).</param>
     /// <returns>Źródło dla asemblera celu.</returns>
-    public static string Emit(CheckedProgram program, ICTarget target, string? fileName = null, bool objectMode = false, bool optimize = true)
+    public static string Emit(CheckedProgram program, ICTarget target, string? fileName = null, bool objectMode = false, bool optimize = true, bool abiV2 = false)
     {
         ArgumentNullException.ThrowIfNull(program);
         ArgumentNullException.ThrowIfNull(target);
-        return target.Emit(Lower(program, fileName, objectMode, target.StackLimit, target.ByteOrder, target.CallSaveBytes), optimize);
+        return target.Emit(Lower(program, fileName, objectMode, target.StackLimit, target.ByteOrder, target.CallSaveBytes), optimize, abiV2);
     }
 }

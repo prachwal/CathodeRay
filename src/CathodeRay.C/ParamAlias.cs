@@ -11,8 +11,10 @@ internal static class ParamAlias
 {
     /// <summary>Aliasuje parametry liści modułu.</summary>
     /// <param name="module">Moduł po legalizacji.</param>
+    /// <param name="canAlias">Który parametr (funkcja, indeks) wolno położyć na <c>cc_argN</c>;
+    /// null = wszystkie. ABI v2 wyklucza parametry niesione rejestrami (żyją w A/X, nie w pamięci).</param>
     /// <returns>Moduł z parametrami liści w <c>cc_argN</c> (bez komórek danych tych parametrów).</returns>
-    public static Ir.Module Run(Ir.Module module)
+    public static Ir.Module Run(Ir.Module module, Func<Ir.Function, int, bool>? canAlias = null)
     {
         var blocked = new HashSet<string>(StringComparer.Ordinal);
         var owner = new Dictionary<string, int>(StringComparer.Ordinal);
@@ -59,7 +61,7 @@ internal static class ParamAlias
         var functions = new List<Ir.Function>();
         foreach (Ir.Function function in module.Functions)
         {
-            Dictionary<string, string> alias = Aliases(function, blocked, sizes);
+            Dictionary<string, string> alias = Aliases(function, blocked, sizes, canAlias);
             removed.UnionWith(alias.Keys.Select(Base));
             functions.Add(alias.Count == 0 ? function : function with
             {
@@ -111,14 +113,15 @@ internal static class ParamAlias
     }
 
     /// <summary>Parametry funkcji, które można przenieść do <c>cc_argN</c>: symbol parametru → symbol argumentu.</summary>
-    private static Dictionary<string, string> Aliases(Ir.Function function, HashSet<string> blocked, Dictionary<string, int> sizes)
+    private static Dictionary<string, string> Aliases(Ir.Function function, HashSet<string> blocked, Dictionary<string, int> sizes, Func<Ir.Function, int, bool>? canAlias)
     {
         var alias = new Dictionary<string, string>(StringComparer.Ordinal);
         var widths = new Dictionary<string, int>(StringComparer.Ordinal);
         for (int i = 0; i < Math.Min(function.Params.Count, TypeChecker.MaxArgs); i++)
         {
             Ir.Cell param = function.Params[i];
-            if (!blocked.Contains(Base(param.Sym)) && widths.TryAdd(param.Sym, param.W))
+            if (!blocked.Contains(Base(param.Sym)) && widths.TryAdd(param.Sym, param.W)
+                && (canAlias is null || canAlias(function, i)))
             {
                 alias[param.Sym] = $"cc_arg{i + 1}";
             }

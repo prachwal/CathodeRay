@@ -41,9 +41,14 @@ public sealed class StubTarget : ICTarget
     public IReadOnlyList<StdModule> RuntimeModules => [.. StdLib.Modules.Where(static m => m.IsAssembly), .. StdLib.RuntimeModules];
 
     /// <inheritdoc/>
-    public string Emit(Ir.Module module, bool optimize)
+    public string Emit(Ir.Module module, bool optimize, bool abiV2 = false)
     {
         ArgumentNullException.ThrowIfNull(module);
+        if (abiV2)
+        {
+            throw new ArgumentException("Stub zostaje na ABI v1 (cel referencyjny).", nameof(abiV2));
+        }
+
         return new StubSelector(WideLegalizer.Run(Legalizer.Run(CaseFold.Apply(module), wide: true), ByteOrder)).Emit(optimize);
     }
 }

@@ -1,0 +1,14 @@
+# Z80/8080 codegen: peephole par, idiomy CPU i ramki na stosie (domyka luke do SDCC) (status: w kolejce)
+
+- [ ] **1.** [S] xor-a zamiast ld a,0 (guard: C martwe, z VRegLiveness), brak ret po skoku bezwarunkowym, Load->Mov forwarding (tuz obok planu 32 zad. 2-3). Pliki: ByteSelector, IrPasses. Akceptacja: testy jednostkowe na listingach + goldeny bez wzrostu.
+- [ ] **2.** [M] ex-swap par: TrySwapWord (ld c,l; ld b,h + ld l,c; ld h,b -> ex de,hl tam gdzie legalne) + eliminacja zbednych kopii BC<->HL wokol wołan. Pliki: ByteIsa/Z80Isa/Intel8080Isa, ByteSelector. Akceptacja: fib -4 B, testy par.
+- [ ] **3.** [M] CmpSigned rotacja w stylu SDCC (rla; ccf; rra; sbc) zamiast sub/sbc + jp po + xor 128 dla porownan ze znakiem ze stala. Z80 pelny, 8080 fallback (ral). Pliki: Z80Isa/Intel8080Isa (nowy prymityw), ByteSelector. Akceptacja: testy krawedziowe INT_MIN..INT_MAX + fib -6 B.
+- [ ] **4.** [M] Strength reduction: Add(x,x)->Shl 1 / add hl,hl, mnozenie przez mala stala -> shift-add zamiast wolania rt_mul.s. Pliki: Legalizer/IrPasses. Akceptacja: twice 9->3 B, mul16 mniejsze, brak regresji lib.
+- [ ] **5.** [M] LDIR dla CopyBlock/Fill na Z80 (ld hl,src; ld de,dst; ld bc,n; ldir); 8080 zostaje na petli. Pliki: Z80Isa (TryCopyBlock), ByteSelector. Akceptacja: copy w dol o ~20 B.
+- [ ] **6.** [M] DJNZ dla petli licznikowych z licznikiem w B (wzorzec for i++/i--, 2 B zamiast ~5 B). Pliki: Lowering i/lub peephole IR. Akceptacja: testy petli + matryca.
+- [ ] **7.** [M] RST dla helperow runtime (__cc_mul/__cc_divu/float): rst 08h (1 B) zamiast call (3 B) + tablica wektorow w crt0 + legalizer. Akceptacja: wiersze z * w dol, linkowanie wszystkich celow zielone.
+- [ ] **8.** [M] Tail-call przez join (fnptr): Call+Ret rozdzielone kopiami joinowymi if-else (obie galezie zbiegaja do Ret tej samej wartosci) tez zamieniane w skoki. Pliki: ByteSelector. Akceptacja: pick -15 B, testy mutacja (ramka blokuje jak w planie 36).
+- [ ] **9.** [L] Ramka na stosie + induction w parach: wartosci zywe w petli (wskazniki, liczniki, n w fib) w DE/HL/BC z push-pop wokol wolan zamiast statycznych komorek + reloadow. Bez lamania ABI (konwencja wejscia/wyjscia bez zmian). Pliki: RegisterAllocator, Lowering.Frames, ByteSelector. Akceptacja: copy 48->~23 B, fib -14 B, RecursionFrameTests zielone.
+- [ ] **10.** [S] Pomiary i zamkniecie: compare.py + target-sizes + disasm na nowo (cel: mean/SDCC ~1.15 po batchach 1-2), render + hygiene OK, commit, plan closed.
+
+Postęp: 0/10 gotowych.

@@ -24,6 +24,9 @@ internal sealed partial class Intel8080Isa : ByteIsa
 
     public override bool ReturnsInResultReg => true;
 
+    /// <summary>Codegen słów liczy w HL, więc świeży wynik Bin zostaje w rejestrze wyniku.</summary>
+    public override bool FreshBinInResultReg => true;
+
     /// <summary>Cel obsługuje wywołanie ogonowe.</summary>
     public override bool SupportsTailCall => true;
 

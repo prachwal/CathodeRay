@@ -37,8 +37,25 @@ internal abstract class ByteIsa
     /// crt0 po <c>call main</c> zapisuje go do <c>cc_ret</c>. Domyślnie <see langword="false"/>.</summary>
     public virtual bool ReturnsInResultReg => false;
 
+    /// <summary>Komórka do przechowania A na czas pushy ramki (prolog callee-saved czyta komórki przez A, więc intake
+    /// argumentów z rejestrów musi iść po nich; X i pary pushy przeżywają). Domyślnie brak (push nie niszczy rejestrów).</summary>
+    public virtual string? EntryParkCell => null;
+
+    /// <summary>Świeży wynik <c>Bin</c> (W2) zostaje w rejestrze wyniku: selektor może pominąć przeładowanie przed <c>Ret</c>.
+    /// Prawda tylko tam, gdzie codegen słów liczy w rejestrze wyniku (Z80/8080 w HL); 6502 liczy przez A i X zostaje
+    /// nieustawione. Domyślnie <see langword="false"/>: selektor ładuje wynik z komórki.</summary>
+    public virtual bool FreshBinInResultReg => false;
+
     /// <summary>Czy cel obsługuje wywołanie ogonowe (skok zamiast call+ret).</summary>
     public virtual bool SupportsTailCall => false;
+
+    /// <summary>Ścieżka ABI v2 (argumenty i wyniki w rejestrach); ustawia cel przed emisją.</summary>
+    public bool AbiV2 { get; set; }
+
+    /// <summary>Bieżące wołanie może nieść argumenty w rejestrach (v2): selektor gasi na czas wołań helperów
+    /// uruchomieniowych (ręczny asembler w v1 czyta <c>cc_argN</c> i wraca przez <c>cc_ret</c>); wtedy
+    /// <see cref="ArgCell"/> wraca do komórek pamięci. Domyślnie <see langword="true"/>.</summary>
+    public bool RegArgsAllowed { get; set; } = true;
 
     /// <summary>Rejestry 8-bitowe, które <see cref="RegisterAllocator"/> może dać komórkom 1-bajtowym (w kolejności preferencji);
     /// domyślnie brak (komórki tylko w pamięci).</summary>
@@ -53,14 +70,14 @@ internal abstract class ByteIsa
     /// <summary>Tekst dotychczas wyemitowanych instrukcji.</summary>
     public string Text => _out.ToString();
 
+    /// <summary>Jawny kontrakt rejestrowy tego CPU.</summary>
+    internal CpuModel Model => CpuModels.For(CpuName);
+
     /// <summary>Nazwy, których asembler nie przyjmie jako symbole użytkownika (bez rozróżniania wielkości liter).</summary>
     protected virtual IReadOnlySet<string> Reserved { get; } = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
     /// <summary>Nazwa CPU w <see cref="CpuModels"/> (jednoznaczna z klasą ISA).</summary>
     protected abstract string CpuName { get; }
-
-    /// <summary>Jawny kontrakt rejestrowy tego CPU.</summary>
-    protected CpuModel Model => CpuModels.For(CpuName);
 
     /// <summary>Skok, gdy słowo spełnia warunek ze znakiem względem zera — bez odejmowania (test bitu znaku
     /// i zera). Wołane tylko dla <c>Lt/Ge/Le/Gt</c> o szerokości 2 z jedną stroną zerową.</summary>
@@ -70,12 +87,13 @@ internal abstract class ByteIsa
     /// <returns><see langword="true"/>, gdy sekwencja została wyemitowana.</returns>
     public virtual bool TryBranchZeroSigned(Word value, Ir.Cond cond, string target) => false;
 
-    /// <summary>Lokalizacja argumentu: rejestr z <see cref="CpuModel.ArgRegs"/> (ABI v2, przyszłe)
-    /// albo komórka <c>cc_argN</c> (ABI v1 — dziś zawsze, bo <see cref="CpuModel.ArgRegs"/> puste).</summary>
+    /// <summary>Lokalizacja argumentu: rejestr z <see cref="CpuModel.ArgRegs"/> (ABI v2)
+    /// albo komórka <c>cc_argN</c> (ABI v1 — gdy model nie zna rejestrów).</summary>
     /// <param name="index">Numer argumentu od zera.</param>
     /// <param name="part">0 = młodszy bajt, 1 = starszy.</param>
+    /// <param name="width">Szerokość argumentu (pary rejestrowe tylko dla W≤2).</param>
     /// <returns>Symbol komórki albo nazwa rejestru.</returns>
-    public string ArgCell(int index, int part) =>
+    public virtual string ArgCell(int index, int part, int width) =>
         Model.ArgRegs.Count > index
             ? Model.ArgRegs[index]
             : part == 0 ? $"cc_arg{index + 1}" : $"cc_arg{index + 1}_h";
@@ -189,6 +207,11 @@ internal abstract class ByteIsa
     /// <param name="cell">Symbol komórki z adresem.</param>
     public abstract void CallIndirect(string cell);
 
+    /// <summary>Sam wskaźnik wołania pośredniego do miejsca docelowego (bez skoku); selektor stawia go
+    /// przed argumentami v2 w rejestrach (ich ustawianie niszczy A).</summary>
+    /// <param name="cell">Symbol komórki z adresem.</param>
+    public virtual void SetupFp(string cell) => throw new NotSupportedException($"{GetType().Name} nie wystawia wskaźnika z wyprzedzeniem.");
+
     /// <summary>Skok do funkcji w pozycji ogonowej (wynik już w miejscu docelowym).</summary>
     /// <param name="symbol">Symbol funkcji.</param>
     public virtual void TailCall(string symbol) => Jump(symbol);
@@ -280,6 +303,25 @@ internal abstract class ByteIsa
     /// <summary>Zdejmuje parę rejestrów ze stosu (bez zmiany A i flag).</summary>
     /// <param name="pair">Para, np. <c>bc</c>.</param>
     public virtual void PopPair(string pair) => throw new NotSupportedException();
+
+    /// <summary>Zdejmuje bajt ze stosu do pamięci z zachowaniem rejestru wyniku (epilog ramki przy
+    /// wyniku w rejestrach; 6502 odkłada przez Y). Domyślnie przez A jak bez wyniku.</summary>
+    /// <param name="address">Cel w pamięci.</param>
+    /// <param name="keepResult">Rejestr wyniku niesie wynik i nie może się zmienić.</param>
+    public virtual void PopByte(string address, bool keepResult)
+    {
+        _ = keepResult;
+        PopA();
+        StoreA(address);
+    }
+
+    /// <summary>A ← rejestr argumentu (intake v2; wołane, gdy A jeszcze go nie trzyma — selektor dba o kolejność).</summary>
+    /// <param name="reg">Rejestr argumentu z modelu.</param>
+    public virtual void FetchArg(string reg) => throw new NotSupportedException($"{GetType().Name} nie pobiera argumentów z rejestrów.");
+
+    /// <summary>Rejestr argumentu ← A (wołanie v2; wołane tuż po załadowaniu wartości do A).</summary>
+    /// <param name="reg">Rejestr argumentu z modelu.</param>
+    public virtual void StoreArg(string reg) => throw new NotSupportedException($"{GetType().Name} nie składa argumentów w rejestrach.");
 
     /// <summary>Zwiększa albo zmniejsza o 1 liczbę zapisaną w kolejnych bajtach pamięci (od najmłodszego) jedną, krótką sekwencją
     /// CPU (np. <c>INC</c> pamięci z pominięciem starszego bajtu, gdy nie ma przeniesienia). Nie musi zachować

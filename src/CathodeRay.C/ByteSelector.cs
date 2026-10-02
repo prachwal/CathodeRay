@@ -22,6 +22,10 @@ internal sealed class ByteSelector
 
     private readonly HashSet<string> _volatile;
 
+    /// <summary>Funkcje zdefiniowane w module (rozumieją v2); wołania reszty (helpery uruchomieniowe w ręcznym
+    /// asemblerze) selektor marszuje jak v1: argumenty do <c>cc_argN</c>, wynik z <c>cc_ret</c>.</summary>
+    private readonly HashSet<string> _defined;
+
     private int _labels;
 
     private bool _usesIcall;
@@ -31,6 +35,7 @@ internal sealed class ByteSelector
         _module = module;
         _isa = isa;
         _volatile = module.Volatile is null ? [] : [.. module.Volatile.Select(isa.Sym)];
+        _defined = new([.. module.Functions.Select(static f => f.Name)], StringComparer.Ordinal);
     }
 
     /// <summary>Składa asembler modułu.</summary>
@@ -71,6 +76,15 @@ internal sealed class ByteSelector
     private static bool IsZero(Ir.Op op) => op is Ir.Imm { Value: 0 };
 
     private static string Key(Octet value) => value.IsImmediate ? "#" + value.Text : value.Text;
+
+    /// <summary>Symbol komórki bez przesunięcia (<c>x+1</c> → <c>x</c>).</summary>
+    /// <param name="address">Adres bajtu.</param>
+    /// <returns>Baza symbolu.</returns>
+    private static string Base(string address)
+    {
+        int cut = address.IndexOfAny(['+', '-']);
+        return cut < 0 ? address : address[..cut];
+    }
 
     private string At(string sym, int offset) => _isa.At(sym, offset);
 
@@ -132,12 +146,6 @@ internal sealed class ByteSelector
     private void ShrA(bool first)
     {
         _isa.ShrA(first);
-        _acc.Clear();
-    }
-
-    private void PopA()
-    {
-        _isa.PopA();
         _acc.Clear();
     }
 
@@ -271,6 +279,16 @@ internal sealed class ByteSelector
         }
 
         Raw($"{_isa.Sym(function.Name)}:");
+
+        // v2: A wejściowe parkuje w EntryParkCell na czas pushy ramki (push czyta komórki przez A i by je
+        // zniszczył); intake z rejestrów idzie PO pushach, żeby dziecko zastało zachowane argumenty rodzica
+        // (callee-saved: push przed nadpisaniem — jak v1 czyta cc_argN po pushach). X pushe przeżywa.
+        string? park = _isa.AbiV2 && function.Saved.Count > 0 && HasRegParams(function) ? _isa.EntryParkCell : null;
+        if (park is not null)
+        {
+            StoreA(park);
+        }
+
         foreach (Ir.Owned owned in function.Saved)
         {
             if (SavedWord(owned) is { } word && _isa.TryPushWord(word))
@@ -285,17 +303,50 @@ internal sealed class ByteSelector
             }
         }
 
+        bool unpark = park is not null;
         for (int i = 0; i < function.Params.Count; i++)
         {
             Ir.Cell param = function.Params[i];
-            if (param.Sym == _isa.ArgCell(i, 0) || (param.W == 2 && TryMoveWord(WordOf(param), Pair(_isa.ArgCell(i, 0), _isa.ArgCell(i, 1)))))
+            if (param.W > 2 || !_isa.Model.HasRegister(_isa.ArgCell(i, 0, param.W)))
             {
                 continue;
             }
 
             for (int part = 0; part < param.W; part++)
             {
-                LoadA(new Octet(false, _isa.ArgCell(i, part)));
+                string reg = _isa.ArgCell(i, part, param.W);
+                if (unpark && reg == "a")
+                {
+                    _acc.Remove(park!); // StoreA dodał park, LoadA ma go wymusić (nie elidować)
+                    LoadA(new Octet(false, park!));
+                    unpark = false;
+                }
+                else
+                {
+                    _isa.FetchArg(reg);
+                    _acc.Clear(); // FetchArg rusza A (txa), a LoadA ufa _acc
+                }
+
+                StoreA(Dst(param, part));
+            }
+        }
+
+        for (int i = 0; i < function.Params.Count; i++)
+        {
+            Ir.Cell param = function.Params[i];
+            if (param.W <= 2 && _isa.Model.HasRegister(_isa.ArgCell(i, 0, param.W)))
+            {
+                continue; // wzięte z rejestrów powyżej
+            }
+
+            if (param.Sym == _isa.ArgCell(i, 0, param.W) || (param.W == 2 && TryMoveWord(WordOf(param), Pair(_isa.ArgCell(i, 0, param.W), _isa.ArgCell(i, 1, param.W)))))
+            {
+                continue;
+            }
+
+            for (int part = 0; part < param.W; part++)
+            {
+                LoadA(new Octet(false, _isa.ArgCell(i, part, param.W)));
                 StoreA(Dst(param, part));
             }
         }
@@ -322,7 +373,7 @@ internal sealed class ByteSelector
 
             if (current is Ir.Ret ret2 && resCell is not null && ret2.W == 2 && ret2.Value is Ir.Cell cell2
                 && cell2.Sym == resCell && cell2.W == 2 && cell2.Sym.StartsWith(function.Name + "__", StringComparison.Ordinal)
-                && _isa.ReturnsInResultReg)
+                && _isa.ReturnsInResultReg && _isa.FreshBinInResultReg)
             {
                 // rejestr wyniku trzyma wartość (świeży wynik Bin): pomiń ładowanie
                 EmitRet(function, ret2, bodyIndex == function.Body.Count - 1, valueInResultReg: true);
@@ -337,18 +388,35 @@ internal sealed class ByteSelector
         }
 
         Raw($"{Mangle(function, "ret")}:");
+        bool keepResult = InResultReg(function.RetW);
+
+        // Wynik w A parkuj raz na całą stopkę (nie na każdy bajt): scratch w stopce nie żyje
+        // (wpisowy park dawno zdjęty intake), a X (starszy bajt) popów nie rusza.
+        string? footerPark = keepResult && function.Saved.Count > 0 ? _isa.EntryParkCell : null;
+        bool hoisted = footerPark is not null;
+        if (hoisted)
+        {
+            StoreA(footerPark!);
+        }
+
         foreach (Ir.Owned owned in function.Saved.Reverse())
         {
-            if (SavedWord(owned) is { } word && _isa.TryPopWord(word, InResultReg(function.RetW)))
+            if (SavedWord(owned) is { } word && _isa.TryPopWord(word, keepResult && !hoisted))
             {
                 continue;
             }
 
             foreach (string address in SavedBytes(owned).Reverse())
             {
-                PopA();
-                StoreA(address);
+                _isa.PopByte(address, keepResult && !hoisted);
+                _acc.Clear();
             }
+        }
+
+        if (hoisted)
+        {
+            _acc.Remove(footerPark!);
+            LoadA(new Octet(false, footerPark!));
         }
 
         _isa.Return();
@@ -879,22 +947,49 @@ internal sealed class ByteSelector
             return false;
         }
 
+        // Wynik helpera v1 wraca przez cc_ret, więc skok ogonowy do niego gubiłby wynik w rejestrach
+        // (void przechodzi: bez wyniku wystarczy jmp z argumentami w cc_argN).
+        bool regCall = RegCall(call);
+        if (!regCall && !voidTail)
+        {
+            return false;
+        }
+
+        _isa.RegArgsAllowed = regCall;
+
         foreach (Ir.Src comment in skipped)
         {
             EmitSource(comment);
         }
 
+        bool earlyFp = false;
+        if (call.Indirect is { } indirect && HasRegArgs(call))
+        {
+            earlyFp = true;
+            _usesIcall = true;
+            _isa.SetupFp(_isa.Sym(indirect.Sym));
+            _acc.Clear(); // SetupFp ładuje A, a EmitCallArgs zaczyna od LoadA
+        }
+
         EmitCallArgs(call);
         if (call.Indirect is not null)
         {
-            _usesIcall = true;
-            _isa.TailCallIndirect(_isa.Sym(call.Indirect.Sym));
+            if (earlyFp)
+            {
+                _isa.Jump("__icall");
+            }
+            else
+            {
+                _usesIcall = true;
+                _isa.TailCallIndirect(_isa.Sym(call.Indirect.Sym));
+            }
         }
         else
         {
             _isa.TailCall(_isa.Sym(call.Direct!));
         }
 
+        _isa.RegArgsAllowed = true;
         next = retIndex + 1;
         return true;
     }
@@ -902,15 +997,85 @@ internal sealed class ByteSelector
     /// <summary>Ustawia argumenty wołania w komórkach <c>cc_argN</c> (bez zapisów rejestrów i bez samego skoku).</summary>
     private void EmitCallArgs(Ir.Call call)
     {
+        if (RegSourcesClobberedByMemArgs(call))
+        {
+            // ParamAlias położył źródło argumentu rejestrowego na komórce docelowej argumentu pamięciowego
+            // (np. apply__a to cc_arg2, a b ląduje w cc_arg2): rejestry najpierw, młodszy bajt (A) na stos
+            // przez fazę pamięci (X faza pamięci nie rusza — tylko A).
+            EmitRegArgs(call);
+            _isa.PushA();
+            EmitMemArgs(call);
+            _isa.PopA();
+            _acc.Clear();
+            return;
+        }
+
+        EmitMemArgs(call);
+        EmitRegArgs(call);
+    }
+
+    /// <summary>Czy faza pamięci nadpisałaby źródła argumentów rejestrowych (kolizja przez ParamAlias).</summary>
+    /// <param name="call">Wołanie.</param>
+    /// <returns>Czy któreś źródło rejestrowe leży na komórce docelowej argumentu pamięciowego.</returns>
+    private bool RegSourcesClobberedByMemArgs(Ir.Call call)
+    {
+        var memDests = new HashSet<string>(StringComparer.Ordinal);
+        for (int j = 0; j < call.Args.Count; j++)
+        {
+            if (IsRegArg(call, j))
+            {
+                continue;
+            }
+
+            for (int part = 0; part < call.ParamWidths[j]; part++)
+            {
+                memDests.Add(Base(_isa.ArgCell(j, part, call.ParamWidths[j])));
+            }
+        }
+
+        if (memDests.Count == 0)
+        {
+            return false;
+        }
+
         for (int i = 0; i < call.Args.Count; i++)
         {
-            if (call.Args[i] is Ir.Cell same && same.W == call.ParamWidths[i] && same.Sym == _isa.ArgCell(i, 0))
+            if (!IsRegArg(call, i))
+            {
+                continue;
+            }
+
+            for (int part = 0; part < call.ParamWidths[i]; part++)
+            {
+                Octet src = ByteOf(call.Args[i], part);
+                if (!src.IsImmediate && memDests.Contains(Base(src.Text)))
+                {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>Argumenty pamięciowe wołania (kolejno, jak v1 — bezpieczne między sobą).</summary>
+    /// <param name="call">Wołanie.</param>
+    private void EmitMemArgs(Ir.Call call)
+    {
+        for (int i = 0; i < call.Args.Count; i++)
+        {
+            if (IsRegArg(call, i))
+            {
+                continue; // rejestry osobną fazą (liczenie kolejnych argumentów niszczy A/X)
+            }
+
+            if (call.Args[i] is Ir.Cell same && same.W == call.ParamWidths[i] && same.Sym == _isa.ArgCell(i, 0, call.ParamWidths[i]))
             {
                 // parametr funkcji zaaliasowany na cc_argN jest już w komórce argumentu na tej samej pozycji
                 continue;
             }
 
-            if (call.ParamWidths[i] == 2 && TryMoveWord(Pair(_isa.ArgCell(i, 0), _isa.ArgCell(i, 1)), WordOf(call.Args[i])))
+            if (call.ParamWidths[i] == 2 && TryMoveWord(Pair(_isa.ArgCell(i, 0, call.ParamWidths[i]), _isa.ArgCell(i, 1, call.ParamWidths[i])), WordOf(call.Args[i])))
             {
                 continue;
             }
@@ -918,13 +1083,95 @@ internal sealed class ByteSelector
             for (int part = 0; part < call.ParamWidths[i]; part++)
             {
                 LoadA(ByteOf(call.Args[i], part));
-                StoreA(_isa.ArgCell(i, part));
+                StoreA(_isa.ArgCell(i, part, call.ParamWidths[i]));
             }
         }
     }
 
+    /// <summary>Argumenty rejestrowe wołania (po fazie pamięci; A kończy z młodszym bajtem).</summary>
+    /// <param name="call">Wołanie.</param>
+    private void EmitRegArgs(Ir.Call call)
+    {
+        for (int i = 0; i < call.Args.Count; i++)
+        {
+            if (!IsRegArg(call, i))
+            {
+                continue;
+            }
+
+            // wartość do A, potem do rejestru; części od starszej (A kończy z młodszym)
+            for (int part = call.ParamWidths[i] - 1; part >= 0; part--)
+            {
+                LoadA(ByteOf(call.Args[i], part));
+                _isa.StoreArg(_isa.ArgCell(i, part, call.ParamWidths[i]));
+                _acc.Clear(); // StoreArg rusza A (tax), a LoadA ufa _acc
+            }
+        }
+    }
+
+    /// <summary>Argument wołania jedzie rejestrem (v2): szerokość pasuje i model zna rejestr.</summary>
+    /// <param name="call">Wołanie.</param>
+    /// <param name="index">Numer argumentu.</param>
+    /// <returns>Czy argument idzie rejestrem.</returns>
+    private bool IsRegArg(Ir.Call call, int index) =>
+        call.ParamWidths[index] <= 2 && _isa.Model.HasRegister(_isa.ArgCell(index, 0, call.ParamWidths[index]));
+
+    /// <summary>Wołanie niesie argumenty w rejestrach (v2): co najmniej jeden pasuje.</summary>
+    /// <param name="call">Wołanie.</param>
+    /// <returns>Czy któryś argument jedzie rejestrem.</returns>
+    private bool HasRegArgs(Ir.Call call)
+    {
+        for (int i = 0; i < call.Args.Count; i++)
+        {
+            if (IsRegArg(call, i))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>Wołanie rozumie rejestry v2: cel zdefiniowany w module albo wskaźnik (funkcje mini-C);
+    /// helpery uruchomieniowe w ręcznym asemblerze (v1) marszowane są przez <c>cc_argN</c>/<c>cc_ret</c>.
+    /// Na v1 zawsze prawda (brak zmiany zachowania Z80/8080, których helpery mówią rejestrami).</summary>
+    /// <param name="call">Wołanie.</param>
+    /// <returns>Czy argumenty i wynik mogą iść rejestrami.</returns>
+    private bool RegCall(Ir.Call call) =>
+        !_isa.AbiV2 || call.Indirect is not null || (call.Direct is { } direct && _defined.Contains(direct));
+
+    /// <summary>Funkcja ma parametry niesione rejestrami (v2): co najmniej jeden pasuje.</summary>
+    /// <param name="function">Funkcja.</param>
+    /// <returns>Czy któryś parametr jedzie rejestrem.</returns>
+    private bool HasRegParams(Ir.Function function)
+    {
+        for (int i = 0; i < function.Params.Count; i++)
+        {
+            Ir.Cell param = function.Params[i];
+            if (param.W <= 2 && _isa.Model.HasRegister(_isa.ArgCell(i, 0, param.W)))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     private void EmitCall(Ir.Call call)
     {
+        // Helpery v1 (ręczny asembler) dostają argumenty do cc_argN: flaga gasi rejestry w ArgCell.
+        _isa.RegArgsAllowed = RegCall(call);
+
+        // v2: wskaźnik pośredni do cc_fp PRZED argumentami (ich ustawianie niszczy A)
+        bool earlyFp = false;
+        if (call.Indirect is { } indirect && HasRegArgs(call))
+        {
+            earlyFp = true;
+            _usesIcall = true;
+            _isa.SetupFp(_isa.Sym(indirect.Sym));
+            _acc.Clear(); // SetupFp ładuje A, a EmitCallArgs zaczyna od LoadA
+        }
+
         EmitCallArgs(call);
 
         // rejestry komórek żywych za wołaniem: na stos po argumentach, ze stosu przed zapisem wyniku (wynik może leżeć w tej parze)
@@ -936,8 +1183,15 @@ internal sealed class ByteSelector
 
         if (call.Indirect is not null)
         {
-            _usesIcall = true;
-            CallIndirect(_isa.Sym(call.Indirect.Sym));
+            if (earlyFp)
+            {
+                CallDirect("__icall");
+            }
+            else
+            {
+                _usesIcall = true;
+                CallIndirect(_isa.Sym(call.Indirect.Sym));
+            }
         }
         else
         {
@@ -949,12 +1203,13 @@ internal sealed class ByteSelector
             _isa.PopPair(pair);
         }
 
-        if (call.Result is not null && InResultReg(call.Result.W))
+        if (call.Result is not null && RegCall(call) && InResultReg(call.Result.W))
         {
             if (call.Result.W == 2 && WordOf(call.Result) is { } dst && _isa.TryMoveFromResultReg(dst))
             {
                 _acc.Remove(dst.Lo);
                 _acc.Remove(dst.Hi);
+                _isa.RegArgsAllowed = true;
                 return;
             }
 
@@ -973,6 +1228,8 @@ internal sealed class ByteSelector
                 StoreA(Dst(call.Result, part));
             }
         }
+
+        _isa.RegArgsAllowed = true;
     }
 
     private void EmitRet(Ir.Function function, Ir.Ret ret, bool last, bool valueInResultReg = false)
@@ -981,10 +1238,19 @@ internal sealed class ByteSelector
         {
             if (!(ret.W == 2 && WordOf(ret.Value) is { } word && _isa.TryMoveToResultReg(word)))
             {
-                for (int part = 0; part < ret.W; part++)
+                // v2/6502: od starszego, bo A niesie po jednym bajcie (A kończy z młodszym, X ze starszym,
+                // oba przeżywają restore w stopce); v1: bez zmian (Z80 ładuje L i H niezależnie).
+                int from = _isa.AbiV2 ? ret.W - 1 : 0;
+                int end = _isa.AbiV2 ? -1 : ret.W;
+                int step = _isa.AbiV2 ? -1 : 1;
+                for (int part = from; part != end; part += step)
                 {
                     LoadA(ByteOf(ret.Value, part));
                     _isa.ResultByteFromA(part);
+                    if (_isa.AbiV2)
+                    {
+                        _acc.Clear(); // tax rusza A, a następne LoadA ufa _acc
+                    }
                 }
             }
         }
