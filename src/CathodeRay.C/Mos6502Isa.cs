@@ -4,7 +4,7 @@ using System.Text;
 namespace CathodeRay.C;
 
 /// <summary>Prymitywy 6502 (składnia ca65). Wskaźnik dostępu pośredniego: <c>__p</c> na stronie zerowej + <c>LDY</c>.</summary>
-internal sealed class Mos6502Isa : ByteIsa, IResultReg, ITailCall, IIndexed, IRegArgs
+internal sealed class Mos6502Isa : ByteIsa, IResultReg, ITailCall, IIndexed, IRegArgs, IXorCarry, IAddressByte, IPreamble
 {
     private static readonly HashSet<string> ReservedNames = new(["A", "X", "Y"], StringComparer.OrdinalIgnoreCase);
 
@@ -32,7 +32,7 @@ internal sealed class Mos6502Isa : ByteIsa, IResultReg, ITailCall, IIndexed, IRe
     public string? EntryParkCell => "cc_t0";
 
     /// <summary><c>eor</c>/<c>and</c>/<c>ora</c> nie ruszają C (model <c>CpuModels</c>): bias może iść wprost w A.</summary>
-    public override bool XorPreservesCarry => true;
+    public bool XorPreservesCarry => true;
 
     protected override IReadOnlySet<string> Reserved => ReservedNames;
 
@@ -51,9 +51,9 @@ internal sealed class Mos6502Isa : ByteIsa, IResultReg, ITailCall, IIndexed, IRe
 
     public override string Reserve(int size) => $".res {size}";
 
-    public override string Preamble() => ".extern __p\n";
+    public string Preamble() => ".extern __p\n";
 
-    public override string? AddressByte(string expression, int index) => (index == 0 ? "<(" : ">(") + expression + ")";
+    public string? AddressByte(string expression, int index) => (index == 0 ? "<(" : ">(") + expression + ")";
 
     /// <summary>Dopisuje komórki modułu przeniesione na stronę zerową (operandy dostają przedrostek <c>z:</c>).</summary>
     /// <param name="names">Nazwy symboli (bez przesunięć).</param>

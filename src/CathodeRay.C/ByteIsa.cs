@@ -20,16 +20,8 @@ internal abstract class ByteIsa
 
     private int _localLabels;
 
-    /// <summary>Bajty słowa w pamięci od najstarszego (6800).</summary>
-    public virtual bool BigEndian => false;
-
     /// <summary>Symbole wspólne wołania pośredniego (definiuje crt0), do zadeklarowania w module.</summary>
     public virtual IEnumerable<string> IndirectSymbols => ["__icall", "cc_fp"];
-
-    /// <summary>Xor (i or/and) nie rusza przeniesienia (6502/6800): bias najstarszego bajtu może iść wprost między
-    /// odejmowanie młodszych bajtów a sbc (na Z80/8080 xor gasi C, więc bias lewej strony idzie do komórki scratch).
-    /// Domyślnie <see langword="false"/>.</summary>
-    public virtual bool XorPreservesCarry => false;
 
     /// <summary>Ścieżka ABI v2 (argumenty i wyniki w rejestrach); ustawia cel przed emisją.</summary>
     public bool AbiV2 { get; set; }
@@ -90,7 +82,7 @@ internal abstract class ByteIsa
     /// <param name="index">Numer bajtu od najmłodszego.</param>
     /// <returns>Wyrażenie adresu.</returns>
     public string Loc(string sym, int width, int index) =>
-        width == 1 ? Sym(sym) : BigEndian ? At(sym, width - 1 - index)
+        width == 1 ? Sym(sym) : this is IByteOrder order && order.BigEndian ? At(sym, width - 1 - index)
         : (width == 4 && index >= 2 && ParamAlias.NextArg(sym) is { } high) ? At(high, index - 2) : At(sym, index);
 
     /// <summary>Nazwa symbolu w asemblerze: nazwy zastrzeżone CPU (rejestry, mnemoniki, operatory) dostają przedrostek.</summary>
@@ -134,10 +126,6 @@ internal abstract class ByteIsa
     /// <param name="size">Rozmiar.</param>
     /// <returns>Dyrektywa.</returns>
     public abstract string Reserve(int size);
-
-    /// <summary>Linie na początku modułu (definicje pomocnicze CPU), np. adresy strony zerowej.</summary>
-    /// <returns>Tekst albo pusty.</returns>
-    public virtual string Preamble() => string.Empty;
 
     /// <summary>Składa kod startowy (definiuje komórki umówione, <c>__icall</c>, wywołuje <c>main</c>).</summary>
     /// <returns>Źródło crt0.</returns>
@@ -213,13 +201,6 @@ internal abstract class ByteIsa
     /// <summary>Bajt pod wskaźnikiem ← A.</summary>
     /// <param name="index">Numer bajtu.</param>
     public abstract void PtrStore(int index);
-
-    /// <summary>Bajt adresu symbolu jako stała asemblera (relokacje Lo8/Hi8) albo <see langword="null"/>, gdy CPU nie ma
-    /// takiej składni (wtedy adres leży w komórce danych).</summary>
-    /// <param name="expression">Wyrażenie adresu (symbol ± stała).</param>
-    /// <param name="index">0 = młodszy, 1 = starszy.</param>
-    /// <returns>Tekst stałej albo null.</returns>
-    public virtual string? AddressByte(string expression, int index) => null;
 
     /// <summary>Przypisuje komórkom rejestry; selektor dalej widzi nazwy symboliczne, a ISA tłumaczy operand przy emisji (jak strona
     /// zerowa w <see cref="Mos6502Isa"/>). Komórka 1-bajtowa dostaje rejestr z <see cref="CellRegisters"/>, 2-bajtowa parę z

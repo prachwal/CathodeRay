@@ -7,7 +7,7 @@ namespace CathodeRay.C;
 /// big-endian (komórka 2-bajtowa: starszy bajt pod <c>sym</c>, więc <c>LDX komórka</c> ładuje wskaźnik). Komórki na stronie
 /// bezpośredniej (<c>$00xx</c>) dostają przedrostek <c>z:</c>, ale tylko w instrukcjach z trybem bezpośrednim (INC/DEC/TST/CLR/NEG/COM
 /// i przesunięcia pamięci go nie mają, więc zostają przy adresie rozszerzonym).</summary>
-internal sealed class M6800Isa : ByteIsa, IPairMoves
+internal sealed class M6800Isa : ByteIsa, IPairMoves, IByteOrder, IXorCarry, IAddressByte
 {
     private static readonly HashSet<string> ReservedNames = new(["A", "B", "X"], StringComparer.OrdinalIgnoreCase);
 
@@ -20,10 +20,10 @@ internal sealed class M6800Isa : ByteIsa, IPairMoves
 
     private int _offset;
 
-    public override bool BigEndian => true;
+    public bool BigEndian => true;
 
     /// <summary><c>eora</c>/<c>anda</c>/<c>oraa</c> nie ruszają C (model <c>CpuModels</c>): bias może iść wprost w A.</summary>
-    public override bool XorPreservesCarry => true;
+    public bool XorPreservesCarry => true;
 
     protected override IReadOnlySet<string> Reserved => ReservedNames;
 
@@ -42,7 +42,7 @@ internal sealed class M6800Isa : ByteIsa, IPairMoves
 
     public override string Reserve(int size) => $".res {size}";
 
-    public override string? AddressByte(string expression, int index) => (index == 0 ? "<(" : ">(") + expression + ")";
+    public string? AddressByte(string expression, int index) => (index == 0 ? "<(" : ">(") + expression + ")";
 
     /// <summary>Dopisuje komórki modułu przeniesione na stronę bezpośrednią (operandy dostają przedrostek <c>z:</c>).</summary>
     /// <param name="names">Nazwy symboli (bez przesunięć).</param>

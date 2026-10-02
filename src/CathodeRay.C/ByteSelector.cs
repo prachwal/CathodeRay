@@ -276,7 +276,7 @@ internal sealed class ByteSelector
 
     private string Label(string hint) => $"S{++_labels}_{hint}";
 
-    private int MemIndex(int significance, int bytes) => _isa.BigEndian ? bytes - 1 - significance : significance;
+    private int MemIndex(int significance, int bytes) => _isa is IByteOrder order && order.BigEndian ? bytes - 1 - significance : significance;
 
     private Octet ByteOf(Ir.Op op, int index)
     {
@@ -292,7 +292,7 @@ internal sealed class ByteSelector
                     return Zero();
                 }
 
-                string? direct = _isa.AddressByte(At(address.Sym, address.Off), index);
+                string? direct = (_isa as IAddressByte)?.AddressByte(At(address.Sym, address.Off), index);
                 return direct is not null ? new Octet(true, direct) : new Octet(false, _isa.Loc(AddressCell(address), 2, index));
             default:
                 throw new InvalidOperationException($"unsupported operand {op.GetType().Name}.");
@@ -1012,7 +1012,7 @@ internal sealed class ByteSelector
         bool bias = signed && !overflow;
         Octet[] xs;
         bool biasX = false;
-        if (bias && _isa.XorPreservesCarry)
+        if (bias && _isa is IXorCarry xorCarry && xorCarry.XorPreservesCarry)
         {
             xs = BiasedBytes(x, width, true, out biasX);
         }
@@ -1675,7 +1675,7 @@ internal sealed class ByteSelector
             return text.ToString();
         }
 
-        text.Append(_isa.Preamble());
+        text.Append((_isa as IPreamble)?.Preamble() ?? string.Empty);
         foreach (string function in _module.ExternFunctions)
         {
             text.AppendLine(_isa.Extern(_isa.Sym(function)));
