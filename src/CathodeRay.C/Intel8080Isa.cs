@@ -7,7 +7,7 @@ namespace CathodeRay.C;
 /// wskaźniki przez <c>LHLD</c>), bez rejestrów IX/IY i bez instrukcji Z80. Komórki mogą leżeć w B, C, D, E (pary BC/DE) jak na
 /// <see cref="Z80Isa"/>: <c>mov a,c</c>, <c>add c</c>, <c>inr c</c>, <c>inx b</c>; słowo z pamięci do pary przez <c>lhld</c> i
 /// <c>mov c,l; mov b,h</c> (8080 nie ma <c>ld bc,(nn)</c>).</summary>
-internal sealed partial class Intel8080Isa : ByteIsa, IWordShift, IPairMoves
+internal sealed partial class Intel8080Isa : ByteIsa, IWordShift, IPairMoves, IPairStack
 {
     private static readonly HashSet<string> ReservedNames = new(
         ["A", "B", "C", "D", "E", "H", "L", "M", "SP", "PSW", "LOW", "HIGH", "MOD", "SHL", "SHR", "AND", "OR", "XOR", "NOT", "EQ", "NE", "LT", "LE", "GT", "GE"],
@@ -173,7 +173,7 @@ internal sealed partial class Intel8080Isa : ByteIsa, IWordShift, IPairMoves
     /// <summary>Słowo z pamięci na stos: <c>lhld n; push h</c>.</summary>
     /// <param name="word">Słowo.</param>
     /// <returns><see langword="false"/>, gdy bajty nie są sąsiednie w pamięci.</returns>
-    public override bool TryPushWord(Word word)
+    public bool TryPushWord(Word word)
     {
         if (!InMemoryWord(word))
         {
@@ -190,7 +190,7 @@ internal sealed partial class Intel8080Isa : ByteIsa, IWordShift, IPairMoves
     /// <param name="word">Słowo.</param>
     /// <param name="keepResult">HL niesie wynik.</param>
     /// <returns><see langword="false"/>, gdy bajty nie są sąsiednie w pamięci.</returns>
-    public override bool TryPopWord(Word word, bool keepResult)
+    public bool TryPopWord(Word word, bool keepResult)
     {
         if (!InMemoryWord(word))
         {
@@ -262,9 +262,9 @@ internal sealed partial class Intel8080Isa : ByteIsa, IWordShift, IPairMoves
 
     public override void ResultByteToA(int index) => L(index == 0 ? "mov a,l" : "mov a,h");
 
-    public override void PushPair(string pair) => L($"push {pair[..1]}");
+    public void PushPair(string pair) => L($"push {pair[..1]}");
 
-    public override void PopPair(string pair) => L($"pop {pair[..1]}");
+    public void PopPair(string pair) => L($"pop {pair[..1]}");
 
     public override void PushA() => L("push psw");
 

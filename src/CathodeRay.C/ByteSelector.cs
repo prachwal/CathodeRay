@@ -384,7 +384,7 @@ internal sealed class ByteSelector
 
         foreach (Ir.Owned owned in function.Saved)
         {
-            if (SavedWord(owned) is { } word && _isa.TryPushWord(word))
+            if (SavedWord(owned) is { } word && _isa is IPairStack pushStack && pushStack.TryPushWord(word))
             {
                 continue;
             }
@@ -525,7 +525,7 @@ internal sealed class ByteSelector
 
         foreach (Ir.Owned owned in function.Saved.Reverse())
         {
-            if (SavedWord(owned) is { } word && _isa.TryPopWord(word, keepResult && !hoisted))
+            if (SavedWord(owned) is { } word && _isa is IPairStack popStack && popStack.TryPopWord(word, keepResult && !hoisted))
             {
                 continue;
             }
@@ -1567,9 +1567,12 @@ internal sealed class ByteSelector
 
         // rejestry komórek żywych za wołaniem: na stos po argumentach, ze stosu przed zapisem wyniku (wynik może leżeć w tej parze)
         IReadOnlyList<string> saved = _isa.SavedAround(call);
-        foreach (string pair in saved)
+        if (_isa is IPairStack pairPush)
         {
-            _isa.PushPair(pair);
+            foreach (string pair in saved)
+            {
+                pairPush.PushPair(pair);
+            }
         }
 
         if (call.Indirect is not null)
@@ -1589,9 +1592,12 @@ internal sealed class ByteSelector
             CallDirect(_isa.Sym(call.Direct!));
         }
 
-        foreach (string pair in saved.Reverse())
+        if (_isa is IPairStack pairPop)
         {
-            _isa.PopPair(pair);
+            foreach (string pair in saved.Reverse())
+            {
+                pairPop.PopPair(pair);
+            }
         }
 
         if (call.Result is not null && RegCall(call) && InResultReg(call.Result.W))

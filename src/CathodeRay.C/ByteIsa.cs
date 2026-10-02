@@ -273,8 +273,8 @@ internal abstract class ByteIsa
         }
     }
 
-    /// <summary>Pary rejestrów komórek żywych za wołaniem: selektor odkłada je na stos przed <c>call</c> (<see cref="PushPair"/>, po
-    /// argumentach) i zdejmuje w odwrotnej kolejności po nim (<see cref="PopPair"/>, przed zapisem wyniku).</summary>
+    /// <summary>Pary rejestrów komórek żywych za wołaniem: selektor odkłada je na stos przed <c>call</c> (<see cref="IPairStack.PushPair"/>, po
+    /// argumentach) i zdejmuje w odwrotnej kolejności po nim (<see cref="IPairStack.PopPair"/>, przed zapisem wyniku).</summary>
     /// <param name="call">Wołanie (ta sama instancja co w module).</param>
     /// <returns>Pary albo pusta lista.</returns>
     public IReadOnlyList<string> SavedAround(Ir.Call call) => _callSaves.GetValueOrDefault(call) ?? [];
@@ -294,14 +294,6 @@ internal abstract class ByteIsa
             .SelectMany(c => Enumerable.Range(0, c.W).Select(i => Resolve(Loc(c.Sym, c.W, i))))
             .OfType<string>()];
     }
-
-    /// <summary>Odkłada parę rejestrów z <see cref="CellPairs"/> na stos (bez zmiany A i flag).</summary>
-    /// <param name="pair">Para, np. <c>bc</c>.</param>
-    public virtual void PushPair(string pair) => throw new NotSupportedException();
-
-    /// <summary>Zdejmuje parę rejestrów ze stosu (bez zmiany A i flag).</summary>
-    /// <param name="pair">Para, np. <c>bc</c>.</param>
-    public virtual void PopPair(string pair) => throw new NotSupportedException();
 
     /// <summary>Zdejmuje bajt ze stosu do pamięci z zachowaniem rejestru wyniku (epilog ramki przy
     /// wyniku w rejestrach; 6502 odkłada przez Y). Domyślnie przez A jak bez wyniku.</summary>
@@ -348,19 +340,6 @@ internal abstract class ByteIsa
     /// <summary>A ← bajt rejestru wyniku.</summary>
     /// <param name="index">0 = młodszy, 1 = starszy.</param>
     public virtual void ResultByteToA(int index) => throw new NotSupportedException();
-
-    /// <summary>Odkłada na stos słowo z pamięci (prolog ramki) jedną sekwencją CPU, bez zmiany A. Decyzja zależy tylko od
-    /// <paramref name="word"/>, tak samo jak w <see cref="TryPopWord"/>, więc prolog i epilog grupują bajty identycznie.
-    /// Domyślnie <see langword="false"/>: selektor odkłada bajty przez A.</summary>
-    /// <param name="word">Słowo w pamięci (bajty sąsiednie).</param>
-    /// <returns><see langword="true"/>, gdy sekwencja została wyemitowana.</returns>
-    public virtual bool TryPushWord(Word word) => false;
-
-    /// <summary>Zdejmuje ze stosu słowo do pamięci (epilog ramki), bez zmiany A; para przeciwna do <see cref="TryPushWord"/>.</summary>
-    /// <param name="word">Słowo w pamięci (bajty sąsiednie).</param>
-    /// <param name="keepResult">Rejestr wyniku (<see cref="ReturnsInResultReg"/>) niesie już wynik funkcji i nie może się zmienić.</param>
-    /// <returns><see langword="true"/>, gdy sekwencja została wyemitowana.</returns>
-    public virtual bool TryPopWord(Word word, bool keepResult) => false;
 
     /// <summary>Zamienia tekst od znacznika na jego wersję po relaksacji skoków (krótkie skoki warunkowe tam, gdzie cel jest w zasięgu).</summary>
     /// <param name="mark">Znacznik z <see cref="Mark"/>.</param>

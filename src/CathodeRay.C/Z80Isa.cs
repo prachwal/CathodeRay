@@ -5,7 +5,7 @@ namespace CathodeRay.C;
 
 /// <summary>Prymitywy Z80 (składnia Zilog): A jako akumulator, HL jako rejestr adresowy (operandy pamięciowe ALU przez
 /// <c>LD HL,adres; op A,(HL)</c>, wskaźniki przez <c>LD HL,(komórka)</c>), zapis/odczyt komórek przez <c>LD A,(adres)</c>.</summary>
-internal sealed partial class Z80Isa : ByteIsa, ICopyLoop, ISignedBranch, IWordArithmetic, IWordShift, IPairMoves
+internal sealed partial class Z80Isa : ByteIsa, ICopyLoop, ISignedBranch, IWordArithmetic, IWordShift, IPairMoves, IPairStack
 {
     private static readonly HashSet<string> ReservedNames = new(
         ["A", "B", "C", "D", "E", "H", "L", "I", "R", "AF", "BC", "DE", "HL", "SP", "IX", "IY", "IXH", "IXL", "IYH", "IYL", "NZ", "Z", "NC", "PO", "PE", "P", "M", "LOW", "HIGH", "MOD", "SHL", "SHR", "AND", "OR", "XOR", "NOT"],
@@ -151,7 +151,7 @@ internal sealed partial class Z80Isa : ByteIsa, ICopyLoop, ISignedBranch, IWordA
     /// <summary>Słowo z pamięci na stos: <c>ld hl,(n); push hl</c>.</summary>
     /// <param name="word">Słowo.</param>
     /// <returns><see langword="false"/>, gdy bajty nie są sąsiednie w pamięci.</returns>
-    public override bool TryPushWord(Word word)
+    public bool TryPushWord(Word word)
     {
         if (!InMemoryWord(word))
         {
@@ -167,7 +167,7 @@ internal sealed partial class Z80Isa : ByteIsa, ICopyLoop, ISignedBranch, IWordA
     /// <param name="word">Słowo.</param>
     /// <param name="keepResult">HL niesie wynik.</param>
     /// <returns><see langword="false"/>, gdy bajty nie są sąsiednie w pamięci.</returns>
-    public override bool TryPopWord(Word word, bool keepResult)
+    public bool TryPopWord(Word word, bool keepResult)
     {
         if (!InMemoryWord(word))
         {
@@ -501,9 +501,9 @@ internal sealed partial class Z80Isa : ByteIsa, ICopyLoop, ISignedBranch, IWordA
         return true;
     }
 
-    public override void PushPair(string pair) => L($"push {pair}");
+    public void PushPair(string pair) => L($"push {pair}");
 
-    public override void PopPair(string pair) => L($"pop {pair}");
+    public void PopPair(string pair) => L($"pop {pair}");
 
     public override void PushA() => L("push af");
 
