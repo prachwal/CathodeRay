@@ -59,8 +59,8 @@
     {
       "id": "10",
       "title": "[S] Pomiary i zamkniecie: compare.py + target-sizes + disasm na nowo (cel: mean/SDCC ~1.15 po batchach 1-2), render + hygiene OK, commit, plan closed.",
-      "status": "todo",
-      "note": ""
+      "status": "done",
+      "note": "Pomiary: mean/SDCC 1.31 (start) -> 1.15 (cel ~1.15 OSIAGNIETY), mean/cc65 1.32 -> 1.27; docs/compare.md odswiezony. Goldeny target/vreg/vreg-alloc/ir-gate odswiezone w commitach itemow. Uwaga: pozostale itemy 6/8 (DJNZ, tail-join) i reszta 9 (caller-saved/wartosci w petli) ma osobny plan 41-z80-liveness-abi (itemy 7/5/6)."
     },
     {
       "id": "11",
