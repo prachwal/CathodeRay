@@ -38,7 +38,7 @@ Metodyka: bajty **samej funkcji** (bez pełnego runtime ref), `cathode cc --cpu 
 |---------|-----|-----:|----:|---------:|
 | fib | 6502 | 144 B | cc65 74 B | **1.95×** |
 | max3 | 6502 | 83 B | cc65 90 B | **0.92×** |
-| fib | Z80 | 95 B | SDCC 31 B | **3.06×** |
+| fib | Z80 | 57 B | SDCC 31 B | **1.84×** |
 | max3 | Z80 | 61 B | SDCC 53 B | **1.15×** |
 | fib | 8080 | 116 B | sccz80 ~50 B (+ runtime) | **~2.3×** |
 | max3 | 8080 | ~89 B | sccz80 ~90 B (+ helpers) | **~1.0×** |
@@ -48,8 +48,8 @@ Metodyka: bajty **samej funkcji** (bez pełnego runtime ref), `cathode cc --cpu 
 **Wniosek przekrojowy:** stosunek zależy od kształtu kodu, nie od „złych instrukcji”.
 Wołania/rekurencja 2–3×; prosty kod już ~0.9–1.2× ref.
 
-Tabela szersza (`docs/compare.md`, geometryczna bez mul/div): mini-C/cc65 ≈ 1.73,
-mini-C/SDCC ≈ 3.52.
+Tabela szersza (`docs/compare.md`, geometryczna bez mul/div): mini-C/cc65 ≈ 1.23,
+mini-C/SDCC ≈ 1.12.
 
 ---
 
@@ -212,7 +212,7 @@ Ręcznie: `cathode cc samples/bench/fib.c --cpu z80 -l` — brak zbędnego
 
 | Benchmark | Dziś (orient.) | Po HL-ret |
 |-----------|---------------|-----------|
-| fib Z80 | ~95 B (~3.0× SDCC) | ~75–85 B |
+| fib Z80 | 57 B (~1.8× SDCC) | ~75–85 B |
 | max3 Z80 | ~61 B (~1.15×) | ≤55–58 B |
 
 Dalsze cięcie: arg w HL, `dec hl` na ścieżce argów, push par w Saved.

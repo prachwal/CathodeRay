@@ -62,7 +62,7 @@ i efekty prymitywów (`PrimEffects`: czytane/zapisywane rejestry, flagi — spra
 ## Ograniczenia celów bajtowych
 
 - Komórki leżą w pamięci absolutnej (6502: najczęściej używane skalarne i wskaźniki trafiają na stronę zerową, prefiks `z:`), więc kod jest
-  większy niż ręcznie pisany (miara: `docs/compare.md` — ok. 1,7× cc65 na 6502, ok. 3,6× SDCC na Z80).
+  większy niż ręcznie pisany (miara: `docs/compare.md` — ok. 1,2× cc65 na 6502 i Z80, ok. 1,1× SDCC na Z80).
 - Skoki warunkowe 6502 i 6800 są relaksowane: krótki skok, gdy cel jest w zasięgu, inaczej odwrócony skok + `JMP`.
 - `float`, `long long` i dzielenie/mnożenie 32-bitowe są programowe, więc wolne; `float` i `long long` na `stub` (24 KB kodu) mieszczą się
   tylko w małych programach.

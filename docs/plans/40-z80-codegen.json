@@ -12,7 +12,7 @@
       "id": "2",
       "title": "[M] ex-swap par: TrySwapWord (ld c,l; ld b,h + ld l,c; ld h,b -> ex de,hl tam gdzie legalne) + eliminacja zbednych kopii BC<->HL wokol wołan. Pliki: ByteIsa/Z80Isa/Intel8080Isa, ByteSelector. Akceptacja: fib -4 B, testy par.",
       "status": "done",
-      "note": "Zrobione: ex de,hl w epilogu TryAddWord do pary DE + flaga FreshAddInHL (dowód emulatorem) + SwapReloadDe w Tidy (cofa ex+reload do kopii); fib -2 B. Reszta (kopie BC<->HL wokół wołań, pełne -4 B) wymaga liveness -> item 9. Reszta -> plan 42 item 4 (kopie BC<->HL wokół wołań). Reszta (kopie BC<->HL wokół wołań) -> plan 42 poz. 4."
+      "note": "Zrobione: ex de,hl w epilogu TryAddWord do pary DE + flaga FreshAddInHL (dowód emulatorem) + SwapReloadDe w Tidy (cofa ex+reload do kopii); fib -2 B. Reszta (kopie BC<->HL wokół wołań, pełne -4 B) wymaga liveness -> item 9. Reszta -> plan 42 item 4 (kopie BC<->HL wokół wołań). Reszta (kopie BC<->HL wokół wołań) -> plan 42 poz. 4. · \nZAMKNIETE przez plan 42: reszta (kopie BC<->HL, ex-swap) domknieta poz. 3 (tail-call przez join) i poz. 7 (split przedzialow) — fib Z80 68->57, mean/SDCC 1.14->1.12."
     },
     {
       "id": "3",
@@ -42,7 +42,7 @@
       "id": "9",
       "title": "[L] Ramka na stosie + induction w parach: wartosci zywe w petli (wskazniki, liczniki, n w fib) w DE/HL/BC z push-pop wokol wolan zamiast statycznych komorek + reloadow. Bez lamania ABI (konwencja wejscia/wyjscia bez zmian). Pliki: RegisterAllocator, Lowering.Frames, ByteSelector. Akceptacja: copy 48->~23 B, fib -14 B, RecursionFrameTests zielone.",
       "status": "done",
-      "note": "CZĘŚĆ: parametry w rejestrach. RegisterAllocator nie blokuje już Params, nie wyrzuca ich z puli za 'żywe na wejściu' (prolog je wstawia) i dodaje klikę interferencji param-param. Prolog selektora już obsługiwał param w parze (TryMoveWord). Efekt: fib 72->68, fnptr 70->67, mean/SDCC 1.16->1.15, goldeny netto -471 (22 pola; jeden outlier 13_strings +5 przez heurystykę isalnum). Skutek: mutual-recursion bez ramki dostaje poprawny tail-call (test zaktualizowany). NIE zrobione: wartosci zywe w petli (n/wskaźniki) poza parametrami, ramka na stosie — to reszta itemu 9. Odrzucone: globalne pominięcie ParamAlias na Z80 (mean 1.15->1.35, koszt prologu liści). Reszta (wartości żywe w pętli, caller-saved) -> plan 42 poz. 2 i 4."
+      "note": "CZĘŚĆ: parametry w rejestrach. RegisterAllocator nie blokuje już Params, nie wyrzuca ich z puli za 'żywe na wejściu' (prolog je wstawia) i dodaje klikę interferencji param-param. Prolog selektora już obsługiwał param w parze (TryMoveWord). Efekt: fib 72->68, fnptr 70->67, mean/SDCC 1.16->1.15, goldeny netto -471 (22 pola; jeden outlier 13_strings +5 przez heurystykę isalnum). Skutek: mutual-recursion bez ramki dostaje poprawny tail-call (test zaktualizowany). NIE zrobione: wartosci zywe w petli (n/wskaźniki) poza parametrami, ramka na stosie — to reszta itemu 9. Odrzucone: globalne pominięcie ParamAlias na Z80 (mean 1.15->1.35, koszt prologu liści). Reszta (wartości żywe w pętli, caller-saved) -> plan 42 poz. 2 i 4. · \nZAMKNIETE przez plan 42: reszta itemu 9 (wartosci zywe w petli, caller-saved) — caller-saved byl juz wpiety (plan 33), brakowalo splitu przedzialow; poz. 7 planu 42 daje fib Z80 68->57 i fnptr Z80 67->58 bez wzrostow. Reszta (ramka na stosie/induction w parach poza parametrami) swiadomie odroczona."
     },
     {
       "id": "10",
