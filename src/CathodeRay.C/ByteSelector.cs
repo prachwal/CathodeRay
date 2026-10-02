@@ -706,7 +706,7 @@ internal sealed class ByteSelector
         // reszta idzie starą drogą bez zmian w IR).
         if (alu is ByteAlu.Add && bin.Dst.W == 2 && bin.A.Equals(bin.B)
             && WordOf(bin.Dst) is { } doubled && WordOf(bin.A) is { } doubledSrc
-            && _isa.TryShlWord1(doubled, doubledSrc) is { Emitted: true } shl)
+            && _isa is IWordShift shiftedByOne && shiftedByOne.TryShlWord1(doubled, doubledSrc) is { Emitted: true } shl)
         {
             _acc.Remove(doubled.Lo);
             _acc.Remove(doubled.Hi);
@@ -755,7 +755,7 @@ internal sealed class ByteSelector
         int n = count.Value & 0xFF;
         bool left = bin.Kind == Ir.BinOp.Shl;
         if (left && n == 1 && width == 2 && WordOf(bin.Dst) is { } dst && WordOf(bin.A) is { } src
-            && _isa.TryShlWord1(dst, src) is { Emitted: true } shl)
+            && _isa is IWordShift shiftedByOne && shiftedByOne.TryShlWord1(dst, src) is { Emitted: true } shl)
         {
             // A bez zmian, ale bajty celu już nie są mu równe (jak w EmitChain po TryAddWord)
             _acc.Remove(dst.Lo);

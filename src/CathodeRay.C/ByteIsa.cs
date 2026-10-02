@@ -369,13 +369,6 @@ internal abstract class ByteIsa
     /// <returns><see langword="true"/>, gdy sekwencja została wyemitowana.</returns>
     public virtual bool TryPopWord(Word word, bool keepResult) => false;
 
-    /// <summary>Słowo &lt;&lt; 1 przez HL (<c>add hl,hl</c> / <c>dad h</c>); po niej HL niesie wynik.
-    /// Domyślnie niewyemitowane: selektor przesuwa bajt po bajcie.</summary>
-    /// <param name="dst">Cel (pamięć albo para).</param>
-    /// <param name="src">Źródło: stała, pamięć albo para.</param>
-    /// <returns>Wynik jawny (<see cref="WordResult"/>).</returns>
-    public virtual WordResult TryShlWord1(Word dst, Word src) => new(false, false);
-
     /// <summary>Zamienia tekst od znacznika na jego wersję po relaksacji skoków (krótkie skoki warunkowe tam, gdzie cel jest w zasięgu).</summary>
     /// <param name="mark">Znacznik z <see cref="Mark"/>.</param>
     public void RelaxFrom(int mark)

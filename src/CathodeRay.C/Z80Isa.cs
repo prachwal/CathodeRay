@@ -5,7 +5,7 @@ namespace CathodeRay.C;
 
 /// <summary>Prymitywy Z80 (składnia Zilog): A jako akumulator, HL jako rejestr adresowy (operandy pamięciowe ALU przez
 /// <c>LD HL,adres; op A,(HL)</c>, wskaźniki przez <c>LD HL,(komórka)</c>), zapis/odczyt komórek przez <c>LD A,(adres)</c>.</summary>
-internal sealed partial class Z80Isa : ByteIsa, ICopyLoop, ISignedBranch, IWordArithmetic
+internal sealed partial class Z80Isa : ByteIsa, ICopyLoop, ISignedBranch, IWordArithmetic, IWordShift
 {
     private static readonly HashSet<string> ReservedNames = new(
         ["A", "B", "C", "D", "E", "H", "L", "I", "R", "AF", "BC", "DE", "HL", "SP", "IX", "IY", "IXH", "IXL", "IYH", "IYL", "NZ", "Z", "NC", "PO", "PE", "P", "M", "LOW", "HIGH", "MOD", "SHL", "SHR", "AND", "OR", "XOR", "NOT"],
@@ -234,7 +234,7 @@ internal sealed partial class Z80Isa : ByteIsa, ICopyLoop, ISignedBranch, IWordA
     /// <param name="dst">Cel.</param>
     /// <param name="src">Źródło.</param>
     /// <returns>Wynik jawny (<see cref="WordResult"/>).</returns>
-    public override WordResult TryShlWord1(Word dst, Word src)
+    public WordResult TryShlWord1(Word dst, Word src)
     {
         if (dst.IsImmediate || !Usable(dst) || !Usable(src))
         {

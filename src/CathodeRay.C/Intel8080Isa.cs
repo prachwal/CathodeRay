@@ -7,7 +7,7 @@ namespace CathodeRay.C;
 /// wskaźniki przez <c>LHLD</c>), bez rejestrów IX/IY i bez instrukcji Z80. Komórki mogą leżeć w B, C, D, E (pary BC/DE) jak na
 /// <see cref="Z80Isa"/>: <c>mov a,c</c>, <c>add c</c>, <c>inr c</c>, <c>inx b</c>; słowo z pamięci do pary przez <c>lhld</c> i
 /// <c>mov c,l; mov b,h</c> (8080 nie ma <c>ld bc,(nn)</c>).</summary>
-internal sealed partial class Intel8080Isa : ByteIsa
+internal sealed partial class Intel8080Isa : ByteIsa, IWordShift
 {
     private static readonly HashSet<string> ReservedNames = new(
         ["A", "B", "C", "D", "E", "H", "L", "M", "SP", "PSW", "LOW", "HIGH", "MOD", "SHL", "SHR", "AND", "OR", "XOR", "NOT", "EQ", "NE", "LT", "LE", "GT", "GE"],
@@ -132,7 +132,7 @@ internal sealed partial class Intel8080Isa : ByteIsa
     /// <param name="dst">Cel.</param>
     /// <param name="src">Źródło.</param>
     /// <returns>Wynik jawny (<see cref="WordResult"/>).</returns>
-    public override WordResult TryShlWord1(Word dst, Word src)
+    public WordResult TryShlWord1(Word dst, Word src)
     {
         if (dst.IsImmediate || !Usable(dst) || !Usable(src))
         {
