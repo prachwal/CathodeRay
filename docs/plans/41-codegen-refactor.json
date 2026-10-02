@@ -47,8 +47,8 @@
     {
       "id": "8",
       "title": "[M] Migracja konsumentów na AsmInsn, po jednym commicie: Size, potem Tidy (Peephole.cs), potem Relax (BranchRelaxer.cs, Z80Isa, Intel8080Isa). Po każdym diff listingów pusty. Akceptacja: diff listingów vs baseline pusty, build -warnaserror, test celowany zielony.",
-      "status": "todo",
-      "note": ""
+      "status": "done",
+      "note": "Krok 1 Size na AsmInsn (763f9c4), krok 2 Tidy -> AsmPeephole (9a8901c), krok 3 Relax na AsmInsn (8c3f595, Z80/8080/6502/6800). Dwie regresje migracji Relax naprawione: (a) Triple bral cel galezi-pomin (__jN) zamiast celu skoku -> undefined symbol + phase errors na 6502/6800; (b) DropJumpToNext przeskakiwal etykiete-cel -> zbedny jmp (8080). Predykaty dopasowane 1:1 do starych regexow (BranchLine/JumpLine/LongJump/SkipOverJump/JumpToNext/Layout). Siatka HEAD-vs-9a8901c: IDENTICAL na v1+v2, wszystkie delty CODE +0 (exit 0). Full suite 3288/3288."
     },
     {
       "id": "9",
