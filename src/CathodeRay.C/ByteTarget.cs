@@ -76,7 +76,7 @@ public abstract class ByteTarget : ICTarget
         Ir.Module legal = Legalizer.Run(wide);
         ByteIsa isa = CreateIsa();
         isa.AbiV2 = abiV2;
-        if (isa.SupportsIndexed)
+        if (isa is IIndexed)
         {
             legal = IndexFusion.Run(legal);
         }

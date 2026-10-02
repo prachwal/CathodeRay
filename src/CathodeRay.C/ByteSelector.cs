@@ -376,7 +376,7 @@ internal sealed class ByteSelector
         // v2: A wejściowe parkuje w EntryParkCell na czas pushy ramki (push czyta komórki przez A i by je
         // zniszczył); intake z rejestrów idzie PO pushach, żeby dziecko zastało zachowane argumenty rodzica
         // (callee-saved: push przed nadpisaniem — jak v1 czyta cc_argN po pushach). X pushe przeżywa.
-        string? park = _isa.AbiV2 && function.Saved.Count > 0 && HasRegParams(function) ? _isa.EntryParkCell : null;
+        string? park = _isa.AbiV2 && function.Saved.Count > 0 && HasRegParams(function) ? (_isa as IRegArgs)?.EntryParkCell : null;
         if (park is not null)
         {
             StoreA(park);
@@ -416,7 +416,7 @@ internal sealed class ByteSelector
                 }
                 else
                 {
-                    _isa.FetchArg(reg);
+                    ((IRegArgs)_isa).FetchArg(reg);
                     _acc.Clear(); // FetchArg rusza A (txa), a LoadA ufa _acc
                 }
 
@@ -516,7 +516,7 @@ internal sealed class ByteSelector
 
         // Wynik w A parkuj raz na całą stopkę (nie na każdy bajt): scratch w stopce nie żyje
         // (wpisowy park dawno zdjęty intake), a X (starszy bajt) popów nie rusza.
-        string? footerPark = keepResult && function.Saved.Count > 0 ? _isa.EntryParkCell : null;
+        string? footerPark = keepResult && function.Saved.Count > 0 ? (_isa as IRegArgs)?.EntryParkCell : null;
         bool hoisted = footerPark is not null;
         if (hoisted)
         {
@@ -869,13 +869,14 @@ internal sealed class ByteSelector
 
     private void EmitLoadIdx(Ir.LoadIdx load)
     {
-        _isa.IndexSetup(_isa.Loc(load.Index.Sym, load.Index.W, 0), load.Shift);
+        var indexed = (IIndexed)_isa;
+        indexed.IndexSetup(_isa.Loc(load.Index.Sym, load.Index.W, 0), load.Shift);
         _acc.Clear();
         for (int i = 0; i < load.Dst.W; i++)
         {
             if (i < load.Bytes)
             {
-                _isa.IndexLoad(At(load.Sym, load.Off + MemIndex(i, load.Bytes)));
+                indexed.IndexLoad(At(load.Sym, load.Off + MemIndex(i, load.Bytes)));
                 _acc.Clear();
             }
             else
@@ -889,12 +890,13 @@ internal sealed class ByteSelector
 
     private void EmitStoreIdx(Ir.StoreIdx store)
     {
-        _isa.IndexSetup(_isa.Loc(store.Index.Sym, store.Index.W, 0), store.Shift);
+        var indexed = (IIndexed)_isa;
+        indexed.IndexSetup(_isa.Loc(store.Index.Sym, store.Index.W, 0), store.Shift);
         _acc.Clear();
         for (int i = 0; i < store.Bytes; i++)
         {
             LoadA(ByteOf(store.Value, i));
-            _isa.IndexStore(At(store.Sym, store.Off + MemIndex(i, store.Bytes)));
+            indexed.IndexStore(At(store.Sym, store.Off + MemIndex(i, store.Bytes)));
         }
     }
 
@@ -1303,7 +1305,7 @@ internal sealed class ByteSelector
     private bool TryEmitTailCall(Ir.Function function, int index, out int next)
     {
         next = index;
-        if (!_isa.SupportsTailCall || function.Body[index] is not Ir.Call call)
+        if (_isa is not ITailCall || function.Body[index] is not Ir.Call call)
         {
             return false;
         }
@@ -1352,7 +1354,7 @@ internal sealed class ByteSelector
         {
             earlyFp = true;
             _usesIcall = true;
-            _isa.SetupFp(_isa.Sym(indirect.Sym));
+            ((IRegArgs)_isa).SetupFp(_isa.Sym(indirect.Sym));
             _acc.Clear(); // SetupFp ładuje A, a EmitCallArgs zaczyna od LoadA
         }
 
@@ -1366,7 +1368,7 @@ internal sealed class ByteSelector
             else
             {
                 _usesIcall = true;
-                _isa.TailCallIndirect(_isa.Sym(call.Indirect.Sym));
+                ((ITailCall)_isa).TailCallIndirect(_isa.Sym(call.Indirect.Sym));
             }
         }
         else
@@ -1487,7 +1489,7 @@ internal sealed class ByteSelector
             for (int part = call.ParamWidths[i] - 1; part >= 0; part--)
             {
                 LoadA(ByteOf(call.Args[i], part));
-                _isa.StoreArg(CallArgCell(call, i, part, call.ParamWidths[i]));
+                ((IRegArgs)_isa).StoreArg(CallArgCell(call, i, part, call.ParamWidths[i]));
                 _acc.Clear(); // StoreArg rusza A (tax), a LoadA ufa _acc
             }
         }
@@ -1559,7 +1561,7 @@ internal sealed class ByteSelector
         {
             earlyFp = true;
             _usesIcall = true;
-            _isa.SetupFp(_isa.Sym(indirect.Sym));
+            ((IRegArgs)_isa).SetupFp(_isa.Sym(indirect.Sym));
             _acc.Clear(); // SetupFp ładuje A, a EmitCallArgs zaczyna od LoadA
         }
 

@@ -4,7 +4,7 @@ using System.Text;
 namespace CathodeRay.C;
 
 /// <summary>Prymitywy 6502 (składnia ca65). Wskaźnik dostępu pośredniego: <c>__p</c> na stronie zerowej + <c>LDY</c>.</summary>
-internal sealed class Mos6502Isa : ByteIsa, IResultReg
+internal sealed class Mos6502Isa : ByteIsa, IResultReg, ITailCall, IIndexed, IRegArgs
 {
     private static readonly HashSet<string> ReservedNames = new(["A", "X", "Y"], StringComparer.OrdinalIgnoreCase);
 
@@ -19,17 +19,17 @@ internal sealed class Mos6502Isa : ByteIsa, IResultReg
 
     private string _pointer = "__p";
 
-    public override bool SupportsIndexed => true;
+    public bool SupportsIndexed => true;
 
     /// <summary>Cel obsługuje wywołanie ogonowe (bezpośrednie: <c>jmp</c>; pośrednie: <c>jmp __icall</c>).</summary>
-    public override bool SupportsTailCall => true;
+    public bool SupportsTailCall => true;
 
     /// <summary>Wynik w rejestrze tylko na ścieżce v2 (A dla W1, A/X dla W2); v1 wraca przez <c>cc_ret</c>.</summary>
     public bool ReturnsInResultReg => AbiV2;
 
     /// <summary>Push ramki czyta komórki przez A, więc A wejściowe (młodszy bajt parametru) parkuje w <c>cc_t0</c>
     /// na czas pushy (X je przeżywa); scratch ginie dopiero w ciele funkcji.</summary>
-    public override string? EntryParkCell => "cc_t0";
+    public string? EntryParkCell => "cc_t0";
 
     /// <summary><c>eor</c>/<c>and</c>/<c>ora</c> nie ruszają C (model <c>CpuModels</c>): bias może iść wprost w A.</summary>
     public override bool XorPreservesCarry => true;
@@ -147,7 +147,7 @@ internal sealed class Mos6502Isa : ByteIsa, IResultReg
         return true;
     }
 
-    public override void IndexSetup(string index, int shift)
+    public void IndexSetup(string index, int shift)
     {
         if (shift == 0)
         {
@@ -164,9 +164,9 @@ internal sealed class Mos6502Isa : ByteIsa, IResultReg
         L("tax");
     }
 
-    public override void IndexLoad(string address) => L($"lda {Mem(address)},x");
+    public void IndexLoad(string address) => L($"lda {Mem(address)},x");
 
-    public override void IndexStore(string address) => L($"sta {Mem(address)},x");
+    public void IndexStore(string address) => L($"sta {Mem(address)},x");
 
     public override void PushA() => L("pha");
 
@@ -182,7 +182,7 @@ internal sealed class Mos6502Isa : ByteIsa, IResultReg
 
     /// <summary>Skok pośredni w pozycji ogonowej: ten sam wskaźnik <c>cc_fp</c>, ale skok zamiast wołania.</summary>
     /// <param name="cell">Symbol komórki z adresem.</param>
-    public override void TailCallIndirect(string cell)
+    public void TailCallIndirect(string cell)
     {
         SetupFp(cell);
         L("jmp __icall");
@@ -190,7 +190,7 @@ internal sealed class Mos6502Isa : ByteIsa, IResultReg
 
     /// <summary>Wskaźnik wołania pośredniego do <c>cc_fp</c> (bez skoku; selektor stawia go przed argumentami v2).</summary>
     /// <param name="cell">Symbol komórki z adresem.</param>
-    public override void SetupFp(string cell)
+    public void SetupFp(string cell)
     {
         L($"lda {Mem(cell)}");
         L("sta cc_fp");
@@ -229,7 +229,7 @@ internal sealed class Mos6502Isa : ByteIsa, IResultReg
 
     /// <summary>A ← rejestr argumentu (v2): <c>a</c> już w A, <c>x</c> przez <c>txa</c>.</summary>
     /// <param name="reg">Rejestr argumentu z modelu.</param>
-    public override void FetchArg(string reg)
+    public void FetchArg(string reg)
     {
         if (reg == "x")
         {
@@ -243,7 +243,7 @@ internal sealed class Mos6502Isa : ByteIsa, IResultReg
 
     /// <summary>Rejestr argumentu ← A (v2): <c>a</c> już w A, <c>x</c> przez <c>tax</c>.</summary>
     /// <param name="reg">Rejestr argumentu z modelu.</param>
-    public override void StoreArg(string reg)
+    public void StoreArg(string reg)
     {
         if (reg == "x")
         {

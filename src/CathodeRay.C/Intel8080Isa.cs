@@ -7,7 +7,7 @@ namespace CathodeRay.C;
 /// wskaźniki przez <c>LHLD</c>), bez rejestrów IX/IY i bez instrukcji Z80. Komórki mogą leżeć w B, C, D, E (pary BC/DE) jak na
 /// <see cref="Z80Isa"/>: <c>mov a,c</c>, <c>add c</c>, <c>inr c</c>, <c>inx b</c>; słowo z pamięci do pary przez <c>lhld</c> i
 /// <c>mov c,l; mov b,h</c> (8080 nie ma <c>ld bc,(nn)</c>).</summary>
-internal sealed partial class Intel8080Isa : ByteIsa, IWordShift, IPairMoves, IPairStack, IResultReg, IResultPairs
+internal sealed partial class Intel8080Isa : ByteIsa, IWordShift, IPairMoves, IPairStack, IResultReg, IResultPairs, ITailCall
 {
     private static readonly HashSet<string> ReservedNames = new(
         ["A", "B", "C", "D", "E", "H", "L", "M", "SP", "PSW", "LOW", "HIGH", "MOD", "SHL", "SHR", "AND", "OR", "XOR", "NOT", "EQ", "NE", "LT", "LE", "GT", "GE"],
@@ -24,7 +24,7 @@ internal sealed partial class Intel8080Isa : ByteIsa, IWordShift, IPairMoves, IP
     public bool ReturnsInResultReg => true;
 
     /// <summary>Cel obsługuje wywołanie ogonowe.</summary>
-    public override bool SupportsTailCall => true;
+    public bool SupportsTailCall => true;
 
     protected override IReadOnlySet<string> Reserved => ReservedNames;
 
@@ -278,7 +278,7 @@ internal sealed partial class Intel8080Isa : ByteIsa, IWordShift, IPairMoves, IP
         L("call __callhl");
     }
 
-    public override void TailCallIndirect(string cell)
+    public void TailCallIndirect(string cell)
     {
         LoadPair("hl", new Word(false, cell, cell + "+1"));
         L("pchl");

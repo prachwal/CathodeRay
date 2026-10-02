@@ -26,20 +26,10 @@ internal abstract class ByteIsa
     /// <summary>Symbole wspólne wołania pośredniego (definiuje crt0), do zadeklarowania w module.</summary>
     public virtual IEnumerable<string> IndirectSymbols => ["__icall", "cc_fp"];
 
-    /// <summary>CPU ma adresowanie indeksowane z 8-bitowym rejestrem indeksowym (<see cref="Ir.LoadIdx"/>).</summary>
-    public virtual bool SupportsIndexed => false;
-
-    /// <summary>Komórka do przechowania A na czas pushy ramki (prolog callee-saved czyta komórki przez A, więc intake
-    /// argumentów z rejestrów musi iść po nich; X i pary pushy przeżywają). Domyślnie brak (push nie niszczy rejestrów).</summary>
-    public virtual string? EntryParkCell => null;
-
     /// <summary>Xor (i or/and) nie rusza przeniesienia (6502/6800): bias najstarszego bajtu może iść wprost między
     /// odejmowanie młodszych bajtów a sbc (na Z80/8080 xor gasi C, więc bias lewej strony idzie do komórki scratch).
     /// Domyślnie <see langword="false"/>.</summary>
     public virtual bool XorPreservesCarry => false;
-
-    /// <summary>Czy cel obsługuje wywołanie ogonowe (skok zamiast call+ret).</summary>
-    public virtual bool SupportsTailCall => false;
 
     /// <summary>Ścieżka ABI v2 (argumenty i wyniki w rejestrach); ustawia cel przed emisją.</summary>
     public bool AbiV2 { get; set; }
@@ -202,19 +192,9 @@ internal abstract class ByteIsa
     /// <param name="cell">Symbol komórki z adresem.</param>
     public abstract void CallIndirect(string cell);
 
-    /// <summary>Sam wskaźnik wołania pośredniego do miejsca docelowego (bez skoku); selektor stawia go
-    /// przed argumentami v2 w rejestrach (ich ustawianie niszczy A).</summary>
-    /// <param name="cell">Symbol komórki z adresem.</param>
-    public virtual void SetupFp(string cell) => throw new NotSupportedException($"{GetType().Name} nie wystawia wskaźnika z wyprzedzeniem.");
-
     /// <summary>Skok do funkcji w pozycji ogonowej (wynik już w miejscu docelowym).</summary>
     /// <param name="symbol">Symbol funkcji.</param>
     public virtual void TailCall(string symbol) => Jump(symbol);
-
-    /// <summary>Skok pośredni w pozycji ogonowej (wskaźnik w komórce 2-bajtowej).</summary>
-    /// <param name="cell">Symbol komórki z adresem.</param>
-    public virtual void TailCallIndirect(string cell) =>
-        throw new InvalidOperationException($"{GetType().Name} does not support indirect tail calls.");
 
     /// <summary>Powrót z podprogramu.</summary>
     public abstract void Return();
@@ -302,14 +282,6 @@ internal abstract class ByteIsa
         StoreA(address);
     }
 
-    /// <summary>A ← rejestr argumentu (intake v2; wołane, gdy A jeszcze go nie trzyma — selektor dba o kolejność).</summary>
-    /// <param name="reg">Rejestr argumentu z modelu.</param>
-    public virtual void FetchArg(string reg) => throw new NotSupportedException($"{GetType().Name} nie pobiera argumentów z rejestrów.");
-
-    /// <summary>Rejestr argumentu ← A (wołanie v2; wołane tuż po załadowaniu wartości do A).</summary>
-    /// <param name="reg">Rejestr argumentu z modelu.</param>
-    public virtual void StoreArg(string reg) => throw new NotSupportedException($"{GetType().Name} nie składa argumentów w rejestrach.");
-
     /// <summary>Zwiększa albo zmniejsza o 1 liczbę zapisaną w kolejnych bajtach pamięci (od najmłodszego) jedną, krótką sekwencją
     /// CPU (np. <c>INC</c> pamięci z pominięciem starszego bajtu, gdy nie ma przeniesienia). Nie musi zachować
     /// flag; może zmienić A i flagi. Wywoływane tylko, gdy liczba ma 1 lub 2 bajty.</summary>
@@ -330,19 +302,6 @@ internal abstract class ByteIsa
             _out.Append(relaxed);
         }
     }
-
-    /// <summary>Ładuje rejestr indeksowy młodszym bajtem indeksu przesuniętym w lewo o <paramref name="shift"/>; może zniszczyć A.</summary>
-    /// <param name="index">Adres młodszego bajtu indeksu.</param>
-    /// <param name="shift">Przesunięcie.</param>
-    public virtual void IndexSetup(string index, int shift) => throw new NotSupportedException();
-
-    /// <summary>A ← bajt spod <c>adres + indeks</c>.</summary>
-    /// <param name="address">Adres bazowy.</param>
-    public virtual void IndexLoad(string address) => throw new NotSupportedException();
-
-    /// <summary>Bajt spod <c>adres + indeks</c> ← A.</summary>
-    /// <param name="address">Adres bazowy.</param>
-    public virtual void IndexStore(string address) => throw new NotSupportedException();
 
     /// <summary>Kolejna unikalna etykieta lokalna instrukcji (dla krótkich skoków wewnątrz sekwencji).</summary>
     /// <returns>Nazwa etykiety.</returns>

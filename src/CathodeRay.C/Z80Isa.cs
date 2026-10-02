@@ -5,7 +5,7 @@ namespace CathodeRay.C;
 
 /// <summary>Prymitywy Z80 (składnia Zilog): A jako akumulator, HL jako rejestr adresowy (operandy pamięciowe ALU przez
 /// <c>LD HL,adres; op A,(HL)</c>, wskaźniki przez <c>LD HL,(komórka)</c>), zapis/odczyt komórek przez <c>LD A,(adres)</c>.</summary>
-internal sealed partial class Z80Isa : ByteIsa, ICopyLoop, ISignedBranch, IWordArithmetic, IWordShift, IPairMoves, IPairStack, IResultReg, IResultPairs
+internal sealed partial class Z80Isa : ByteIsa, ICopyLoop, ISignedBranch, IWordArithmetic, IWordShift, IPairMoves, IPairStack, IResultReg, IResultPairs, ITailCall
 {
     private static readonly HashSet<string> ReservedNames = new(
         ["A", "B", "C", "D", "E", "H", "L", "I", "R", "AF", "BC", "DE", "HL", "SP", "IX", "IY", "IXH", "IXL", "IYH", "IYL", "NZ", "Z", "NC", "PO", "PE", "P", "M", "LOW", "HIGH", "MOD", "SHL", "SHR", "AND", "OR", "XOR", "NOT"],
@@ -24,7 +24,7 @@ internal sealed partial class Z80Isa : ByteIsa, ICopyLoop, ISignedBranch, IWordA
     public bool ReturnsInResultReg => true;
 
     /// <summary>Cel obsługuje wywołanie ogonowe.</summary>
-    public override bool SupportsTailCall => true;
+    public bool SupportsTailCall => true;
 
     protected override IReadOnlySet<string> Reserved => ReservedNames;
 
@@ -517,7 +517,7 @@ internal sealed partial class Z80Isa : ByteIsa, ICopyLoop, ISignedBranch, IWordA
         L("call __callhl");
     }
 
-    public override void TailCallIndirect(string cell)
+    public void TailCallIndirect(string cell)
     {
         LoadPair("hl", new Word(false, cell, cell + "+1"));
         L("jp (hl)");
