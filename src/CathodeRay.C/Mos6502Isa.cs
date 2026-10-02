@@ -4,7 +4,7 @@ using System.Text;
 namespace CathodeRay.C;
 
 /// <summary>Prymitywy 6502 (składnia ca65). Wskaźnik dostępu pośredniego: <c>__p</c> na stronie zerowej + <c>LDY</c>.</summary>
-internal sealed class Mos6502Isa : ByteIsa
+internal sealed class Mos6502Isa : ByteIsa, IResultReg
 {
     private static readonly HashSet<string> ReservedNames = new(["A", "X", "Y"], StringComparer.OrdinalIgnoreCase);
 
@@ -25,7 +25,7 @@ internal sealed class Mos6502Isa : ByteIsa
     public override bool SupportsTailCall => true;
 
     /// <summary>Wynik w rejestrze tylko na ścieżce v2 (A dla W1, A/X dla W2); v1 wraca przez <c>cc_ret</c>.</summary>
-    public override bool ReturnsInResultReg => AbiV2;
+    public bool ReturnsInResultReg => AbiV2;
 
     /// <summary>Push ramki czyta komórki przez A, więc A wejściowe (młodszy bajt parametru) parkuje w <c>cc_t0</c>
     /// na czas pushy (X je przeżywa); scratch ginie dopiero w ciele funkcji.</summary>
@@ -209,7 +209,7 @@ internal sealed class Mos6502Isa : ByteIsa
 
     /// <summary>Bajt wyniku do rejestru: w A już leży (nic do roboty) albo <c>tax</c> dla starszego do X.</summary>
     /// <param name="index">0 = młodszy (już w A), 1 = starszy (A → X).</param>
-    public override void ResultByteFromA(int index)
+    public void ResultByteFromA(int index)
     {
         if (index != 0)
         {
@@ -219,7 +219,7 @@ internal sealed class Mos6502Isa : ByteIsa
 
     /// <summary>A z rejestru wyniku: już w A (nic) albo <c>txa</c> dla starszego z X.</summary>
     /// <param name="index">0 = młodszy (już w A), 1 = starszy (X → A).</param>
-    public override void ResultByteToA(int index)
+    public void ResultByteToA(int index)
     {
         if (index != 0)
         {

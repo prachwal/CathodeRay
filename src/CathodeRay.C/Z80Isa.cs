@@ -5,7 +5,7 @@ namespace CathodeRay.C;
 
 /// <summary>Prymitywy Z80 (składnia Zilog): A jako akumulator, HL jako rejestr adresowy (operandy pamięciowe ALU przez
 /// <c>LD HL,adres; op A,(HL)</c>, wskaźniki przez <c>LD HL,(komórka)</c>), zapis/odczyt komórek przez <c>LD A,(adres)</c>.</summary>
-internal sealed partial class Z80Isa : ByteIsa, ICopyLoop, ISignedBranch, IWordArithmetic, IWordShift, IPairMoves, IPairStack
+internal sealed partial class Z80Isa : ByteIsa, ICopyLoop, ISignedBranch, IWordArithmetic, IWordShift, IPairMoves, IPairStack, IResultReg
 {
     private static readonly HashSet<string> ReservedNames = new(
         ["A", "B", "C", "D", "E", "H", "L", "I", "R", "AF", "BC", "DE", "HL", "SP", "IX", "IY", "IXH", "IXL", "IYH", "IYL", "NZ", "Z", "NC", "PO", "PE", "P", "M", "LOW", "HIGH", "MOD", "SHL", "SHR", "AND", "OR", "XOR", "NOT"],
@@ -21,7 +21,7 @@ internal sealed partial class Z80Isa : ByteIsa, ICopyLoop, ISignedBranch, IWordA
 
     public bool HasOverflowFlag => true;
 
-    public override bool ReturnsInResultReg => true;
+    public bool ReturnsInResultReg => true;
 
     /// <summary>Cel obsługuje wywołanie ogonowe.</summary>
     public override bool SupportsTailCall => true;
@@ -226,9 +226,9 @@ internal sealed partial class Z80Isa : ByteIsa, ICopyLoop, ISignedBranch, IWordA
         return true;
     }
 
-    public override void ResultByteFromA(int index) => L(index == 0 ? "ld l,a" : "ld h,a");
+    public void ResultByteFromA(int index) => L(index == 0 ? "ld l,a" : "ld h,a");
 
-    public override void ResultByteToA(int index) => L(index == 0 ? "ld a,l" : "ld a,h");
+    public void ResultByteToA(int index) => L(index == 0 ? "ld a,l" : "ld a,h");
 
     /// <summary>Słowo &lt;&lt; 1: <c>ld hl,src; add hl,hl; ld (dst),hl</c> (wynik zostaje w HL).</summary>
     /// <param name="dst">Cel.</param>

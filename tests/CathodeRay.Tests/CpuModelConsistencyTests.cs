@@ -60,7 +60,7 @@ public sealed class CpuModelConsistencyTests
         {
             ByteIsa isa = target.CreateIsa();
             CpuModel model = CpuModels.For(target);
-            (model.ResultReg is not null).Should().Be(isa.ReturnsInResultReg, target.Name);
+            (model.ResultReg is not null).Should().Be(isa is IResultReg resultIsa && resultIsa.ReturnsInResultReg, target.Name);
             if (model.ResultReg is { } result)
             {
                 model.Find(result)!.Width.Should().Be(2);

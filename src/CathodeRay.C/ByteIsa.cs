@@ -29,10 +29,6 @@ internal abstract class ByteIsa
     /// <summary>CPU ma adresowanie indeksowane z 8-bitowym rejestrem indeksowym (<see cref="Ir.LoadIdx"/>).</summary>
     public virtual bool SupportsIndexed => false;
 
-    /// <summary>Wynik funkcji o szerokości 1 lub 2 wraca w rejestrze CPU (Z80/8080: HL, dla 1 bajtu L), nie w <c>cc_ret</c>;
-    /// crt0 po <c>call main</c> zapisuje go do <c>cc_ret</c>. Domyślnie <see langword="false"/>.</summary>
-    public virtual bool ReturnsInResultReg => false;
-
     /// <summary>Komórka do przechowania A na czas pushy ramki (prolog callee-saved czyta komórki przez A, więc intake
     /// argumentów z rejestrów musi iść po nich; X i pary pushy przeżywają). Domyślnie brak (push nie niszczy rejestrów).</summary>
     public virtual string? EntryParkCell => null;
@@ -323,23 +319,15 @@ internal abstract class ByteIsa
     public virtual bool TryStep(IReadOnlyList<string> bytes, bool increment) => false;
 
     /// <summary>Rejestr wyniku ← słowo (stała, para rejestrów albo pamięć obok siebie), bez zmiany A. Wołane tylko, gdy
-    /// <see cref="ReturnsInResultReg"/>.</summary>
+    /// <see cref="IResultReg.ReturnsInResultReg"/>.</summary>
     /// <param name="value">Wartość.</param>
     /// <returns><see langword="false"/>, gdy słowa nie da się przenieść parą (selektor przeniesie je bajtami przez A).</returns>
     public virtual bool TryMoveToResultReg(Word value) => false;
 
-    /// <summary>Słowo ← rejestr wyniku, bez zmiany A. Wołane tylko, gdy <see cref="ReturnsInResultReg"/>.</summary>
+    /// <summary>Słowo ← rejestr wyniku, bez zmiany A. Wołane tylko, gdy <see cref="IResultReg.ReturnsInResultReg"/>.</summary>
     /// <param name="dst">Cel (para rejestrów albo pamięć obok siebie).</param>
     /// <returns><see langword="false"/>, gdy celu nie da się zapisać parą.</returns>
     public virtual bool TryMoveFromResultReg(Word dst) => false;
-
-    /// <summary>Bajt rejestru wyniku ← A.</summary>
-    /// <param name="index">0 = młodszy, 1 = starszy.</param>
-    public virtual void ResultByteFromA(int index) => throw new NotSupportedException();
-
-    /// <summary>A ← bajt rejestru wyniku.</summary>
-    /// <param name="index">0 = młodszy, 1 = starszy.</param>
-    public virtual void ResultByteToA(int index) => throw new NotSupportedException();
 
     /// <summary>Zamienia tekst od znacznika na jego wersję po relaksacji skoków (krótkie skoki warunkowe tam, gdzie cel jest w zasięgu).</summary>
     /// <param name="mark">Znacznik z <see cref="Mark"/>.</param>

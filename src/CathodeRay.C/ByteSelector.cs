@@ -479,7 +479,7 @@ internal sealed class ByteSelector
 
             if (current is Ir.Ret ret2 && resCell is not null && ret2.W == 2 && ret2.Value is Ir.Cell cell2
                 && cell2.Sym == resCell && cell2.W == 2 && cell2.Sym.StartsWith(function.Name + "__", StringComparison.Ordinal)
-                && _isa.ReturnsInResultReg && freshHL)
+                && _isa is IResultReg retHolder && retHolder.ReturnsInResultReg && freshHL)
             {
                 // rejestr wyniku trzyma wartość (świeży wynik Bin w HL): pomiń ładowanie
                 EmitRet(function, ret2, bodyIndex == function.Body.Count - 1, valueInResultReg: true);
@@ -546,8 +546,8 @@ internal sealed class ByteSelector
         _isa.Return();
     }
 
-    /// <summary>Wynik tej szerokości wraca w rejestrze CPU (<see cref="ByteIsa.ReturnsInResultReg"/>), nie w <c>cc_ret</c>.</summary>
-    private bool InResultReg(int width) => _isa.ReturnsInResultReg && width is 1 or 2;
+    /// <summary>Wynik tej szerokości wraca w rejestrze CPU (<see cref="IResultReg.ReturnsInResultReg"/>), nie w <c>cc_ret</c>.</summary>
+    private bool InResultReg(int width) => _isa is IResultReg result && result.ReturnsInResultReg && width is 1 or 2;
 
     /// <summary>Komórka ramki jako słowo (skalar 2-bajtowy) do odłożenia parą albo <see langword="null"/>.</summary>
     private Word? SavedWord(Ir.Owned owned) =>
@@ -1611,7 +1611,7 @@ internal sealed class ByteSelector
 
             for (int part = 0; part < call.Result.W; part++)
             {
-                _isa.ResultByteToA(part);
+                ((IResultReg)_isa).ResultByteToA(part);
                 _acc.Clear();
                 StoreA(Dst(call.Result, part));
             }
@@ -1640,7 +1640,7 @@ internal sealed class ByteSelector
                 for (int part = from; part != end; part += step)
                 {
                     LoadA(ByteOf(ret.Value, part));
-                    _isa.ResultByteFromA(part);
+                    ((IResultReg)_isa).ResultByteFromA(part);
                     if (_isa.AbiV2)
                     {
                         _acc.Clear(); // tax rusza A, a następne LoadA ufa _acc
