@@ -53,8 +53,8 @@
     {
       "id": "9",
       "title": "[L] Ramka na stosie + induction w parach: wartosci zywe w petli (wskazniki, liczniki, n w fib) w DE/HL/BC z push-pop wokol wolan zamiast statycznych komorek + reloadow. Bez lamania ABI (konwencja wejscia/wyjscia bez zmian). Pliki: RegisterAllocator, Lowering.Frames, ByteSelector. Akceptacja: copy 48->~23 B, fib -14 B, RecursionFrameTests zielone.",
-      "status": "todo",
-      "note": ""
+      "status": "partial",
+      "note": "CZĘŚĆ: parametry w rejestrach. RegisterAllocator nie blokuje już Params, nie wyrzuca ich z puli za 'żywe na wejściu' (prolog je wstawia) i dodaje klikę interferencji param-param. Prolog selektora już obsługiwał param w parze (TryMoveWord). Efekt: fib 72->68, fnptr 70->67, mean/SDCC 1.16->1.15, goldeny netto -471 (22 pola; jeden outlier 13_strings +5 przez heurystykę isalnum). Skutek: mutual-recursion bez ramki dostaje poprawny tail-call (test zaktualizowany). NIE zrobione: wartosci zywe w petli (n/wskaźniki) poza parametrami, ramka na stosie — to reszta itemu 9. Odrzucone: globalne pominięcie ParamAlias na Z80 (mean 1.15->1.35, koszt prologu liści)."
     },
     {
       "id": "10",

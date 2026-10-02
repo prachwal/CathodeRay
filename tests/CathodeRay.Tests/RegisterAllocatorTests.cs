@@ -293,7 +293,7 @@ public sealed class RegisterAllocatorTests
         foreach ((string source, string callee, string expected) in new[] { (Recursion, "fib", "55 9"), (Recursion, "f", "55 9"), (Indirect, "__callhl", "39"), (Multiply, "__cc_mul", "30") })
         {
             string code = target.Emit(Codegen.Lower(TypeChecker.Check(Parser.Parse(Io + source)), "t.c", objectMode: true), optimize: true);
-            code.Should().MatchRegex($@"push ({pairs})\r?\n(?:(?:ld hl,|lhld )[^\n]*\n)?call {callee}\r?\npop \1\r?\n", $"{cpu}: para żywa przez wołanie {callee}");
+            code.Should().MatchRegex($@"push ({pairs})\r?\n(?:[ \t]*[^\n]*\r?\n){{0,3}}call {callee}\r?\n(?:[ \t]*[^\n]*\r?\n){{0,2}}pop \1\r?\n", $"{cpu}: para żywa przez wołanie {callee}");
             CcRun.RunOn(Io + source, cpu).Console.Should().Be(expected);
         }
 

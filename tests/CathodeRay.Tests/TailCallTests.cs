@@ -81,7 +81,7 @@ public sealed class TailCallTests
     }
 
     [Fact]
-    public void Mutual_Recursion_Keeps_Normal_Calls()
+    public void Mutual_Recursion_Tail_Calls_When_Frame_Empty()
     {
         const string Source = """
             int f(int n);
@@ -97,12 +97,12 @@ public sealed class TailCallTests
             """;
         string z80 = EmitZ80(Source);
 
-        z80.Should().Contain("call f");
-        z80.Should().Contain("call g");
-        z80.Should().NotContain("jp f");
-        z80.Should().NotContain("jp g");
+        // Parametr w rejestrze nie zostawia ramki, więc wzajemna rekurencja w pozycji ogonowej to skoki (stos nie rośnie).
+        z80.Should().Contain("jp f");
+        z80.Should().Contain("jp g");
         CcRun.RunOn(Source, "z80").Value.Should().Be(0 + 1);
         CcRun.RunOn(Source, "8080").Value.Should().Be(0 + 1);
+        CcRun.RunOn(Source, "6502").Value.Should().Be(0 + 1);
     }
 
     [Fact]

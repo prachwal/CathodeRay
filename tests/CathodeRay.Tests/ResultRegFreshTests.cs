@@ -34,10 +34,11 @@ public sealed class ResultRegFreshTests
     [Fact]
     public void Nonadjacent_Ret_Still_Reloads()
     {
-        // wołanie między Bin a Ret niszczy HL: ładowanie musi zostać (sum ma ramkę i wołanie rekurencyjne)
+        // wołanie między Bin a Ret niszczy HL: wynik trzeba odtworzyć. n żyje teraz w parze (BC), więc po
+        // `call sum` następuje powrót pary i rekonstrukcja HL — nie wolno liczyć na świeże HL.
         string asm = EmitSample("05_calls.c", "z80");
         asm.Should().Contain("call sum");
-        asm.Should().Contain("ld hl,(sum__n)", "po wołaniu HL trzeba odtworzyć z pamięci");
+        asm.Should().MatchRegex(@"call sum\r?\n[\s\S]{0,24}ld l,[a-ehl]", "po wołaniu HL trzeba odtworzyć (z pary albo pamięci)");
     }
 
     [Theory]

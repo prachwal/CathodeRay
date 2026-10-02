@@ -18,10 +18,10 @@
 06_defines.c z80 linear-scan kept=3 spilled=0
 06_defines.c 6502 accumulator kept=0 spilled=3
 06_defines.c 6502 linear-scan kept=1 spilled=2
-07_control.c z80 accumulator kept=0 spilled=11
-07_control.c z80 linear-scan kept=11 spilled=0
-07_control.c 6502 accumulator kept=0 spilled=11
-07_control.c 6502 linear-scan kept=6 spilled=5
+07_control.c z80 accumulator kept=0 spilled=10
+07_control.c z80 linear-scan kept=10 spilled=0
+07_control.c 6502 accumulator kept=0 spilled=10
+07_control.c 6502 linear-scan kept=3 spilled=7
 08_int_signed.c z80 accumulator kept=0 spilled=10
 08_int_signed.c z80 linear-scan kept=7 spilled=3
 08_int_signed.c 6502 accumulator kept=0 spilled=10

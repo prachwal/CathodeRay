@@ -116,12 +116,16 @@ public sealed class ParamAliasTests
     public void Non_Leaf_Param_Is_Aliased_Only_When_Dead_Before_Every_Call()
     {
         Ir.Module module = Codegen.Lower(TypeChecker.Check(Parser.Parse(NonLeaf)), "t.c", objectMode: true);
-        string z80 = CTargets.Find("z80")!.Emit(module, optimize: true);
 
-        z80.Should().Contain("call g").And.Contain("jp sub").And.NotContain("inc__x");
+        // testujemy samą fazę ParamAlias (rejestry to osobna warstwa — mapa rejestrów zmienia listing, nie alias)
+        Ir.Module aliased = ParamAlias.Run(Legalizer.Run(WideLegalizer.Run(Legalizer.Run(CaseFold.Apply(module), wide: true), TargetByteOrder.Little, keepArithmetic: true)));
+        var referenced = aliased.Functions.SelectMany(static f => f.Body).SelectMany(IrFacts.Operands)
+            .Select(static op => op switch { Ir.Cell c => c.Sym, Ir.AddrOf a => a.Sym, _ => string.Empty }).ToList();
+
+        referenced.Should().NotContain("inc__x", "parametr martwy przed każdym wołaniem jest aliasowany na cc_argN");
         foreach (string kept in new[] { "after__x", "loop__x", "back__x", "swap__a", "apply__fp", "addr__x" })
         {
-            z80.Should().Contain(kept, "parametr żywy za wołaniem, argument na dalszej pozycji, wskaźnik wołania albo wzięty adres");
+            referenced.Should().Contain(kept, "parametr żywy za wołaniem, argument na dalszej pozycji, wskaźnik wołania albo wzięty adres");
         }
     }
 
