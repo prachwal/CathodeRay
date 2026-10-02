@@ -234,6 +234,55 @@ internal sealed partial class Z80Isa : ByteIsa
 
     public override void ResultByteToA(int index) => L(index == 0 ? "ld a,l" : "ld a,h");
 
+    /// <summary>Słowo &lt;&lt; 1: <c>ld hl,src; add hl,hl; ld (dst),hl</c> (wynik zostaje w HL).</summary>
+    /// <param name="dst">Cel.</param>
+    /// <param name="src">Źródło.</param>
+    /// <returns><see langword="false"/>, gdy bajty nie są sąsiednie.</returns>
+    public override bool TryShlWord1(Word dst, Word src)
+    {
+        if (dst.IsImmediate || !Usable(dst) || !Usable(src))
+        {
+            return false;
+        }
+
+        LoadPair("hl", src);
+        L("add hl,hl");
+        StorePair("hl", dst);
+        FreshAddInHL = true;
+        return true;
+    }
+
+    /// <summary>Kopia bloku o liczbie z pary BC: test zera, <c>push bc; push de; ld hl,src; ld de,dst;
+    /// ld bc,count; ldir; pop de; pop bc</c>. Push chroni pary z komórkami (selektor nie sprawdza
+    /// zajętości); liczba niezerowa z konstrukcji (wejście tylko spadkiem testu).</summary>
+    /// <param name="dst">Cel.</param>
+    /// <param name="src">Źródło.</param>
+    /// <param name="count">Liczba bajtów.</param>
+    /// <returns><see langword="false"/>, gdy operandy nieużywalne.</returns>
+    public override bool TryCopyLoop(Word dst, Word src, Word count)
+    {
+        if (dst.IsImmediate || src.IsImmediate || count.IsImmediate
+            || !Usable(dst) || !Usable(src) || !Usable(count))
+        {
+            return false;
+        }
+
+        LoadPair("bc", count);
+        L("ld a,b");
+        L("or c");
+        string skip = LocalLabel();
+        L($"jp z,{skip}");
+        L("push bc");
+        L("push de");
+        LoadPair("hl", src);
+        LoadPair("de", dst);
+        L("ldir");
+        L("pop de");
+        L("pop bc");
+        L($"{skip}:");
+        return true;
+    }
+
     /// <summary>Dodawanie/odejmowanie przez HL: <c>ld hl,a; add hl,de</c> albo <c>or a; sbc hl,de</c>, stała ±1..3 przez
     /// <c>inc hl</c>/<c>dec hl</c>, odjęcie stałej liczbowej jako dodanie jej przeciwieństwa.</summary>
     /// <param name="dst">Cel.</param>
@@ -304,7 +353,19 @@ internal sealed partial class Z80Isa : ByteIsa
             L("pop de");
         }
 
-        StorePair("hl", dst);
+        // Cel w parze DE: zamiana zamiast dwóch kopii (1 B mniej); HL po niej nie niesie wyniku
+        // (flaga dla ścieżki świeżego wyniku w selektorze). Martwe DE: nadpisane tak czy owak.
+        if (PairOf(dst) == "de")
+        {
+            L("ex de,hl");
+            FreshAddInHL = false;
+        }
+        else
+        {
+            StorePair("hl", dst);
+            FreshAddInHL = true;
+        }
+
         return true;
     }
 
@@ -371,6 +432,38 @@ internal sealed partial class Z80Isa : ByteIsa
         L("xor 128");
         L($"{skip}:");
         L(less ? $"jp m,{label}" : $"jp p,{label}");
+    }
+
+    /// <summary>Skoki po porównaniu ze stałą bez trampoliny. Przepełnienie (V=1) pcha też znak (S=1 przy
+    /// C &lt; 0, S=0 przy C &gt; 0), więc pojedynczy skok po znaku kłamie — gdy V rozstrzyga na spadek,
+    /// materializuję pustą etykietę else (0 B). Układ: <c>Lt</c> z C &gt; 0 to <c>jp pe,T; jp m,T</c>,
+    /// z C &lt; 0 to <c>jp pe,E; jp m,T; E:</c>, z C = 0 (V niemożliwe) samo <c>jp m,T</c>; <c>Ge</c> dualnie.</summary>
+    /// <param name="less"><c>x &lt; C</c> albo <c>x &gt;= C</c>.</param>
+    /// <param name="constant">Stała ze znakiem.</param>
+    /// <param name="target">Etykieta gałęzi prawdy (spadek to fałsz).</param>
+    /// <returns>Zawsze <see langword="true"/>.</returns>
+    public override bool TryBranchSignedConst(bool less, int constant, string target)
+    {
+        string sign = less ? $"jp m,{target}" : $"jp p,{target}";
+        if (constant == 0)
+        {
+            L(sign);
+            return true;
+        }
+
+        bool overMeansTrue = less == (constant > 0);
+        if (overMeansTrue)
+        {
+            L($"jp pe,{target}");
+            L(sign);
+            return true;
+        }
+
+        string skip = LocalLabel();
+        L($"jp pe,{skip}");
+        L(sign);
+        L($"{skip}:");
+        return true;
     }
 
     /// <summary>Skok na znaku i zerze słowa bez odejmowania: wartość do HL, potem bit 7 albo OR.</summary>
@@ -556,8 +649,11 @@ internal sealed partial class Z80Isa : ByteIsa
     {
         text = RedundantBcToHl().Replace(text, "$1");
         text = RedundantDeToHl().Replace(text, "$1");
+        text = SwapReloadDe().Replace(text, "$1ld e,l$2$1ld d,h$3");
         text = DeadBcBeforeRet().Replace(text, string.Empty);
         text = DeadDeBeforeRet().Replace(text, string.Empty);
+        text = XorAfterLabel().Replace(text, "$1$2xor a");
+        text = XorAfterCall().Replace(text, "$1$2xor a");
         return text;
     }
 
@@ -655,11 +751,27 @@ internal sealed partial class Z80Isa : ByteIsa
     [GeneratedRegex(@"(?m)^(\s*ld e,l\r?\n\s*ld d,h\r?\n)\s*ld l,e\r?\n\s*ld h,d\r?\n", RegexOptions.Multiline)]
     private static partial Regex RedundantDeToHl();
 
+    /// <summary><c>ex de,hl</c> z natychmiastowym przeładowaniem HL z DE → zwykła kopia <c>ld e,l; ld d,h</c>
+    /// (1 B mniej; HL i tak wraca do starej wartości, a kopia nie rusza niczego). Para do
+    /// <see cref="RedundantDeToHl"/>: tamta zjada kopię+reload, ta cofa zamianę+reload do kopii.</summary>
+    [GeneratedRegex(@"(?m)^([ \t]*)ex de,hl(\r?\n)[ \t]*ld l,e\2[ \t]*ld h,d(\r?\n)", RegexOptions.Multiline)]
+    private static partial Regex SwapReloadDe();
+
     [GeneratedRegex(@"(?m)^(\s*ld c,l\r?\n\s*ld b,h\r?\n)(?=(?:[ \t]*(?:[\w@.$]+:|;[^\r\n]*)[ \t]*\r?\n)*[ \t]*ret[ \t]*(?:\r?\n|$))", RegexOptions.Multiline)]
     private static partial Regex DeadBcBeforeRet();
 
     [GeneratedRegex(@"(?m)^(\s*ld e,l\r?\n\s*ld d,h\r?\n)(?=(?:[ \t]*(?:[\w@.$]+:|;[^\r\n]*)[ \t]*\r?\n)*[ \t]*ret[ \t]*(?:\r?\n|$))", RegexOptions.Multiline)]
     private static partial Regex DeadDeBeforeRet();
+
+    /// <summary><c>ld a,0</c> tuż za etykietą → <c>xor a</c> (1 B mniej). Flagi za etykietą są nieokreślone
+    /// (ścieżki się rozjeżdżają; selektor i tak nigdy nie czyta flag dalej niż tuż za zapisem — skoki warunkowe
+    /// i łańcuchy adc/sbc zawsze stoją przy swoim setterze), więc czyszczenie C/Z przez xor jest legalne.</summary>
+    [GeneratedRegex(@"(?m)^([ \t]*[\w@.$]+:\r?\n(?:[ \t]*;[^\r\n]*\r?\n)*)([ \t]*)ld a,0(?![\w])", RegexOptions.Multiline)]
+    private static partial Regex XorAfterLabel();
+
+    /// <summary><c>ld a,0</c> tuż za bezwarunkowym <c>call</c> → <c>xor a</c>: wołany gubi flagi (koniec na ret).</summary>
+    [GeneratedRegex(@"(?m)^([ \t]*call (?![np]?[zc],|p[eo],|[pm],)[^\r\n]*\r?\n(?:[ \t]*;[^\r\n]*\r?\n)*)([ \t]*)ld a,0(?![\w])", RegexOptions.Multiline)]
+    private static partial Regex XorAfterCall();
 
     [GeneratedRegex(@"^\s*jp\s+((?:nz|z|nc|c),)?\s*([A-Za-z_.$][\w.$]*)\s*$")]
     private static partial Regex LongJump();

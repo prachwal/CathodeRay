@@ -31,6 +31,9 @@ internal sealed class Mos6502Isa : ByteIsa
     /// na czas pushy (X je przeżywa); scratch ginie dopiero w ciele funkcji.</summary>
     public override string? EntryParkCell => "cc_t0";
 
+    /// <summary><c>eor</c>/<c>and</c>/<c>ora</c> nie ruszają C (model <c>CpuModels</c>): bias może iść wprost w A.</summary>
+    public override bool XorPreservesCarry => true;
+
     protected override IReadOnlySet<string> Reserved => ReservedNames;
 
     /// <summary>Nazwa CPU w <see cref="CpuModels"/> (warianty nes/6510 dzielą model 6502).</summary>

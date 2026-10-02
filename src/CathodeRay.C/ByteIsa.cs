@@ -46,6 +46,16 @@ internal abstract class ByteIsa
     /// nieustawione. Domyślnie <see langword="false"/>: selektor ładuje wynik z komórki.</summary>
     public virtual bool FreshBinInResultReg => false;
 
+    /// <summary>Xor (i or/and) nie rusza przeniesienia (6502/6800): bias najstarszego bajtu może iść wprost między
+    /// odejmowanie młodszych bajtów a sbc (na Z80/8080 xor gasi C, więc bias lewej strony idzie do komórki scratch).
+    /// Domyślnie <see langword="false"/>.</summary>
+    public virtual bool XorPreservesCarry => false;
+
+    /// <summary>Ostatnie słowo z <see cref="TryAddWord"/>/<see cref="TryShlWord1"/> zostało w HL (ścieżka świeżego
+    /// wyniku do <c>Ret</c> w selektorze jest wtedy poprawna); <c>false</c> po zamianie <c>ex de,hl</c>/<c>xchg</c>
+    /// do pary DE. Czytane tylko tuż po <c>Bin</c> W2 (pętla selektora i tak gasi świeżość na każdej innej instrukcji).</summary>
+    public bool FreshAddInHL { get; set; } = true;
+
     /// <summary>Czy cel obsługuje wywołanie ogonowe (skok zamiast call+ret).</summary>
     public virtual bool SupportsTailCall => false;
 
@@ -379,6 +389,34 @@ internal abstract class ByteIsa
     /// <param name="subtract"><see langword="true"/>: <c>a - b</c>.</param>
     /// <returns><see langword="true"/>, gdy sekwencja została wyemitowana.</returns>
     public virtual bool TryAddWord(Word dst, Word a, Word b, bool subtract) => false;
+
+    /// <summary>Słowo &lt;&lt; 1 przez HL (<c>add hl,hl</c> / <c>dad h</c>); po niej HL niesie wynik    /// (jak w <see cref="TryAddWord"/>: flaga świeżości w selektorze). Domyślnie <see langword="false"/>:
+    /// selektor przesuwa bajt po bajcie.</summary>
+    /// <param name="dst">Cel (pamięć albo para).</param>
+    /// <param name="src">Źródło: stała, pamięć albo para.</param>
+    /// <returns><see langword="true"/>, gdy sekwencja została wyemitowana.</returns>
+    public virtual bool TryShlWord1(Word dst, Word src) => false;
+
+    /// <summary>Kopia bloku (liczba bajtów w czasie wykonania) przez <c>ldir</c>: wołający (matcher pętli
+    /// w selektorze) gwarantuje liczbę niezerową na wejściu, rozłączność par chroni push/pop w środku,
+    /// a komórki Dst/Src/Count są martwe za pętlą (bez writebacku). Flagi po niej nieokreślone.
+    /// Domyślnie <see langword="false"/>: selektor emituje zwykłą pętlę.</summary>
+    /// <param name="dst">Cel (wskaźnik w pamięci albo parze).</param>
+    /// <param name="src">Źródło (wskaźnik w pamięci albo parze).</param>
+    /// <param name="count">Liczba bajtów (słowo w pamięci albo parze, niezerowe).</param>
+    /// <returns><see langword="true"/>, gdy sekwencja została wyemitowana.</returns>
+    public virtual bool TryCopyLoop(Word dst, Word src, Word count) => false;
+
+    /// <summary>Skoki po porównaniu ze znakiem ze stałą 16-bitową (odejmowanie już wyemitowane przez selektor,
+    /// spadek = gałąź else). Przepełnienie (V) rozstrzyga samo tam, gdzie jego sens zgadza się z gałęzią prawdy;
+    /// w przeciwną stronę wołający materializuje pustą etykietę else — i tak taniej niż trampolina S^V.
+    /// Wołane tylko dla <c>Lt</c>/<c>Ge</c> (resztę selektor sprowadza do nich przez +1).
+    /// Domyślnie <see langword="false"/>: selektor używa trampoliny <see cref="JumpIfSigned"/>.</summary>
+    /// <param name="less">Skok przy <c>x &lt; C</c>; inaczej przy <c>x &gt;= C</c>.</param>
+    /// <param name="constant">Stała (ze znakiem, -32768..32767).</param>
+    /// <param name="target">Etykieta gałęzi prawdy.</param>
+    /// <returns><see langword="true"/>, gdy sekwencja została wyemitowana.</returns>
+    public virtual bool TryBranchSignedConst(bool less, int constant, string target) => false;
 
     /// <summary>Dodawanie albo odejmowanie liczb 32-bitowych <c>dst ← a ± b</c> podanych jako połówki (młodsza, starsza) jedną
     /// sekwencją CPU z przeniesieniem między połówkami, bez zmiany A (flagi po niej nieokreślone). Domyślnie <see langword="false"/>:

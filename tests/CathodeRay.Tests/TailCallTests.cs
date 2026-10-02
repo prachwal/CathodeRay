@@ -81,7 +81,7 @@ public sealed class TailCallTests
     }
 
     [Fact]
-    public void Mutual_Recursion_Keeps_Normal_Calls()
+    public void Mutual_Recursion_Tail_Calls_When_Frame_Empty()
     {
         const string Source = """
             int f(int n);
@@ -97,11 +97,22 @@ public sealed class TailCallTests
             """;
         string z80 = EmitZ80(Source);
 
-        z80.Should().Contain("call f");
-        z80.Should().Contain("call g");
-        z80.Should().NotContain("jp f");
-        z80.Should().NotContain("jp g");
+        // Parametr w rejestrze nie zostawia ramki, więc wzajemna rekurencja w pozycji ogonowej to skoki (stos nie rośnie).
+        z80.Should().Contain("jp f");
+        z80.Should().Contain("jp g");
         CcRun.RunOn(Source, "z80").Value.Should().Be(0 + 1);
         CcRun.RunOn(Source, "8080").Value.Should().Be(0 + 1);
+        CcRun.RunOn(Source, "6502").Value.Should().Be(0 + 1);
+    }
+
+    [Fact]
+    public void Terminal_Tail_Call_Skips_Dead_Footer()
+    {
+        const string Source = "int target(int x) { return x + 1; }\nint wrap(int x) { return target(x); }\nint use(int (*f)(int)) { return f(0); }\nint main() { return wrap(7) + use(target); }\n";
+
+        EmitZ80(Source).Should().Contain("jp target").And.NotContain("wrap__ret:");
+        Emit8080(Source).Should().Contain("jmp target").And.NotContain("wrap__ret:");
+        CcRun.RunOn(Source, "z80").Value.Should().Be(9);
+        CcRun.RunOn(Source, "8080").Value.Should().Be(9);
     }
 }

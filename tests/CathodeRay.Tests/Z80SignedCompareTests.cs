@@ -147,4 +147,144 @@ public sealed class Z80SignedCompareTests
             };
         }
     }
+
+    private static readonly int[] ConstEdges = [0, 1, 2, 5, 127, 128, 255, 256, 1000, 32766, 32767, -32768, -32767, -2, -1];
+
+    public static TheoryData<Ir.Cond, int> ConstCases()
+    {
+        var data = new TheoryData<Ir.Cond, int>();
+        foreach (Ir.Cond cond in new[] { Ir.Cond.Lt, Ir.Cond.Le, Ir.Cond.Gt, Ir.Cond.Ge })
+        {
+            foreach (int c in ConstEdges)
+            {
+                data.Add(cond, c);
+            }
+        }
+
+        return data;
+    }
+
+    [Theory]
+    [MemberData(nameof(ConstCases))]
+    public void Signed_Const_Edges_And_Random_Match_CSharp(Ir.Cond cond, int c)
+    {
+        var values = new List<int> { -32768, -32767, -2, -1, 0, 1, 2, 32766, 32767 };
+        foreach (int near in new[] { c - 1, c, c + 1 })
+        {
+            if (near is >= -32768 and <= 32767)
+            {
+                values.Add(near);
+            }
+        }
+
+        var random = new Random(cond.GetHashCode() + c);
+        for (int i = 0; i < 300; i++)
+        {
+            values.Add(random.Next(-32768, 32768));
+        }
+
+        var bench = new ConstBench(cond, c);
+        var failures = new List<string>();
+        foreach (int a in values.Distinct())
+        {
+            bool expected = Expected(cond, a, c);
+            if (bench.Taken(a) != expected)
+            {
+                failures.Add($"{cond} {a} {c}: oczekiwano {expected}");
+            }
+        }
+
+        failures.Should().BeEmpty();
+    }
+
+    [Theory]
+    [InlineData(Ir.Cond.Lt, 5, true)]
+    [InlineData(Ir.Cond.Lt, -1, true)]
+    [InlineData(Ir.Cond.Lt, 0, false)]
+    [InlineData(Ir.Cond.Ge, 5, true)]
+    [InlineData(Ir.Cond.Ge, -1, true)]
+    [InlineData(Ir.Cond.Ge, 0, false)]
+    [InlineData(Ir.Cond.Le, 5, true)]
+    [InlineData(Ir.Cond.Gt, -1, false)]
+    public void Signed_Const_Uses_Short_Jumps_Without_Trampoline(Ir.Cond cond, int c, bool expectPe)
+    {
+        string code = new ConstBench(cond, c).Code;
+
+        code.Should().NotContain("xor 128", "stała nie wymaga trampoliny S^V");
+        if (expectPe)
+        {
+            code.Should().Contain("jp pe,");
+        }
+        else
+        {
+            code.Should().NotContain("jp pe,");
+        }
+    }
+
+    /// <summary>Jak <see cref="Bench"/>, ale prawa strona to stała W2 (ścieżka bez trampoliny).</summary>
+    private sealed class ConstBench
+    {
+        private readonly AssemblyResult _image;
+        private readonly int _start;
+
+        public ConstBench(Ir.Cond cond, int c)
+        {
+            List<Ir.Ins> body =
+            [
+                new Ir.Mov(new Ir.Cell("c_r", 1), new Ir.Imm(0, 1)),
+                new Ir.BrCmp(cond, new Ir.Cell("c_a", 2), new Ir.Imm(c, 2), "taken"),
+                new Ir.Jmp("end"),
+                new Ir.Label("taken"),
+                new Ir.Mov(new Ir.Cell("c_r", 1), new Ir.Imm(1, 1)),
+                new Ir.Label("end"),
+                new Ir.Ret(null, 0),
+            ];
+            List<Ir.Data> data =
+            [
+                new("c_a", "DATA", 2, [new Ir.Bytes(new byte[2])], false),
+                new("c_r", "DATA", 1, [new Ir.Bytes(new byte[1])], false),
+            ];
+            var module = new Ir.Module([new Ir.Function("main", false, [], 0, [], body)], data, [], [], ObjectMode: false);
+            ICTarget target = CTargets.All.Single(static t => t.Name == "z80");
+            Code = target.Emit(module, true);
+            string asm = target.Crt0 + Code;
+            AssemblerTarget assemblerTarget = AssemblerTargets.Find(target.AssemblerCpu)!;
+            var origins = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+            foreach (TargetSegment segment in target.Layout.Segments)
+            {
+                origins[segment.Name] = target.Layout.Areas.Single(a => a.Name == segment.Area).Start;
+            }
+
+            _image = new TwoPassAssembler(Repo.LoadTarget(assemblerTarget), assemblerTarget.DefaultSyntax)
+                .Assemble(asm, "prog", _ => null, [], null, origins);
+            _start = origins["CODE"];
+        }
+
+        public string Code { get; }
+
+        public bool Taken(int a)
+        {
+            var cpu = new Z80Cpu();
+            _image.Image.CopyTo(cpu.Memory, _image.Origin);
+            cpu.Memory[_image.Symbols["c_a"]] = (byte)a;
+            cpu.Memory[_image.Symbols["c_a"] + 1] = (byte)(a >> 8);
+            cpu.Pc = (ushort)_start;
+            for (int steps = 0; !cpu.Halted; steps++)
+            {
+                if (steps > 100_000)
+                {
+                    throw new InvalidOperationException("program się nie zatrzymał");
+                }
+
+                cpu.Step();
+            }
+
+            return cpu.Memory[_image.Symbols["c_r"]] switch
+            {
+                0 => false,
+                1 => true,
+                _ => throw new InvalidOperationException("c_r poza 0/1"),
+            };
+        }
+    }
 }

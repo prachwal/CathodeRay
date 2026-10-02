@@ -138,6 +138,28 @@ public sealed class Z80RegisterIsaTests
         value.Should().Be(75).And.Be(Interpret(module));
     }
 
+    [Fact]
+    public void Word_Bin_To_De_Uses_Ex_And_Returns_Correctly()
+    {
+        var m = new Ir.Cell("main__m", 2);
+        var t = new Ir.Cell("main__t", 2);
+
+        // t = m - 1 (m = 0x1234 -> 0x1233); epilog zamienia HL<->DE, więc Ret nie śmie liczyć
+        // na świeże HL (flaga FreshAddInHL) — wynik z emulatora to dowód poprawności flagi
+        List<Ir.Ins> body =
+        [
+            new Ir.Mov(m, new Ir.Imm(0x1234, 2)),
+            new Ir.Bin(Ir.BinOp.Sub, t, m, new Ir.Imm(1, 2)),
+            new Ir.Ret(t, 2),
+        ];
+        Ir.Module module = Module(body, Bss("main__m", 2), Bss("main__t", 2));
+
+        (string code, int value) = Run(module, new Dictionary<string, string> { ["main__t"] = "de" });
+
+        code.Should().Contain("ex de,hl").And.NotContain("ld e,l");
+        value.Should().Be(0x1233).And.Be(Interpret(module));
+    }
+
     private static Ir.Data Bss(string sym, int size) => new(sym, "BSS", size, null, false);
 
     private static Ir.Module Module(List<Ir.Ins> body, params Ir.Data[] data) =>

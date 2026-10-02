@@ -25,10 +25,10 @@ Trzymane vs spillowane rejestry wirtualne na samplach (`--ir vreg`, adapter do C
 | 06_defines.c | z80 | linear-scan | 3 | 0 |
 | 06_defines.c | 6502 | accumulator | 0 | 3 |
 | 06_defines.c | 6502 | linear-scan | 1 | 2 |
-| 07_control.c | z80 | accumulator | 0 | 11 |
-| 07_control.c | z80 | linear-scan | 11 | 0 |
-| 07_control.c | 6502 | accumulator | 0 | 11 |
-| 07_control.c | 6502 | linear-scan | 6 | 5 |
+| 07_control.c | z80 | accumulator | 0 | 10 |
+| 07_control.c | z80 | linear-scan | 10 | 0 |
+| 07_control.c | 6502 | accumulator | 0 | 10 |
+| 07_control.c | 6502 | linear-scan | 3 | 7 |
 | 08_int_signed.c | z80 | accumulator | 0 | 10 |
 | 08_int_signed.c | z80 | linear-scan | 7 | 3 |
 | 08_int_signed.c | 6502 | accumulator | 0 | 10 |

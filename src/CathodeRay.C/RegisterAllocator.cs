@@ -46,7 +46,6 @@ internal static class RegisterAllocator
         {
             Ir.Function function = module.Functions[f];
             blocked.UnionWith(function.Saved.Where(static o => o.Aggregate).Select(static o => IrLiveness.BaseSymbol(o.Sym)));
-            blocked.UnionWith(function.Params.Select(static p => IrLiveness.BaseSymbol(p.Sym)));
             foreach (Ir.Ins ins in function.Body)
             {
                 foreach (Ir.Op op in IrFacts.Operands(ins))
@@ -133,7 +132,11 @@ internal static class RegisterAllocator
         int Size(string sym) => extent.GetValueOrDefault(sym);
         var live = IrLiveness.Of(body, Size);
         var pool = new HashSet<string>(cells, StringComparer.Ordinal);
-        pool.ExceptWith(live.LiveIn(0));
+
+        // Parametr jest „żywy na wejściu", ale jego wartość wstawia prolog (kopia z cc_argN do rejestru), więc
+        // zostaje w puli; inne komórki żywe na wejściu (np. lokalna static) odpadają — ich stanu nikt nie odtworzy.
+        var paramSyms = new HashSet<string>(function.Params.Select(static p => IrLiveness.BaseSymbol(p.Sym)), StringComparer.Ordinal);
+        pool.ExceptWith(live.LiveIn(0).Where(s => !paramSyms.Contains(s)));
         var crossings = pool.ToDictionary(static s => s, static _ => new List<int>(), StringComparer.Ordinal);
         for (int i = 0; i < body.Count; i++)
         {
@@ -171,6 +174,16 @@ internal static class RegisterAllocator
                     edges[written].Add(other);
                     edges[other].Add(written);
                 }
+            }
+        }
+
+        // Parametry są żywe na wejściu, a brak zapisu w IR nie tworzy krawędzi — dodaj klikę, by nie dzieliły rejestru.
+        var liveParams = pool.Where(paramSyms.Contains).ToList();
+        foreach (string p in liveParams)
+        {
+            foreach (string q in liveParams.Where(q => q != p))
+            {
+                edges[p].Add(q);
             }
         }
 
