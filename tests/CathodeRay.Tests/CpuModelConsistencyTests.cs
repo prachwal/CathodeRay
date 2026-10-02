@@ -119,7 +119,7 @@ public sealed class CpuModelConsistencyTests
             CpuModel model = CpuModels.For(target);
             foreach (Ir.Call call in tuned.Functions.SelectMany(static f => f.Body).OfType<Ir.Call>())
             {
-                foreach (string pair in isa.SavedAround(call))
+                foreach (string pair in isa.Cells.SavedAround(call))
                 {
                     CpuRegister? entry = model.Find(pair);
                     entry.Should().NotBeNull($"para {pair} na {target.Name}");

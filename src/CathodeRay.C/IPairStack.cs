@@ -1,7 +1,7 @@
 namespace CathodeRay.C;
 
 /// <summary>CPU umie odkładać i zdejmować pary rejestrów komórek na stos (Z80/8080: <c>push/pop bc</c>, także całymi słowami).
-/// Pary żywe za wołaniem (<see cref="ByteIsa.SavedAround"/>) ma tylko CPU z niepustymi <see cref="ByteIsa.CellPairs"/>.</summary>
+/// Pary żywe za wołaniem (<see cref="CellMap.SavedAround"/>) ma tylko CPU z niepustymi <see cref="ByteIsa.CellPairs"/>.</summary>
 internal interface IPairStack
 {
     /// <summary>Odkłada parę rejestrów z <see cref="ByteIsa.CellPairs"/> na stos (bez zmiany A i flag).</summary>

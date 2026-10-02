@@ -44,9 +44,9 @@ internal sealed partial class Intel8080Isa : ByteIsa, IWordShift, IPairMoves, IP
     public override string Reserve(int size) => $"DS {size}";
 
     public override void LoadA(Octet value) =>
-        L(value.IsImmediate ? $"mvi a,{value.Text}" : Resolve(value.Text) is { } register ? $"mov a,{register}" : $"lda {value.Text}");
+        L(value.IsImmediate ? $"mvi a,{value.Text}" : Cells.Resolve(value.Text) is { } register ? $"mov a,{register}" : $"lda {value.Text}");
 
-    public override void StoreA(string address) => L(Resolve(address) is { } register ? $"mov {register},a" : $"sta {address}");
+    public override void StoreA(string address) => L(Cells.Resolve(address) is { } register ? $"mov {register},a" : $"sta {address}");
 
     public override void Alu(ByteAlu op, Octet value, bool first)
     {
@@ -88,10 +88,10 @@ internal sealed partial class Intel8080Isa : ByteIsa, IWordShift, IPairMoves, IP
     public override bool TryStep(IReadOnlyList<string> bytes, bool increment)
     {
         string op = increment ? "inr" : "dcr";
-        if (bytes.Any(IsRegister))
+        if (bytes.Any(Cells.IsRegister))
         {
             // rejestr: inr c; para: inx b (bez flag, kontrakt pozwala); inny układ przez łańcuch ADD/SUB w selektorze
-            string? register = bytes.Count == 1 ? Resolve(bytes[0]) : PairOf(new Word(false, bytes[0], bytes[1]))?[..1];
+            string? register = bytes.Count == 1 ? Cells.Resolve(bytes[0]) : Cells.PairOf(new Word(false, bytes[0], bytes[1]))?[..1];
             if (register is not null)
             {
                 L(bytes.Count == 1 ? $"{op} {register}" : $"{(increment ? "inx" : "dcx")} {register}");
@@ -134,7 +134,7 @@ internal sealed partial class Intel8080Isa : ByteIsa, IWordShift, IPairMoves, IP
     /// <returns>Wynik jawny (<see cref="WordResult"/>).</returns>
     public WordResult TryShlWord1(Word dst, Word src)
     {
-        if (dst.IsImmediate || !Usable(dst) || !Usable(src))
+        if (dst.IsImmediate || !Cells.Usable(dst) || !Cells.Usable(src))
         {
             return new(false, false);
         }
@@ -152,12 +152,12 @@ internal sealed partial class Intel8080Isa : ByteIsa, IWordShift, IPairMoves, IP
     /// <returns><see langword="false"/>, gdy bajty nie są sąsiednie.</returns>
     public bool TryMoveWord(Word dst, Word src)
     {
-        if (dst.IsImmediate || !Usable(dst) || !Usable(src))
+        if (dst.IsImmediate || !Cells.Usable(dst) || !Cells.Usable(src))
         {
             return false;
         }
 
-        if (PairOf(dst) is { } pair)
+        if (Cells.PairOf(dst) is { } pair)
         {
             LoadPair(pair, src);
         }
@@ -175,7 +175,7 @@ internal sealed partial class Intel8080Isa : ByteIsa, IWordShift, IPairMoves, IP
     /// <returns><see langword="false"/>, gdy bajty nie są sąsiednie w pamięci.</returns>
     public bool TryPushWord(Word word)
     {
-        if (!InMemoryWord(word))
+        if (!Cells.InMemoryWord(word))
         {
             return false;
         }
@@ -192,7 +192,7 @@ internal sealed partial class Intel8080Isa : ByteIsa, IWordShift, IPairMoves, IP
     /// <returns><see langword="false"/>, gdy bajty nie są sąsiednie w pamięci.</returns>
     public bool TryPopWord(Word word, bool keepResult)
     {
-        if (!InMemoryWord(word))
+        if (!Cells.InMemoryWord(word))
         {
             return false;
         }
@@ -217,13 +217,13 @@ internal sealed partial class Intel8080Isa : ByteIsa, IWordShift, IPairMoves, IP
     /// <returns><see langword="false"/>, gdy bajty nie leżą parą.</returns>
     public bool TryMoveToResultReg(Word value)
     {
-        if (!Usable(value))
+        if (!Cells.Usable(value))
         {
             return false;
         }
 
         // DE nie żyje po powrocie (epilog odtwarza ramkę bez niej): zamiana jest krótsza niż dwie kopie bajtów
-        if (PairOf(value) == "de")
+        if (Cells.PairOf(value) == "de")
         {
             L("xchg");
         }
@@ -240,13 +240,13 @@ internal sealed partial class Intel8080Isa : ByteIsa, IWordShift, IPairMoves, IP
     /// <returns><see langword="false"/>, gdy bajty nie leżą parą.</returns>
     public bool TryMoveFromResultReg(Word dst)
     {
-        if (dst.IsImmediate || !Usable(dst))
+        if (dst.IsImmediate || !Cells.Usable(dst))
         {
             return false;
         }
 
         // HL po wołaniu to już tylko pomocniczy rejestr: zamiana zamiast dwóch kopii bajtów
-        if (PairOf(dst) == "de")
+        if (Cells.PairOf(dst) == "de")
         {
             L("xchg");
         }
@@ -291,7 +291,7 @@ internal sealed partial class Intel8080Isa : ByteIsa, IWordShift, IPairMoves, IP
     /// <returns><see langword="true"/>, gdy sekwencja została wyemitowana.</returns>
     public override bool TryBranchZeroSigned(Word value, Ir.Cond cond, string target)
     {
-        if (value.IsImmediate || !Usable(value) || cond is not (Ir.Cond.Lt or Ir.Cond.Ge or Ir.Cond.Le or Ir.Cond.Gt))
+        if (value.IsImmediate || !Cells.Usable(value) || cond is not (Ir.Cond.Lt or Ir.Cond.Ge or Ir.Cond.Le or Ir.Cond.Gt))
         {
             return false;
         }
@@ -347,7 +347,7 @@ internal sealed partial class Intel8080Isa : ByteIsa, IWordShift, IPairMoves, IP
         else if (offset > 3)
         {
             // para pomocnicza tylko wolna (DE, potem BC); obie z komórkami: DE przechowane na stosie
-            string? pair = Scratch();
+            string? pair = Cells.Scratch();
             if (pair is null)
             {
                 L("push d");
@@ -478,7 +478,7 @@ internal sealed partial class Intel8080Isa : ByteIsa, IWordShift, IPairMoves, IP
             return;
         }
 
-        if (Resolve(value.Text) is { } register)
+        if (Cells.Resolve(value.Text) is { } register)
         {
             L($"{memory} {register}");
             return;
@@ -496,10 +496,10 @@ internal sealed partial class Intel8080Isa : ByteIsa, IWordShift, IPairMoves, IP
         {
             L($"lxi {pair[..1]},{word.Lo}");
         }
-        else if (InRegisters(word))
+        else if (Cells.InRegisters(word))
         {
-            Move(pair[1..], Resolve(word.Lo)!);
-            Move(pair[..1], Resolve(word.Hi)!);
+            Move(pair[1..], Cells.Resolve(word.Lo)!);
+            Move(pair[..1], Cells.Resolve(word.Hi)!);
         }
         else
         {
@@ -512,10 +512,10 @@ internal sealed partial class Intel8080Isa : ByteIsa, IWordShift, IPairMoves, IP
     /// <summary>Para rejestrów do słowa (rejestry albo pamięć przez <c>shld</c>); nie zmienia flag ani A.</summary>
     private void StorePair(string pair, Word word)
     {
-        if (InRegisters(word))
+        if (Cells.InRegisters(word))
         {
-            Move(Resolve(word.Lo)!, pair[1..]);
-            Move(Resolve(word.Hi)!, pair[..1]);
+            Move(Cells.Resolve(word.Lo)!, pair[1..]);
+            Move(Cells.Resolve(word.Hi)!, pair[..1]);
             return;
         }
 

@@ -171,7 +171,7 @@ public sealed class Z80RegisterIsaTests
     private static (string Code, int Value) Run(Ir.Module module, Dictionary<string, string> registers)
     {
         var isa = new Z80Isa();
-        isa.AssignRegisters(registers);
+        isa.Cells.AssignRegisters(registers);
         string code = new ByteSelector(Legalizer.Run(module), isa).Emit();
         ICTarget target = CTargets.All.Single(static t => t.Name == "z80");
         TargetHarness.Result result = TargetHarness.RunAssembly(target, target.Crt0 + code);

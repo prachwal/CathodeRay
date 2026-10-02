@@ -384,7 +384,7 @@ internal sealed class Mos6502Isa : ByteIsa, IResultReg, ITailCall, IIndexed, IRe
     public override string Crt0()
     {
         var text = new StringBuilder();
-        foreach (string symbol in Cells())
+        foreach (string symbol in PageCells())
         {
             text.AppendLine($".global {symbol}");
         }
@@ -460,14 +460,14 @@ internal sealed class Mos6502Isa : ByteIsa, IResultReg, ITailCall, IIndexed, IRe
         text.AppendLine("__zp_start:");
         text.AppendLine("__p: .res 2");
         text.AppendLine("__q: .res 2");
-        foreach (string symbol in Cells().Where(_zeroPage.Contains))
+        foreach (string symbol in PageCells().Where(_zeroPage.Contains))
         {
             text.AppendLine($"{symbol}: .res 1");
         }
 
         text.AppendLine(".segment \"BSS\"");
         text.AppendLine("__bss_start: .res 1");
-        foreach (string symbol in Cells().Where(symbol => !_zeroPage.Contains(symbol)))
+        foreach (string symbol in PageCells().Where(symbol => !_zeroPage.Contains(symbol)))
         {
             text.AppendLine($"{symbol}: .res 1");
         }
@@ -491,7 +491,7 @@ internal sealed class Mos6502Isa : ByteIsa, IResultReg, ITailCall, IIndexed, IRe
     protected override string Relax(string text) =>
         AsmInsn.EmitAll(BranchRelaxer.Apply([.. AsmInsn.ParseAll(text)], Size, Invert));
 
-    private static IEnumerable<string> Cells()
+    private static IEnumerable<string> PageCells()
     {
         for (int arg = 1; arg <= TypeChecker.MaxArgs; arg++)
         {

@@ -79,10 +79,10 @@ internal sealed partial class Z80Isa : ByteIsa, ICopyLoop, ISignedBranch, IWordA
     public override bool TryStep(IReadOnlyList<string> bytes, bool increment)
     {
         string op = increment ? "inc" : "dec";
-        if (bytes.Any(IsRegister))
+        if (bytes.Any(Cells.IsRegister))
         {
             // rejestr: inc c; para: inc bc (bez flag, kontrakt pozwala); inny układ przez łańcuch ADD/SUB w selektorze
-            string? register = bytes.Count == 1 ? Resolve(bytes[0]) : PairOf(new Word(false, bytes[0], bytes[1]));
+            string? register = bytes.Count == 1 ? Cells.Resolve(bytes[0]) : Cells.PairOf(new Word(false, bytes[0], bytes[1]));
             if (register is not null)
             {
                 L($"{op} {register}");
@@ -126,16 +126,16 @@ internal sealed partial class Z80Isa : ByteIsa, ICopyLoop, ISignedBranch, IWordA
     /// <returns><see langword="false"/>, gdy bajty nie są sąsiednie.</returns>
     public bool TryMoveWord(Word dst, Word src)
     {
-        if (dst.IsImmediate || !Usable(dst) || !Usable(src))
+        if (dst.IsImmediate || !Cells.Usable(dst) || !Cells.Usable(src))
         {
             return false;
         }
 
-        if (PairOf(dst) is { } pair)
+        if (Cells.PairOf(dst) is { } pair)
         {
             LoadPair(pair, src);
         }
-        else if (PairOf(src) is { } source && !InRegisters(dst))
+        else if (Cells.PairOf(src) is { } source && !Cells.InRegisters(dst))
         {
             L($"ld ({dst.Lo}),{source}");
         }
@@ -153,7 +153,7 @@ internal sealed partial class Z80Isa : ByteIsa, ICopyLoop, ISignedBranch, IWordA
     /// <returns><see langword="false"/>, gdy bajty nie są sąsiednie w pamięci.</returns>
     public bool TryPushWord(Word word)
     {
-        if (!InMemoryWord(word))
+        if (!Cells.InMemoryWord(word))
         {
             return false;
         }
@@ -169,7 +169,7 @@ internal sealed partial class Z80Isa : ByteIsa, ICopyLoop, ISignedBranch, IWordA
     /// <returns><see langword="false"/>, gdy bajty nie są sąsiednie w pamięci.</returns>
     public bool TryPopWord(Word word, bool keepResult)
     {
-        if (!InMemoryWord(word))
+        if (!Cells.InMemoryWord(word))
         {
             return false;
         }
@@ -185,13 +185,13 @@ internal sealed partial class Z80Isa : ByteIsa, ICopyLoop, ISignedBranch, IWordA
     /// <returns><see langword="false"/>, gdy bajty nie leżą parą.</returns>
     public bool TryMoveToResultReg(Word value)
     {
-        if (!Usable(value))
+        if (!Cells.Usable(value))
         {
             return false;
         }
 
         // DE nie żyje po powrocie (epilog odtwarza ramkę bez niej): zamiana jest krótsza niż dwie kopie bajtów
-        if (PairOf(value) == "de")
+        if (Cells.PairOf(value) == "de")
         {
             L("ex de,hl");
         }
@@ -208,13 +208,13 @@ internal sealed partial class Z80Isa : ByteIsa, ICopyLoop, ISignedBranch, IWordA
     /// <returns><see langword="false"/>, gdy bajty nie leżą parą.</returns>
     public bool TryMoveFromResultReg(Word dst)
     {
-        if (dst.IsImmediate || !Usable(dst))
+        if (dst.IsImmediate || !Cells.Usable(dst))
         {
             return false;
         }
 
         // HL po wołaniu to już tylko pomocniczy rejestr: zamiana zamiast dwóch kopii bajtów
-        if (PairOf(dst) == "de")
+        if (Cells.PairOf(dst) == "de")
         {
             L("ex de,hl");
         }
@@ -236,7 +236,7 @@ internal sealed partial class Z80Isa : ByteIsa, ICopyLoop, ISignedBranch, IWordA
     /// <returns>Wynik jawny (<see cref="WordResult"/>).</returns>
     public WordResult TryShlWord1(Word dst, Word src)
     {
-        if (dst.IsImmediate || !Usable(dst) || !Usable(src))
+        if (dst.IsImmediate || !Cells.Usable(dst) || !Cells.Usable(src))
         {
             return new(false, false);
         }
@@ -257,7 +257,7 @@ internal sealed partial class Z80Isa : ByteIsa, ICopyLoop, ISignedBranch, IWordA
     public bool TryCopyLoop(Word dst, Word src, Word count)
     {
         if (dst.IsImmediate || src.IsImmediate || count.IsImmediate
-            || !Usable(dst) || !Usable(src) || !Usable(count))
+            || !Cells.Usable(dst) || !Cells.Usable(src) || !Cells.Usable(count))
         {
             return false;
         }
@@ -287,7 +287,7 @@ internal sealed partial class Z80Isa : ByteIsa, ICopyLoop, ISignedBranch, IWordA
     /// <returns><see langword="false"/>, gdy bajty nie są sąsiednie albo oba operandy są stałymi.</returns>
     public WordResult TryAddWord(Word dst, Word a, Word b, bool subtract)
     {
-        if (dst.IsImmediate || (a.IsImmediate && b.IsImmediate) || !Usable(dst) || !Usable(a) || !Usable(b))
+        if (dst.IsImmediate || (a.IsImmediate && b.IsImmediate) || !Cells.Usable(dst) || !Cells.Usable(a) || !Cells.Usable(b))
         {
             return new(false, false);
         }
@@ -307,8 +307,8 @@ internal sealed partial class Z80Isa : ByteIsa, ICopyLoop, ISignedBranch, IWordA
         // prawy operand: jego własna para BC/DE albo para pomocnicza bez komórek; bez wolnej pary: pamięć przez DE przechowane
         // na stosie (cel zapisuje się dopiero po pop de), stała tak samo, chyba że i lewy operand, i cel są w rejestrach (wtedy łańcuch przez A w selektorze jest krótszy)
         bool steps = constant is { } c && (c <= 3 || c >= 0xFFFD);
-        string? rhs = (constant is null ? PairOf(b) : null) ?? Scratch();
-        bool save = rhs is null && !steps && (constant is null || !(InRegisters(a) && InRegisters(dst)));
+        string? rhs = (constant is null ? Cells.PairOf(b) : null) ?? Cells.Scratch();
+        bool save = rhs is null && !steps && (constant is null || !(Cells.InRegisters(a) && Cells.InRegisters(dst)));
         if (rhs is null && !steps && !save)
         {
             return new(false, false);
@@ -350,7 +350,7 @@ internal sealed partial class Z80Isa : ByteIsa, ICopyLoop, ISignedBranch, IWordA
 
         // Cel w parze DE: zamiana zamiast dwóch kopii (1 B mniej); wynik nie zostaje w HL.
         // Martwe DE: nadpisane tak czy owak.
-        if (PairOf(dst) == "de")
+        if (Cells.PairOf(dst) == "de")
         {
             L("ex de,hl");
             return new(true, false);
@@ -371,7 +371,7 @@ internal sealed partial class Z80Isa : ByteIsa, ICopyLoop, ISignedBranch, IWordA
     {
         Word[] memory = [dst.Lo, dst.Hi, a.Lo, a.Hi, b.Lo, b.Hi];
         if (dst.Lo.IsImmediate || dst.Hi.IsImmediate
-            || memory.Any(w => !w.IsImmediate && (!Adjacent(w) || IsRegister(w.Lo) || IsRegister(w.Hi))))
+            || memory.Any(w => !w.IsImmediate && (!CellMap.Adjacent(w) || Cells.IsRegister(w.Lo) || Cells.IsRegister(w.Hi))))
         {
             return false;
         }
@@ -382,7 +382,7 @@ internal sealed partial class Z80Isa : ByteIsa, ICopyLoop, ISignedBranch, IWordA
         }
 
         // wszystkie połówki w pamięci; DE zajęte w tej funkcji przechowane na stosie
-        bool save = Scratch() != "de";
+        bool save = Cells.Scratch() != "de";
         if (save)
         {
             L("push de");
@@ -464,7 +464,7 @@ internal sealed partial class Z80Isa : ByteIsa, ICopyLoop, ISignedBranch, IWordA
     /// <returns><see langword="true"/>, gdy sekwencja została wyemitowana.</returns>
     public override bool TryBranchZeroSigned(Word value, Ir.Cond cond, string target)
     {
-        if (value.IsImmediate || !Usable(value) || cond is not (Ir.Cond.Lt or Ir.Cond.Ge or Ir.Cond.Le or Ir.Cond.Gt))
+        if (value.IsImmediate || !Cells.Usable(value) || cond is not (Ir.Cond.Lt or Ir.Cond.Ge or Ir.Cond.Le or Ir.Cond.Gt))
         {
             return false;
         }
@@ -538,7 +538,7 @@ internal sealed partial class Z80Isa : ByteIsa, ICopyLoop, ISignedBranch, IWordA
         else if (offset > 3)
         {
             // para pomocnicza tylko wolna (DE, potem BC); obie z komórkami: DE przechowane na stosie
-            string? pair = Scratch();
+            string? pair = Cells.Scratch();
             if (pair is null)
             {
                 L("push de");
@@ -785,9 +785,9 @@ internal sealed partial class Z80Isa : ByteIsa, ICopyLoop, ISignedBranch, IWordA
             return;
         }
 
-        if (value.IsImmediate || IsRegister(value.Text))
+        if (value.IsImmediate || Cells.IsRegister(value.Text))
         {
-            L($"{mnemonic}{(value.IsImmediate ? value.Text : Resolve(value.Text))}");
+            L($"{mnemonic}{(value.IsImmediate ? value.Text : Cells.Resolve(value.Text))}");
             return;
         }
 
@@ -796,7 +796,7 @@ internal sealed partial class Z80Isa : ByteIsa, ICopyLoop, ISignedBranch, IWordA
     }
 
     /// <summary>Operand bajtu: rejestr albo <c>(adres)</c>.</summary>
-    private string Operand(string address) => Resolve(address) ?? $"({address})";
+    private string Operand(string address) => Cells.Resolve(address) ?? $"({address})";
 
     /// <summary>Słowo do pary rejestrów (<c>hl</c>, <c>de</c>, <c>bc</c>); nie zmienia flag. Z rejestrów najpierw młodszy bajt: młodszy
     /// rejestr celu (C/E/L) nigdy nie jest starszym rejestrem źródła (B/D).</summary>
@@ -806,10 +806,10 @@ internal sealed partial class Z80Isa : ByteIsa, ICopyLoop, ISignedBranch, IWordA
         {
             L($"ld {pair},{word.Lo}");
         }
-        else if (InRegisters(word))
+        else if (Cells.InRegisters(word))
         {
-            Move(pair[1..], Resolve(word.Lo)!);
-            Move(pair[..1], Resolve(word.Hi)!);
+            Move(pair[1..], Cells.Resolve(word.Lo)!);
+            Move(pair[..1], Cells.Resolve(word.Hi)!);
         }
         else
         {
@@ -820,10 +820,10 @@ internal sealed partial class Z80Isa : ByteIsa, ICopyLoop, ISignedBranch, IWordA
     /// <summary>Para rejestrów do słowa (rejestry albo pamięć); nie zmienia flag.</summary>
     private void StorePair(string pair, Word word)
     {
-        if (InRegisters(word))
+        if (Cells.InRegisters(word))
         {
-            Move(Resolve(word.Lo)!, pair[1..]);
-            Move(Resolve(word.Hi)!, pair[..1]);
+            Move(Cells.Resolve(word.Lo)!, pair[1..]);
+            Move(Cells.Resolve(word.Hi)!, pair[..1]);
         }
         else
         {

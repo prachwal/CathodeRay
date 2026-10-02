@@ -340,7 +340,7 @@ internal sealed class M6800Isa : ByteIsa, IPairMoves, IByteOrder, IXorCarry, IAd
 
     /// <summary>Słowo w pamięci big-endian: starszy bajt pod <c>Hi</c>, młodszy pod <c>Hi+1</c> (bez pary <c>x</c>/<c>x_h</c> z crt0).</summary>
     private static bool InMemory(Word word) =>
-        !word.IsImmediate && word.Lo != word.Hi + "_h" && Adjacent(new Word(false, word.Hi, word.Lo));
+        !word.IsImmediate && word.Lo != word.Hi + "_h" && CellMap.Adjacent(new Word(false, word.Hi, word.Lo));
 
     private static IEnumerable<string> CrtCells()
     {

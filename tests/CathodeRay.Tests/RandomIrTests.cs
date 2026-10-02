@@ -83,7 +83,7 @@ public sealed class RandomIrTests
             RegisterAllocator.Tune(legal, isa);
             functions += legal.Functions.Count;
             withRegisters += legal.Functions.Count(f => f.Body.SelectMany(IrFacts.Operands).OfType<Ir.Cell>().Any(c => map.ContainsKey(IrLiveness.BaseSymbol(c.Sym))));
-            savingCalls += legal.Functions.SelectMany(static f => f.Body).OfType<Ir.Call>().Count(c => isa.SavedAround(c).Count > 0);
+            savingCalls += legal.Functions.SelectMany(static f => f.Body).OfType<Ir.Call>().Count(c => isa.Cells.SavedAround(c).Count > 0);
         }
 
         _output.WriteLine($"{cpu}: {withRegisters} z {functions} funkcji w {Programs} programach dostało rejestr, {savingCalls} wołań z push/pop par");

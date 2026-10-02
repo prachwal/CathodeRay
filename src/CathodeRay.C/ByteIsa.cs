@@ -9,16 +9,9 @@ internal abstract class ByteIsa
 {
     private readonly StringBuilder _out = new();
 
-    /// <summary>Adres bajtu komórki (tekst jak z <see cref="Loc"/>) → rejestr z <see cref="CellRegisters"/>.</summary>
-    private readonly Dictionary<string, string> _registers = new(StringComparer.Ordinal);
-
-    /// <summary>Wołanie → pary rejestrów komórek żywych za nim, zapisywane na stosie wokół niego (klucz: instancja wołania).</summary>
-    private readonly Dictionary<Ir.Call, IReadOnlyList<string>> _callSaves = new(ReferenceEqualityComparer.Instance);
-
-    /// <summary>Rejestry komórek bieżącej funkcji (<see cref="BeginFunction"/>); <see langword="null"/>: wszystkie z mapy.</summary>
-    private HashSet<string>? _active;
-
     private int _localLabels;
+
+    private CellMap? _cells;
 
     /// <summary>Symbole wspólne wołania pośredniego (definiuje crt0), do zadeklarowania w module.</summary>
     public virtual IEnumerable<string> IndirectSymbols => ["__icall", "cc_fp"];
@@ -41,6 +34,9 @@ internal abstract class ByteIsa
 
     /// <summary>Jawny kontrakt rejestrowy tego CPU.</summary>
     internal CpuModel Model => CpuModels.For(CpuName);
+
+    /// <summary>Mapa rozmieszczenia komórek (rejestry, pary żywe za wołaniem) dla tej emisji.</summary>
+    internal CellMap Cells => _cells ??= new CellMap(this);
 
     /// <summary>Nazwy, których asembler nie przyjmie jako symbole użytkownika (bez rozróżniania wielkości liter).</summary>
     protected virtual IReadOnlySet<string> Reserved { get; } = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -202,56 +198,6 @@ internal abstract class ByteIsa
     /// <param name="index">Numer bajtu.</param>
     public abstract void PtrStore(int index);
 
-    /// <summary>Przypisuje komórkom rejestry; selektor dalej widzi nazwy symboliczne, a ISA tłumaczy operand przy emisji (jak strona
-    /// zerowa w <see cref="Mos6502Isa"/>). Komórka 1-bajtowa dostaje rejestr z <see cref="CellRegisters"/>, 2-bajtowa parę z
-    /// <see cref="CellPairs"/> (starszy rejestr pierwszy).</summary>
-    /// <param name="cells">Symbol komórki z kodu pośredniego → rejestr albo para.</param>
-    /// <param name="saves">Wołanie (instancja) → pary z <see cref="CellPairs"/> do zapisania wokół niego (<see cref="SavedAround"/>).</param>
-    public void AssignRegisters(IReadOnlyDictionary<string, string> cells, IEnumerable<(Ir.Call Call, IReadOnlyList<string> Pairs)>? saves = null)
-    {
-        ArgumentNullException.ThrowIfNull(cells);
-        foreach ((Ir.Call call, IReadOnlyList<string> pairs) in saves ?? [])
-        {
-            _callSaves[call] = pairs.All(CellPairs.Contains) ? pairs : throw new ArgumentException($"niedozwolone pary '{string.Join(",", pairs)}'", nameof(saves));
-        }
-
-        foreach ((string sym, string registers) in cells)
-        {
-            if (!(registers.Length == 1 ? CellRegisters : CellPairs).Contains(registers))
-            {
-                throw new ArgumentException($"niedozwolone rejestry '{registers}' dla {sym}", nameof(cells));
-            }
-
-            _registers[Sym(sym)] = registers[^1..];
-            if (registers.Length == 2)
-            {
-                _registers[At(sym, 1)] = registers[..1];
-            }
-        }
-    }
-
-    /// <summary>Pary rejestrów komórek żywych za wołaniem: selektor odkłada je na stos przed <c>call</c> (<see cref="IPairStack.PushPair"/>, po
-    /// argumentach) i zdejmuje w odwrotnej kolejności po nim (<see cref="IPairStack.PopPair"/>, przed zapisem wyniku).</summary>
-    /// <param name="call">Wołanie (ta sama instancja co w module).</param>
-    /// <returns>Pary albo pusta lista.</returns>
-    public IReadOnlyList<string> SavedAround(Ir.Call call) => _callSaves.GetValueOrDefault(call) ?? [];
-
-    /// <summary>Bajt komórki leży w rejestrze CPU (mapa <see cref="AssignRegisters"/>), nie w pamięci: nie trafia do sekcji danych.</summary>
-    /// <param name="address">Adres bajtu (tekst jak z <see cref="Loc"/>).</param>
-    /// <returns><see langword="true"/>, gdy bajt ma rejestr.</returns>
-    public bool IsRegister(string address) => _registers.ContainsKey(address);
-
-    /// <summary>Początek emisji funkcji: zbiera rejestry jej komórek. Parę pomocniczą wolną w tej funkcji prymitywy mogą niszczyć,
-    /// bo rejestr komórki nie żyje przez wejście do funkcji ani przez wołanie bez zapisu.</summary>
-    /// <param name="function">Funkcja.</param>
-    public void BeginFunction(Ir.Function function)
-    {
-        ArgumentNullException.ThrowIfNull(function);
-        _active = [.. function.Params.Concat(function.Body.SelectMany(IrFacts.Operands).OfType<Ir.Cell>())
-            .SelectMany(c => Enumerable.Range(0, c.W).Select(i => Resolve(Loc(c.Sym, c.W, i))))
-            .OfType<string>()];
-    }
-
     /// <summary>Zdejmuje bajt ze stosu do pamięci z zachowaniem rejestru wyniku (epilog ramki przy
     /// wyniku w rejestrach; 6502 odkłada przez Y). Domyślnie przez A jak bez wyniku.</summary>
     /// <param name="address">Cel w pamięci.</param>
@@ -292,52 +238,6 @@ internal abstract class ByteIsa
     /// <param name="line">Linia.</param>
     public void Raw(string line) => L(line);
 
-    /// <summary>Starszy bajt leży tuż za młodszym: <c>x</c>/<c>x+1</c>, <c>x+2</c>/<c>x+3</c> albo para komórek crt0 <c>cc_x</c>/<c>cc_x_h</c>.</summary>
-    /// <param name="word">Słowo w pamięci.</param>
-    /// <returns><see langword="true"/>, gdy bajty są sąsiednie.</returns>
-    protected static bool Adjacent(Word word)
-    {
-        if (word.Hi == word.Lo + "+1" || word.Hi == word.Lo + "_h")
-        {
-            return true;
-        }
-
-        int plus = word.Lo.LastIndexOf('+');
-        return plus > 0 && int.TryParse(word.Lo.AsSpan(plus + 1), System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out int offset)
-            && word.Hi == $"{word.Lo[..plus]}+{offset + 1}";
-    }
-
-    /// <summary>Rejestr przypisany bajtowi komórki albo <see langword="null"/> (pamięć).</summary>
-    /// <param name="address">Adres bajtu.</param>
-    /// <returns>Rejestr albo null.</returns>
-    protected string? Resolve(string address) => _registers.GetValueOrDefault(address);
-
-    /// <summary>Oba bajty słowa w rejestrach.</summary>
-    /// <param name="word">Słowo.</param>
-    /// <returns><see langword="true"/>, gdy oba bajty mają rejestry.</returns>
-    protected bool InRegisters(Word word) => !word.IsImmediate && IsRegister(word.Lo) && IsRegister(word.Hi);
-
-    /// <summary>Słowo, które przeniesie para rejestrów: stała, oba bajty w rejestrach albo oba w pamięci obok siebie.</summary>
-    /// <param name="word">Słowo.</param>
-    /// <returns><see langword="true"/>, gdy słowo da się przenieść parą.</returns>
-    protected bool Usable(Word word) => word.IsImmediate || InRegisters(word) || (!IsRegister(word.Lo) && !IsRegister(word.Hi) && Adjacent(word));
-
-    /// <summary>Oba bajty słowa w pamięci, obok siebie (bez rejestrów).</summary>
-    /// <param name="word">Słowo.</param>
-    /// <returns><see langword="true"/>, gdy słowo da się przenieść jednym <c>ld hl,(n)</c>/<c>lhld n</c>.</returns>
-    protected bool InMemoryWord(Word word) => !word.IsImmediate && !IsRegister(word.Lo) && !IsRegister(word.Hi) && Adjacent(word);
-
-    /// <summary>Para z <see cref="CellPairs"/>, gdy słowo leży w niej w całości (młodszy bajt w młodszym rejestrze).</summary>
-    /// <param name="word">Słowo.</param>
-    /// <returns>Para (np. <c>bc</c>) albo null.</returns>
-    protected string? PairOf(Word word) =>
-        InRegisters(word) && CellPairs.Contains(_registers[word.Hi] + _registers[word.Lo]) ? _registers[word.Hi] + _registers[word.Lo] : null;
-
-    /// <summary>Para pomocnicza bez rejestrów komórek bieżącej funkcji, od ostatniej z <see cref="CellPairs"/> (DE, potem BC);
-    /// <see langword="null"/>, gdy wszystkie zajęte.</summary>
-    /// <returns>Para albo null.</returns>
-    protected string? Scratch() => CellPairs.Reverse().FirstOrDefault(p => !Taken(p[..1]) && !Taken(p[1..]));
-
     /// <summary>Relaksacja skoków w tekście jednej funkcji; domyślnie bez zmian (CPU z absolutnymi skokami warunkowymi).</summary>
     /// <param name="text">Tekst funkcji.</param>
     /// <returns>Ten sam obiekt, gdy nic się nie zmieniło.</returns>
@@ -346,10 +246,4 @@ internal abstract class ByteIsa
     /// <summary>Dopisuje linię kodu.</summary>
     /// <param name="line">Linia.</param>
     protected void L(string line) => _out.AppendLine(line);
-
-    /// <summary>Rejestr należy do komórki bieżącej funkcji (bez <see cref="BeginFunction"/>: do którejkolwiek komórki).</summary>
-    private bool Taken(string register) =>
-        _active is { } active
-            ? active.Contains(register) || Model.AliasesOf(register).Any(active.Contains)
-            : _registers.ContainsValue(register) || Model.AliasesOf(register).Any(_registers.ContainsValue);
 }

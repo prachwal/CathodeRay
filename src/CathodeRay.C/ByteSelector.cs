@@ -47,7 +47,7 @@ internal sealed class ByteSelector
     {
         // komórka w rejestrze nie może być zewnętrzna ani zapisywana w ramce (push/pop jej bajtów)
         string? misplaced = _module.ExternCells.Concat(_module.Functions.SelectMany(static f => f.Saved).Select(static o => o.Sym))
-            .FirstOrDefault(sym => _isa.IsRegister(_isa.Sym(sym)));
+            .FirstOrDefault(sym => _isa.Cells.IsRegister(_isa.Sym(sym)));
         if (misplaced is not null)
         {
             throw new InvalidOperationException($"cell {misplaced} is assigned to a register but is extern or saved in a frame.");
@@ -351,7 +351,7 @@ internal sealed class ByteSelector
     private void EmitFunction(Ir.Function function)
     {
         int mark = _isa.Mark;
-        _isa.BeginFunction(function);
+        _isa.Cells.BeginFunction(function);
         _retJumps = 0;
         EmitFunctionBody(function);
         _isa.RelaxFrom(mark);
@@ -1331,7 +1331,7 @@ internal sealed class ByteSelector
             return false;
         }
 
-        if (function.Saved.Count != 0 || _isa.SavedAround(call).Count != 0)
+        if (function.Saved.Count != 0 || _isa.Cells.SavedAround(call).Count != 0)
         {
             return false;
         }
@@ -1568,7 +1568,7 @@ internal sealed class ByteSelector
         EmitCallArgs(call);
 
         // rejestry komórek żywych za wołaniem: na stos po argumentach, ze stosu przed zapisem wyniku (wynik może leżeć w tej parze)
-        IReadOnlyList<string> saved = _isa.SavedAround(call);
+        IReadOnlyList<string> saved = _isa.Cells.SavedAround(call);
         if (_isa is IPairStack pairPush)
         {
             foreach (string pair in saved)
@@ -1772,7 +1772,7 @@ internal sealed class ByteSelector
         }
 
         text.AppendLine(_isa.Segment(segment));
-        foreach (Ir.Data data in _module.Data.Where(d => d.Segment == segment && !_isa.IsRegister(_isa.Sym(d.Sym))))
+        foreach (Ir.Data data in _module.Data.Where(d => d.Segment == segment && !_isa.Cells.IsRegister(_isa.Sym(d.Sym))))
         {
             if (data.Exported)
             {

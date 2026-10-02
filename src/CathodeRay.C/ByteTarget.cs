@@ -39,7 +39,7 @@ public abstract class ByteTarget : ICTarget
     public virtual int? StackLimit => 256;
 
     /// <summary>Dwa bajty na każdą parę rejestrów komórek (<see cref="ByteIsa.CellPairs"/>), bo wokół wołania selektor odkłada
-    /// najwyżej wszystkie pary (<see cref="ByteIsa.SavedAround"/>).</summary>
+    /// najwyżej wszystkie pary (<see cref="CellMap.SavedAround"/>).</summary>
     public int CallSaveBytes => 2 * CreateIsa().CellPairs.Count;
 
     /// <summary>Cel obsługuje ABI v2 (domyślnie tylko v1).</summary>

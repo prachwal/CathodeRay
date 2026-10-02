@@ -165,7 +165,7 @@ public sealed class Intel8080RegisterIsaTests
     private static (string Code, int Value) Run(Ir.Module module, Dictionary<string, string> registers)
     {
         var isa = new Intel8080Isa();
-        isa.AssignRegisters(registers);
+        isa.Cells.AssignRegisters(registers);
         string code = new ByteSelector(Legalizer.Run(module), isa).Emit();
         ICTarget target = CTargets.All.Single(static t => t.Name == "8080");
         TargetHarness.Result result = TargetHarness.RunAssembly(target, target.Crt0 + code);

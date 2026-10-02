@@ -7,7 +7,7 @@ namespace CathodeRay.C;
 /// z poprzedniej aktywacji, np. lokalnej <c>static</c>, nigdy nie jest czytana), nie jest wzięta adresem, <c>volatile</c>,
 /// agregatem, parametrem, zewnętrzna ani eksportowana. Komórka żywa za wołaniem (<see cref="Ir.Call"/>, także pośrednim i procedurą
 /// wykonawczą wstawioną przez legalizację) dostaje rejestr tylko z zyskiem netto: jej para idzie na stos wokół takiego wołania
-/// (<see cref="ByteIsa.SavedAround"/>: 2 B i ok. 21 T na parę i wołanie, razy waga pętli), a zysk to odwołania w rejestrze i, dla
+/// (<see cref="CellMap.SavedAround"/>: 2 B i ok. 21 T na parę i wołanie, razy waga pętli), a zysk to odwołania w rejestrze i, dla
 /// komórki z <see cref="Ir.Function.Saved"/>, zniknięcie jej zapisu w ramce (push/pop wokół wołania zachowuje wartość jak ramka). Żywość na grafie przepływu
 /// (<see cref="IrLiveness"/>) jest dokładna także w pętlach i przy <c>goto</c>. Przydział zachłanny po wadze (odwołania, w pętli
 /// ×8 na poziom); komórki, których przedziały się nie przecinają, dzielą rejestr. Komórka 1-bajtowa dostaje jeden rejestr,
@@ -17,7 +17,7 @@ internal static class RegisterAllocator
     /// <summary>Wybiera rejestry komórek modułu.</summary>
     /// <param name="module">Moduł po legalizacji (i po <see cref="ParamAlias"/>).</param>
     /// <param name="isa">Prymitywy celu: rejestry i pary dostępne dla komórek.</param>
-    /// <returns>Symbol komórki → rejestr (<c>c</c>) albo para (<c>bc</c>, starszy pierwszy), jak w <see cref="ByteIsa.AssignRegisters"/>.</returns>
+    /// <returns>Symbol komórki → rejestr (<c>c</c>) albo para (<c>bc</c>, starszy pierwszy), jak w <see cref="CellMap.AssignRegisters"/>.</returns>
     public static Dictionary<string, string> Run(Ir.Module module, ByteIsa isa) => Allocate(module, isa).Map;
 
     /// <summary>Przydział rejestrów dla selektora: przekazuje ISA mapę i pary zapisywane wokół wołań, a z
@@ -28,7 +28,7 @@ internal static class RegisterAllocator
     public static Ir.Module Tune(Ir.Module module, ByteIsa isa)
     {
         (Dictionary<string, string> map, Dictionary<Ir.Call, List<string>> saves) = Allocate(module, isa);
-        isa.AssignRegisters(map, saves.Select(static p => (p.Key, (IReadOnlyList<string>)p.Value)));
+        isa.Cells.AssignRegisters(map, saves.Select(static p => (p.Key, (IReadOnlyList<string>)p.Value)));
         return module with
         {
             Functions = [.. module.Functions.Select(f => f.Saved.Any(o => map.ContainsKey(o.Sym)) ? f with { Saved = [.. f.Saved.Where(o => !map.ContainsKey(o.Sym))] } : f)],
