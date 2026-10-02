@@ -18,7 +18,7 @@
       "id": "3",
       "title": "[M] Tail-call przez join (item 8 planu 40): Call+Ret rozdzielone kopiami joinowymi, obie gałęzie do Ret tej samej wartości zamieniane w skoki. Akceptacja: pick -15 B, testy mutacyjne (ramka blokuje jak w planie 36) Nowy prymityw jako interfejs zdolności z planu 41 (bez virtual-defaultów w ByteIsa, wynik zwracany jawnie, bez FreshAddInHL).",
       "status": "todo",
-      "note": ""
+      "note": "Recon: wzorzec z samples/bench/fnptr.c `pick`: BrCmp Eq(k,0)->else; Call apply->t@1; Mov t@0<-t@1; Jmp done; else: Call apply->t@1; Mov t@0<-t@1; (fallthrough) done: Ret t@0. Obecny TryEmitTailCall (ByteSelector.Loop.cs) wymaga Call bezposrednio + Ret; join przez Mov nie jest rozpoznany. Plan: uogolnic matcher: Call (wynik Rc) + opcjonalny Mov T<-Rc + dojscie (Jmp/fallthrough) do wspolnego Label done, przy ktorym Ret T, i WSZYSTKIE wchodzace sciezki ustawiaja T z wlasnego wyniku Call; wtedy kazdy taki Call -> skok ogonowy, Mov/Ret zbedne. Wymaga analizy CFG joinu (2 galezie if, dwie kopie do tej samej T). Warunki bezpieczenstwa jak obecnie: brak ramki (Saved puste), brak zapisow rejestrow wokol wolania, wynik void albo W1-2 w miejscu docelowym; nowy prymityw jako interfejs zdolnosci z planu 41 (bez defaultow). Akceptacja: pick -15 B, testy mutacyjne, ramka blokuje (plan 36)."
     },
     {
       "id": "4",
