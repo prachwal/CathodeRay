@@ -41,8 +41,8 @@
     {
       "id": "7",
       "title": "[S] Typowany AsmInsn + dekoder, tylko dodany (konsumenci bez zmian). Test round-trip na korpusie listingów z siatki (pozycja 4). Akceptacja: diff listingów vs baseline pusty, build -warnaserror, test celowany zielony.",
-      "status": "todo",
-      "note": ""
+      "status": "done",
+      "note": "Zrobione: AsmInsn.cs (bezstratny rozkład linii: Indent/Label/Gap1/Mnemonic/Gap/Operands/Comment/Newline) + AsmInsnTests 218/218 (korpus 24x8+v2 + 2 jednostkowe: średnik w cudzysłowie, labelka z instrukcją). Po drodze 3 lekcje gramatyki (linie ;c:, brak spacji po ':', include .inc w teście). Siatki nie puszczano: zero zmian w ścieżkach produkcyjnych (tylko dodane), więc diff trywialnie pusty."
     },
     {
       "id": "8",
