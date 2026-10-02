@@ -41,31 +41,16 @@ internal abstract class ByteIsa
     /// argumentów z rejestrów musi iść po nich; X i pary pushy przeżywają). Domyślnie brak (push nie niszczy rejestrów).</summary>
     public virtual string? EntryParkCell => null;
 
-    /// <summary>Świeży wynik <c>Bin</c> (W2) zostaje w rejestrze wyniku: selektor może pominąć przeładowanie przed <c>Ret</c>.
-    /// Prawda tylko tam, gdzie codegen słów liczy w rejestrze wyniku (Z80/8080 w HL); 6502 liczy przez A i X zostaje
-    /// nieustawione. Domyślnie <see langword="false"/>: selektor ładuje wynik z komórki.</summary>
-    public virtual bool FreshBinInResultReg => false;
-
     /// <summary>Xor (i or/and) nie rusza przeniesienia (6502/6800): bias najstarszego bajtu może iść wprost między
     /// odejmowanie młodszych bajtów a sbc (na Z80/8080 xor gasi C, więc bias lewej strony idzie do komórki scratch).
     /// Domyślnie <see langword="false"/>.</summary>
     public virtual bool XorPreservesCarry => false;
-
-    /// <summary>Ostatnie słowo z <see cref="TryAddWord"/>/<see cref="TryShlWord1"/> zostało w HL (ścieżka świeżego
-    /// wyniku do <c>Ret</c> w selektorze jest wtedy poprawna); <c>false</c> po zamianie <c>ex de,hl</c>/<c>xchg</c>
-    /// do pary DE. Czytane tylko tuż po <c>Bin</c> W2 (pętla selektora i tak gasi świeżość na każdej innej instrukcji).</summary>
-    public bool FreshAddInHL { get; set; } = true;
 
     /// <summary>Czy cel obsługuje wywołanie ogonowe (skok zamiast call+ret).</summary>
     public virtual bool SupportsTailCall => false;
 
     /// <summary>Ścieżka ABI v2 (argumenty i wyniki w rejestrach); ustawia cel przed emisją.</summary>
     public bool AbiV2 { get; set; }
-
-    /// <summary>Bieżące wołanie może nieść argumenty w rejestrach (v2): selektor gasi na czas wołań helperów
-    /// uruchomieniowych (ręczny asembler w v1 czyta <c>cc_argN</c> i wraca przez <c>cc_ret</c>); wtedy
-    /// <see cref="ArgCell"/> wraca do komórek pamięci. Domyślnie <see langword="true"/>.</summary>
-    public bool RegArgsAllowed { get; set; } = true;
 
     /// <summary>Rejestry 8-bitowe, które <see cref="RegisterAllocator"/> może dać komórkom 1-bajtowym (w kolejności preferencji);
     /// domyślnie brak (komórki tylko w pamięci).</summary>
@@ -107,6 +92,14 @@ internal abstract class ByteIsa
         Model.ArgRegs.Count > index
             ? Model.ArgRegs[index]
             : part == 0 ? $"cc_arg{index + 1}" : $"cc_arg{index + 1}_h";
+
+    /// <summary>Komórka argumentu w pamięci, pozycyjnie (semantyka v1, bez względu na <see cref="CpuModel.ArgRegs"/>);
+    /// selektor używa jej dla wołań helperów w ręcznym asemblerze na ścieżce v2 (tam rejestry nie obowiązują).</summary>
+    /// <param name="index">Numer argumentu od zera.</param>
+    /// <param name="part">0 = młodszy bajt, 1 = starszy.</param>
+    /// <returns>Symbol komórki.</returns>
+    public string MemArgCell(int index, int part) =>
+        part == 0 ? $"cc_arg{index + 1}" : $"cc_arg{index + 1}_h";
 
     /// <summary>Adres bajtu komórki (indeks 0 = młodszy). Komórka 32-bitowa <c>cc_argN</c> (parametr <c>long</c> liścia po
     /// <see cref="ParamAlias"/>) ma starszą połowę w <c>cc_argN+1</c>.</summary>
@@ -381,21 +374,21 @@ internal abstract class ByteIsa
     public virtual bool TryPopWord(Word word, bool keepResult) => false;
 
     /// <summary>Dodawanie albo odejmowanie słów 16-bitowych <c>dst ← a ± b</c> jedną sekwencją CPU, bez zmiany A (może zmienić
-    /// rejestry adresowe i flagi; flagi po niej są nieokreślone, selektor ich nie używa). Domyślnie <see langword="false"/>:
+    /// rejestry adresowe i flagi; flagi po niej są nieokreślone, selektor ich nie używa). Domyślnie niewyemitowane:
     /// selektor liczy bajt po bajcie przez A.</summary>
     /// <param name="dst">Cel (pamięć).</param>
     /// <param name="a">Lewy operand: stała albo pamięć.</param>
     /// <param name="b">Prawy operand: stała albo pamięć.</param>
     /// <param name="subtract"><see langword="true"/>: <c>a - b</c>.</param>
-    /// <returns><see langword="true"/>, gdy sekwencja została wyemitowana.</returns>
-    public virtual bool TryAddWord(Word dst, Word a, Word b, bool subtract) => false;
+    /// <returns>Wynik jawny (<see cref="WordResult"/>).</returns>
+    public virtual WordResult TryAddWord(Word dst, Word a, Word b, bool subtract) => new(false, false);
 
-    /// <summary>Słowo &lt;&lt; 1 przez HL (<c>add hl,hl</c> / <c>dad h</c>); po niej HL niesie wynik    /// (jak w <see cref="TryAddWord"/>: flaga świeżości w selektorze). Domyślnie <see langword="false"/>:
-    /// selektor przesuwa bajt po bajcie.</summary>
+    /// <summary>Słowo &lt;&lt; 1 przez HL (<c>add hl,hl</c> / <c>dad h</c>); po niej HL niesie wynik.
+    /// Domyślnie niewyemitowane: selektor przesuwa bajt po bajcie.</summary>
     /// <param name="dst">Cel (pamięć albo para).</param>
     /// <param name="src">Źródło: stała, pamięć albo para.</param>
-    /// <returns><see langword="true"/>, gdy sekwencja została wyemitowana.</returns>
-    public virtual bool TryShlWord1(Word dst, Word src) => false;
+    /// <returns>Wynik jawny (<see cref="WordResult"/>).</returns>
+    public virtual WordResult TryShlWord1(Word dst, Word src) => new(false, false);
 
     /// <summary>Kopia bloku (liczba bajtów w czasie wykonania) przez <c>ldir</c>: wołający (matcher pętli
     /// w selektorze) gwarantuje liczbę niezerową na wejściu, rozłączność par chroni push/pop w środku,

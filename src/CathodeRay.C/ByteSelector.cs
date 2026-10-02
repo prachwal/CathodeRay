@@ -446,12 +446,14 @@ internal sealed class ByteSelector
 
         int bodyIndex = start;
         string? resCell = null;
+        bool freshHL = false;
         bool endsWithJump = false;
         while (bodyIndex < function.Body.Count)
         {
             if (TryEmitTailCall(function, bodyIndex, out int next))
             {
                 resCell = null;
+                freshHL = false;
                 endsWithJump = next == function.Body.Count;
                 bodyIndex = next;
                 continue;
@@ -460,6 +462,7 @@ internal sealed class ByteSelector
             if (TryEmitCopyLoop(function, bodyIndex, out int after))
             {
                 resCell = null;
+                freshHL = false;
                 endsWithJump = false;
                 bodyIndex = after;
                 continue;
@@ -476,11 +479,12 @@ internal sealed class ByteSelector
 
             if (current is Ir.Ret ret2 && resCell is not null && ret2.W == 2 && ret2.Value is Ir.Cell cell2
                 && cell2.Sym == resCell && cell2.W == 2 && cell2.Sym.StartsWith(function.Name + "__", StringComparison.Ordinal)
-                && _isa.ReturnsInResultReg && _isa.FreshBinInResultReg && _isa.FreshAddInHL)
+                && _isa.ReturnsInResultReg && freshHL)
             {
                 // rejestr wyniku trzyma wartość (świeży wynik Bin w HL): pomiń ładowanie
                 EmitRet(function, ret2, bodyIndex == function.Body.Count - 1, valueInResultReg: true);
                 resCell = null;
+                freshHL = false;
                 bodyIndex++;
                 continue;
             }
@@ -494,8 +498,9 @@ internal sealed class ByteSelector
                 endsWithJump = false;
             }
 
-            bool fresh = EmitIns(function, current, bodyIndex == function.Body.Count - 1);
-            resCell = (fresh && current is Ir.Bin bin && bin.Dst.W == 2) ? bin.Dst.Sym : null;
+            WordResult word = EmitIns(function, current, bodyIndex == function.Body.Count - 1);
+            resCell = (word.Emitted && current is Ir.Bin bin && bin.Dst.W == 2) ? bin.Dst.Sym : null;
+            freshHL = resCell is not null && word.InHL;
             bodyIndex++;
         }
 
@@ -571,48 +576,48 @@ internal sealed class ByteSelector
 
     /// <summary>Emuluje instrukcję; zwraca <see langword="true"/>, gdy wynik słowa został w rejestrze wyniku
     /// (ścieżka <see cref="ByteIsa.TryAddWord"/>: pętla może pominąć ładowanie do <c>Ret</c>).</summary>
-    private bool EmitIns(Ir.Function function, Ir.Ins ins, bool last)
+    private WordResult EmitIns(Ir.Function function, Ir.Ins ins, bool last)
     {
         switch (ins)
         {
             case Ir.Src source:
                 EmitSource(source);
-                return false;
+                return new(false, false);
             case Ir.Label label:
                 Raw($"{Mangle(function, label.Name)}:");
-                return false;
+                return new(false, false);
             case Ir.Jmp jump:
                 _isa.Jump(Mangle(function, jump.Target));
-                return false;
+                return new(false, false);
             case Ir.Mov mov:
                 EmitMov(mov.Dst, mov.Src);
-                return false;
+                return new(false, false);
             case Ir.Bin bin:
                 return EmitBin(bin);
             case Ir.Un un:
                 EmitUn(un);
-                return false;
+                return new(false, false);
             case Ir.Load load:
                 EmitLoad(load);
-                return false;
+                return new(false, false);
             case Ir.Store store:
                 EmitStore(store);
-                return false;
+                return new(false, false);
             case Ir.LoadIdx loadIdx:
                 EmitLoadIdx(loadIdx);
-                return false;
+                return new(false, false);
             case Ir.StoreIdx storeIdx:
                 EmitStoreIdx(storeIdx);
-                return false;
+                return new(false, false);
             case Ir.BrCmp branch:
                 EmitBranch(function, branch);
-                return false;
+                return new(false, false);
             case Ir.Call call:
                 EmitCall(call);
-                return false;
+                return new(false, false);
             case Ir.Ret ret:
                 EmitRet(function, ret, last);
-                return false;
+                return new(false, false);
             default:
                 throw new InvalidOperationException($"ByteSelector cannot select {ins.GetType().Name} (Legalizer should have removed it).");
         }
@@ -643,7 +648,7 @@ internal sealed class ByteSelector
         }
     }
 
-    private bool EmitBin(Ir.Bin bin)
+    private WordResult EmitBin(Ir.Bin bin)
     {
         if (bin.Kind is Ir.BinOp.Add or Ir.BinOp.Sub && bin.Dst.W <= 2 && bin.A is Ir.Cell same && same.Sym == bin.Dst.Sym && same.W == bin.Dst.W && bin.B is Ir.Imm { Value: 1 })
         {
@@ -651,7 +656,7 @@ internal sealed class ByteSelector
             if (_isa.TryStep(cells, bin.Kind == Ir.BinOp.Add))
             {
                 _acc.Clear();
-                return false;
+                return new(false, false);
             }
         }
 
@@ -672,7 +677,7 @@ internal sealed class ByteSelector
             Raw($"{skip}:");
 
             _acc.Clear();
-            return false;
+            return new(false, false);
         }
 
         switch (bin.Kind)
@@ -695,26 +700,26 @@ internal sealed class ByteSelector
         }
     }
 
-    private bool EmitChain(ByteAlu alu, Ir.Bin bin)
+    private WordResult EmitChain(ByteAlu alu, Ir.Bin bin)
     {
         // Podwojenie słowa (x + x): prymityw shiftu, nie dwa ładowania do add (tylko CPU z TryShlWord1;
         // reszta idzie starą drogą bez zmian w IR).
         if (alu is ByteAlu.Add && bin.Dst.W == 2 && bin.A.Equals(bin.B)
             && WordOf(bin.Dst) is { } doubled && WordOf(bin.A) is { } doubledSrc
-            && _isa.TryShlWord1(doubled, doubledSrc))
+            && _isa.TryShlWord1(doubled, doubledSrc) is { Emitted: true } shl)
         {
             _acc.Remove(doubled.Lo);
             _acc.Remove(doubled.Hi);
-            return true;
+            return shl;
         }
 
         if (alu is ByteAlu.Add or ByteAlu.Sub && bin.Dst.W == 2 && WordOf(bin.Dst) is { } dst && WordOf(bin.A) is { } a && WordOf(bin.B) is { } b
-            && _isa.TryAddWord(dst, a, b, alu == ByteAlu.Sub))
+            && _isa.TryAddWord(dst, a, b, alu == ByteAlu.Sub) is { Emitted: true } add)
         {
             // A bez zmian, ale bajty celu już nie są mu równe
             _acc.Remove(dst.Lo);
             _acc.Remove(dst.Hi);
-            return true;
+            return add;
         }
 
         if (alu is ByteAlu.Add or ByteAlu.Sub && bin.Dst.W == 4 && HalfOf(bin.Dst, 0) is { } dl && HalfOf(bin.Dst, 1) is { } dh
@@ -726,7 +731,7 @@ internal sealed class ByteSelector
                 _acc.Remove(address);
             }
 
-            return false;
+            return new(false, false);
         }
 
         for (int i = 0; i < bin.Dst.W; i++)
@@ -736,10 +741,10 @@ internal sealed class ByteSelector
             StoreA(Dst(bin.Dst, i));
         }
 
-        return false;
+        return new(false, false);
     }
 
-    private bool EmitShift(Ir.Bin bin)
+    private WordResult EmitShift(Ir.Bin bin)
     {
         if (bin.B is not Ir.Imm count)
         {
@@ -750,12 +755,12 @@ internal sealed class ByteSelector
         int n = count.Value & 0xFF;
         bool left = bin.Kind == Ir.BinOp.Shl;
         if (left && n == 1 && width == 2 && WordOf(bin.Dst) is { } dst && WordOf(bin.A) is { } src
-            && _isa.TryShlWord1(dst, src))
+            && _isa.TryShlWord1(dst, src) is { Emitted: true } shl)
         {
             // A bez zmian, ale bajty celu już nie są mu równe (jak w EmitChain po TryAddWord)
             _acc.Remove(dst.Lo);
             _acc.Remove(dst.Hi);
-            return true;
+            return shl;
         }
 
         if (n >= 8 * width)
@@ -766,7 +771,7 @@ internal sealed class ByteSelector
                 StoreA(Dst(bin.Dst, i));
             }
 
-            return false;
+            return new(false, false);
         }
 
         EmitMov(bin.Dst, bin.A);
@@ -810,7 +815,7 @@ internal sealed class ByteSelector
             }
         }
 
-        return false;
+        return new(false, false);
     }
 
     private void EmitUn(Ir.Un un)
@@ -1336,8 +1341,6 @@ internal sealed class ByteSelector
             return false;
         }
 
-        _isa.RegArgsAllowed = regCall;
-
         foreach (Ir.Src comment in skipped)
         {
             EmitSource(comment);
@@ -1370,7 +1373,6 @@ internal sealed class ByteSelector
             _isa.TailCall(_isa.Sym(call.Direct!));
         }
 
-        _isa.RegArgsAllowed = true;
         next = retIndex + 1;
         return true;
     }
@@ -1410,7 +1412,7 @@ internal sealed class ByteSelector
 
             for (int part = 0; part < call.ParamWidths[j]; part++)
             {
-                memDests.Add(Base(_isa.ArgCell(j, part, call.ParamWidths[j])));
+                memDests.Add(Base(CallArgCell(call, j, part, call.ParamWidths[j])));
             }
         }
 
@@ -1450,13 +1452,13 @@ internal sealed class ByteSelector
                 continue; // rejestry osobną fazą (liczenie kolejnych argumentów niszczy A/X)
             }
 
-            if (call.Args[i] is Ir.Cell same && same.W == call.ParamWidths[i] && same.Sym == _isa.ArgCell(i, 0, call.ParamWidths[i]))
+            if (call.Args[i] is Ir.Cell same && same.W == call.ParamWidths[i] && same.Sym == CallArgCell(call, i, 0, call.ParamWidths[i]))
             {
                 // parametr funkcji zaaliasowany na cc_argN jest już w komórce argumentu na tej samej pozycji
                 continue;
             }
 
-            if (call.ParamWidths[i] == 2 && TryMoveWord(Pair(_isa.ArgCell(i, 0, call.ParamWidths[i]), _isa.ArgCell(i, 1, call.ParamWidths[i])), WordOf(call.Args[i])))
+            if (call.ParamWidths[i] == 2 && TryMoveWord(Pair(CallArgCell(call, i, 0, call.ParamWidths[i]), CallArgCell(call, i, 1, call.ParamWidths[i])), WordOf(call.Args[i])))
             {
                 continue;
             }
@@ -1464,7 +1466,7 @@ internal sealed class ByteSelector
             for (int part = 0; part < call.ParamWidths[i]; part++)
             {
                 LoadA(ByteOf(call.Args[i], part));
-                StoreA(_isa.ArgCell(i, part, call.ParamWidths[i]));
+                StoreA(CallArgCell(call, i, part, call.ParamWidths[i]));
             }
         }
     }
@@ -1484,18 +1486,28 @@ internal sealed class ByteSelector
             for (int part = call.ParamWidths[i] - 1; part >= 0; part--)
             {
                 LoadA(ByteOf(call.Args[i], part));
-                _isa.StoreArg(_isa.ArgCell(i, part, call.ParamWidths[i]));
+                _isa.StoreArg(CallArgCell(call, i, part, call.ParamWidths[i]));
                 _acc.Clear(); // StoreArg rusza A (tax), a LoadA ufa _acc
             }
         }
     }
 
-    /// <summary>Argument wołania jedzie rejestrem (v2): szerokość pasuje i model zna rejestr.</summary>
+    /// <summary>Lokalizacja argumentu wołania: rejestry dla wołań modułowych v2, komórki pamięci
+    /// dla helperów v1 (i zawsze na v1) — czysta decyzja lokalna zamiast mutowanej flagi w ISA.</summary>
+    /// <param name="call">Wołanie.</param>
+    /// <param name="index">Numer argumentu.</param>
+    /// <param name="part">Numer bajtu.</param>
+    /// <param name="width">Szerokość argumentu.</param>
+    /// <returns>Rejestr albo symbol komórki.</returns>
+    private string CallArgCell(Ir.Call call, int index, int part, int width) =>
+        RegCall(call) ? _isa.ArgCell(index, part, width) : _isa.MemArgCell(index, part);
+
+    /// <summary>Argument wołania jedzie rejestrem (v2): wołanie modułowe, szerokość pasuje i model zna rejestr.</summary>
     /// <param name="call">Wołanie.</param>
     /// <param name="index">Numer argumentu.</param>
     /// <returns>Czy argument idzie rejestrem.</returns>
     private bool IsRegArg(Ir.Call call, int index) =>
-        call.ParamWidths[index] <= 2 && _isa.Model.HasRegister(_isa.ArgCell(index, 0, call.ParamWidths[index]));
+        RegCall(call) && call.ParamWidths[index] <= 2 && _isa.Model.HasRegister(_isa.ArgCell(index, 0, call.ParamWidths[index]));
 
     /// <summary>Wołanie niesie argumenty w rejestrach (v2): co najmniej jeden pasuje.</summary>
     /// <param name="call">Wołanie.</param>
@@ -1540,9 +1552,6 @@ internal sealed class ByteSelector
 
     private void EmitCall(Ir.Call call)
     {
-        // Helpery v1 (ręczny asembler) dostają argumenty do cc_argN: flaga gasi rejestry w ArgCell.
-        _isa.RegArgsAllowed = RegCall(call);
-
         // v2: wskaźnik pośredni do cc_fp PRZED argumentami (ich ustawianie niszczy A)
         bool earlyFp = false;
         if (call.Indirect is { } indirect && HasRegArgs(call))
@@ -1590,7 +1599,6 @@ internal sealed class ByteSelector
             {
                 _acc.Remove(dst.Lo);
                 _acc.Remove(dst.Hi);
-                _isa.RegArgsAllowed = true;
                 return;
             }
 
@@ -1609,8 +1617,6 @@ internal sealed class ByteSelector
                 StoreA(Dst(call.Result, part));
             }
         }
-
-        _isa.RegArgsAllowed = true;
     }
 
     private void EmitRet(Ir.Function function, Ir.Ret ret, bool last, bool valueInResultReg = false)

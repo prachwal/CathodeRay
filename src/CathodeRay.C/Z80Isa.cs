@@ -24,9 +24,6 @@ internal sealed partial class Z80Isa : ByteIsa
 
     public override bool ReturnsInResultReg => true;
 
-    /// <summary>Codegen słów liczy w HL, więc świeży wynik Bin zostaje w rejestrze wyniku.</summary>
-    public override bool FreshBinInResultReg => true;
-
     /// <summary>Cel obsługuje wywołanie ogonowe.</summary>
     public override bool SupportsTailCall => true;
 
@@ -237,19 +234,18 @@ internal sealed partial class Z80Isa : ByteIsa
     /// <summary>Słowo &lt;&lt; 1: <c>ld hl,src; add hl,hl; ld (dst),hl</c> (wynik zostaje w HL).</summary>
     /// <param name="dst">Cel.</param>
     /// <param name="src">Źródło.</param>
-    /// <returns><see langword="false"/>, gdy bajty nie są sąsiednie.</returns>
-    public override bool TryShlWord1(Word dst, Word src)
+    /// <returns>Wynik jawny (<see cref="WordResult"/>).</returns>
+    public override WordResult TryShlWord1(Word dst, Word src)
     {
         if (dst.IsImmediate || !Usable(dst) || !Usable(src))
         {
-            return false;
+            return new(false, false);
         }
 
         LoadPair("hl", src);
         L("add hl,hl");
         StorePair("hl", dst);
-        FreshAddInHL = true;
-        return true;
+        return new(true, true);
     }
 
     /// <summary>Kopia bloku o liczbie z pary BC: test zera, <c>push bc; push de; ld hl,src; ld de,dst;
@@ -290,11 +286,11 @@ internal sealed partial class Z80Isa : ByteIsa
     /// <param name="b">Prawy operand.</param>
     /// <param name="subtract">Odejmowanie.</param>
     /// <returns><see langword="false"/>, gdy bajty nie są sąsiednie albo oba operandy są stałymi.</returns>
-    public override bool TryAddWord(Word dst, Word a, Word b, bool subtract)
+    public override WordResult TryAddWord(Word dst, Word a, Word b, bool subtract)
     {
         if (dst.IsImmediate || (a.IsImmediate && b.IsImmediate) || !Usable(dst) || !Usable(a) || !Usable(b))
         {
-            return false;
+            return new(false, false);
         }
 
         if (!subtract && a.IsImmediate)
@@ -316,7 +312,7 @@ internal sealed partial class Z80Isa : ByteIsa
         bool save = rhs is null && !steps && (constant is null || !(InRegisters(a) && InRegisters(dst)));
         if (rhs is null && !steps && !save)
         {
-            return false;
+            return new(false, false);
         }
 
         rhs ??= save ? "de" : null;
@@ -353,20 +349,16 @@ internal sealed partial class Z80Isa : ByteIsa
             L("pop de");
         }
 
-        // Cel w parze DE: zamiana zamiast dwóch kopii (1 B mniej); HL po niej nie niesie wyniku
-        // (flaga dla ścieżki świeżego wyniku w selektorze). Martwe DE: nadpisane tak czy owak.
+        // Cel w parze DE: zamiana zamiast dwóch kopii (1 B mniej); wynik nie zostaje w HL.
+        // Martwe DE: nadpisane tak czy owak.
         if (PairOf(dst) == "de")
         {
             L("ex de,hl");
-            FreshAddInHL = false;
-        }
-        else
-        {
-            StorePair("hl", dst);
-            FreshAddInHL = true;
+            return new(true, false);
         }
 
-        return true;
+        StorePair("hl", dst);
+        return new(true, true);
     }
 
     /// <summary>32 bity przez HL i DE: <c>add hl,de</c> (albo <c>or a; sbc hl,de</c>) na młodszych połówkach, <c>adc hl,de</c>

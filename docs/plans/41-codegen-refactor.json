@@ -35,8 +35,8 @@
     {
       "id": "6",
       "title": "[S] Zabić FreshAddInHL, FreshBinInResultReg i RegArgsAllowed (ByteIsa:48, Z80Isa:248/358/363, Intel8080Isa:146, ByteSelector:428): Try* zwracają wynik (Emitted + ResultInHL) zamiast bool + mutacji. Robione przed ISP, żeby sygnatury Try* zmienić raz. Akceptacja: diff listingów vs baseline pusty, build -warnaserror, test celowany zielony. Po scaleniu planu 39: RegArgsAllowed (ByteSelector 1339/1373/1544/1593/1613) to to samo sprzężenie czasowe (flaga mutowana wokół wołań), FreshBinInResultReg czytany razem z FreshAddInHL (ByteSelector:479). Wynik/opcje przekazywane jawnie.",
-      "status": "todo",
-      "note": ""
+      "status": "done",
+      "note": "Zrobione: WordResult(Emitted,InHL) zamiast bool+mutacji (TryAddWord/TryShlWord1, EmitChain/EmitShift/EmitBin/EmitIns); świeżość w lokalu freshHL; FreshBinInResultReg usunięte jako redundantne (resCell ⟹ Z80/8080); RegArgsAllowed zastąpione CallArgCell+MemArgCell z bramką RegCall (v1 bit-identyczne). Siatka HEAD-vs-baseline pusta na v1+v2 (8+1 celi). Full suite zielona po odświeżeniu goldena v2 (osobny commit). Fuzz 60+60."
     },
     {
       "id": "7",

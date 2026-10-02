@@ -205,7 +205,7 @@ internal sealed class Mos6502Isa : ByteIsa
     /// <param name="width">Szerokość argumentu (pary tylko dla W≤2).</param>
     /// <returns>Nazwa rejestru albo symbol komórki.</returns>
     public override string ArgCell(int index, int part, int width) =>
-        AbiV2 && RegArgsAllowed && index == 0 && width <= 2 ? (part == 0 ? "a" : "x") : base.ArgCell(index, part, width);
+        AbiV2 && index == 0 && width <= 2 ? (part == 0 ? "a" : "x") : base.ArgCell(index, part, width);
 
     /// <summary>Bajt wyniku do rejestru: w A już leży (nic do roboty) albo <c>tax</c> dla starszego do X.</summary>
     /// <param name="index">0 = młodszy (już w A), 1 = starszy (A → X).</param>

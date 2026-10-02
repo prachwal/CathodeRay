@@ -145,7 +145,7 @@ public sealed class Z80RegisterIsaTests
         var t = new Ir.Cell("main__t", 2);
 
         // t = m - 1 (m = 0x1234 -> 0x1233); epilog zamienia HL<->DE, więc Ret nie śmie liczyć
-        // na świeże HL (flaga FreshAddInHL) — wynik z emulatora to dowód poprawności flagi
+        // na świeże HL (jawny wynik TryAddWord: InHL=false) — wynik z emulatora to dowód poprawności
         List<Ir.Ins> body =
         [
             new Ir.Mov(m, new Ir.Imm(0x1234, 2)),
