@@ -1,6 +1,6 @@
 {
   "title": "Refaktoryzacja architektury codegen: interfejsy zdolności, typowany asm, podział selektora (zero zmian zachowania) — pierwszy plan serii 41 (refaktor) -> 42 (szlifowanie)",
-  "status": "queued",
+  "status": "closed",
   "items": [
     {
       "id": "1",
@@ -71,8 +71,8 @@
     {
       "id": "12",
       "title": "[S] Pomiary i zamknięcie refaktoru: full suite, goldeny bez wzrostu, /fuzz, /bench (mean/SDCC bez zmian), render + hygiene, commit; potwierdzić start planu 42 na zielonym HEAD z czystymi goldenami. Dodatkowo goldeny v2 (v2-sizes) bez zmian.",
-      "status": "todo",
-      "note": ""
+      "status": "done",
+      "note": "Zamkniete. Bramki: pelna suita 3288/3288; goldeny bez wzrostu (git status czysty — target/vreg/vreg-alloc/ir-gate/v2-sizes nietkniete; siatka listingow HEAD-vs-387aa82 IDENTICAL na v1+v2); fuzz leaf+recursion 60+60 zielone; bench mean/SDCC 1.15 bez zmian (mean/cc65 1.27); render + hygiene OK. Plan 41 zamkniety (12/12). Start planu 42 na zielonym HEAD z czystymi goldenami."
     }
   ]
 }
