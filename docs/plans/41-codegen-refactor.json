@@ -53,8 +53,8 @@
     {
       "id": "9",
       "title": "[M] ISP z ByteIsa, po jednym interfejsie na commit w kolejności: ICopyLoop, ISignedBranch, IWordArithmetic, IPairMoves, IResultReg. Selektor sprawdza zdolność przez is; zombie-defaulty (=> false, throw NotSupported) znikają. Cel: ByteIsa.cs < ~250 linii (obecnie 489). Akceptacja: diff listingów vs baseline pusty, build -warnaserror, test celowany zielony. Cel końcowy: nowe prymitywy planu 42 powstają jako interfejsy zdolności, bez virtual-defaultów. Po scaleniu planu 39 do podziału wchodzą też SupportsAbiV2 (virtual w ByteTarget/DIM w ICTarget), EntryParkCell, ArgCell (v2) — jako interfejs zdolności rejestrowych argumentów (np. IRegArgs).",
-      "status": "todo",
-      "note": ""
+      "status": "partial",
+      "note": "Wariant A (zatwierdzony przez uzytkownika): 8 interfejsow zdolnosci wg zbiorow implementujacych — ICopyLoop (Z80), ISignedBranch (Z80), IWordArithmetic (Z80), IWordShift (Z80+8080), IPairMoves (Z80+8080+6800), IPairStack (Z80+8080), IResultReg (Z80+8080+6502), IResultPairs (Z80+8080). Selektor sprawdza zdolnosc przez `is`; TryBranchZeroSigned i TryStep -> abstract (uniwersalne); zero martwych defaultow dla przeniesionych. Commity 202d86a..58f1ba0 (9). Po kazdym: build -warnaserror, siatka HEAD-vs-387aa82 PUSTA (v1+v2, IDENTICAL), test celowany. Bramki koncowe: pelna suita 3288/3288, fuzz leaf/recursion 60+60 zielone, bench mean/SDCC 1.15 (bez zmian). ZOSTALO do celu <250: ByteIsa 524->415 linii; zdolnosci v2-arg (EntryParkCell/ArgCell/FetchArg/StoreArg/SetupFp/PopByte) i indexed (SupportsIndexed/IndexSetup/Load/Store) oraz SupportsTailCall/AddressByte/Preamble nadal w ByteIsa — do <250 potrzebny kolejny zestaw interfejsow (IRegArgs/IIndexed), odroczone do decyzji."
     },
     {
       "id": "10",
