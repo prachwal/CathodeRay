@@ -23,8 +23,8 @@
     {
       "id": "4",
       "title": "[M] Caller-saved rejestry dla komórek żywych przez wołanie (część itemu 9): push/pop wokół call tylko gdy waga > koszt (2 B + 21 T x waga pętli), komórki w rejestrach znikają z Saved, ostrzeżenie o głębokości stosu uwzględnia te push. Akceptacja: fib -14 B, copy ~23 B, RecursionFrameTests zielone, ABI bez zmian Nowy prymityw jako interfejs zdolności z planu 41 (bez virtual-defaultów w ByteIsa, wynik zwracany jawnie, bez FreshAddInHL).",
-      "status": "todo",
-      "note": "W tym podcel ze starego 40-item-2: kopie BC<->HL wokół wołań (cel cząstkowy fib -4 B). Przejęte z planu 39 poz. 5 (alias parametru na rejestr)."
+      "status": "partial",
+      "note": "USTALENIE: mechanizm caller-saved JUZ istnieje i jest wpiety — RegisterAllocator.Profitable + Tune (usuwa komorki z Saved) wolane z Z80Target/Intel8080Target.Tune. Dowod: f(a){for...} generuje push/pop pary (bc/de) wokol call; copy uzywa LDIR (42 B). Planowe liczby (fib -14, copy ~23) sa NIEAKTUALNE (sprzed LDIR). Reszta z planu 40 ('wartosci zywe w petli') = komorka o wielu rozlacznych przedzialach: fib__t@1 ma przedzialy [8..9] (t@1=n-1) i [11..12] (t@1=fib(...)); kolorowanie grafowe daje JEDEN rejestr na symbol, wiec koliduje z n (przedzial 1) i t@0 (przedzial 2) -> spill do pamieci. Sprobowalem dzielenia przedzialow (SplitRanges w Tune: osobny symbol per przedzial + rename w IR, ~100 linii): lokalnie fib bez spillu (add hl,bc zamiast ld(fib__t@1)), ale NETTO REGRESJA Z80 — bench fnptr mini-C Z80 58->72 (+14 B), mean/SDCC 1.14->1.16 — COFNIETE zgodnie z regula skilla. Poprawna wersja: split tylko gdy nowy symbol faktycznie dostaje rejestr, inaczej scal z powrotem; wtedy splituje sie dopiero po probie kolorowania. Do osobnej sesji."
     },
     {
       "id": "5",
