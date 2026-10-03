@@ -1,6 +1,6 @@
 # Konwencja wołań stub (mini-C)
 
-Opis języka: [minic.md](minic.md) (przykłady testowane). Ten plik to konwencje, układ pamięci i decyzje projektowe.
+Opis języka: [minic.md](../minic.md) (przykłady testowane). Ten plik to konwencje, układ pamięci i decyzje projektowe.
 
 Cel: spisane zasady, żeby dwa podprogramy (i kiedyś kompilator) dogadywały się
 bez zgadywania. Stub ma tylko `A`, `X` i stos na `A` — reszta to umowa.
@@ -60,7 +60,7 @@ pierwsza linia CODE; zła kolejność wykonuje bibliotekę jako program).
 
 ## Ekran 40x25 (screen.s → Markdown)
 
-` samples/stub/lib/screen.s`: bufor `__scr_buf` (1000 B, wierszami) + kursor
+`samples/stub/lib/screen.s`: bufor `__scr_buf` (1000 B, wierszami) + kursor
 `__scr_cur`/`_h` (0..999). `scr_putc` (A = znak) dopisuje; 10 to nowa linia (wiersz+1, na dole scroll);
 pełny ekran scrolluje w górę (ostatni wiersz zerowany, kursor na 960,
 znaki sprzed scrolla przepadają), `scr_clear` zeruje bufor i kursor.
@@ -76,7 +76,7 @@ plik `.md` to nagłówek + blok text. Adres wybiera dowolny bufor
 
 ## Wzorce codegen
 
-```
+```c
 if (a < b):      CPA b / BCS else  (C=1 znaczy a>=b; uwaga: CPA tylko d8!)
 while (x > 0):   loop: ... / DEX / BNE loop
 for (i=0;i<n):   LDX 0 / loop: ... / INX / CPX n / BNE loop
@@ -134,6 +134,8 @@ brak `ADD`/`SUB` z pamięci absolutnej (tryb `,X` z `X = 0`).
 - Układ `cc`: CODE `$1000` (do `$6EFF`), INIT `$6F00` (256 B = 128 modułów), BSS `$7000`, DATA `$8000`.
 
 ## struct (plan 28 D)
+
+> Historyczne: zakaz przekazywania struktur przez wartość zniesiono w planie 30 (krok 16) — patrz „Struktury przez wartość”.
 
 - `struct S { pola };`, `struct S x;`, `typedef struct [S] { … } T;`, `struct S *p`, tablice struktur,
   zagnieżdżone struktury i pola-tablice, `sizeof(struct S)`/`sizeof x`. Pola leżą kolejno, bez wyrównania.
@@ -210,6 +212,8 @@ Wariadyczne prototypy (`...`): dodatkowe argumenty są zawsze 16-bit w kolejnych
 liczbę parametrów (`printf(fmt, a1..a5)`), więc `...` można tylko deklarować. Konsola to bufor `__io_buf` (256 B).
 
 ## Cele i kod pośredni (plan 30, kroki 1–2)
+
+> Historyczne: wszystkie cele (6502, 65c02, z80, 8080, 6800) zaimplementowano w planie 30 — „zapowiedziane” poniżej znaczy „zrealizowane”.
 
 - `cc --cpu <nazwa>` wybiera cel z rejestru `CTargets` (dziś tylko `stub`; `6502`, `65c02`, `z80`, `8080`, `6800` są
   zapowiedziane i dają komunikat „target not implemented yet”). Cel (`ICTarget`) dostarcza crt0, moduły
@@ -430,7 +434,7 @@ w Lowering/IR (wybór celu działania bez kopii, CSE w bloku, porównanie ze zna
 Bajty mini-C Z80 przed/po (przed = `ea53a28`, po = ten commit; kolumny: bench, przed, po):
 
 | bench | przed | po |
-|---|---|---|
+| --- | --- | --- |
 | fnptr | 98 | 76 |
 | fib | 78 | 76 |
 | max3 | 55 | 55 |

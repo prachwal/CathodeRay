@@ -4,7 +4,7 @@ namespace CathodeRay.C;
 /// (<see cref="Ir"/>). Każda wartość skalarna dostaje własny rejestr (<see cref="Reg"/>) o stabilnej tożsamości,
 /// bloki i krawędzie grafu przepływu są jawne (gotowość pod SSA), a pamięć widzą tylko <c>load/store</c>.
 /// Agregaty (tablice, struktury) i komórki o wziętym adresie nie są rejestrami: przechodzą jako
-/// <see cref="Pinned"/> albo adresy <see cref="Addr"/>. Projekt: <c>docs/vreg-design.md</c>.</summary>
+/// <see cref="Pinned"/> albo adresy <see cref="Addr"/>. Projekt: <c>docs/ir-vreg-abi/vreg-design.md</c>.</summary>
 public static class VReg
 {
     /// <summary>Operand instrukcji.</summary>

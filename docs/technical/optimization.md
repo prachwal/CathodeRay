@@ -1,7 +1,7 @@
 # Optymalizacja, VReg i pomiary
 
-Źródła: [../minic-optimization.md](../minic-optimization.md), [../vreg-design.md](../vreg-design.md), [../ir-vreg-plan.md](../ir-vreg-plan.md),
-[../compare.md](../compare.md), [../vreg-alloc.md](../vreg-alloc.md), [../vreg-sizes.md](../vreg-sizes.md), plany 32, 33, 35–38, 40.
+Źródła: [../minic-optimization.md](../codegen/minic-optimization.md), [../vreg-design.md](../ir-vreg-abi/vreg-design.md), [../ir-vreg-plan.md](../ir-vreg-abi/ir-vreg-plan.md),
+[../compare.md](../compare.md), [../vreg-alloc.md](../ir-vreg-abi/vreg-alloc.md), [../vreg-sizes.md](../vreg-sizes.md), plany 32, 33, 35–38, 40.
 
 ## Stan optymalizacji
 
@@ -48,19 +48,18 @@ Porównanie z kompilatorami wzorcowymi (`docs/compare.md`, segment CODE w bajtac
 
 | funkcja | mini-C 6502 | cc65 -Os | mini-C Z80 | SDCC Z80 |
 | --- | ---: | ---: | ---: | ---: |
-| fib | 144 | 52 | 76 | 31 |
-| copy | 42 | 74 | 48 | 30 |
-| max3 | 83 | 70 | 55 | 53 |
+| fib | 142 | 52 | 68 | 31 |
+| copy | 42 | 74 | 22 | 30 |
+| max3 | 77 | 70 | 55 | 53 |
 | sum_bytes | 54 | 71 | 38 | 37 |
 | str_len | 43 | 56 | 25 | 14 |
 
-Średnia geometryczna bez wierszy mnożenia, dzielenia i przesunięć (oznaczonych `*`): mini-C / cc65 = 1,32, mini-C / SDCC = 1,31.
+Średnia geometryczna bez wierszy mnożenia, dzielenia i przesunięć (oznaczonych `*`): mini-C / cc65 = 1.27, mini-C / SDCC = 1.15.
 Pełna tabela jest w `compare.md`. Odświeża ją `python3 tools/compare.py --write` (wymaga zainstalowanych cc65 i SDCC).
-Uwaga: `targets.md` zawiera starsze, mniej korzystne wartości (ok. 1,7× cc65 i ok. 3,6× SDCC), zapisane przed pracami z planów 32–40.
 
 Rozmiary na wszystkich celach i programach przykładowych: [../target-sizes.md](../target-sizes.md) (generowane testem `TargetSizeTests`).
 
-## Kierunki (plan 40, w toku: 5 z 11 zadań gotowych)
+## Kierunki (plan 40 closed; plan 43, DJNZ, w kolejce)
 
 Plan 40 domyka lukę do SDCC na Z80 i 8080. Zrobione: `xor a` zamiast `ld a,0` i martwa stopka po skoku końcowym (1), częściowo `ex de,hl` (2),
 skoki po stałej ze znakiem i redukcja siły dla `x+x` (3, 4), `LDIR` dla pętli kopiujących: copy 48 → 22 B (5), zawężenie `switch` na `uchar` do 1 bajta (11).

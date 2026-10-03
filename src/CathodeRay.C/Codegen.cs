@@ -2,7 +2,7 @@ namespace CathodeRay.C;
 
 /// <summary>Generator kodu mini-C: program po kontroli typów obniżany jest do kodu pośredniego (<see cref="Ir"/>),
 /// a wybrany cel (<see cref="ICTarget"/>) drukuje go jako asembler swojego procesora. Konwencje stuba:
-/// <c>docs/stub-calling-conv.md</c>; specyfikacja języka: <c>docs/minic.md</c>.</summary>
+/// <c>docs/codegen/stub-calling-conv.md</c>; specyfikacja języka: <c>docs/minic.md</c>.</summary>
 public static class Codegen
 {
     /// <summary>Generuje tekst asemblera dla celu domyślnego (stub).</summary>

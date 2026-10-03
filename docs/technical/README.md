@@ -19,10 +19,10 @@ MOS 6502 / 65C02 (warianty `nes`, `6510`), Motorola 6800 oraz edukacyjny CPU `st
 ## Dokumenty źródłowe
 
 - Język: [../minic.md](../minic.md) (przykłady są kompilowane i uruchamiane w testach)
-- Cele i potok: [../targets.md](../targets.md), [../stub-calling-conv.md](../stub-calling-conv.md)
-- Asembler: [../z80-assembler.md](../z80-assembler.md), [../assembler-capability-gaps.md](../assembler-capability-gaps.md), [../linker-segments.md](../linker-segments.md)
-- Optymalizacja: [../minic-optimization.md](../minic-optimization.md), [../vreg-design.md](../vreg-design.md), [../ir-vreg-plan.md](../ir-vreg-plan.md)
-- Pomiary: [../compare.md](../compare.md), [../target-sizes.md](../target-sizes.md), [../vreg-sizes.md](../vreg-sizes.md), [../vreg-alloc.md](../vreg-alloc.md)
+- Cele i potok: [../targets.md](../codegen/targets.md), [../stub-calling-conv.md](../codegen/stub-calling-conv.md)
+- Asembler: [../z80-assembler.md](../assembler/z80-assembler.md), [../assembler-capability-gaps.md](../assembler/assembler-capability-gaps.md), [../linker-segments.md](../assembler/linker-segments.md)
+- Optymalizacja: [../minic-optimization.md](../codegen/minic-optimization.md), [../vreg-design.md](../ir-vreg-abi/vreg-design.md), [../ir-vreg-plan.md](../ir-vreg-abi/ir-vreg-plan.md)
+- Pomiary: [../compare.md](../compare.md), [../target-sizes.md](../target-sizes.md), [../vreg-sizes.md](../vreg-sizes.md), [../vreg-alloc.md](../ir-vreg-abi/vreg-alloc.md)
 - Plany: [../plans/](../plans/) (pliki `NN-nazwa.json` jako źródło prawdy i `NN-nazwa.md` jako wersja do czytania)
 
 ## Uwaga o aktualności

@@ -1,4 +1,4 @@
-# Analiza szkicu „przydział rejestrów dla Z80” (docs/z80-register-optimizer.md)
+# Analiza szkicu „przydział rejestrów dla Z80” (z80-register-optimizer.md)
 
 Stan kodu: gałąź `stub/c-performance`, commit `1ad6396`. Pomiary: listingi `cathode cc <bench>.c --cpu z80 -l` dla 14 benchy z
 `samples/bench` (każdy z dopisanym `int main(){return 0;}`, tak jak robi `tools/disasm_compare.py`), rozmiary liczone z adresów

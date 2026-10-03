@@ -1,6 +1,6 @@
 # Cele i konwencja wołań
 
-Rejestr celów: `CTargets.All`. Źródła: [../targets.md](../targets.md), [../stub-calling-conv.md](../stub-calling-conv.md).
+Rejestr celów: `CTargets.All`. Źródła: [../targets.md](../codegen/targets.md), [../stub-calling-conv.md](../codegen/stub-calling-conv.md).
 
 ## Cele
 

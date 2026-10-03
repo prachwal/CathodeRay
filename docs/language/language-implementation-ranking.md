@@ -5,7 +5,7 @@ Dokument opisuje przybliżoną trudność dodania kolejnych frontendów językow
 ## Ranking
 
 | Poziom | Język | Trudność | Główna przeszkoda |
-|---:|---|---:|---|
+| ---: | --- | ---: | --- |
 | 1 | BASIC | 2/10 | prosty parser, typowanie zależne od dialektu |
 | 2 | Pascal | 3/10 | prosty system typów, rekordy, tablice |
 | 3 | Forth | 3/10 | bardzo prosty parser, nietypowy model stosowy |

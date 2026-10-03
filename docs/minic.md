@@ -1,7 +1,7 @@
 # Mini-C — opis języka
 
 Mini-C to podzbiór C kompilowany na kilka procesorów: stub (8-bitowy akumulator `A`, indeks `X`, stos na `A`), 6502, 65C02, Z80, 8080 i 6800
-(`--cpu`, opis celów i dodawania nowych: [targets.md](targets.md)). Kompilator:
+(`--cpu`, opis celów i dodawania nowych: [targets.md](codegen/targets.md)). Kompilator:
 `cathode cc plik.c [plik2.c] -o program.bin [--cpu cel]` (parser → checker → kod pośredni → cel → asembler → linker; biblioteka
 standardowa linkowana automatycznie). Konwencje wołań, układ pamięci i szczegóły runtime: `stub-calling-conv.md`.
 
@@ -392,12 +392,12 @@ int main() {
 }
 ```
 
-Struktury nie są przekazywane ani zwracane przez wartość (użyj wskaźnika).
+Struktury są też przekazywane i zwracane przez wartość (bufor `cc_retbuf`, limit 64 B) — patrz „Struktury przez wartość”.
 
 ## Preprocesor
 
 `#include "plik"`, `#include <plik>` (`--incdir` i biblioteka), `#define` (obiektowe i funkcyjne), `#undef`, `#if/#ifdef/#ifndef/#elif/#else/#endif`,
-`#error`, `#pragma once`, `cc -D NAZWA[=wartość]`. Bez `#` i `##`.
+`#error`, `#pragma once`, `cc -D NAZWA[=wartość]`. Operator `#` (napis) i `##` (sklejanie) tylko w makrach funkcyjnych.
 
 ```c expect=9
 #define SQ(x) ((x) * (x))

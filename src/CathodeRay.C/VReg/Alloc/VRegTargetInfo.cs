@@ -1,7 +1,7 @@
 namespace CathodeRay.C;
 
 /// <summary>Opis celu dla alokatora VReg: rejestry fizyczne widoczne dla alokacji i strategia spillu
-/// (na 8 bitach spill to statyczna komórka, nie slot ramki — <c>docs/vreg-design.md §D2</c>).</summary>
+/// (na 8 bitach spill to statyczna komórka, nie slot ramki — <c>docs/ir-vreg-abi/vreg-design.md §D2</c>).</summary>
 /// <param name="PhysRegs">Rejestry fizyczne (nazwy jak w selektorze celu).</param>
 /// <param name="HasPairs">Cel ma pary rejestrów na wartości 2-bajtowe.</param>
 /// <param name="MaxRegs">Ile wartości naraz warto trzymać w rejestrach (punkt startu, nie optimum).</param>

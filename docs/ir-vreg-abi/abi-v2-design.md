@@ -1,11 +1,11 @@
 # ABI v2 — argumenty i wyniki w rejestrach (projekt migracji)
 
-Status: **projekt** (nie zaimplementowany). Branch: `design/abi-v2`.
+Status: **projekt w realizacji** — flaga `--abi v1|v2` i pilot `nes` zaimplementowane (plan 39, closed); pomiar pilota w [v2-sizes.md](../v2-sizes.md). Default pozostaje `v1`.
 Punkt wyjścia: [analiza luki](https://github.com/prachwal/CathodeRay/blob/opt/abi-tax/docs/vreg-design.md#11-ryzyka-konkretne-z-historią)
 mówi wprost: ~70% luki do cc65/SDCC to trzy decyzje architektoniczne (pamięć-ABI, statyczne ramki,
 brak rejestrów dla wartości żywych). Ten dokument projektuje naprawę pierwszej z nich.
-Powiązane: [targets.md](targets.md#kontrakt-rejestrowy-cpumodel-plan-38),
-[stub-calling-conv.md](stub-calling-conv.md#plan-38-cpumodel-a-zamrożone-abi),
+Powiązane: [targets.md](../codegen/targets.md#kontrakt-rejestrowy-cpumodel-plan-38),
+[stub-calling-conv.md](../codegen/stub-calling-conv.md#plan-38-cpumodel-a-zamrożone-abi),
 [CpuModel](../src/CathodeRay.C/CpuModels.cs).
 
 ## 0. Mapa obecnego ABI v1 (kotwice)
@@ -153,5 +153,5 @@ Bramki każdego kroku: `build -warnaserror`, full suite zielony, **goldeny v1 ba
 ## Powiązane
 
 - [vreg-design.md §D1](vreg-design.md#d1-vreg-opada-do-cell-ir-adapter-nie-drugi-backend) — adapterowa filozofia (tu: hybryda zamiast drugiego ABI).
-- [minic-optimization.md](minic-optimization.md#ecosystem-limitations) — zamrożone ABI jako organizm.
+- [minic-optimization.md](../codegen/minic-optimization.md#ecosystem-limitations) — zamrożone ABI jako organizm.
 - Plan pracy: `docs/plans/39-abi-v2.json` (queued).

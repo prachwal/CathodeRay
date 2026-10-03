@@ -15,7 +15,7 @@ Ten dokument rozstrzyga kwestie, które tamten zostawia otwarte, i wiąże je z 
 ```
 
 | Element | Kotwica |
-|---|---|
+| --- | --- |
 | Wejście potoku (`CheckedProgram → Ir.Module`) | [Codegen.cs](../src/CathodeRay.C/Codegen.cs#L24-L38) |
 | Kształt Cell IR (Op/Ins/Function) | [Ir.cs](../src/CathodeRay.C/Ir.cs#L96-L229) |
 | Przebiegi (`Optimize`) | [IrPasses.cs](../src/CathodeRay.C/IrPasses.cs#L12) |
@@ -31,12 +31,13 @@ Ten dokument rozstrzyga kwestie, które tamten zostawia otwarte, i wiąże je z 
 | Interpreter Cell IR | [IrInterpreter.cs](../src/CathodeRay.C/IrInterpreter.cs#L8-L46) |
 | Flagi CLI (`cc`) | [CcCommand.cs](../src/CathodeRay.Cli/CcCommand.cs#L29-L33) |
 | Bramka rozmiarów | [TargetSizeTests.cs](../tests/CathodeRay.Tests/TargetSizeTests.cs#L36-L45) |
-| ABI (zamrożone) | [stub-calling-conv.md](stub-calling-conv.md#funkcje), [ramki](stub-calling-conv.md#ramki-plan-20-callee-saves-na-stosie-sprzętowym) |
-| Cele / dodawanie CPU | [targets.md](targets.md#potok), [targets.md](targets.md#jak-dodać-procesor), [targets.md](targets.md#ograniczenia-celów-bajtowych) |
+| ABI (zamrożone) | [stub-calling-conv.md](../codegen/stub-calling-conv.md#funkcje), [ramki](../codegen/stub-calling-conv.md#ramki-plan-20-callee-saves-na-stosie-sprzętowym) |
+| Cele / dodawanie CPU | [targets.md](../codegen/targets.md#potok), [targets.md](../codegen/targets.md#jak-dodać-procesor), [targets.md](../codegen/targets.md#ograniczenia-celów-bajtowych) |
 
 ## 1. Decyzje architektoniczne
 
 ### D1. VReg opada do Cell IR (adapter, nie drugi backend)
+
 Po alokacji moduł VReg jest przepisywany na `Ir.Module`: każdy przydzielony vreg staje się
 syntetyczną komórką (`%t3` → `fn__vr3`), a mapa rejestrów idzie istniejącą ścieżką
 [AssignRegisters](../src/CathodeRay.C/ByteIsa.cs#L207-L217).
@@ -44,18 +45,20 @@ Efekt: **całe ABI działa za darmo** — `cc_argN`, wynik w HL
 ([ByteIsa.cs](../src/CathodeRay.C/ByteIsa.cs#L276-L303)),
 [tail calls](../src/CathodeRay.C/ByteSelector.cs#L792-L831),
 `callSave`, crt0. Alternatywa (własny emit vreg→asm) oznaczałaby duplikację ABI,
-a ABI jest „żywym organizmem" ([minic-optimization.md](minic-optimization.md#ecosystem-limitations)).
+a ABI jest „żywym organizmem" ([minic-optimization.md](../codegen/minic-optimization.md#ecosystem-limitations)).
 Szczegóły: [§4](#4-adapter-vregcell).
 
 ### D2. Spill statyczno-komórkowy na 8 bitach
+
 6502 nie ma adresowania względem wskaźnika stosu, stub/6800 podobnie —
-[ograniczenia celów](targets.md#ograniczenia-celów-bajtowych).
+[ograniczenia celów](../codegen/targets.md#ograniczenia-celów-bajtowych).
 Spill vrega to **statyczna komórka absolutna** (`fn__spN`, ew. strona zerowa na 6502),
 nie „stack slot". Ramka w sensie sprzętowym powstaje tylko na przyszłych celach 16/32-bitowych.
 Rekurencja dalej działa przez [Saved](../src/CathodeRay.C/Lowering.Frames.cs#L113-L136):
 zbiór `Saved` syntetycznego modułu = vregi żywe po wołaniach (z analizy §5) + parametry + AddrOf.
 
 ### D3. Reuse zamiast pisania od nowa
+
 - Żywość: adaptacja [IrLiveness.Of](../src/CathodeRay.C/IrLiveness.cs#L24-L58)
   (sukcesory `Jmp`/`BrCmp`/`Ret`, punkt stały) na bloki VReg zamiast listy instrukcji.
 - Uses/Def: [IrFacts.cs](../src/CathodeRay.C/IrFacts.cs) jako wzorzec dla `VRegFacts`.
@@ -65,6 +68,7 @@ zbiór `Saved` syntetycznego modułu = vregi żywe po wołaniach (z analizy §5)
   decyzja: `VRegOracle` też w testach (nie wyciągamy oracle do `src`).
 
 ### D4. Fabryka dopiero z drugą implementacją
+
 Faza 0 to **tylko flaga** `--ir cell|vreg` w [CcCommand.cs](../src/CathodeRay.Cli/CcCommand.cs#L32-L33)
 plus `vreg → czytelny błąd`. Interfejs `IIrPipeline` z
 [ir-vreg-plan.md §5.2](ir-vreg-plan.md#52-factory-c-sketch) powstaje, gdy istnieje kod wołający go
@@ -72,12 +76,14 @@ z dwóch stron; wcześniej to scaffolding. Bez `object` w sygnaturach — genery
 (`IIrPipeline<TModule>`).
 
 ### D5. Minimalny zestaw instrukcji MVP (bez phi, bez copyblock)
+
 `mov / bin / un / load / store / cmp / br / jmp / call / ret`.
 `phi` wraca w fazie SSA, `copyblock/fill` nie istnieją — structy rozpadają się na pola
 przy loweringu (jak dziś w [Lowering.Memory.cs](../src/CathodeRay.C/Lowering.Memory.cs)).
 `loadidx/storeidx` tylko jeśli selektor 6502 ich potrzebuje (`(__p),Y`).
 
 ### D6. Warianty CPU przez rejestr, nie nową fabrykę
+
 [CTargets](../src/CathodeRay.C/CTargets.cs#L7) już wariantuje:
 `6502` vs `65c02` to flaga w jednej klasie
 ([Mos6502Target.cs](../src/CathodeRay.C/Mos6502Target.cs#L11)).
@@ -186,7 +192,7 @@ Parser rodzaju ląduje przy `CTargets`-podobnym rejestrze dopiero w fazie z dwom
 ## 8. Testy i bramki
 
 | Poziom | Co | Kotwica wzorca |
-|---|---|---|
+| --- | --- | --- |
 | Interpreter VReg | `VRegInterpreter` wykonuje moduł bezpośrednio | [IrInterpreter.cs](../src/CathodeRay.C/IrInterpreter.cs#L8) |
 | Oracle | `VRegOracle`: wynik `main` + efekty = Cell | [IrOracle.cs](../tests/CathodeRay.Tests/IrOracle.cs) |
 | Regresje przeniesione | goto-po-wołaniu (= 39), pętla z wołaniem (= 19) | [RecursionFrameTests.cs](../tests/CathodeRay.Tests/RecursionFrameTests.cs#L107-L151) |
@@ -235,12 +241,12 @@ Testy: `VRegLoweringTests`, `VRegLivenessTests`, `VRegInterpreterTests`, `VRegCo
 - **LinearScan doradczy**: trzyma 278/660 rejestrów na samplach ([vreg-alloc.md](vreg-alloc.md)),
   ale przy architekturze adaptera keep-set nie zmienia kodu (przydział robi `RegisterAllocator`
   po opadnięciu). `--regalloc` w CLI dopiero z bezpośrednim emiterem VReg.
-- Rozmiary: [vreg-sizes.md](vreg-sizes.md) — zwykle mniejsze od Cell (druga runda przebiegów),
+- Rozmiary: [vreg-sizes.md](../vreg-sizes.md) — zwykle mniejsze od Cell (druga runda przebiegów),
   wyjątki w górę na Z80/8080 (`04_int_ops`, `23_types`: fazowanie z `RegisterAllocator`, osobne zadanie).
 
 ## Powiązane
 
 - [ir-vreg-plan.md](ir-vreg-plan.md#7-migration-plan) — propozycja ogólna (fazy 0–6).
-- [minic-optimization.md](minic-optimization.md#vreg-optimization-pipeline) — potok optymalizacji.
-- [stub-calling-conv.md](stub-calling-conv.md#cele-i-kod-pośredni-plan-30-kroki-12) — ABI do reuse.
-- Plan pracy: `docs/plans/37-vreg.json` (queued).
+- [minic-optimization.md](../codegen/minic-optimization.md#vreg-optimization-pipeline) — potok optymalizacji.
+- [stub-calling-conv.md](../codegen/stub-calling-conv.md#cele-i-kod-pośredni-plan-30-kroki-12) — ABI do reuse.
+- Plan pracy: `docs/plans/37-vreg.json` (closed).

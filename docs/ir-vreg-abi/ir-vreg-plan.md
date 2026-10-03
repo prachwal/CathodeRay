@@ -1,7 +1,8 @@
 # Plan: Virtual-register IR (scalable down to accumulator CPUs)
 
 Status: **design proposal** — not implemented.
-Related: [minic-optimization.md](minic-optimization.md), [targets.md](targets.md).
+> Uwaga: dokument zastąpiony przez [vreg-design.md](vreg-design.md) — VReg zaimplementowano w planie 37 (`--ir vreg`, adapter do Cell IR). Tu zostaje jako propozycja pierwotna.
+Related: [minic-optimization.md](../codegen/minic-optimization.md), [targets.md](../codegen/targets.md).
 
 ## Goal
 
@@ -330,6 +331,6 @@ Assembler and `ByteIsa` targets stay unchanged in phases 0–4; only the path *i
 
 ## Related documents
 
-- [minic-optimization.md](minic-optimization.md) — why current depth is limited
-- [targets.md](targets.md) — how CPUs are added today
-- [stub-calling-conv.md](stub-calling-conv.md) — ABI that allocators must respect
+- [minic-optimization.md](../codegen/minic-optimization.md) — why current depth is limited
+- [targets.md](../codegen/targets.md) — how CPUs are added today
+- [stub-calling-conv.md](../codegen/stub-calling-conv.md) — ABI that allocators must respect

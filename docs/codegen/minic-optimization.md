@@ -1,5 +1,7 @@
 # Mini-C optimization status and gaps
 
+> Uwaga: VReg jest już zaimplementowany (plan 37, [`../ir-vreg-abi/vreg-design.md`](../ir-vreg-abi/vreg-design.md)) — fragmenty o „planned backend” poniżej są nieaktualne.
+
 This note describes the current Cell IR optimization depth and the planned VReg backend. It is a design checkpoint, not a claim that the planned backend is already implemented.
 
 ## Optimisation depth
@@ -70,8 +72,8 @@ VReg → CFG/dominance → SSA → GVN/LICM → out-of-SSA → liveness/allocati
 2. Allocated VReg output should be checked against `VRegInterpreter`, especially for branches, calls and spills.
 3. The first backend milestone is correctness with conservative allocation—not graph coloring.
 4. For performance-critical kernels, hand-written assembly or careful source-level tuning remains the right tool.
-2. The IR + `IrInterpreter` oracle already give a solid base for adding more passes without breaking target correctness.
-3. Incremental improvements with the highest leverage are:
+5. The IR + `IrInterpreter` oracle already give a solid base for adding more passes without breaking target correctness.
+6. Incremental improvements with the highest leverage are:
    - better local and intra-function CSE,
    - simple loop-invariant motion,
    - improved spill / live-range handling inside the existing greedy scheme,
@@ -79,7 +81,7 @@ VReg → CFG/dominance → SSA → GVN/LICM → out-of-SSA → liveness/allocati
 
 ## Related documents
 
-- [minic.md](minic.md) — language reference
+- [minic.md](../minic.md) — language reference
 - [targets.md](targets.md) — CPU targets and adding a new one
 - [stub-calling-conv.md](stub-calling-conv.md) — calling convention and runtime layout
-- [ir-vreg-plan.md](ir-vreg-plan.md) — virtual-register backend design
+- [ir-vreg-plan.md](../ir-vreg-abi/ir-vreg-plan.md) — virtual-register backend design

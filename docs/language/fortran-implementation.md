@@ -4,9 +4,10 @@
 Status: **design proposal** — implementation not started.
 
 Related:
-- [ir-vreg-plan.md](ir-vreg-plan.md)
-- [minic-optimization.md](minic-optimization.md)
-- [targets.md](targets.md)
+
+- [ir-vreg-plan.md](../ir-vreg-abi/ir-vreg-plan.md)
+- [minic-optimization.md](../codegen/minic-optimization.md)
+- [targets.md](../codegen/targets.md)
 
 ## 1. Goal
 

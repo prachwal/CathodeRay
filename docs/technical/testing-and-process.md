@@ -31,14 +31,14 @@ Tabele odświeża się jawnie, np. `UPDATE_TARGET_SIZES=1 dotnet test --filter T
 
 ## Praca planami
 
-Całość rozwoju jest prowadzona w planach w `docs/plans/` (obecnie ok. 40). Każdy plan to para plików:
+Całość rozwoju jest prowadzona w planach w `docs/plans/` (obecnie 43). Każdy plan to para plików:
 `NN-nazwa.json` (źródło prawdy: tytuł, lista zadań, status) i `NN-nazwa.md` (wersja do czytania generowana z JSON).
 
 - Zadanie ma rozmiar S, M lub L, jasne pliki, których dotyka, i kryterium akceptacji („kiedy jest zrobione”).
   Typowo jest to jedna zmiana, jeden test i jeden commit.
 - Po wykonaniu zadanie dostaje wpis z krótkim opisem wyniku, a plan liczy postęp (np. „8/8 gotowych”, „1/10 gotowych”).
 - Tematyka planów: 01–13 asembler i linker, 14–16 stub, 17–31 frontend i generator Mini-C, 32–36 wydajność i ABI,
-  34 maszyna wirtualna (bytecode, jeszcze w kolejce), 37 VReg, 38 CpuModel, 40 Z80/8080 (w toku).
+  34 maszyna wirtualna (bytecode, jeszcze w kolejce), 37 VReg, 38 CpuModel, 39 ABI v2 (pilot `nes`), 40–43 Z80/8080 (40–42 closed, 43 w kolejce).
 - Agent `plan-coder` (`.claude/agents/plan-coder.md`) wykonuje dokładnie jedno zadanie rozmiaru S z planu, uruchamia testy,
   aktualizuje plan i robi jeden commit. Hook `plan-coder-guard.py` pilnuje, żeby nie wykraczał poza zakres.
 - Pomiary (rozmiar kodu, porównania z cc65 i SDCC) są częścią zadań zamykających plan. Decyzje o większych krokach (SSA, alokator grafowy)

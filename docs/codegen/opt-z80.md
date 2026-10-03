@@ -1,7 +1,7 @@
 # Optymalizacje codegen: Zilog Z80
 
-Stan na gałęzi `opt/z80-codegen` (main + plan 40, batche 1–3). Model: A + pary BC/DE/HL, wynik w HL, flaga V (`HasOverflowFlag`).
-ABI v2 nie dotyczy (pilot `nes` tylko na `opt/abi-v2`).
+Stan na main + plany 40–42 (plan 43, DJNZ, w kolejce). Model: A + pary BC/DE/HL, wynik w HL, flaga V (`HasOverflowFlag`).
+ABI v2 nie dotyczy (pilot `nes`, flaga `--abi`).
 
 | Ficzer | Status | Dowód / uwagi |
 | --- | --- | --- |
@@ -21,7 +21,7 @@ ABI v2 nie dotyczy (pilot `nes` tylko na `opt/abi-v2`).
 | Kopiowanie bloków (LDIR) | zrobione | Matcher pętli w selektorze + `TryCopyLoop` (test zera, `push bc/de`, `ldir`); `CopyLoopTests` (wartości, n=0, `Le`, elementy W2 zostają pętlą) |
 | Strength reduction | zrobione | Jak wyżej + mnożenie przez stałą w `Legalizer`; `twice` 9→5 B |
 | Switch `uchar` → 1 B | zrobione | Zwężenie w `LowerSwitch` (wspólne); `SwitchNarrowTests` |
-| DJNZ | brak | Przeniesione do batcha 4 / planu 41 (wymaga licznika w B + liveness) |
+| DJNZ | brak | Plan 43 (w kolejce; wymaga licznika w B + liveness) |
 | RST dla helperów | brak | Świadomie odroczone: ~5 site'ów w `div16` (wiersz spoza średniej) za cenę strony 0, wektorów, emulatora i harnessu |
 | ABI v2 (rejestry) | brak | Nie dotyczy |
 

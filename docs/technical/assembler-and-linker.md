@@ -1,7 +1,7 @@
 # Asembler i linker
 
-Źródła: [../z80-assembler.md](../z80-assembler.md), [../assembler-capability-gaps.md](../assembler-capability-gaps.md),
-[../linker-segments.md](../linker-segments.md). Kod: `src/CathodeRay.Assembler`.
+Źródła: [../z80-assembler.md](../assembler/z80-assembler.md), [../assembler-capability-gaps.md](../assembler/assembler-capability-gaps.md),
+[../linker-segments.md](../assembler/linker-segments.md). Kod: `src/CathodeRay.Assembler`.
 
 ## Obsługiwane procesory i dialekty
 

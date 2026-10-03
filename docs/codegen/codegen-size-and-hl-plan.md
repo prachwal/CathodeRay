@@ -1,9 +1,11 @@
 # Mini-C: analiza rozmiaru kodu i plan wyniku w HL (Z80/8080)
 
+> Historyczny: plan z §5 (wynik w HL) zrealizowano w planie 35; liczby w §2 sprzed planów 32–40. Aktualne: [`../compare.md`](../compare.md).
+
 Dokument zbiorczy z analizy codegen (wrzesień 2026), porównania z cc65/SDCC/sccz80
 oraz szczegółowego planu diff dla ABI wyniku w rejestrze HL.
 
-- Repo: https://github.com/prachwal/CathodeRay
+- Repo: <https://github.com/prachwal/CathodeRay>
 - Branch odniesienia: `stub/c-performance` (ok. HEAD planu 33)
 - Benchmarki: `samples/bench/fib.c`, `max3.c`
 
@@ -35,7 +37,7 @@ to opcjonalny cache (`RegisterAllocator`), nie domyślne miejsce wartości.
 Metodyka: bajty **samej funkcji** (bez pełnego runtime ref), `cathode cc --cpu <cpu>`.
 
 | Program | Cel | Nasz | Ref | Stosunek |
-|---------|-----|-----:|----:|---------:|
+| --------- | ----- | -----: | ----: | ---------: |
 | fib | 6502 | 144 B | cc65 74 B | **1.95×** |
 | max3 | 6502 | 83 B | cc65 90 B | **0.92×** |
 | fib | Z80 | 57 B | SDCC 31 B | **1.84×** |
@@ -98,7 +100,7 @@ ParamAlias; usuwanie z Saved komórek w reg.
 ### 3.5. Per-CPU
 
 | Cel | Mocne | Słabe |
-|-----|--------|--------|
+| ----- | -------- | -------- |
 | **6502** | ZP, peephole, TryStep | brak regalloc; wynik przez `cc_ret` |
 | **Z80** | TryAddWord, jr, regalloc, P/V | wynik/arg w pamięci; `push af` w ramce |
 | **8080** | lhld/shld | jak Z80 + brak jr, `push psw` |
@@ -109,7 +111,7 @@ ParamAlias; usuwanie z Saved komórek w reg.
 ## 4. Priorytety optymalizacji (ROI)
 
 | Priorytet | Zmiana | Cele | Efekt |
-|-----------|--------|------|--------|
+| ----------- | -------- | ------ | -------- |
 | **P0** | Wynik W≤2 w rejestrze (HL / A:X) | Z80, 8080, potem 6502 | −4…12 B na wołanie; fib mocno |
 | ~~P0~~ | ~~6800 direct page + TryMoveWord~~ (zrobione: plan 33 kr. 19-20, max3 148→95 B, fib 193→140 B) | 6800 | — |
 | **P1** | Prolog Saved: `push bc`/`de` nie `push af` | Z80, 8080 | −30% prologu ramki |
@@ -129,7 +131,7 @@ Po każdym kroku: `dotnet test` + kolumna size **nie rośnie**.
 ### 5.1. Kontrakt ABI
 
 | Szerokość | Rejestr wyniku | Uwagi |
-|-----------|----------------|--------|
+| ----------- | ---------------- | -------- |
 | 1 B | **L** | po `ld l,a` |
 | 2 B | **HL** | LE: L=lo, H=hi |
 | 4 B+ / struct / float | bez zmian | `cc_ret`, `cc_rethi`, `cc_retbuf` |
@@ -141,7 +143,7 @@ Po każdym kroku: `dotnet test` + kolumna size **nie rośnie**.
 
 ### 5.2. Pliki
 
-```
+```text
 src/CathodeRay.C/ByteIsa.cs           + ReturnsInResultReg, TryMoveTo/FromResultReg
 src/CathodeRay.C/Z80Isa.cs           + implementacja + crt0
 src/CathodeRay.C/Intel8080Isa.cs     + to samo (mnemoniki Intel)
@@ -211,7 +213,7 @@ Ręcznie: `cathode cc samples/bench/fib.c --cpu z80 -l` — brak zbędnego
 ### 5.9. Oczekiwany efekt
 
 | Benchmark | Dziś (orient.) | Po HL-ret |
-|-----------|---------------|-----------|
+| ----------- | --------------- | ----------- |
 | fib Z80 | 57 B (~1.8× SDCC) | ~75–85 B |
 | max3 Z80 | ~61 B (~1.15×) | ≤55–58 B |
 
@@ -230,7 +232,7 @@ Dalsze cięcie: arg w HL, `dec hl` na ścieżce argów, push par w Saved.
 ## 6. Stan planów (orientacyjny)
 
 | Plan | Temat | Status |
-|------|--------|--------|
+| ------ | -------- | -------- |
 | 30 | Cele 6502/Z80/8080/6800, long, void* | zamknięty |
 | 32 | Wydajność 6502 / peephole | wstrzymany (kroki 5 i 9 zastąpione planem 33) |
 | 33 | Z80 regalloc, Try*, 8080, 6800 DP | zamknięty (20/20; HL-ret = plan 35) |

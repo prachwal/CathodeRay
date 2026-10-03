@@ -30,8 +30,8 @@ emulator w `tests/CathodeRay.Tests/` (`Mos6502.cs`, `Z80Cpu.cs`, …) i `docs/`.
 - `python3 tools/plan.py hygiene` musi być OK przed commitem. Jeden plan w locie.
 
 ## Dokumentacja
-`docs/minic.md` (język mini-C), `docs/targets.md` (cele/formaty), `docs/compare.md` (rozmiary vs cc65/SDCC),
-`docs/ir-vreg-plan.md` + `docs/vreg-design.md` (VReg), `docs/stub-calling-conv.md` (ABI).
+`docs/minic.md` (język mini-C), `docs/codegen/targets.md` (cele/formaty), `docs/compare.md` (rozmiary vs cc65/SDCC),
+`docs/ir-vreg-abi/ir-vreg-plan.md` + `docs/ir-vreg-abi/vreg-design.md` (VReg), `docs/codegen/stub-calling-conv.md` (ABI).
 
 ## Styl kodu
 - Jeden typ na plik (SA1402); kolejność członków — statyczne/prywatne wg SA1204 (statyczne przed instancyjnymi).
