@@ -88,3 +88,9 @@ Największe luki: wywołania i rekurencja (`fib`, `sw`, `fnptr`) — adresuje je
 
 Historia prac: [`../plans/`](../plans/) (44 plany: 40 closed; `NN-nazwa.json` to źródło, `.md` to render).
 Czeklista gapów z mapowaniem na plany: [gaps-checklist.md](gaps-checklist.md).
+
+Wyniki planu 44 (pomiary, closed): P1 NO-GO (ruch `cc_ret` max 10,6% < 15% — samodzielny wynik w A/X skreślony),
+P2 NO-GO (v2 vs v1: najlepszy bench fib −5,2% przy bramce −15% — planu 39 nie wznawiać),
+P3 NO-GO (dostępne duplikaty 2,7%, niezmienniki 1,8% < 3% — SSA/GVN odłożone),
+P4 GO (569 łańcuchów `jmp` na stubie, ~2–3% CODE → plan 45),
+T1 zrobione (`FrameModelTests` + mutacja kontrolna).
