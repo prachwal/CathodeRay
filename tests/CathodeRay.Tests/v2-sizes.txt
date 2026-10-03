@@ -14,7 +14,7 @@
 08_int_signed.c v2 955
 09_init.c v1 801
 09_init.c v2 802
-10_struct.c v1 413
+10_struct.c v1 405
 10_struct.c v2 408
 11_goto_typedef.c v1 506
 11_goto_typedef.c v2 496
@@ -36,8 +36,8 @@
 19_struct_value.c v2 2418
 20_matrix.c v1 1280
 20_matrix.c v2 1296
-21_long.c v1 5765
-21_long.c v2 5754
+21_long.c v1 5755
+21_long.c v2 5756
 22_misc.c v1 1019
 22_misc.c v2 1020
 23_types.c v1 1883

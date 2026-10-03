@@ -41,6 +41,68 @@ public sealed class PeepholeTests
     }
 
     [Fact]
+    public void Jump_Chain_Is_Threaded_And_Dead_Labels_Are_Removed()
+    {
+        Peephole.Optimize("NOP\nJMP first\nfirst:\nJMP second\nNOP\nsecond:\nRET")
+            .Should().Be("NOP\nsecond:\nRET");
+        Peephole.Optimize("NOP\nJMP first\nfirst:\nJMP second\nNOP\nsecond:\nJMP third\nNOP\nthird:\nRET")
+            .Should().Be("NOP\nthird:\nRET");
+    }
+
+    [Fact]
+    public void Jump_Chain_Stops_On_Cycles_Multiple_Predecessors_And_Fallthrough()
+    {
+        Peephole.Optimize("JMP first\nfirst:\nJMP second\nsecond:\nJMP first")
+            .Should().Be("first:\nJMP first");
+        Peephole.Optimize("BNE first\nJMP first\nfirst:\nJMP second\nsecond:\nRET")
+            .Should().Be("BNE first\nfirst:\nsecond:\nRET");
+        Peephole.Optimize("NOP\nfirst:\nJMP second\nsecond:\nRET")
+            .Should().Be("NOP\nfirst:\nsecond:\nRET");
+    }
+
+    [Theory]
+    [InlineData(0, 42)]
+    [InlineData(1, 99)]
+    public void Conditional_Jump_Chain_Saves_Three_Bytes_And_Preserves_Behavior(int value, int expected)
+    {
+        string source = $"LDI {value}\nBEQ first\nJMP skip\nfirst:\nJMP target\nother: JMP end\ntarget:\nLDI 42\nHLT\nskip:\nLDI 99\nHLT\nend: RET";
+        string optimized = Peephole.Optimize(source);
+        byte[] originalImage = Repo.Assemble("stub", source).Image;
+        byte[] optimizedImage = Repo.Assemble("stub", optimized).Image;
+
+        (originalImage.Length - optimizedImage.Length).Should().Be(3);
+        RunStub(source).Should().Be(expected);
+        RunStub(optimized).Should().Be(expected);
+    }
+
+    [Theory]
+    [InlineData("07_control:l7_dcont", "JMP", "STA $2000")]
+    [InlineData("13_strings:S8_sube", "JMP", "STA $2000")]
+    [InlineData("16_printf:l53_endif", "JMP", "CALL $1234")]
+    [InlineData("16_printf:l57_endif", "JMP", "CALL $1234")]
+    [InlineData("16_printf:l59_endif", "JMP", "CALL $1234")]
+    [InlineData("18_voidptr:S10_sube", "JMP", "STA $2000")]
+    [InlineData("21_long:S105_hless", "BCC", "STA $2000")]
+    [InlineData("21_long:l53_endif", "JMP", "CALL $1234")]
+    [InlineData("21_long:l57_endif", "JMP", "CALL $1234")]
+    [InlineData("21_long:l59_endif", "JMP", "CALL $1234")]
+    [InlineData("22_misc:S9_sube", "JMP", "STA $2000")]
+    [InlineData("24_float:S81_hless", "BCC", "STA $2000")]
+    [InlineData("24_float:S164_hless", "BCC", "STA $2000")]
+    [InlineData("24_float:S59_hless", "BCC", "STA $2000")]
+    [InlineData("24_float:S120_hless", "BCC", "STA $2000")]
+    [InlineData("24_float:S115_sube", "JMP", "STA $2000")]
+    [InlineData("24_float:S236_sube", "JMP", "STA $2000")]
+    [InlineData("24_float:S486_sube", "JMP", "STA $2000")]
+    [InlineData("25_longlong:S1_hless", "BCC", "STA $2000")]
+    public void Historical_Fallthrough_Risk_Chains_Are_Not_Threaded(string caseName, string incoming, string fallthrough)
+    {
+        string source = $"LDI 0\nBEQ pred\n{incoming} first\npred:\n{fallthrough}\nfirst:\nJMP second\nother: JMP end\nsecond:\nLDI 42\nHLT\nend: RET";
+
+        Peephole.Optimize(source).Should().Be(source, "historical risk case {0}", caseName);
+    }
+
+    [Fact]
     public void Optimized_Code_Is_Smaller_And_Behaves_Identically()
     {
         const string Source = """
@@ -138,5 +200,19 @@ public sealed class PeepholeTests
             .Be("LDA #0\nSTA M\nL: LDA #0\nSTA N\nRET");
         Peephole.Optimize("LDA #0\nL:\nLDA #0\nSTA N\nRET").Should()
             .Be("LDA #0\nL:\nLDA #0\nSTA N\nRET");
+    }
+
+    private static int RunStub(string source)
+    {
+        var image = Repo.Assemble("stub", source);
+        var runner = new StubRunner();
+        runner.Load(image.Origin, image.Image);
+        runner.Start(image.Origin);
+        while (!runner.Halted)
+        {
+            runner.Step();
+        }
+
+        return runner.Word();
     }
 }

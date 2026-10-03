@@ -1,8 +1,8 @@
-# Lancuchy jmp: przekierowanie jmp L1 -> jmp L2 z usuwaniem martwych etykiet (GO z planu 44 P4) (status: w kolejce)
+# Lancuchy jmp: przekierowanie jmp L1 -> jmp L2 z usuwaniem martwych etykiet (GO z planu 44 P4) (status: zamknięty)
 
-- [ ] **1.** [S] Matcher lancuchow w peephole stuba: jmp L1 gdzie L1 zawiera wylacznie jmp L2 (maks. 4 poziomy, wykrywanie cykli). Tylko stub (JMP=3B); 6502/Z80 maja relaksacje.
-- [ ] **2.** [S] Warunki bezpieczenstwa: dokladnie 1 poprzednik + brak fall-through do L1. 19 lancuchow z ryzykiem z P4 jako testy negatywne.
-- [ ] **3.** [S] Usuwanie martwej etykiety L1 po przekierowaniu (tego zabraklo w planie 32). Test: 07_control.c najpierw bez wzrostu, potem spadek.
-- [ ] **4.** [S] Pomiary i zamkniecie: weryfikacja 569 lancuchow z P4 na target-sizes, compare.py, fuzz, hygiene, commit.
+- [x] **1.** [S] Matcher lancuchow w peephole stuba: jmp L1 gdzie L1 zawiera wylacznie jmp L2 (maks. 4 poziomy, wykrywanie cykli). Tylko stub (JMP=3B); 6502/Z80 maja relaksacje. — Matcher fixpoint obsługuje JMP oraz źródłowe skoki warunkowe; maksymalnie 4 pośrednie etykiety i wykrywanie cykli. Testy emulatora potwierdzają oba wyniki gałęzi.
+- [x] **2.** [S] Warunki bezpieczenstwa: dokladnie 1 poprzednik + brak fall-through do L1. 19 lancuchow z ryzykiem z P4 jako testy negatywne. — Warunki bezpieczeństwa: dokładnie jedno wejście (JMP/branch/CALL/JSR), brak fall-through, aliasy odrzucane zachowawczo. Zachowane listingi P4 i p4b.py potwierdziły 569 safe/19 fallthrough-risk; wszystkie 19 ryzykownych przypadków mają osobne negatywne asercje w Historical_Fallthrough_Risk_Chains_Are_Not_Threaded.
+- [x] **3.** [S] Usuwanie martwej etykiety L1 po przekierowaniu (tego zabraklo w planie 32). Test: 07_control.c najpierw bez wzrostu, potem spadek. — Po włączeniu źródłowych skoków warunkowych: 07_control.c spadł z 623 B do 605 B (−18 B). Test emulatora izoluje łańcuch i potwierdza oszczędność 3 B bez zmiany obu ścieżek.
+- [x] **4.** [S] Pomiary i zamkniecie: weryfikacja 569 lancuchow z P4 na target-sizes, compare.py, fuzz, hygiene, commit. — P4: odtworzone 569 bezpiecznych i 19 ryzykownych łańcuchów. Target/VReg goldeny zmalały w 16 programach łącznie 1839 B na stubie, bez wzrostów; pozostałe CPU i compare.py bez zmian. TargetMatrix 168/168, IrConformance 70/70, fuzz leaf/recursion 60+60, pełna suita 3332/3332, build -warnaserror i hygiene zielone. Naprawiono też nieaktualne v1 wpisy ABI v2 golden (10_struct, 21_long), odkryte w pełnej suicie.
 
-Postęp: 0/4 gotowych.
+Postęp: 4/4 gotowych.

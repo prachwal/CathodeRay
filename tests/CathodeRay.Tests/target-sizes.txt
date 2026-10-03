@@ -6,7 +6,7 @@
 01_types.c z80 126
 01_types.c 8080 143
 01_types.c 6800 177
-02_control.c stub 585
+02_control.c stub 537
 02_control.c 6502 302
 02_control.c 65c02 302
 02_control.c nes 302
@@ -14,7 +14,7 @@
 02_control.c z80 159
 02_control.c 8080 196
 02_control.c 6800 225
-04_int_ops.c stub 1103
+04_int_ops.c stub 1046
 04_int_ops.c 6502 641
 04_int_ops.c 65c02 641
 04_int_ops.c nes 641
@@ -22,7 +22,7 @@
 04_int_ops.c z80 445
 04_int_ops.c 8080 522
 04_int_ops.c 6800 528
-05_calls.c stub 845
+05_calls.c stub 839
 05_calls.c 6502 517
 05_calls.c 65c02 517
 05_calls.c nes 517
@@ -30,7 +30,7 @@
 05_calls.c z80 246
 05_calls.c 8080 290
 05_calls.c 6800 427
-06_defines.c stub 301
+06_defines.c stub 292
 06_defines.c 6502 179
 06_defines.c 65c02 179
 06_defines.c nes 179
@@ -38,7 +38,7 @@
 06_defines.c z80 87
 06_defines.c 8080 104
 06_defines.c 6800 100
-07_control.c stub 623
+07_control.c stub 605
 07_control.c 6502 386
 07_control.c 65c02 386
 07_control.c nes 386
@@ -46,7 +46,7 @@
 07_control.c z80 187
 07_control.c 8080 229
 07_control.c 6800 289
-08_int_signed.c stub 1106
+08_int_signed.c stub 1088
 08_int_signed.c 6502 960
 08_int_signed.c 65c02 960
 08_int_signed.c nes 960
@@ -54,7 +54,7 @@
 08_int_signed.c z80 588
 08_int_signed.c 8080 783
 08_int_signed.c 6800 1125
-09_init.c stub 979
+09_init.c stub 970
 09_init.c 6502 801
 09_init.c 65c02 801
 09_init.c nes 801
@@ -86,7 +86,7 @@
 12_globals_init.c z80 383
 12_globals_init.c 8080 469
 12_globals_init.c 6800 415
-13_strings.c stub 4440
+13_strings.c stub 4290
 13_strings.c 6502 2232
 13_strings.c 65c02 2232
 13_strings.c nes 2232
@@ -110,7 +110,7 @@
 15_funcptr.c z80 602
 15_funcptr.c 8080 688
 15_funcptr.c 6800 856
-16_printf.c stub 7298
+16_printf.c stub 7169
 16_printf.c 6502 3958
 16_printf.c 65c02 3958
 16_printf.c nes 3958
@@ -126,7 +126,7 @@
 17_casts.c z80 200
 17_casts.c 8080 224
 17_casts.c 6800 257
-18_voidptr.c stub 2063
+18_voidptr.c stub 2054
 18_voidptr.c 6502 857
 18_voidptr.c 65c02 857
 18_voidptr.c nes 857
@@ -142,7 +142,7 @@
 19_struct_value.c z80 2112
 19_struct_value.c 8080 2252
 19_struct_value.c 6800 2489
-20_matrix.c stub 2384
+20_matrix.c stub 2348
 20_matrix.c 6502 1280
 20_matrix.c 65c02 1280
 20_matrix.c nes 1280
@@ -150,7 +150,7 @@
 20_matrix.c z80 951
 20_matrix.c 8080 1062
 20_matrix.c 6800 1081
-21_long.c stub 10168
+21_long.c stub 9919
 21_long.c 6502 5755
 21_long.c 65c02 5755
 21_long.c nes 5755
@@ -158,7 +158,7 @@
 21_long.c z80 4571
 21_long.c 8080 5041
 21_long.c 6800 6146
-22_misc.c stub 1416
+22_misc.c stub 1407
 22_misc.c 6502 1019
 22_misc.c 65c02 1019
 22_misc.c nes 1019
@@ -166,7 +166,7 @@
 22_misc.c z80 813
 22_misc.c 8080 958
 22_misc.c 6800 1184
-23_types.c stub 2550
+23_types.c stub 2517
 23_types.c 6502 1925
 23_types.c 65c02 1925
 23_types.c nes 1925
@@ -174,7 +174,7 @@
 23_types.c z80 1608
 23_types.c 8080 1806
 23_types.c 6800 2072
-24_float.c stub 22759
+24_float.c stub 22090
 24_float.c 6502 15355
 24_float.c 65c02 15355
 24_float.c nes 15355
@@ -182,7 +182,7 @@
 24_float.c z80 14154
 24_float.c 8080 14494
 24_float.c 6800 15381
-25_longlong.c stub 17696
+25_longlong.c stub 17306
 25_longlong.c 6502 11407
 25_longlong.c 65c02 11407
 25_longlong.c nes 11407

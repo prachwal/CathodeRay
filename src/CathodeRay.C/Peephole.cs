@@ -5,7 +5,7 @@ namespace CathodeRay.C;
 /// <summary>Optymalizator okienkowy tekstu asemblera (przed asemblacją). Reguły są zachowawcze wobec flag
 /// (Z ustawia każdy zapis do A/X, C tylko działania) i etykiet (skoki, łatane operandy):
 /// (A) <c>STA x</c> + <c>LDA x</c> → sam <c>STA x</c>; (B) martwe ładowanie A tuż przed kolejnym ładowaniem A;
-/// (C) <c>JMP L</c> tuż przed <c>L:</c>.</summary>
+/// (C) pomijanie łańcuchów skoków z bezpiecznym usunięciem pośrednich etykiet.</summary>
 public static partial class Peephole
 {
     /// <summary>Optymalizuje kod.</summary>
@@ -33,7 +33,10 @@ public static partial class Peephole
             }
 
             int before = result.Count;
-            lines = DropJumpsToNext(result);
+            lines = ThreadJumpChains(result);
+            changed |= lines.Count != before;
+            before = lines.Count;
+            lines = DropJumpsToNext(lines);
             changed |= lines.Count != before;
         }
 
@@ -125,6 +128,138 @@ public static partial class Peephole
         }
 
         return result;
+    }
+
+    private static List<string> ThreadJumpChains(List<string> lines)
+    {
+        var labels = new Dictionary<string, int>(StringComparer.Ordinal);
+        for (int i = 0; i < lines.Count; i++)
+        {
+            string? label = Split(lines[i]).Label;
+            if (label is not null && !labels.TryAdd(label, i))
+            {
+                return lines;
+            }
+        }
+
+        var references = new Dictionary<string, int>(StringComparer.Ordinal);
+        for (int i = 0; i < lines.Count; i++)
+        {
+            (string? _, string op, string operand) = Split(lines[i]);
+            if ((IsJump(op) || op is "CALL" or "JSR") && labels.ContainsKey(operand))
+            {
+                references[operand] = references.GetValueOrDefault(operand) + 1;
+            }
+        }
+
+        for (int source = 0; source < lines.Count; source++)
+        {
+            (string? _, string op, string operand) = Split(lines[source]);
+            if (!IsJump(op) || !labels.ContainsKey(operand))
+            {
+                continue;
+            }
+
+            string destination = operand;
+            var visited = new HashSet<string>(StringComparer.Ordinal) { destination };
+            var removed = new List<(int Label, int Jump)>();
+            for (int depth = 0; depth < 4; depth++)
+            {
+                if (!labels.TryGetValue(destination, out int labelIndex)
+                    || references.GetValueOrDefault(destination) != 1
+                    || FallsThrough(lines, labelIndex))
+                {
+                    break;
+                }
+
+                int jumpIndex = NextInstruction(lines, labelIndex);
+                if (jumpIndex < 0)
+                {
+                    break;
+                }
+
+                (string? jumpLabel, string jumpOp, string next) = Split(lines[jumpIndex]);
+                if (jumpOp != "JMP" || jumpLabel is not null || !labels.ContainsKey(next) || !visited.Add(next))
+                {
+                    break;
+                }
+
+                removed.Add((labelIndex, jumpIndex));
+                destination = next;
+            }
+
+            if (removed.Count == 0)
+            {
+                continue;
+            }
+
+            var result = new List<string>(lines);
+            result[source] = ReplaceJumpTarget(result[source], destination);
+            foreach ((int labelIndex, int jumpIndex) in removed.OrderByDescending(static pair => pair.Jump))
+            {
+                result.RemoveAt(jumpIndex);
+                if (labelIndex != jumpIndex)
+                {
+                    result.RemoveAt(labelIndex);
+                }
+            }
+
+            return result;
+        }
+
+        return lines;
+    }
+
+    private static bool IsJump(string op) => op is "JMP" or "BEQ" or "BNE" or "BPL" or "BMI" or "BVC" or "BVS" or "BCC" or "BCS";
+
+    private static bool FallsThrough(List<string> lines, int labelIndex)
+    {
+        for (int i = labelIndex - 1; i >= 0; i--)
+        {
+            if (IsComment(lines[i]))
+            {
+                continue;
+            }
+
+            (string? label, string op, string _) = Split(lines[i]);
+            if (op.Length == 0)
+            {
+                // Etykieta bez instrukcji może być aliasem celu i oznacza możliwy fall-through.
+                return label is not null || !IsComment(lines[i]);
+            }
+
+            return op is not ("JMP" or "RTS" or "RET" or "HLT");
+        }
+
+        return false;
+    }
+
+    private static int NextInstruction(List<string> lines, int labelIndex)
+    {
+        for (int i = labelIndex; i < lines.Count; i++)
+        {
+            if (IsComment(lines[i]))
+            {
+                continue;
+            }
+
+            (string? label, string op, string _) = Split(lines[i]);
+            if (i == labelIndex && label is not null && op.Length == 0)
+            {
+                continue;
+            }
+
+            return op.Length > 0 ? i : -1;
+        }
+
+        return -1;
+    }
+
+    private static string ReplaceJumpTarget(string line, string destination)
+    {
+        string operand = Split(line).Operand;
+        int start = line.LastIndexOf(operand, StringComparison.Ordinal);
+        return start < 0 ? line : string.Concat(line.AsSpan(0, start), destination.AsSpan(), line.AsSpan(start + operand.Length));
     }
 
     private static int PreviousInstruction(List<string> result)
