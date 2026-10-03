@@ -1,0 +1,19 @@
+[features]
+hooks = true
+
+[mcp_servers.plan]
+command = "python3"
+args = ["tools/plan_mcp.py"]
+
+[mcp_servers.instructions]
+command = "python3"
+args = ["tools/mcp_instructions.py"]
+
+[[hooks.PreToolUse]]
+matcher = "^Bash$"
+
+[[hooks.PreToolUse.hooks]]
+type = "command"
+command = "python3 \"$(git rev-parse --show-toplevel)/.codex/hooks/pre_commit.py\""
+timeout = 1800
+statusMessage = "Uruchamiam bramki przed commitem"

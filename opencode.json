@@ -1,6 +1,12 @@
 {
   "$schema": "https://opencode.ai/config.json",
   "lsp": true,
+  "references": {
+    "project-docs": {
+      "path": "docs",
+      "description": "Pełna dokumentacja CathodeRay: architektura, język, codegen, targety, ABI, plany, wyniki pomiarów, proces testowania i archiwum. Źródło intencji projektu; zachowanie weryfikuj w kodzie i testach."
+    }
+  },
   "mcp": {
     "plan": {
       "type": "local",
