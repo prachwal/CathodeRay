@@ -11,9 +11,12 @@ MOS 6502 / 65C02 (warianty `nes`, `6510`), Motorola 6800 oraz edukacyjny CPU `st
 | Plik | Zawartość |
 | --- | --- |
 | [architecture.md](architecture.md) | Układ repozytorium, potok kompilacji, kody pośrednie (Cell IR, VReg IR), CLI |
+| [architecture-diagram.md](architecture-diagram.md) | Szkic graficzny (mermaid): potok, moduły, przepływ ABI |
 | [targets-and-abi.md](targets-and-abi.md) | Cele, konwencja wołań, układ pamięci, `CpuModel`, dodawanie nowego CPU |
 | [assembler-and-linker.md](assembler-and-linker.md) | Asembler (dialekty, dyrektywy), format obiektu, linker, segmenty |
 | [optimization.md](optimization.md) | Stan optymalizacji, VReg i alokacja rejestrów, wyniki pomiarów, luki |
+| [mini-c-status.md](mini-c-status.md) | Mini-C: co zaimplementowane, optymalizatory per CPU, pomiary, co przed nami |
+| [gaps-checklist.md](gaps-checklist.md) | Czeklista gapów: luka → plan (lub jego brak), do odznaczania |
 | [testing-and-process.md](testing-and-process.md) | Strategia testów (wyrocznie, matryce, goldeny, fuzz) i sposób pracy planami |
 
 ## Dokumenty źródłowe

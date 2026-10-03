@@ -23,7 +23,7 @@
 | [ir-vreg-abi/](ir-vreg-abi/) | IR (Cell/VReg), alokatory, projekt ABI v2 |
 | [assembler/](assembler/) | Asembler wielocelowy, luka wobec referencji, linker |
 | [archive/](archive/) | Historyczne analizy jednorazowe (liczby nieaktualne) |
-| [technical/](technical/) | Opracowanie zbiorcze (indeks: [technical/README.md](technical/README.md)) |
+| [technical/](technical/) | Opracowanie zbiorcze (indeks: [technical/README.md](technical/README.md)) — w tym [status mini-C](technical/mini-c-status.md): funkcjonalności, optymalizatory, co przed nami |
 | [plans/](plans/) | Plany prac: `NN-nazwa.json` (źródło) + `NN-nazwa.md` (render) |
 
 ## Znane nieaktualności (oznaczone w plikach)
