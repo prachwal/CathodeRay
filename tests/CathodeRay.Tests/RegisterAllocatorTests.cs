@@ -124,6 +124,30 @@ public sealed class RegisterAllocatorTests
         CcRun.RunOn(Io + Source, cpu).Console.Should().Be("55 9");
     }
 
+    // 5b. wartość niesiona krawędzią wsteczną między dwoma przedziałami tego samego symbolu, bez wołań
+    // (plan 43, poz. 7: dlug z planu 42; wariant testu 3 bez Call). Tylko cele z rejestrami.
+    [Theory]
+    [InlineData("z80")]
+    [InlineData("8080")]
+    public void Value_Live_Around_Back_Edge_Without_Call(string cpu)
+    {
+        const string Source = """
+            int main() {
+                int x; int i; int s; int a; int b;
+                x = 7; s = 0; i = 0; a = 10; b = 20;
+                while (i < 2) { s = s + x + a; i = i + 1; x = x + 1; }
+                x = s + b;
+                i = 0;
+                while (i < 2) { s = s - x; i = i + 1; x = x - 1; }
+                putdec(s); putchar(' '); putdec(x);
+                return 0;
+            }
+            """;
+
+        // petla 1: i=1: s=17, x=8; i=2: s=35, x=9; x = 55; petla 2: i=1: s=-20, x=54; i=2: s=-74, x=53
+        CcRun.RunOn(Io + Source, cpu).Console.Should().Be("-74 53");
+    }
+
     // 6. wołanie przez wskaźnik z wartościami żywymi przed i po wywołaniu
     [Theory]
     [MemberData(nameof(Targets))]

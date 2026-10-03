@@ -5,6 +5,162 @@ namespace CathodeRay.C;
 
 internal sealed partial class ByteSelector
 {
+    /// <summary>Wykrywa pętlę licznikową <c>uchar</c> (pod <c>djnz</c> w poz. 6): kształt while
+    /// (test nagłówka + <c>Jmp(top)</c> na końcu) albo do-while (test na dole do <c>top</c>).
+    /// Licznik: jedno <c>-1</c> tuż przed skokiem powrotnym, brak innych zapisów w regionie,
+    /// brak użyć za pętlą (bez writebacku) i brak obcych skoków do środka. Bez emisji.</summary>
+    /// <param name="function">Funkcja.</param>
+    /// <param name="index">Pozycja etykiety pętli.</param>
+    /// <returns>Dopasowanie albo null.</returns>
+    internal static CountLoopMatch? MatchCountLoop(Ir.Function function, int index)
+    {
+        int i = index;
+        while (i < function.Body.Count && function.Body[i] is Ir.Src)
+        {
+            i++;
+        }
+
+        if (i >= function.Body.Count || function.Body[i] is not Ir.Label top)
+        {
+            return null;
+        }
+
+        var labels = new Dictionary<string, int>(StringComparer.Ordinal);
+        for (int k = 0; k < function.Body.Count; k++)
+        {
+            if (function.Body[k] is Ir.Label label && !labels.ContainsKey(label.Name))
+            {
+                labels[label.Name] = k;
+            }
+        }
+
+        // Kształt while: BrCmp(counter, imm) -> end ... dec ... Jmp(top) ... Label(end).
+        int j = i + 1;
+        while (j < function.Body.Count && function.Body[j] is Ir.Src)
+        {
+            j++;
+        }
+
+        if (j < function.Body.Count && function.Body[j] is Ir.BrCmp header && header.A is Ir.Cell hc && hc.W == 1
+            && header.B is Ir.Imm && labels.TryGetValue(header.Target, out int endIdx) && endIdx > j)
+        {
+            int k = endIdx - 1;
+            while (k > j && function.Body[k] is Ir.Src)
+            {
+                k--;
+            }
+
+            if (k > j && function.Body[k] is Ir.Jmp back && back.Target == top.Name)
+            {
+                int d = k - 1;
+                while (d > j && function.Body[d] is Ir.Src)
+                {
+                    d--;
+                }
+
+                if (d > j && IsDec(function.Body[d], hc.Sym) && CheckCounter(function, labels, hc.Sym, i, endIdx))
+                {
+                    return new CountLoopMatch(hc.Sym, top.Name, header.Target, endIdx + 1);
+                }
+            }
+
+            return null;
+        }
+
+        // Kształt do-while: ... dec ... BrCmp(counter, imm) -> top ... Label(end).
+        for (int b = i + 1; b < function.Body.Count; b++)
+        {
+            if (function.Body[b] is Ir.BrCmp bottom && bottom.Target == top.Name
+                && bottom.A is Ir.Cell bc && bc.W == 1 && bottom.B is Ir.Imm)
+            {
+                int d = b - 1;
+                while (d > i && function.Body[d] is Ir.Src)
+                {
+                    d--;
+                }
+
+                if (d <= i || !IsDec(function.Body[d], bc.Sym))
+                {
+                    return null;
+                }
+
+                int e = b + 1;
+                while (e < function.Body.Count && function.Body[e] is Ir.Src)
+                {
+                    e++;
+                }
+
+                if (e >= function.Body.Count || function.Body[e] is not Ir.Label end)
+                {
+                    return null;
+                }
+
+                if (!CheckCounter(function, labels, bc.Sym, i, e))
+                {
+                    return null;
+                }
+
+                return new CountLoopMatch(bc.Sym, top.Name, end.Name, e + 1);
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>Krok <c>c = c - 1</c> na komórce 1-bajtowej (<c>Sub 1</c> albo równoważne <c>Add 255</c>).</summary>
+    private static bool IsDec(Ir.Ins ins, string sym) => ins is Ir.Bin step
+        && step.Dst is { W: 1 } dst && dst.Sym == sym
+        && step.A is Ir.Cell a && a.Sym == sym && a.W == 1
+        && ((step.Kind == Ir.BinOp.Sub && step.B is Ir.Imm { Value: 1 })
+            || (step.Kind == Ir.BinOp.Add && step.B is Ir.Imm { Value: 255 }));
+
+    /// <summary>Licznik ma w regionie dokładnie jeden zapis (ten z <c>IsDec</c>), nie jest czytany
+    /// za pętlą (bez writebacku) i nikt obcy nie skacze do środka regionu. Zapisy przed pętlą
+    /// (inicjalizacja) są dozwolone.</summary>
+    private static bool CheckCounter(Ir.Function function, Dictionary<string, int> labels, string sym, int from, int to)
+    {
+        int writes = 0;
+        for (int k = from; k <= to; k++)
+        {
+            if (IrFacts.Def(function.Body[k]) is { } def && def.Sym == sym)
+            {
+                writes++;
+            }
+        }
+
+        if (writes != 1)
+        {
+            return false;
+        }
+
+        for (int k = to + 1; k < function.Body.Count; k++)
+        {
+            foreach (Ir.Op op in IrFacts.Uses(function.Body[k]))
+            {
+                if ((op is Ir.Cell cell && cell.Sym == sym) || (op is Ir.AddrOf addr && addr.Sym == sym))
+                {
+                    return false;
+                }
+            }
+        }
+
+        for (int k = 0; k < function.Body.Count; k++)
+        {
+            if (k >= from && k <= to)
+            {
+                continue;
+            }
+
+            if ((function.Body[k] is Ir.Jmp jmp && labels.TryGetValue(jmp.Target, out int jt) && jt >= from && jt <= to)
+                || (function.Body[k] is Ir.BrCmp other && labels.TryGetValue(other.Target, out int bt) && bt >= from && bt <= to))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
     /// <summary>Pętla kopiująca bajty (<c>while (n) { *d = *s; d++; s++; n--; }</c> albo z <c>n &gt; 0</c>)
     /// jako blok z prymitywu <see cref="ICopyLoop.TryCopyLoop"/> (dziś tylko Z80 z <c>ldir</c>; reszta nie ma
     /// <c>false</c> i pętla idzie starą drogą). Warunki: elementy W1, wskaźniki i licznik W2, ciało dokładnie
@@ -122,6 +278,106 @@ internal sealed partial class ByteSelector
         _acc.Clear();
         Raw($"{Mangle(function, end)}:");
         next = i + 1;
+        return true;
+    }
+
+    /// <summary>Emisja pętli licznikowej z <c>djnz</c> (plan 43, poz. 6; tylko Z80 przez <c>ICountLoop</c>).
+    /// Licznik musi być w B (pre-kolor z alokatora) — inaczej stara emisja. Ciało idzie normalną ścieżką
+    /// bez instrukcji <c>dec</c> (jej licznik żyje w B), na końcu <c>djnz top</c> albo zachowawczo
+    /// <c>dec b; jp nz,top</c> dla długich ciał (szacunek 6 B na instrukcję IR).</summary>
+    /// <param name="function">Emitowana funkcja.</param>
+    /// <param name="bodyIndex">Pozycja etykiety pętli.</param>
+    /// <param name="next">Pozycja za etykietą końca.</param>
+    /// <returns>Czy wyemitowano blok z <c>djnz</c>.</returns>
+    private bool TryEmitCountLoop(Ir.Function function, int bodyIndex, out int next)
+    {
+        next = bodyIndex;
+        if (_isa is not ICountLoop || MatchCountLoop(function, bodyIndex) is not { } match)
+        {
+            return false;
+        }
+
+        string home = _isa.Cells.Resolve(_isa.Loc(match.Counter, 1, 0)) ?? string.Empty;
+        if (!home.Equals("b", StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        var labels = new Dictionary<string, int>(StringComparer.Ordinal);
+        for (int k = 0; k < function.Body.Count; k++)
+        {
+            if (function.Body[k] is Ir.Label label && !labels.ContainsKey(label.Name))
+            {
+                labels[label.Name] = k;
+            }
+        }
+
+        int topIdx = bodyIndex;
+        while (topIdx < function.Body.Count && function.Body[topIdx] is Ir.Src)
+        {
+            topIdx++;
+        }
+
+        int endIdx = labels[match.End];
+        int decIdx = -1;
+        for (int k = topIdx; k <= endIdx; k++)
+        {
+            if (IrFacts.Def(function.Body[k]) is { } def && def.Sym == match.Counter)
+            {
+                if (decIdx >= 0)
+                {
+                    return false;
+                }
+
+                decIdx = k;
+            }
+        }
+
+        if (decIdx < 0)
+        {
+            return false;
+        }
+
+        int j = decIdx + 1;
+        while (j <= endIdx && function.Body[j] is Ir.Src)
+        {
+            j++;
+        }
+
+        bool isJump = j <= endIdx && function.Body[j] is Ir.Jmp jmp && jmp.Target == match.Top;
+        bool isBranch = j <= endIdx && function.Body[j] is Ir.BrCmp br && br.Target == match.Top;
+        if (!isJump && !isBranch)
+        {
+            return false;
+        }
+
+        for (int k = bodyIndex; k <= endIdx; k++)
+        {
+            if (k == decIdx)
+            {
+                continue;
+            }
+
+            if (k == j)
+            {
+                if ((endIdx - topIdx) * 6 > 120)
+                {
+                    Raw("dec b");
+                    _isa.JumpIf(ByteFlag.NotZero, Mangle(function, match.Top));
+                }
+                else
+                {
+                    Raw($"djnz {Mangle(function, match.Top)}");
+                }
+
+                continue;
+            }
+
+            EmitIns(function, function.Body[k], false);
+        }
+
+        _acc.Clear();
+        next = match.After;
         return true;
     }
 

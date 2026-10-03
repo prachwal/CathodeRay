@@ -134,6 +134,15 @@ internal sealed partial class ByteSelector
                 continue;
             }
 
+            if (TryEmitCountLoop(function, bodyIndex, out int afterCount))
+            {
+                resCell = null;
+                freshHL = false;
+                endsWithJump = false;
+                bodyIndex = afterCount;
+                continue;
+            }
+
             Ir.Ins current = function.Body[bodyIndex];
             if (current is Ir.Src)
             {

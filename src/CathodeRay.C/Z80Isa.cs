@@ -5,7 +5,7 @@ namespace CathodeRay.C;
 
 /// <summary>Prymitywy Z80 (składnia Zilog): A jako akumulator, HL jako rejestr adresowy (operandy pamięciowe ALU przez
 /// <c>LD HL,adres; op A,(HL)</c>, wskaźniki przez <c>LD HL,(komórka)</c>), zapis/odczyt komórek przez <c>LD A,(adres)</c>.</summary>
-internal sealed partial class Z80Isa : ByteIsa, ICopyLoop, ISignedBranch, IWordArithmetic, IWordShift, IPairMoves, IPairStack, IResultReg, IResultPairs, ITailCall
+internal sealed partial class Z80Isa : ByteIsa, ICopyLoop, ICountLoop, ISignedBranch, IWordArithmetic, IWordShift, IPairMoves, IPairStack, IResultReg, IResultPairs, ITailCall
 {
     private static readonly HashSet<string> ReservedNames = new(
         ["A", "B", "C", "D", "E", "H", "L", "I", "R", "AF", "BC", "DE", "HL", "SP", "IX", "IY", "IXH", "IXL", "IYH", "IYL", "NZ", "Z", "NC", "PO", "PE", "P", "M", "LOW", "HIGH", "MOD", "SHL", "SHR", "AND", "OR", "XOR", "NOT"],
@@ -247,9 +247,18 @@ internal sealed partial class Z80Isa : ByteIsa, ICopyLoop, ISignedBranch, IWordA
         return new(true, true);
     }
 
+    /// <summary>Wykrywanie pętli licznikowej (emisja <c>djnz</c> w poz. 6).</summary>
+    /// <param name="function">Emitowana funkcja.</param>
+    /// <param name="index">Pozycja etykiety pętli.</param>
+    /// <returns>Dopasowanie albo null.</returns>
+    public CountLoopMatch? MatchCountLoop(Ir.Function function, int index) => ByteSelector.MatchCountLoop(function, index);
+
     /// <summary>Kopia bloku o liczbie z pary BC: test zera, <c>push bc; push de; ld hl,src; ld de,dst;
     /// ld bc,count; ldir; pop de; pop bc</c>. Push chroni pary z komórkami (selektor nie sprawdza
-    /// zajętości); liczba niezerowa z konstrukcji (wejście tylko spadkiem testu).</summary>
+    /// zajętości); liczba niezerowa z konstrukcji (wejście tylko spadkiem testu). Kolejność ładowań
+    /// omija kolizję domów (plan 43, poz. 2): dst w BC + count w DE wymaga rotacji przez stos
+    /// (<c>push de; ld de,dst; pop bc</c>), bo zwykłe <c>ld bc,count</c> skasowałoby wskaźnik docelowy;
+    /// pozostałe układy idą starą kolejnością. Martwe za pętlą (bez writebacku).</summary>
     /// <param name="dst">Cel.</param>
     /// <param name="src">Źródło.</param>
     /// <param name="count">Liczba bajtów.</param>
@@ -262,15 +271,33 @@ internal sealed partial class Z80Isa : ByteIsa, ICopyLoop, ISignedBranch, IWordA
             return false;
         }
 
-        LoadPair("bc", count);
+        LoadPair("hl", src);
+        bool UsesPair(Word word, string pair) => Cells.InRegisters(word)
+            && pair.Contains(Cells.Resolve(word.Lo)!, StringComparison.OrdinalIgnoreCase)
+            && pair.Contains(Cells.Resolve(word.Hi)!, StringComparison.OrdinalIgnoreCase);
+        if (UsesPair(dst, "bc") && UsesPair(count, "de"))
+        {
+            L("push de");
+            LoadPair("de", dst);
+            L("pop bc");
+        }
+        else if (UsesPair(dst, "bc"))
+        {
+            LoadPair("de", dst);
+            LoadPair("bc", count);
+        }
+        else
+        {
+            LoadPair("bc", count);
+            LoadPair("de", dst);
+        }
+
         L("ld a,b");
         L("or c");
         string skip = LocalLabel();
         L($"jp z,{skip}");
         L("push bc");
         L("push de");
-        LoadPair("hl", src);
-        LoadPair("de", dst);
         L("ldir");
         L("pop de");
         L("pop bc");
