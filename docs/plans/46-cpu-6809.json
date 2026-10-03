@@ -1,0 +1,54 @@
+{
+  "title": "Cel Motorola 6809: asembler (lwasm jako wyrocznia) i kompilator mini-C, wzór: 6800",
+  "status": "queued",
+  "items": [
+    {
+      "id": "1",
+      "title": "[S] Rozpoznanie i decyzje (bez kodu produkcyjnego): zainstaluj lwtools (lwasm) ze źródeł (nie ma w apt 24.04), przeczytaj M6800Set.cs, OperandPattern, IsaEntry, Motorola.cs, M6800Isa.cs (Crt0, Relax, PtrSetup), CpuModels.cs (M6800Effects), ByteTarget i TargetLayout. Zapisz w nocie: (a) czy OperandPattern wyraża postbajt trybu indeksowanego, prefiksy opcodów 10/11, maski PSHS/PULS i pary TFR/EXG, czy trzeba go rozszerzyć albo wyliczyć formy statycznie; (b) jak wybierać formę offsetu 5/8/16-bit i skoku krótkiego/długiego (relaksacja jak BranchRelaxer); (c) model rejestrów kompilatora: A, B, D, X, Y, U, S, DP; (d) strona bezpośrednia przez DP: stałe adresy 0x00xx jak 6800 czy ustawiany DP. Akceptacja: nota z decyzjami, drzewo bez zmian.",
+      "status": "todo",
+      "note": ""
+    },
+    {
+      "id": "2",
+      "title": "[M] Tabela ISA: tools/make_6809_isa.py generuje data/instructions/mcp_6809_instructions.json (format jak mcp_6800: opcode jako tablica bajtów z prefiksem 10/11, szablon mnemonic, cycles, words, group). Każdy wpis weryfikowany bajt w bajt przeciw lwasm (golden), zarezerwowane opcody pominięte, bez 6309. Akceptacja: JSON przechodzi walidację (mcp instructions validate), liczba wpisów zgodna z dokumentacją 6809.",
+      "status": "todo",
+      "note": ""
+    },
+    {
+      "id": "3",
+      "title": "[L] Asembler: M6809Set.cs + wiersz w AssemblerTargets.cs (endianness Big, dialekt Motorola, małe litery mnemoników). Tryby: immediate, direct, extended, relative, long-relative, indeksowane (offsety 0/5/8/16, akumulatorowe A/B/D, auto-inc/dec, PC-relative, pośrednie w nawiasach), TFR/EXG/PSHS/PULS/PSHU/PULU z listą rejestrów, prefiksy 10/11, DP. Forma offsetu i skoku wybierana relaksacją (dla symbolu relokowalnego najdłuższa forma, jak z: w 6800). Testy: M6809AsmTests + Asm/6809 (opcodes.s/.bin, program.s/.bin, rejected.txt), bajty zgodne z lwasm. Akceptacja: wszystkie wpisy z poz. 2 asemblują się, rejected.txt odrzuca błędne operandy, linker big-endian działa (LinkerEndiannessTests).",
+      "status": "todo",
+      "note": ""
+    },
+    {
+      "id": "4",
+      "title": "[L] Emulator Mc6809Cpu.cs + Mc6809CpuTests.cs + Mc6809Runner.cs (ICpuRunner): rejestry A B D X Y U S PC DP CC, flagi E F H I N Z V C, wszystkie udokumentowane rozkazy z poz. 2, stosy S i U. Semantykę flag czytaj z dokumentacji i testuj tablicowo (ADDA, SUBA, CMPA, DAA, MUL, SEX, ABX, LSR, ASR, ROL, ROR, NEG, COM), nie z pamięci. Akceptacja: testy flag V/C/H/Z/N na krawędziach (0x7F+1, 0x80-1, 0xFF+1); bajty z lwasm uruchomione w emulatorze dają wynik programu referencyjnego.",
+      "status": "todo",
+      "note": ""
+    },
+    {
+      "id": "5",
+      "title": "[M] Model CPU i cel: CpuModels.cs (wpis 6809, FlagEffects, scratch), VRegTargetInfo (rejestry a b x y), M6809Isa.cs (LoadA, StoreA, Alu, Cmp, ShlA, ShrA, Jump, JumpIf, Call, Return, PtrSetup, PtrLoad, PtrStore, Crt0, Relax), M6809Target.cs (Name 6809, ByteOrder Big, StackLimit, Layout ze strefą DP), rejestracja w CTargets.cs. Start minimalny jak 6800: akumulator A + X, ABI v1 przez cc_arg i cc_ret, bez alokatora rejestrów. Testy: lista celów w CTargetTests, Runners.Has i switch. Akceptacja: dotnet build -warnaserror, cc --cpu 6809 kompiluje samples/minic/01 i linkuje.",
+      "status": "todo",
+      "note": ""
+    },
+    {
+      "id": "6",
+      "title": "[M] Pokrycie testowe celu: uruchom zestawy wielocelowe na 6809 (CLongLong, CFloat, CBitfield, Switch, RecursionFrame, RegisterAllocator, ParamAlias itd. wszędzie, gdzie Runners.Has jest warunkiem), regresje naprawiaj w nowym ISA, nie we wspólnym selektorze. Zmiana wspólnego selektora lub legalizera tylko z dowodem, że goldeny 6502, 6800 i z80 nie rosną. Akceptacja: wszystkie programy samples/minic przechodzą na 6809, fuzz różnicowy vs gcc zielony.",
+      "status": "todo",
+      "note": ""
+    },
+    {
+      "id": "7",
+      "title": "[S] Goldeny i dokumentacja: target-sizes.txt i vreg-sizes.txt (UPDATE_TARGET_SIZES, UPDATE_VREG_SIZES) z kolumną 6809, istniejące kolumny bez wzrostu; docs/target-sizes.md i vreg-sizes.md odświeżone; docs/codegen/targets.md (tabela celów, formaty, DP); mini-c-status.md (kolumna 6809); plan.py hygiene OK (z linkami).",
+      "status": "todo",
+      "note": ""
+    },
+    {
+      "id": "8",
+      "title": "[M] Optymalizacje 6809 (po zielonej bazie): wynik W<=2 w D, parametry w X/Y/U, Y jako drugi wskaźnik, TFR zamiast przesłań przez komórki, tryb direct przez DP. Każdy krok z pomiarem przed/po i bramką: rozmiar nie rośnie. compare.py nie obejmuje 6809 (cc65 i SDCC go nie mają), więc referencją jest CMOC lub gcc6809 jeśli zainstalowany, inaczej wewnętrzny baseline z poz. 7. Jeśli poz. 1-7 dowiozą bazę, wydziel to do osobnego planu.",
+      "status": "todo",
+      "note": ""
+    }
+  ]
+}

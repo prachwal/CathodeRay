@@ -6,7 +6,7 @@
       "id": "1",
       "title": "Zamrożenie kodowania IR (spec, serializacja, wersja formatu)",
       "status": "todo",
-      "note": "Gotowe gdy: spec kodowania ~30 opów IR w docs/bytecode.md, format cathode-vm/1, round-trip serializacji w testach"
+      "note": "Gotowe gdy: spec kodowania ~30 opów IR w docs/bytecode.md, format cathode-vm/1, round-trip serializacji w testach · Wymaganie z docs/language/language-implementation-ranking.md (sekcja o wymaganiach języków): format ma mieć numer wersji i mechanizm rozszerzeń, bo frontendy (Pascal: link statyczny, Fortran: deskryptory tablic, COBOL: arytmetyka dziesiętna, Lua: wartości otagowane) będą potrzebować nowych operacji. Operacje pierwszej wersji = tylko te, które IR ma dziś."
     },
     {
       "id": "2",
@@ -22,9 +22,45 @@
     },
     {
       "id": "4",
+      "title": "[S] Decyzja projektowa: format bytecode do uruchamiania NA CPU 8-bitowym. Rozstrzygnij w nocie: (a) czy .cvm z poz. 1 (serializowany Cell IR, operacje z szerokością W=1/2/4) jest wprost interpretowalny przez małego interpretera w asemblerze, czy potrzebny jest osobny, gęstszy kod (cel vm8 przez ByteIsa, V8Isa/V8Target jak M6800Target); (b) stałe cechy formatu niezależne od CPU: endianness danych, int = 16 bitów, adresy kodu jako przesunięcia względne; (c) jeden wirtualny cel obniżenia: Codegen.Lower z ustalonymi byteOrder, callSaveBytes i stackLimit (nie z parametrami konkretnego CPU), tak by ten sam .cvm ruszał na Z80, 8080, 6502 i 6800 bez rekompilacji; (d) model pamięci: IP, stos wołań, komórki symboliczne przypisywane przez loader (nie adresy absolutne w bytecode); (e) wiązanie z maszyną: .cvm jako moduł z symbolami zewnętrznymi (jak .global/.extern w linkerze), a każdy interpreter ma tablicę wiązań nazwa -> adres lub procedura (usługi I/O, komórki, stałe platformowe), rozwiązywaną raz przy ładowaniu; (f) I/O: operacja SYS n z krótką stałą listą usług (putchar, getchar, exit), przenośne C (printf, puts, putstr) nadal kompiluje się do bytecode, a tylko putchar dostaje wariant na SYS; adresy sprzętowe wpisane na stałe w programie C nie są przenośne, program ma używać extern i nazw; (g) zakres pierwszej wersji: bez float i long long, struct przez wartość opcjonalnie.",
+      "status": "todo",
+      "note": "Gotowe gdy: nota z decyzjami (a)-(g) i spis operacji i usług SYS pierwszej wersji w docs/bytecode.md; kryterium: ten sam .cvm bez zmiany ani bajta ma działać na dwóch interpreterach (poz. 5 i 6); zależy od poz. 1; drzewo bez zmian zachowania. · Wzorce do przeczytania przed zamrożeniem (z pamięci autora planu, niezweryfikowane, sprawdź w źródłach): Z-machine (Infocom) - jeden plik fabuły i osobny interpreter per maszyna, I/O jako abstrakcyjne operacje; wzór dla listy usług SYS i wiązania z maszyną (decyzje e, f). UCSD p-code - bytecode stosowy z interpretrami na wielu CPU; wzór na model stosu i koszt runtime. Tiny BASIC IL - minimalny interpreter w kilkudziesięciu bajtach natywnych; wzór dla najmniejszego rdzenia. Forth (threaded code) i SWEET16 (ok. 300 B na 6502) - dolna granica rozmiaru. INTCODE/Cintcode (BCPL) i CHIP-8 - przenośny kod pośredni z wieloma portami. Nowość tego planu to nie sam pomysł, tylko start od kompilatora C z IR, goldenami i fuzzerem różnicowym. Efekt: w nocie poz. 4 wypisz, co zapożyczono, a co świadomie inaczej."
+    },
+    {
+      "id": "5",
+      "title": "[L] Interpreter w asemblerze Z80 (src/CathodeRay.C/stdlib/target/z80/vm.s): fetch, decode i dispatch przez tablicę handlerów, IP i stos wołań w pamięci, operacje W=1 i W=2 z poz. 4, crt0 ładuje moduł i uruchamia. Test w emulatorze Z80 (Z80Cpu, Runners): każdy program z samples/minic z zakresu poz. 4 daje wynik taki jak AOT.",
+      "status": "todo",
+      "note": "Gotowe gdy: korpus z zakresu v1 przechodzi na Z80 przez interpreter, wynik zgodny z AOT; samples/minic/16_printf.c daje ten sam bufor konsoli (__io_buf) co AOT; tablica wiązań (SYS, komórki) w interpreterze zamiast adresów w bytecode; rozmiar interpretera zmierzony i zapisany w nocie; dotnet build -warnaserror; goldeny natywne bez zmian."
+    },
+    {
+      "id": "6",
+      "title": "[L] Interpreter w asemblerze 6502 (stdlib/target/6502/vm.s): IP i rejestry wirtualne na stronie zerowej, dispatch przez tablicę adresów (jmp indirect), te same operacje i ten sam format co na Z80. Testy na 6502, 65c02, nes i 6510 przez Mos6502 w Runners.",
+      "status": "todo",
+      "note": "Gotowe gdy: ten sam plik .cvm co w poz. 5 (bez żadnej zmiany) daje zgodny wynik i bufor konsoli na 6502/65c02/nes/6510; własna tablica wiązań; rozmiar interpretera w nocie; goldeny natywne bez zmian."
+    },
+    {
+      "id": "7",
+      "title": "[M] Interpreter w asemblerze 6800 (big-endian, stdlib/target/6800/vm.s): sprawdza, że format z poz. 4 jest niezależny od endianness hosta (dane liczbowe czytane zgodnie ze specyfikacją, nie z kolejnością CPU). Test w Mc6800Runner.",
+      "status": "todo",
+      "note": "Gotowe gdy: korpus z poz. 5 i ten sam .cvm zgodny z AOT na 6800 (BE) wraz z buforem konsoli; niezgodności endianness opisane w nocie i w specyfikacji."
+    },
+    {
+      "id": "8",
+      "title": "[M] Interpreter 8080: port interpretera Z80 (8080 jest podzbiorem składniowo bliskim) ze wspólnym kodem handlerów tam, gdzie się da; osobne makra dla różnic (brak rozkazów Z80). Test w Runners dla 8080.",
+      "status": "todo",
+      "note": "Gotowe gdy: ten sam .cvm zgodny z AOT na 8080, w tym bufor konsoli; udział wspólnego kodu z Z80 podany w nocie (linie wspólne i osobne)."
+    },
+    {
+      "id": "9",
+      "title": "[S] Pomiar i decyzja go/no-go: dla samples/minic i samples/bench na Z80, 6502 i 6800 zmierz (a) rozmiar bytecode vs kod natywny (CODE), (b) rozmiar interpretera, (c) narzut szybkości w cyklach emulatora (stosunek vm/AOT), (d) punkt przecięcia: przy jakim rozmiarze kodu natywnego bytecode razem z interpreterem staje się mniejszy od natywnego (szacunek: ok. 3 KB przy interpreterze 1,5 KB i zysku 45%, do zweryfikowania). Tabela w docs/bytecode.md z komendą pomiaru. Opcjonalnie punkt odniesienia z zewnątrz: opublikowane liczby dla BASIC-a (w repo nie ma interpretera BASIC-a). Decyzja: czy rozwijać (float, long long, struct, 6809 po planie 46) czy zostawić jako ćwiczenie.",
+      "status": "todo",
+      "note": "Gotowe gdy: tabela z liczbami i komendą pomiaru w docs/bytecode.md, wyznaczony punkt przecięcia, wpis decyzji; goldeny natywne bez zmian. · Punkty odniesienia z literatury (do zweryfikowania w sieci i wpisania jako liczby ze źródłem): rozmiar interpretera p-machine UCSD na 6502 i Z80, rozmiar interpretera Z-machine na tych samych CPU, SWEET16 ok. 300 B. Oczekiwanie przed pomiarem (szacunek, nie wynik): interpreter pierwszej wersji 1-2 KB na CPU (Z80/8080 ok. 0,9-1,4 KB, 6502 ok. 1,2-1,9 KB, 6800 ok. 1,3-1,9 KB), bytecode ok. 10-15 razy wolniejszy od natywnego i ok. 4-10 razy szybszy od Microsoft BASIC. Pomiar ma te liczby potwierdzić albo obalić; rozbieżność >2x opisz w nocie."
+    },
+    {
+      "id": "10",
       "title": "Testy + docs + build/test/hygiene",
       "status": "todo",
-      "note": "Gotowe gdy: testy + docs + build -warnaserror + test + hygiene OK"
+      "note": "Gotowe gdy: testy + docs + build -warnaserror + test + hygiene OK (z linkami); docs/bytecode.md podlinkowany z docs/README.md"
     }
   ]
 }
