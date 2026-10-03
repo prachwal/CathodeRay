@@ -369,6 +369,10 @@ def cmd_status(args) -> None:
 def cmd_hygiene(args) -> None:
     plans_dir = Path(args.dir) if args.dir else default_plans_dir()
     errors = hygiene_errors(plans_dir)
+    if not args.dir:  # linki dokumentacji sprawdzamy tylko dla domyślnej księgi, nie dla katalogów testowych
+        sys.path.insert(0, str(Path(__file__).resolve().parent))
+        from check_links import dead_links
+        errors += [f"martwy link {d}" for d in dead_links()]
     if errors:
         for err in errors:
             print(f"plan.py: {err}", file=sys.stderr)

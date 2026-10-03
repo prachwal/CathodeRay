@@ -4,7 +4,7 @@ using FluentAssertions;
 namespace CathodeRay.Tests;
 
 /// <summary>Plan 33, krok 15: <see cref="RegisterAllocator"/> na Z80. Kontrprzykłady z pyt. 2 analizy
-/// (<c>docs/z80-register-optimizer-analysis.md</c>) jako programy C z konsolą liczoną ręcznie, na każdym celu z runnerem, oraz
+/// (<c>docs/archive/z80-register-optimizer-analysis.md</c>) jako programy C z konsolą liczoną ręcznie, na każdym celu z runnerem, oraz
 /// testy, że alokator faktycznie przydziela rejestry (inaczej zielone wyrocznie nic nie mówią).</summary>
 public sealed class RegisterAllocatorTests
 {

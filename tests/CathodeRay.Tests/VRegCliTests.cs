@@ -4,7 +4,7 @@ using FluentAssertions;
 
 namespace CathodeRay.Tests;
 
-/// <summary>Plan 37, zadanie 1: flaga <c>--ir</c> sterownika <c>cc</c> (faza 0 z <c>docs/vreg-design.md</c>).</summary>
+/// <summary>Plan 37, zadanie 1: flaga <c>--ir</c> sterownika <c>cc</c> (faza 0 z <c>docs/ir-vreg-abi/vreg-design.md</c>).</summary>
 public sealed class VRegCliTests
 {
     private static (int Exit, string Output, string Stderr) Invoke(params string[] args)

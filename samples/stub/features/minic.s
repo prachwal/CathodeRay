@@ -1,4 +1,4 @@
-; Demo konwencji mini-C (docs/stub-calling-conv.md): argument w A, wynik w A,
+; Demo konwencji mini-C (docs/codegen/stub-calling-conv.md): argument w A, wynik w A,
 ; zmienne absolutne, 2 poziomy zagnieżdżenia (main → square → mul8),
 ; porównanie < przez CPA+BCC, pętla for przez X.
 ; Wynik: s1 = 16, s2 = 25, flag = 0, flag2 = 7, X = 5.

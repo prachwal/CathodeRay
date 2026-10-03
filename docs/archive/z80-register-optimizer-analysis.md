@@ -498,7 +498,7 @@ Model: **H** = nadaje się dla Haiku (S, jeden plik, jednoznaczny test), **M** =
 Poza planem (odłożone z uzasadnieniem w pyt. 3–5): callee-saved, argumenty w HL/DE, IXH/IXL i DD/FD w emulatorze, akumulator B
 na 6800.
 
-## (e) Poprawki do docs/z80-register-optimizer.md
+## (e) Poprawki do docs/archive/z80-register-optimizer.md
 
 1. Sekcja 1, tabela: „argument ALU z komórki `ld hl,nn` + `add a,(hl)` 4 B, **21 T**”: w rzeczywistości 10 + 7 = **17 T**.
 2. Sekcja 1: „licznik `x++`: `ld a,(nn)` `inc a` `ld (nn),a` 7 B”: dziś kod używa `TryStep` (`ld hl,nn; inc (hl)`, 4 B, 21 T;

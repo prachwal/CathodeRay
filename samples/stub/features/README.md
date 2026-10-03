@@ -1,6 +1,6 @@
 # Showcase mechanik asemblera (CPU stub)
 
-Dwa programy pokazujące prawie wszystkie mechaniki z `docs/assembler-capability-gaps.md`:
+Dwa programy pokazujące prawie wszystkie mechaniki z `docs/assembler/assembler-capability-gaps.md`:
 
 ## main.asm (+ defs.inc, blob.bin)
 
@@ -26,7 +26,7 @@ Podprogramy arytmetyczne (`CALL`): `mul8` (A=a, X=b → A=a*b mod 256),
 
 ## minic.s (demo konwencji mini-C)
 
-Program łamiący konwencje z `docs/stub-calling-conv.md`: argument w `A`,
+Program łamiący konwencje z `docs/codegen/stub-calling-conv.md`: argument w `A`,
 wynik w `A`, zmienne absolutne, 2 poziomy zagnieżdżenia (`main` → `square`
 → `mul8`), porównanie `<` przez `CPA`+`BCC`, pętla `for` przez `X`.
 Oczekiwane: `s1 = 16`, `s2 = 25`, `flag = 0`, `flag2 = 7`, `X = 5`.

@@ -6,55 +6,49 @@ Odznaczaj po dowiezieniu (listing + `compare.py` + goldeny bez wzrostu).
 Flagi statusu: `closed` (zrobione), `queued` (plan istnieje, czeka), `partial` (zaczęte, wstrzymane),
 `propozycja` (task bez planu — kandydat do `docs/plans/`).
 
-## Mapa gap → plan (skrót)
+## Mapa gap → plan
 
-| Gap | Plan? |
+| Gap | Plan / task |
 | --- | --- |
-| DJNZ + dług splitów | ✅ plan 43 (queued, 0/8) |
-| VM bytecode | ✅ plan 34 (queued, 0/4) |
-| Łańcuchy `jmp` | ⚠️ plan 32 poz. 9 partial (wstrzymany) + task re-pomiaru w [Cele i codegen](#cele-i-codegen) |
-| Wynik w A/X na 6502, ABI v2 cd., bramka −15% | ❌ brak planu → taski `propozycja` w [Luka ABI](#luka-abi-największa) |
-| CSE/LICM, emiter VReg, alokator grafowy | ❌ brak planu → taski `propozycja` w [Model wartości i IR](#model-wartości-i-ir) |
-| ParamAlias BE, tail call 6800/z ramką, forward-ref | ❌ brak planu → taski `propozycja` w [Cele i codegen](#cele-i-codegen) |
-| Ślepa wyrocznia ramek | ❌ brak planu → task `propozycja` w [Metodologia testów](#metodologia-testów) |
+| DJNZ + dług splitów | plan 43 (queued, 0/8) |
+| VM bytecode | plan 34 (queued, 0/4) |
+| Łańcuchy `jmp` | plan 32 poz. 9 partial → P4 |
+| Wynik w A/X (6502/6800) | P1 |
+| ABI v2 cd., bramka −15% | P2 |
+| CSE/LICM, SSA/GVN | P3 |
+| Wyrocznia ramek | plan 44 poz. 6 (T1) |
 
-## Luka ABI (największa)
+## Zasada: najpierw pomiar, potem plan
 
-- [ ] **Wynik w pamięci (`cc_ret`) na 6502/6800** — odpowiednik planu 35 dla 6502.
-  - [ ] `propozycja` [S] Pomiar: ile B na wołanie zjada `cc_ret` w `samples/minic` (listing 6502).
-  - [ ] `propozycja` [M] Wynik W≤2 w A/X na 6502 + writeback w crt0 (analogia planu 35) + matryca.
-- [ ] **Argumenty w pamięci (`cc_argN`)** — kontynuacja ABI v2 (`abi-v2-design.md` item 5).
-  - [ ] `propozycja` [M] ParamAlias rejestrowy albo wygaszenie na v2 (kryterium: brak regresji v1).
-  - [ ] `propozycja` [S] Re-pomiar bramki −15% na wołaniowych po ParamAlias (`v2-sizes.md` dziś +1,7 B).
+Taski P1–P4 i T1 są w planie 44 ([../plans/44-gap-measurements.md](../plans/44-gap-measurements.md), queued). Wynik wpisz tu (liczba + komenda),
+a dopiero na jego podstawie otwórz **jeden** plan (reguła repo: jeden plan w locie). Bez liczb nie ma planu.
 
-## Model wartości i IR
+- [ ] **P1 — koszt `cc_ret` na 6502/6800** (`propozycja` [S]): ile B na wołanie zjada zapis/odczyt `cc_ret`
+  w `samples/minic` (listing `--cpu 6502`, `--cpu 6800`). Go: ≥15% B w programach wołaniowych → plan „wynik w A/X” (analogia planu 35).
+- [ ] **P2 — re-pomiar bramki ABI v2** (`propozycja` [S]): `--abi v2` vs v1 na `05_calls` i benchach wołaniowych po planie 42
+  (stary wynik +1,7 B z `v2-sizes.md` jest sprzed splitu przedziałów). Go: ≥15% → wznów plan 39 poz. 4.
+- [ ] **P3 — powtórzenia i niezmienniki w IR** (`propozycja` [S]): skrypt liczący powtarzane podwyrażenia w bloku
+  i niezmienniki pętli na `--ir vreg`. Go dla LICM/CSE międzyblokowego: >3% instrukcji. Bez go: SSA/GVN zostaje odłożone.
+- [ ] **P4 — łańcuchy `jmp`** (`partial` [S]): re-pomiar planu 32 poz. 9 po planach 40–42 (czy +3 B na stubie nadal występuje).
 
-- [ ] **CSE między blokami / LICM** — Cell IR nie widzi żywotności.
-  - [ ] `propozycja` [S] Pomiar: ile powtarzanych podwyrażeń w bloku i niezmienników pętli (skrypt na IR).
-  - [ ] `propozycja` [M] LICM prostych niezmienników pętli (po pomiarze).
-- [ ] **Bezpośredni emiter VReg (`--regalloc`)** — keep-set dziś doradczy.
-  - [ ] `propozycja` [M] Emiter VReg→asm na 1 CPU (pilot Z80) + flaga `--regalloc` + matryca vs Cell.
-- [ ] **Alokator grafowy** — odroczony świadomie.
-  - [ ] `propozycja` [S] Bramka pomiarowa: linear-scan vs greedy na benchach (go/no-go dla grafowego).
+## Kolejność realizacji (najpierw pomiar, potem bajty za najmniejsze ryzyko)
 
-## Cele i codegen
+1. **P1–P4 + T1 (plan 44)** — równolegle, rozmiar S, zero zmiany codegenu. T1 jak najwcześniej: każda zmiana ramek/alokatora bez niego to zgadywanie.
+2. **Plan 43 (DJNZ)** — pętle to trzeci koszt po wywołaniach i ramkach; ma własną bramkę go/no-go (poz. 4). Przed grzebaniem w 6502, bo rusza współdzielony alokator/liveness.
+3. **Przy GO z fazy 0, po stosunku zysk/koszt**: wynik W≤2 w A/X na 6502 (GO z P1) → ParamAlias rejestrowy + re-bramka v2 (GO z P2) → LICM prostych niezmienników (GO z P3) → łańcuchy `jmp` (GO z P4).
+4. **Ogony i 6800** (małe, niezależne): ParamAlias BE + tail call 6800 (każde po micro-pomiarze) → tail call z ramką (rozpoznanie) → relaksacja form w asemblerze (największe ryzyko regresji, na końcu).
+5. **Tor równoległy**: plan 34 (VM) — niezależny od codegen AOT, nie konkuruje o priorytet. **Koniec kolejki**: alokator grafowy (dopiero gdy bramka linear-scan vs greedy pokaże lukę).
 
-- [ ] **DJNZ / liczniki w B (Z80)** — `queued` plan 43 (0/8), w tym dług splitów z planu 42 (poz. 7).
-- [ ] **ParamAlias dla big-endian (6800)** — przebieg tylko LE.
-  - [ ] `propozycja` [M] Ścieżka aliasów dla BE albo rejestr X dla parametrów (po liveness z planu 42/43).
-- [ ] **Tail call na 6800** — brak `SupportsTailCall`.
-  - [ ] `propozycja` [S] Pomiar zysk vs ryzyko przy BE i ramkach (go/no-go).
-- [ ] **Tail call z ramką (rekurencja wzajemna)** — ograniczenie `Saved`.
-  - [ ] `propozycja` [S] Rozpoznanie: ile benchy tracą na `call+ret` z ramką (listing).
-- [ ] **Forward-ref = najdłuższa forma** — relaksacja tylko częściowa.
-  - [ ] `propozycja` [M] Iteracyjna relaksacja form w `TwoPassAssembler` (wzór: `BranchRelaxer`).
-- [ ] **Łańcuchy `jmp`** — `partial` plan 32 poz. 9 (wstrzymane: +3 B na stubie).
-  - [ ] `partial` [S] Re-pomiar po planach 40–42 (skoki krótsze po optymalizacjach?).
+Nie zaczynać od ABI v2 ani SSA „bo to właściwe rozwiązanie” — oba mają przegrane bramki (v2: +1,7 B; SSA: brak pomiaru).
 
-## Metodologia testów
+## Bez pomiaru nie ruszać (decyzje)
 
-- [ ] **Wyrocznia ślepa na błędy ramek** — `IrInterpreter` powtarza semantykę `Saved`.
-  - [ ] `propozycja` [M] Niezależny model ramek w teście albo fuzz mutujący `Saved` (wykryłby klasę `646d204`).
+- **Emiter VReg `--regalloc` i alokator grafowy** — keep-set jest doradczy; diagram: [architecture-diagram.md](architecture-diagram.md) §1.
+  Zależy od wyniku P3 i bramki linear-scan vs greedy; teraz nie planować.
+- **ParamAlias BE (6800), tail call 6800 / z ramką** — małe zyski, ryzyko ramek; po P1.
+- **Forward-ref = najdłuższa forma** — relaksacja częściowa; zrobić tylko jeśli `compare.py` pokaże ≥1% na asemblerze.
+- **Ślepa wyrocznia ramek** — jedyny gap jakości, nie rozmiaru: `IrInterpreter` powtarza semantykę `Saved`.
+  Kandydat na osobny plan testowy [M]: niezależny model ramek w teście albo fuzz mutujący `Saved` (klasa `646d204`).
 
 ## Odłożone / kolejka (plany istnieją)
 

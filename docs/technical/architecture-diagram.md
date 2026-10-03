@@ -12,16 +12,9 @@ flowchart TD
     PAR --> TCK["TypeChecker"]
     TCK --> CHK["CheckedProgram"]
 
-    CHK --> W8["Wide8Legalizer<br/>(long long → połówki 32-bit)"]
-    W8 --> IRP["IrPasses<br/>(stałe, kopie, DCE)"]
-    IRP --> INL["IrInliner<br/>(funkcje liście)"]
-
+    CHK --> LOW["Lowering<br/>(per funkcja: Wide8Legalizer → IrPasses<br/>stałe, kopie, DCE)"]
+    LOW --> INL["IrInliner<br/>(funkcje liście)"]
     INL --> IRCELL["Cell IR<br/>(komórki absolutne W=1/2/4)"]
-    CHK -.->|"flaga --ir vreg"| VLOW["VRegLowering"]
-    VLOW --> VPASS["VRegPasses<br/>(CSE, DCE)"]
-    VPASS --> VALLOC["Allocator<br/>(accumulator / linear-scan)"]
-    VALLOC --> V2C["VRegToCell<br/>(adapter do Cell IR)"]
-    V2C --> IRCELL
 
     IRCELL --> CF["CaseFold"]
     CF --> L1["Legalizer wide<br/>(mnożenie/dzielenie → __cc_*)"]
@@ -38,6 +31,18 @@ flowchart TD
     ASMB --> LINK
     STDLIB["stdlib<br/>(portable C + target .s)"] -.-> LINK
     LINK --> BIN["program.bin"]
+```
+
+Ścieżka `--ir vreg` ([VRegPipeline.cs](../../src/CathodeRay.C/VReg/VRegPipeline.cs)) nie jest osobnym frontem:
+owija `Codegen.Lower` i wraca do tego samego Cell IR (cały dalszy potok bez zmian).
+
+```mermaid
+flowchart LR
+    IRCELL["Cell IR<br/>(z Codegen.Lower)"] --> LIFT["VRegLift"]
+    LIFT --> VPASS["VRegPasses<br/>(CSE, DCE)"]
+    VPASS --> V2C["VRegToCell"]
+    V2C --> OUT["Cell IR<br/>→ CaseFold … selektor"]
+    VPASS -.->|"keep-set, tylko doradczy"| ALLOC["Allocator<br/>(accumulator / linear-scan)"]
 ```
 
 ## 2. Moduły repozytorium

@@ -1,6 +1,6 @@
 # Moduły i linker: co robią referencje i czego brakuje w CathodeRay
 
-Stan na: 2026-09-28. Ostatni duży brak z `docs/assembler-capability-gaps.md` §2.1.
+Stan na: 2026-09-28. Ostatni duży brak z `docs/assembler/assembler-capability-gaps.md` §2.1.
 Reszta braków (§2.2–§2.3) to dni pracy; linker to tygodnie — stąd osobny opis.
 
 ## 1. Co robią referencje

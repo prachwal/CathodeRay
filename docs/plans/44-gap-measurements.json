@@ -1,0 +1,48 @@
+{
+  "title": "Gapy architektury: pomiary przed planami (z docs/technical/gaps-checklist.md)",
+  "status": "queued",
+  "items": [
+    {
+      "id": "1",
+      "title": "[S] Higiena dokumentacji: popraw ścieżki docs/xxx.md w polach title/intro planów 33, 35, 39 (przez plan.py, nie ręcznie w JSON); check_links.py jest już w plan.py hygiene. Akceptacja: grep starych ścieżek w docs/plans/*.json pusty poza notami historycznymi, hygiene OK, render planów odświeżony.",
+      "status": "todo",
+      "note": ""
+    },
+    {
+      "id": "2",
+      "title": "[S] P1: koszt cc_ret na 6502/6800. Dla programów z samples/minic zmierz (listing: dotnet run --project src/CathodeRay.Cli -- cc X.c --cpu 6502 --listing /tmp/x.lst; to samo --cpu 6800) ile B zjadają zapisy/odczyty cc_ret przy wołaniach. Wynik (liczba + komenda) do noty i do gaps-checklist.md. GO: >=15% B w programach wołaniowych -> propozycja planu 'wynik w A/X' (analogia planu 35). Bez zmiany codegen.",
+      "status": "todo",
+      "note": ""
+    },
+    {
+      "id": "3",
+      "title": "[S] P2: re-pomiar bramki ABI v2. --abi v2 vs v1 na 05_calls i benchach wołaniowych po planie 42 (stary wynik +1,7 B z docs/v2-sizes.md jest sprzed splitu przedziałów). Odśwież v2-sizes.md. GO: >=15% -> wznów plan 39 poz. 4; inaczej zapisz NO-GO w nocie i w status ABI v2 (mini-c-status.md).",
+      "status": "todo",
+      "note": ""
+    },
+    {
+      "id": "4",
+      "title": "[S] P3: powtórzenia i niezmienniki w IR. Skrypt (tools/, jednorazowy lub z --write) liczący na --ir vreg powtarzane podwyrażenia w bloku i niezmienniki pętli jako % instrukcji per program. GO dla LICM/CSE międzyblokowego: >3% instrukcji; inaczej NO-GO i SSA/GVN zostaje odłożone (wpis w gaps-checklist.md).",
+      "status": "todo",
+      "note": ""
+    },
+    {
+      "id": "5",
+      "title": "[S] P4: łańcuchy jmp. Powtórz pomiar planu 32 poz. 9 (jmp L1 -> jmp L2) po planach 40-42: czy +3 B na stubie nadal występuje. Jeśli nie, wznów poz. 9 planu 32; jeśli tak, zapisz decyzję. Goldeny bez wzrostu.",
+      "status": "todo",
+      "note": ""
+    },
+    {
+      "id": "6",
+      "title": "[M] T1: niezależny model ramek w teście (wyrocznia ślepa na błędy Saved): IrInterpreter powtarza semantykę Saved, więc błąd klasy 646d204 przechodzi. Zrób niezależny model ramek albo fuzz mutujący Saved; mutacja kontrolna musi robić test czerwonym. Kandydat do wykonania przed planem 43.",
+      "status": "todo",
+      "note": ""
+    },
+    {
+      "id": "7",
+      "title": "[S] Zamknięcie: wpisz wyniki P1-P4 do docs/technical/gaps-checklist.md i mini-c-status.md (§5), usuń taski bez GO, dla każdego GO zaproponuj jeden następny plan; python3 tools/plan.py hygiene OK.",
+      "status": "todo",
+      "note": ""
+    }
+  ]
+}

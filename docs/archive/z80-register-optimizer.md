@@ -115,5 +115,5 @@ nie pomiarem; pierwszy pomiar da krok 2-3 na 14 benchach.
 ## 9. Otwarte pytania
 
 1. Callee-saved `B`/`C` (mniej `push`/`pop` w pętlach z wywołaniami) czy pierwsza wersja bez tego?
-2. Czy argumenty niepublicznych funkcji przekazywać w HL/DE (krok 9)? Zmienia konwencję opisaną w `docs/stub-calling-conv.md` i dotyka `Legalizer`.
+2. Czy argumenty niepublicznych funkcji przekazywać w HL/DE (krok 9)? Zmienia konwencję opisaną w `docs/codegen/stub-calling-conv.md` i dotyka `Legalizer`.
 3. `IXH`/`IXL` (nieudokumentowane, ale działają na każdym Z80 i emulatorze `Z80Cpu`?) jako dodatkowe 2 bajty rejestrów. Wymaga sprawdzenia emulatora.

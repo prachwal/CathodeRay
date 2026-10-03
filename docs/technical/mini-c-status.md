@@ -70,7 +70,7 @@ Szczegóły per CPU: [`../codegen/opt-z80.md`](../codegen/opt-z80.md), [`../code
 
 ## 4. Pomiary (skrót; pełne: [`../compare.md`](../compare.md))
 
-Średnia geometryczna (bez mnożenia/dzielenia/przesunięć): **mini-C / cc65 = 1.27**, **mini-C / SDCC = 1.15**.
+Średnia geometryczna (bez mnożenia/dzielenia/przesunięć): **mini-C / cc65 = 1.23**, **mini-C / SDCC = 1.12**.
 Największe luki: wywołania i rekurencja (`fib`, `sw`, `fnptr`) — adresuje je ABI v2 i plan 43.
 
 ## 5. Co przed nami
@@ -80,11 +80,11 @@ Największe luki: wywołania i rekurencja (`fib`, `sw`, `fnptr`) — adresuje je
 | Liczniki pętli + DJNZ (Z80) | plan 43 queued, 0/8 | raport alokatora, ParamAlias w pętlach, unikalne komórki inlinera, bramka go/no-go, `ICountLoop`, emisja DJNZ, splity z planu 42, pomiary |
 | Maszyna wirtualna (bytecode) | plan 34 queued, 0/4 | spec kodowania IR, interpreter `cathode vm run`, fuzz bytecode vs AOT |
 | Łańcuchy `jmp` | plan 32 poz. 9, partial | `jmp L1` → `jmp L2` (wstrzymane: +3 B na stubie) |
-| ABI v2 jako default | brak planu (plan 39 closed: flaga + pilot `nes`) | bramka −15% na wołaniowych nie przeszła (+1.7 B śr.); dalsze w `abi-v2-design.md` item 5 |
+| ABI v2 jako default | brak planu (plan 39 closed: flaga + pilot `nes`) | bramka −15% na wołaniowych nie przeszła (+1.7 B śr.; po planie 42 baseline v1 się zmienił — wymaga re-pomiaru); dalsze w `abi-v2-design.md` item 5 |
 | SSA / GVN / LICM | odroczone decyzją pomiarową | tylko gdy pomiary wskażą globalne straty (plan 37) |
 | Alokator grafowy | odroczony | jw. — linear-scan wystarcza na 8-bitowce |
 | COBOL / Fortran | propozycje (`../language/`) | osobne semantic IR → VReg; nie zaczęte |
 | Nowe CPU | brak planu | procedura w [targets-and-abi.md](targets-and-abi.md) (JSON + `XxxIsa` + `XxxTarget` + interpreter w testach) |
 
-Historia prac: [`../plans/`](../plans/) (43 plany: 40 closed; `NN-nazwa.json` to źródło, `.md` to render).
+Historia prac: [`../plans/`](../plans/) (44 plany: 40 closed; `NN-nazwa.json` to źródło, `.md` to render).
 Czeklista gapów z mapowaniem na plany: [gaps-checklist.md](gaps-checklist.md).

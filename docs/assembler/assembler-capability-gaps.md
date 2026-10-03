@@ -61,7 +61,7 @@ następne tematy to np. listing z gałęziami warunkowymi albo format S-record d
   `cathode asm --map NAZWA@adres`, test `Segments/` (6 CPU bajt w bajt
   z ca65+ld65 i z80asm) — `Segments/README.md`, generator
   `tools/make_segments_golden.py`.
-- **Linker modułów** (2026-09-28, wariant B z `docs/linker-segments.md`):
+- **Linker modułów** (2026-09-28, wariant B z `docs/assembler/linker-segments.md`):
   format obiektu `cathode-obj/1` (`-f obj`), `GLOBAL`/`EXTERN`, relokacje
   Abs8/Abs16/Disp8/Rel8 (też dla symboli własnych), `cathode link`
   z `.cfg` MEMORY/SEGMENTS, test `Modules/` (6 CPU bajt w bajt

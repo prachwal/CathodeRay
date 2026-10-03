@@ -6,7 +6,7 @@ using FluentAssertions;
 namespace CathodeRay.Tests;
 
 /// <summary>Plan 37, zadanie 7: pomiar alokatorów na samplach — trzymane vs spillowane rejestry.
-/// Odświeżenie: <c>UPDATE_VREG_ALLOC=1 dotnet test --filter VRegAllocMeasureTests</c> (zapisuje też <c>docs/vreg-alloc.md</c>).</summary>
+/// Odświeżenie: <c>UPDATE_VREG_ALLOC=1 dotnet test --filter VRegAllocMeasureTests</c> (zapisuje też <c>docs/ir-vreg-abi/vreg-alloc.md</c>).</summary>
 public sealed class VRegAllocMeasureTests
 {
     private static string? ReadHeader(string path)

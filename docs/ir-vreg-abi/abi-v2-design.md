@@ -6,7 +6,7 @@ mówi wprost: ~70% luki do cc65/SDCC to trzy decyzje architektoniczne (pamięć-
 brak rejestrów dla wartości żywych). Ten dokument projektuje naprawę pierwszej z nich.
 Powiązane: [targets.md](../codegen/targets.md#kontrakt-rejestrowy-cpumodel-plan-38),
 [stub-calling-conv.md](../codegen/stub-calling-conv.md#plan-38-cpumodel-a-zamrożone-abi),
-[CpuModel](../src/CathodeRay.C/CpuModels.cs).
+[CpuModel](../../src/CathodeRay.C/CpuModels.cs).
 
 ## 0. Mapa obecnego ABI v1 (kotwice)
 
@@ -18,18 +18,18 @@ wynik:    cc_ret (+cc_ret_h) albo HL na Z80/8080 (plan 35); struct → cc_retbuf
 
 | Element | Kotwica |
 | --- | --- |
-| Obniżanie wołań (abstrakcyjne `Ir.Call`, bez `cc_arg`) | [Lowering.Calls.cs](../src/CathodeRay.C/Lowering.Calls.cs#L18-L58) |
-| Limity: `MaxArgs = 6`, `ArgSlots` (long = 2 sloty) | [TypeChecker.cs](../src/CathodeRay.C/TypeChecker.cs#L452-L452) |
-| `long long`/struct przez wskaźnik/bufor | [Lowering.Calls.cs](../src/CathodeRay.C/Lowering.Calls.cs#L70-L135) |
-| Emisja args / prolog (`_isa.ArgCell` czyta model) | [ByteSelector.cs](../src/CathodeRay.C/ByteSelector.cs#L293-L300), [ByteIsa.cs](../src/CathodeRay.C/ByteIsa.cs) |
-| Alias parametr = `cc_argN` (liście + plan 35 krok 3) | [ParamAlias.cs](../src/CathodeRay.C/ParamAlias.cs#L10-L20) |
-| Ramki: `Saved` na cyklach, kontrola stosu | [Lowering.Frames.cs](../src/CathodeRay.C/Lowering.Frames.cs), [Lowering.Calls.cs](../src/CathodeRay.C/Lowering.Calls.cs#L153-L192) |
-| Komórki umówione w crt0 (`cc_argN`, `cc_ret`, `cc_retbuf`…) | [Mos6502Isa.cs](../src/CathodeRay.C/Mos6502Isa.cs#L393-L398) |
-| Ręczny asembler czytający `cc_arg` | [rt_mul.s / rt_div.s](../src/CathodeRay.C/stdlib/target/z80/rt_mul.s#L1-L9) (×2 CPU) |
-| Wariadyki czytają `cc_argN` wprost | [printf.c](../src/CathodeRay.C/stdlib/lib/printf.c) (`cc_arg2..cc_arg6`) |
-| Harness czyta wynik z `cc_ret` | [TargetHarness.cs](../tests/CathodeRay.Tests/TargetHarness.cs#L17-L17), [CcRun.cs](../tests/CathodeRay.Tests/CcRun.cs#L94-L94) |
-| Model: `ArgRegs = []` = ABI v1 | [CpuModels.cs](../src/CathodeRay.C/CpuModels.cs) |
-| Interpreter wiąże parametry wprost (bez `cc_arg`) | [IrInterpreter.cs](../src/CathodeRay.C/IrInterpreter.cs#L209-L211) |
+| Obniżanie wołań (abstrakcyjne `Ir.Call`, bez `cc_arg`) | [Lowering.Calls.cs](../../src/CathodeRay.C/Lowering.Calls.cs#L18-L58) |
+| Limity: `MaxArgs = 6`, `ArgSlots` (long = 2 sloty) | [TypeChecker.cs](../../src/CathodeRay.C/TypeChecker.cs#L452-L452) |
+| `long long`/struct przez wskaźnik/bufor | [Lowering.Calls.cs](../../src/CathodeRay.C/Lowering.Calls.cs#L70-L135) |
+| Emisja args / prolog (`_isa.ArgCell` czyta model) | [ByteSelector.cs](../../src/CathodeRay.C/ByteSelector.cs#L293-L300), [ByteIsa.cs](../../src/CathodeRay.C/ByteIsa.cs) |
+| Alias parametr = `cc_argN` (liście + plan 35 krok 3) | [ParamAlias.cs](../../src/CathodeRay.C/ParamAlias.cs#L10-L20) |
+| Ramki: `Saved` na cyklach, kontrola stosu | [Lowering.Frames.cs](../../src/CathodeRay.C/Lowering.Frames.cs), [Lowering.Calls.cs](../../src/CathodeRay.C/Lowering.Calls.cs#L153-L192) |
+| Komórki umówione w crt0 (`cc_argN`, `cc_ret`, `cc_retbuf`…) | [Mos6502Isa.cs](../../src/CathodeRay.C/Mos6502Isa.cs#L393-L398) |
+| Ręczny asembler czytający `cc_arg` | [rt_mul.s / rt_div.s](../../src/CathodeRay.C/stdlib/target/z80/rt_mul.s#L1-L9) (×2 CPU) |
+| Wariadyki czytają `cc_argN` wprost | [printf.c](../../src/CathodeRay.C/stdlib/lib/printf.c) (`cc_arg2..cc_arg6`) |
+| Harness czyta wynik z `cc_ret` | [TargetHarness.cs](../../tests/CathodeRay.Tests/TargetHarness.cs#L17-L17), [CcRun.cs](../../tests/CathodeRay.Tests/CcRun.cs#L94-L94) |
+| Model: `ArgRegs = []` = ABI v1 | [CpuModels.cs](../../src/CathodeRay.C/CpuModels.cs) |
+| Interpreter wiąże parametry wprost (bez `cc_arg`) | [IrInterpreter.cs](../../src/CathodeRay.C/IrInterpreter.cs#L209-L211) |
 
 ## 1. Cele i nie-cele
 

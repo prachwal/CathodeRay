@@ -18,7 +18,7 @@ CathodeRay is a multi-target assembler and Mini-C compiler written in C# (.NET).
 - Types: `uchar`/`char`, `int`, `uint`, `long`, `ulong`, pointers, arrays (including multi-dimensional), structs, unions, enums, `typedef`, function pointers
 - Control flow: `if`/`else`, `while`, `do`/`while`, `for`, `switch`, `break`/`continue`, `goto`, recursion
 - Standard library subset (`string.h`, `ctype.h`, `stdlib.h`, `stdio.h`) with automatic selective linking
-- Calling convention and runtime documented per target (see `docs/stub-calling-conv.md` and `docs/targets.md`)
+- Calling convention and runtime documented per target (see `docs/codegen/stub-calling-conv.md` and `docs/codegen/targets.md`)
 
 ## Quick start
 
@@ -39,12 +39,12 @@ cathode cc hello.c -o hello.bin --cpu stub
 | Document | Description |
 | --- | --- |
 | [docs/minic.md](docs/minic.md) | Mini-C language reference (Polish; examples are tested) |
-| [docs/targets.md](docs/targets.md) | Supported CPUs and how to add a new target |
-| [docs/stub-calling-conv.md](docs/stub-calling-conv.md) | Calling convention, memory layout, runtime |
-| [docs/z80-assembler.md](docs/z80-assembler.md) | Z80 assembler details |
-| [docs/linker-segments.md](docs/linker-segments.md) | Linker and segments |
-| [docs/minic-optimization.md](docs/minic-optimization.md) | Current optimization level and known gaps |
-| [docs/ir-vreg-plan.md](docs/ir-vreg-plan.md) | Virtual-register IR and backend migration plan |
+| [docs/codegen/targets.md](docs/codegen/targets.md) | Supported CPUs and how to add a new target |
+| [docs/codegen/stub-calling-conv.md](docs/codegen/stub-calling-conv.md) | Calling convention, memory layout, runtime |
+| [docs/assembler/z80-assembler.md](docs/assembler/z80-assembler.md) | Z80 assembler details |
+| [docs/assembler/linker-segments.md](docs/assembler/linker-segments.md) | Linker and segments |
+| [docs/codegen/minic-optimization.md](docs/codegen/minic-optimization.md) | Current optimization level and known gaps |
+| [docs/ir-vreg-abi/ir-vreg-plan.md](docs/ir-vreg-abi/ir-vreg-plan.md) | Virtual-register IR and backend migration plan |
 
 ## Project layout
 
