@@ -7,7 +7,7 @@ namespace CathodeRay.C;
 /// big-endian (komórka 2-bajtowa: starszy bajt pod <c>sym</c>, więc <c>LDX komórka</c> ładuje wskaźnik). Komórki na stronie
 /// bezpośredniej (<c>$00xx</c>) dostają przedrostek <c>z:</c>, ale tylko w instrukcjach z trybem bezpośrednim (INC/DEC/TST/CLR/NEG/COM
 /// i przesunięcia pamięci go nie mają, więc zostają przy adresie rozszerzonym).</summary>
-internal sealed class M6800Isa : ByteIsa, IPairMoves, IByteOrder, IXorCarry, IAddressByte
+internal class M6800Isa : ByteIsa, IPairMoves, IByteOrder, IXorCarry, IAddressByte
 {
     private static readonly HashSet<string> ReservedNames = new(["A", "B", "X"], StringComparer.OrdinalIgnoreCase);
 
@@ -30,6 +30,12 @@ internal sealed class M6800Isa : ByteIsa, IPairMoves, IByteOrder, IXorCarry, IAd
     /// <summary>Nazwa CPU w <see cref="CpuModels"/>.</summary>
     protected override string CpuName => "6800";
 
+    protected virtual string LoadMnemonic => "ldaa";
+
+    protected virtual string StoreMnemonic => "staa";
+
+    protected virtual string OrMnemonic => "oraa";
+
     public override string Segment(string name) => $".segment \"{name}\"";
 
     public override string Global(string sym) => $".global {sym}";
@@ -48,9 +54,9 @@ internal sealed class M6800Isa : ByteIsa, IPairMoves, IByteOrder, IXorCarry, IAd
     /// <param name="names">Nazwy symboli (bez przesunięć).</param>
     public void AddZeroPage(IEnumerable<string> names) => _zeroPage.UnionWith(names);
 
-    public override void LoadA(Octet value) => L(value.IsImmediate ? $"ldaa #{value.Text}" : $"ldaa {Mem(value.Text)}");
+    public override void LoadA(Octet value) => L(value.IsImmediate ? $"{LoadMnemonic} #{value.Text}" : $"{LoadMnemonic} {Mem(value.Text)}");
 
-    public override void StoreA(string address) => L($"staa {Mem(address)}");
+    public override void StoreA(string address) => L($"{StoreMnemonic} {Mem(address)}");
 
     public override void Alu(ByteAlu op, Octet value, bool first)
     {
@@ -60,7 +66,7 @@ internal sealed class M6800Isa : ByteIsa, IPairMoves, IByteOrder, IXorCarry, IAd
             ByteAlu.Add => first ? "adda" : "adca",
             ByteAlu.Sub => first ? "suba" : "sbca",
             ByteAlu.And => "anda",
-            ByteAlu.Or => "oraa",
+            ByteAlu.Or => OrMnemonic,
             _ => "eora",
         };
         L($"{mnemonic} {operand}");
@@ -145,14 +151,14 @@ internal sealed class M6800Isa : ByteIsa, IPairMoves, IByteOrder, IXorCarry, IAd
         switch (cond)
         {
             case Ir.Cond.Lt:
-                L($"ldaa {hi}");
+                L($"{LoadMnemonic} {hi}");
                 string ltSkip = LocalLabel();
                 L($"bpl {ltSkip}");
                 L($"jmp {target}");
                 L($"{ltSkip}:");
                 break;
             case Ir.Cond.Ge:
-                L($"ldaa {hi}");
+                L($"{LoadMnemonic} {hi}");
                 string geSkip = LocalLabel();
                 L($"bmi {geSkip}");
                 L($"jmp {target}");
@@ -161,10 +167,10 @@ internal sealed class M6800Isa : ByteIsa, IPairMoves, IByteOrder, IXorCarry, IAd
             case Ir.Cond.Gt:
                 // N testowane przed oraa (oraa nadpisuje A); osobne skipy, bo BranchRelaxer kasuje
                 // etykietę z trójki (beq S; jmp T; S:) — współdzielona zawisłaby w bmi.
-                L($"ldaa {hi}");
+                L($"{LoadMnemonic} {hi}");
                 string gtNeg = LocalLabel();
                 L($"bmi {gtNeg}");
-                L($"oraa {lo}");
+                L($"{OrMnemonic} {lo}");
                 string gtZero = LocalLabel();
                 L($"beq {gtZero}");
                 L($"jmp {target}");
@@ -172,12 +178,12 @@ internal sealed class M6800Isa : ByteIsa, IPairMoves, IByteOrder, IXorCarry, IAd
                 L($"{gtZero}:");
                 break;
             default:
-                L($"ldaa {hi}");
+                L($"{LoadMnemonic} {hi}");
                 string leMid = LocalLabel();
                 L($"bpl {leMid}");
                 L($"jmp {target}");
                 L($"{leMid}:");
-                L($"oraa {lo}");
+                L($"{OrMnemonic} {lo}");
                 string leSkip = LocalLabel();
                 L($"bne {leSkip}");
                 L($"jmp {target}");
@@ -218,19 +224,19 @@ internal sealed class M6800Isa : ByteIsa, IPairMoves, IByteOrder, IXorCarry, IAd
         }
 
         // Przesunięcie większe niż indeks 8-bitowy: dodajemy je do wskaźnika przez bajty pośrednie (BE: cc_t0 starszy, cc_t1 młodszy).
-        L($"ldaa {Mem(cell + "+1")}");
+        L($"{LoadMnemonic} {Mem(cell + "+1")}");
         L($"adda #{offset & 0xFF}");
-        L("staa z:cc_t1");
-        L($"ldaa {Mem(cell)}");
+        L($"{StoreMnemonic} z:cc_t1");
+        L($"{LoadMnemonic} {Mem(cell)}");
         L($"adca #{offset >> 8}");
-        L("staa z:cc_t0");
+        L($"{StoreMnemonic} z:cc_t0");
         L("ldx z:cc_t0");
         _offset = 0;
     }
 
-    public override void PtrLoad(int index) => L($"ldaa {_offset + index},x");
+    public override void PtrLoad(int index) => L($"{LoadMnemonic} {_offset + index},x");
 
-    public override void PtrStore(int index) => L($"staa {_offset + index},x");
+    public override void PtrStore(int index) => L($"{StoreMnemonic} {_offset + index},x");
 
     public override string Crt0()
     {
@@ -299,6 +305,16 @@ internal sealed class M6800Isa : ByteIsa, IPairMoves, IByteOrder, IXorCarry, IAd
     protected override string Relax(string text) =>
         AsmInsn.EmitAll(BranchRelaxer.Apply([.. AsmInsn.ParseAll(text)], Size, Invert));
 
+    /// <summary>Adres z przedrostkiem <c>z:</c> (tryb bezpośredni), gdy symbol bazowy leży na stronie bezpośredniej.</summary>
+    /// <param name="address">Adres.</param>
+    /// <returns>Adres dla asemblera.</returns>
+    protected string Mem(string address)
+    {
+        int plus = address.IndexOfAny(['+', '-']);
+        string symbol = plus < 0 ? address : address[..plus];
+        return _zeroPage.Contains(symbol) ? "z:" + address : address;
+    }
+
     private static string? Invert(string branch) => branch switch
     {
         "bne" => "beq",
@@ -332,7 +348,7 @@ internal sealed class M6800Isa : ByteIsa, IPairMoves, IByteOrder, IXorCarry, IAd
 
         if (operand.StartsWith('#'))
         {
-            return mnemonic is "ldx" or "lds" or "cpx" ? 3 : 2;
+            return mnemonic is "ldx" or "ldy" or "ldu" or "lds" or "ldd" or "cpx" or "cmpx" or "cmpy" or "cmpu" or "cmps" or "cmpd" ? 3 : 2;
         }
 
         return operand.StartsWith("z:", StringComparison.Ordinal) || operand.EndsWith(",x", StringComparison.Ordinal) ? 2 : 3;
@@ -354,14 +370,5 @@ internal sealed class M6800Isa : ByteIsa, IPairMoves, IByteOrder, IXorCarry, IAd
         yield return "cc_ret_h";
         yield return "cc_t0";
         yield return "cc_t1";
-    }
-
-    /// <summary>Adres z przedrostkiem <c>z:</c> (tryb bezpośredni), gdy symbol bazowy leży na stronie bezpośredniej. Tylko dla
-    /// instrukcji, które mają tryb bezpośredni (LDAA/STAA/ALU/CMPA/LDX/STX).</summary>
-    private string Mem(string address)
-    {
-        int plus = address.IndexOfAny(['+', '-']);
-        string symbol = plus < 0 ? address : address[..plus];
-        return _zeroPage.Contains(symbol) ? "z:" + address : address;
     }
 }

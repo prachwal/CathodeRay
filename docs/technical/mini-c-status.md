@@ -1,6 +1,6 @@
 # Mini-C — co zaimplementowane, a co przed nami
 
-Stan na main + plany 40–42 (plany 43 i 34 w kolejce, 32 częściowo). Specyfikacja języka: [../minic.md](../minic.md).
+Stan na main + plan 46 w toku (plany 40–42; plany 43 i 34 w kolejce, 32 częściowo). Specyfikacja języka: [../minic.md](../minic.md).
 Szczegóły architektury: [architecture.md](architecture.md), cele i ABI: [targets-and-abi.md](targets-and-abi.md),
 optymalizacje: [optimization.md](optimization.md).
 
@@ -15,7 +15,7 @@ optymalizacje: [optimization.md](optimization.md).
 - **Frontend** nie zna CPU; **cel** to ~150 linii (`XxxIsa : ByteIsa`) + `XxxTarget : ByteTarget` + crt0.
 - **Cell IR** (produkcyjny, default) — komórki absolutne W=1/2/4; wyrocznia `IrInterpreter`.
 - **VReg IR** (plan 37, flaga `--ir vreg`) — opada do Cell IR, więc ABI/crt0 działają bez zmian.
-- Cele: `stub 6502 65c02 nes 6510 z80 8080 6800` (LE, oprócz 6800 BE).
+- Cele: `stub 6502 65c02 nes 6510 z80 8080 6800 6809` (LE, oprócz 6800/6809 BE; 6809 używa ABI v1 i DP=$00).
 
 ## 2. Funkcjonalności języka — co działa (wszystko closed, plany 17–31)
 
@@ -43,30 +43,31 @@ funkcja zwracająca wskaźnik do funkcji, struktury > 64 B przez wartość.
 
 ## 3. Optymalizatory — co gdzie działa
 
-| Przebieg | Wspólne | 6502 / 65C02 / nes / 6510 | Z80 / 8080 | 6800 |
-| --- | --- | --- | --- | --- |
-| Składanie stałych, siła dla 2^n | ✅ `IrPasses` | ✅ | ✅ | ✅ |
-| Martwe tempy, forward temps | ✅ | ✅ | ✅ | ✅ |
-| Inlining liści (≤10 instr. IR; `static` z 1 wołaniem: 40) | ✅ `IrInliner` | ✅ | ✅ | ✅ |
-| ParamAlias (parametr = `cc_argN`) | ✅ LE | ✅ | ✅ | ❌ (BE, czeka) |
-| Alokator komórek w rejestry | — | ❌ (czeka na liveness, plan 40/42) | ✅ BC/DE (+HL wynik) | ❌ |
-| Wynik W≤2 w rejestrze | — | ❌ (`cc_ret`; v2: A/X w planie) | ✅ HL (plan 35) | ❌ (`cc_ret`) |
-| Słowa przez pary (`add hl,de`) | — | ❌ | ✅ Z80 (`TryAddWord`); 8080 częściowo | ❌ |
-| Porównania ze znakiem (forma 0) | ✅ | ✅ | ✅ | ✅ |
-| Porównania ze znakiem (stała) | — | ❌ (trampolina) | ✅ Z80; 8080 świadomie nie | ❌ (trampolina) |
-| Peephole `Tidy` | — | ❌ | ✅ | ❌ |
-| Relaksacja skoków | — | ✅ `BranchRelaxer` | ✅ (`jr`, `DropJumpToNext`) | ✅ `BranchRelaxer` |
-| Tail call | — | ✅ `jmp` | ✅ `jp`/`jp (hl)` | ❌ |
-| Strona zerowa / direct | — | ✅ ZP (`z:`, do 16 B/moduł) | — | częściowo (tylko formy direct) |
-| `IndexFusion` (`lda tab,x`) | — | ✅ | ❌ | ❌ |
-| Kopie bloków (LDIR) | matcher w selektorze | ❌ (brak rozkazu) | ✅ Z80 | ❌ (brak rozkazu) |
-| `switch uchar` → 1 B | ✅ `LowerSwitch` | ✅ | ✅ | ✅ |
-| Mnożenie przez stałą | ✅ `Legalizer` | ✅ | ✅ | ✅ |
-| DJNZ | — | — (brak rozkazu) | ❌ → **plan 43** | — (brak rozkazu) |
-| VReg: CSE/DCE/linear-scan | ✅ (`--ir vreg`) | ✅ | ✅ | ✅ |
+| Przebieg | Wspólne | 6502 / 65C02 / nes / 6510 | Z80 / 8080 | 6800 | 6809 |
+| --- | --- | --- | --- | --- | --- |
+| Składanie stałych, siła dla 2^n | ✅ `IrPasses` | ✅ | ✅ | ✅ | ✅ |
+| Martwe tempy, forward temps | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Inlining liści (≤10 instr. IR; `static` z 1 wołaniem: 40) | ✅ `IrInliner` | ✅ | ✅ | ✅ | ✅ |
+| ParamAlias (parametr = `cc_argN`) | ✅ LE | ✅ | ✅ | ❌ (BE, czeka) | ❌ (BE, czeka) |
+| Alokator komórek w rejestry | — | ❌ (czeka na liveness, plan 40/42) | ✅ BC/DE (+HL wynik) | ❌ | ❌ |
+| Wynik W≤2 w rejestrze | — | ❌ (`cc_ret`; v2: A/X w planie) | ✅ HL (plan 35) | ❌ (`cc_ret`) | ❌ (`cc_ret`) |
+| Słowa przez pary (`add hl,de`) | — | ❌ | ✅ Z80 (`TryAddWord`); 8080 częściowo | ❌ | ❌ |
+| Porównania ze znakiem (forma 0) | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Porównania ze znakiem (stała) | — | ❌ (trampolina) | ✅ Z80; 8080 świadomie nie | ❌ (trampolina) | ❌ (trampolina) |
+| Peephole `Tidy` | — | ❌ | ✅ | ❌ | ❌ |
+| Relaksacja skoków | — | ✅ `BranchRelaxer` | ✅ (`jr`, `DropJumpToNext`) | ✅ `BranchRelaxer` | ✅ `BranchRelaxer` |
+| Tail call | — | ✅ `jmp` | ✅ `jp`/`jp (hl)` | ❌ | ❌ |
+| Strona zerowa / direct | — | ✅ ZP (`z:`, do 16 B/moduł) | — | częściowo (formy direct) | częściowo (DP=$00, ZP) |
+| `IndexFusion` (`lda tab,x`) | — | ✅ | ❌ | ❌ | ❌ |
+| Kopie bloków (LDIR) | matcher w selektorze | ❌ (brak rozkazu) | ✅ Z80 | ❌ (brak rozkazu) | ❌ |
+| `switch uchar` → 1 B | ✅ `LowerSwitch` | ✅ | ✅ | ✅ | ✅ |
+| Mnożenie przez stałą | ✅ `Legalizer` | ✅ | ✅ | ✅ | ✅ |
+| DJNZ | — | — (brak rozkazu) | ❌ → **plan 43** | — (brak rozkazu) | — (brak rozkazu) |
+| VReg: CSE/DCE/linear-scan | ✅ (`--ir vreg`) | ✅ | ✅ | ✅ | ✅ |
 
 Szczegóły per CPU: [`../codegen/opt-z80.md`](../codegen/opt-z80.md), [`../codegen/opt-8080.md`](../codegen/opt-8080.md),
-[`../codegen/opt-6502.md`](../codegen/opt-6502.md), [`../codegen/opt-6800.md`](../codegen/opt-6800.md).
+[`../codegen/opt-6502.md`](../codegen/opt-6502.md), [`../codegen/opt-6800.md`](../codegen/opt-6800.md),
+[`../codegen/opt-6809.md`](../codegen/opt-6809.md).
 
 ## 4. Pomiary (skrót; pełne: [`../compare.md`](../compare.md))
 

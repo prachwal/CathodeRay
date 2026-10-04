@@ -930,7 +930,14 @@ public sealed class TwoPassAssembler(InstructionSet isa, SyntaxDialect dialect)
             int start = ProgramCounter;
             if (!final)
             {
-                choices[index] = FormSelector.Select(owner.Isa, line.Keyword!.ToUpperInvariant(), line.Operand, TryEvaluate, ProgramCounter);
+                choices[index] = FormSelector.Select(
+                    owner.Isa,
+                    line.Keyword!.ToUpperInvariant(),
+                    line.Operand,
+                    expression => objectMode && SingleSymbol(expression) is { } symbol && symbolSegments.ContainsKey(symbol)
+                        ? null
+                        : TryEvaluate(expression),
+                    ProgramCounter);
             }
 
             (InstructionForm form, string[] captures) = choices[index];

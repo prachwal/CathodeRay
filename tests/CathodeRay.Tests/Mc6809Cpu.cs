@@ -73,10 +73,6 @@ public sealed class Mc6809Cpu
 
         Cycles += entry.Cycles;
         Execute(entry);
-        if (Pc == start && !Halted)
-        {
-            Halted = true;
-        }
     }
 
     private static Dictionary<int, Entry> LoadTable()
@@ -190,8 +186,22 @@ public sealed class Mc6809Cpu
             case "ABX":
                 X = (ushort)(X + B);
                 return true;
+            case "LEAX":
+                X = (ushort)EffectiveAddress("indexed");
+                Set(Zero, X == 0);
+                return true;
+            case "LEAY":
+                Y = (ushort)EffectiveAddress("indexed");
+                Set(Zero, Y == 0);
+                return true;
+            case "LEAS":
+                S = (ushort)EffectiveAddress("indexed");
+                return true;
+            case "LEAU":
+                U = (ushort)EffectiveAddress("indexed");
+                return true;
             case "SEX":
-                D = (ushort)((unchecked((sbyte)B) * 256) + B);
+                A = (B & 0x80) != 0 ? (byte)0xFF : (byte)0;
                 SetNz16(D);
                 Set(Overflow, false);
                 return true;
@@ -220,13 +230,13 @@ public sealed class Mc6809Cpu
                 ReturnFromInterrupt();
                 return true;
             case "SWI":
-                SoftwareInterrupt(0xFFFA, setFirqMask: true);
+                SoftwareInterrupt(0xFFFA, setInterruptMasks: true);
                 return true;
             case "SWI2":
-                SoftwareInterrupt(0xFFF4, setFirqMask: false);
+                SoftwareInterrupt(0xFFF4, setInterruptMasks: false);
                 return true;
             case "SWI3":
-                SoftwareInterrupt(0xFFF2, setFirqMask: false);
+                SoftwareInterrupt(0xFFF2, setInterruptMasks: false);
                 return true;
             case "CWAI":
                 Cc &= Fetch8();
@@ -660,13 +670,21 @@ public sealed class Mc6809Cpu
                 Cycles += 4;
                 break;
             case 0xC:
-                address = (Pc + (sbyte)Fetch8()) & 0xFFFF;
+            {
+                sbyte offset = (sbyte)Fetch8();
+                address = (Pc + offset) & 0xFFFF;
                 Cycles += 1;
                 break;
+            }
+
             case 0xD:
-                address = (Pc + (short)Fetch16()) & 0xFFFF;
+            {
+                short offset = (short)Fetch16();
+                address = (Pc + offset) & 0xFFFF;
                 Cycles += 5;
                 break;
+            }
+
             case 0xF when indirect && (postbyte & 0x60) == 0x00:
                 address = Fetch16();
                 Cycles += 2;
@@ -910,6 +928,7 @@ public sealed class Mc6809Cpu
         Cc = Pull8(() => S, value => S = value);
         if ((Cc & Entire) != 0)
         {
+            Cycles += 9;
             A = Pull8(() => S, value => S = value);
             B = Pull8(() => S, value => S = value);
             Dp = Pull8(() => S, value => S = value);
@@ -921,13 +940,13 @@ public sealed class Mc6809Cpu
         Pc = Pull16(() => S, value => S = value);
     }
 
-    private void SoftwareInterrupt(ushort vector, bool setFirqMask)
+    private void SoftwareInterrupt(ushort vector, bool setInterruptMasks)
     {
         Cc |= Entire;
         PushAll(() => S, value => S = value);
-        Cc |= IrqMask;
-        if (setFirqMask)
+        if (setInterruptMasks)
         {
+            Cc |= IrqMask;
             Cc |= FirqMask;
         }
 

@@ -32,6 +32,7 @@ public static class CpuModels
             [],
             Intel8080Effects()),
         ["6800"] = new("6800", [new("a", 1, []), new("b", 1, []), new("x", 2, [])], ScratchOf("a", "b", "x"), ScratchOf("a", "b", "x"), null, [], M6800Effects()),
+        ["6809"] = new("6809", [new("a", 1, []), new("b", 1, []), new("d", 2, ["a", "b"]), new("x", 2, []), new("y", 2, []), new("u", 2, []), new("s", 2, []), new("dp", 1, [])], ScratchOf("a", "b", "x"), ScratchOf("a", "b", "x"), null, [], M6800Effects()),
     };
 
     /// <summary>Model po nazwie celu.</summary>

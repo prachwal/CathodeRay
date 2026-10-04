@@ -1,4 +1,5 @@
 using CathodeRay.Assembler;
+using CathodeRay.Assembler.Link;
 using FluentAssertions;
 
 namespace CathodeRay.Tests;
@@ -100,6 +101,16 @@ public sealed class M6809AsmTests
         {
             FluentActions.Invoking(() => Asm(line)).Should().Throw<CathodeRay.Assembler.AssemblerException>(line);
         }
+    }
+
+    [Fact]
+    public void Object_Local_Jump_Uses_Relocatable_Extended_Form()
+    {
+        AssemblerTarget target = AssemblerTargets.Find("6809")!;
+        ObjectModule module = new TwoPassAssembler(Repo.LoadTarget(target), target.DefaultSyntax)
+            .AssembleObject("6809", "start: jmp done\ndone: nop", "jump.s", _ => null, []);
+
+        module.Relocations.Should().ContainSingle().Which.Kind.Should().Be(RelocKind.Abs16);
     }
 
     private static byte[] Asm(string source) => Repo.Assemble("6809", source).Image;

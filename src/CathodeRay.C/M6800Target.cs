@@ -3,7 +3,7 @@ namespace CathodeRay.C;
 /// <summary>Cel Motorola 6800: generator bajtowy z akumulatorem A i rejestrem X, dane big-endian. Najczęściej używane komórki
 /// i komórki umówione (<c>cc_arg1..3</c>, <c>cc_ret</c>, <c>cc_t*</c>) leżą na stronie bezpośredniej (<c>$0010..$00FF</c>, poniżej stosu
 /// od <c>$0FFF</c> w dół), więc dostęp do nich ma 2 bajty zamiast 3.</summary>
-public sealed class M6800Target : ByteTarget
+public class M6800Target : ByteTarget
 {
     /// <inheritdoc/>
     public override string Name => "6800";

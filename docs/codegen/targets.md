@@ -10,6 +10,7 @@ kodu pośredniego IR) nie zna procesora; cel drukuje IR jako asembler swojego CP
 | `z80` | Zilog Z80 | LE | argumenty `cc_argN`, wynik W<=2 w HL (L dla 1 B; plan 35), HL jako rejestr adresowy | `Z80Cpu` |
 | `8080` | Intel 8080 | LE | jak `z80` (wynik w HL), mnemoniki Intel | `Z80Cpu(intel8080: true)` |
 | `6800` | Motorola 6800 | BE | argumenty `cc_argN`, wynik `cc_ret`, rejestr X | `Mc6800Cpu` (tablice z JSON ISA) |
+| `6809` | Motorola 6809 | BE | ABI v1 przez `cc_argN`/`cc_ret`, DP ustawione na `$00`, wskaźnik X | `Mc6809Cpu` (tablice z JSON ISA) |
 
 Rozmiar kodu programów przykładowych na każdym celu: [target-sizes.md](../target-sizes.md).
 
