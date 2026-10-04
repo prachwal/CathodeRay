@@ -1,6 +1,6 @@
 # Optymalizacje codegen: Zilog Z80
 
-Stan na main + plany 40–42 (plan 43, DJNZ, w kolejce). Model: A + pary BC/DE/HL, wynik w HL, flaga V (`HasOverflowFlag`).
+Stan na main po planach 40–45. Plan 43 (DJNZ) i plan 45 (łańcuchy `jmp`) są zamknięte. Model: A + pary BC/DE/HL, wynik w HL, flaga V (`HasOverflowFlag`).
 ABI v2 nie dotyczy (pilot `nes`, flaga `--abi`).
 
 | Ficzer | Status | Dowód / uwagi |
@@ -21,12 +21,10 @@ ABI v2 nie dotyczy (pilot `nes`, flaga `--abi`).
 | Kopiowanie bloków (LDIR) | zrobione | Matcher pętli w selektorze + `TryCopyLoop` (test zera, `push bc/de`, `ldir`); `CopyLoopTests` (wartości, n=0, `Le`, elementy W2 zostają pętlą) |
 | Strength reduction | zrobione | Jak wyżej + mnożenie przez stałą w `Legalizer`; `twice` 9→5 B |
 | Switch `uchar` → 1 B | zrobione | Zwężenie w `LowerSwitch` (wspólne); `SwitchNarrowTests` |
-| DJNZ | brak | Plan 43 (w kolejce; wymaga licznika w B + liveness) |
+| DJNZ | zrobione | Plan 43: licznik W1 pre-kolorowany do B; `djnz`, a dla dalekiego ciała `dec b` + `jp nz`; `DjnzTests` |
 | RST dla helperów | brak | Świadomie odroczone: ~5 site'ów w `div16` (wiersz spoza średniej) za cenę strony 0, wektorów, emulatora i harnessu |
 | ABI v2 (rejestry) | brak | Nie dotyczy |
 
 ## Braki / next
 
-- DJNZ (licznik w B) — po rezerwacji rejestru z liveness.
 - `IndexFusion` dla Z80 (tryb `(HL)` już jest; chodzi o `LoadIdx`/`StoreIdx` tuż przed selektorem).
-- Pełne kopie BC↔HL wokół wołań bez liveness się nie domkną (item 2 planu 40, partial) — czeka na item 9.
