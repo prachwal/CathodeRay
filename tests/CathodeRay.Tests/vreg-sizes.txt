@@ -15,7 +15,7 @@
 02_control.c z80 159
 02_control.c 8080 196
 02_control.c 6800 225
-02_control.c 6809 231
+02_control.c 6809 223
 04_int_ops.c stub 1001
 04_int_ops.c 6502 609
 04_int_ops.c 65c02 609
@@ -51,7 +51,7 @@
 07_control.c z80 187
 07_control.c 8080 229
 07_control.c 6800 289
-07_control.c 6809 295
+07_control.c 6809 292
 08_int_signed.c stub 1078
 08_int_signed.c 6502 954
 08_int_signed.c 65c02 954
@@ -60,7 +60,7 @@
 08_int_signed.c z80 585
 08_int_signed.c 8080 780
 08_int_signed.c 6800 1120
-08_int_signed.c 6809 1146
+08_int_signed.c 6809 1136
 09_init.c stub 970
 09_init.c 6502 801
 09_init.c 65c02 801
@@ -69,7 +69,7 @@
 09_init.c z80 513
 09_init.c 8080 687
 09_init.c 6800 920
-09_init.c 6809 946
+09_init.c 6809 943
 10_struct.c stub 895
 10_struct.c 6502 405
 10_struct.c 65c02 405
@@ -78,7 +78,7 @@
 10_struct.c z80 272
 10_struct.c 8080 305
 10_struct.c 6800 304
-10_struct.c 6809 310
+10_struct.c 6809 308
 11_goto_typedef.c stub 998
 11_goto_typedef.c 6502 506
 11_goto_typedef.c 65c02 506
@@ -87,7 +87,7 @@
 11_goto_typedef.c z80 314
 11_goto_typedef.c 8080 329
 11_goto_typedef.c 6800 427
-11_goto_typedef.c 6809 433
+11_goto_typedef.c 6809 430
 12_globals_init.c stub 1048
 12_globals_init.c 6502 579
 12_globals_init.c 65c02 579
@@ -105,7 +105,7 @@
 13_strings.c z80 1654
 13_strings.c 8080 2052
 13_strings.c 6800 2434
-13_strings.c 6809 2440
+13_strings.c 6809 2408
 14_macros.c stub 218
 14_macros.c 6502 131
 14_macros.c 65c02 131
@@ -123,7 +123,7 @@
 15_funcptr.c z80 602
 15_funcptr.c 8080 688
 15_funcptr.c 6800 856
-15_funcptr.c 6809 862
+15_funcptr.c 6809 861
 16_printf.c stub 7169
 16_printf.c 6502 3958
 16_printf.c 65c02 3958
@@ -132,7 +132,7 @@
 16_printf.c z80 3200
 16_printf.c 8080 3564
 16_printf.c 6800 4482
-16_printf.c 6809 4488
+16_printf.c 6809 4464
 17_casts.c stub 516
 17_casts.c 6502 331
 17_casts.c 65c02 331
@@ -150,7 +150,7 @@
 18_voidptr.c z80 535
 18_voidptr.c 8080 649
 18_voidptr.c 6800 910
-18_voidptr.c 6809 916
+18_voidptr.c 6809 893
 19_struct_value.c stub 6487
 19_struct_value.c 6502 2397
 19_struct_value.c 65c02 2397
@@ -159,7 +159,7 @@
 19_struct_value.c z80 2112
 19_struct_value.c 8080 2252
 19_struct_value.c 6800 2489
-19_struct_value.c 6809 2535
+19_struct_value.c 6809 2503
 20_matrix.c stub 2348
 20_matrix.c 6502 1280
 20_matrix.c 65c02 1280
@@ -168,7 +168,7 @@
 20_matrix.c z80 951
 20_matrix.c 8080 1062
 20_matrix.c 6800 1081
-20_matrix.c 6809 1087
+20_matrix.c 6809 1081
 21_long.c stub 9919
 21_long.c 6502 5755
 21_long.c 65c02 5755
@@ -177,7 +177,7 @@
 21_long.c z80 4571
 21_long.c 8080 5041
 21_long.c 6800 6146
-21_long.c 6809 6152
+21_long.c 6809 6119
 22_misc.c stub 1407
 22_misc.c 6502 1019
 22_misc.c 65c02 1019
@@ -186,7 +186,7 @@
 22_misc.c z80 813
 22_misc.c 8080 958
 22_misc.c 6800 1184
-22_misc.c 6809 1190
+22_misc.c 6809 1174
 23_types.c stub 2463
 23_types.c 6502 1883
 23_types.c 65c02 1883
@@ -195,7 +195,7 @@
 23_types.c z80 1670
 23_types.c 8080 1865
 23_types.c 6800 2036
-23_types.c 6809 2042
+23_types.c 6809 2032
 24_float.c stub 22090
 24_float.c 6502 15355
 24_float.c 65c02 15355
@@ -204,7 +204,7 @@
 24_float.c z80 14154
 24_float.c 8080 14494
 24_float.c 6800 15381
-24_float.c 6809 15387
+24_float.c 6809 15365
 25_longlong.c stub 17294
 25_longlong.c 6502 11399
 25_longlong.c 65c02 11399
@@ -213,4 +213,4 @@
 25_longlong.c z80 10024
 25_longlong.c 8080 10343
 25_longlong.c 6800 10910
-25_longlong.c 6809 10916
+25_longlong.c 6809 10896

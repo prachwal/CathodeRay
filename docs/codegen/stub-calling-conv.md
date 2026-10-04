@@ -447,7 +447,7 @@ Wywołanie ogonowe (`ByteSelector`, tylko Z80/8080): `Call` z wynikiem i zaraz `
 
 ## Plan 38: CpuModel a zamrożone ABI
 
-Konwencja (argumenty `cc_argN`, wynik `cc_ret`/`HL`) jest opisana jawnie w `CpuModel`
-(`ArgRegs` puste = ABI v1, `ResultReg` = `hl` tylko na Z80/8080). Opt 1 (argumenty w rejestrach)
-wypełni `ArgRegs` bez rewolucji w selektorze (`ByteIsa.ArgCell` już czyta model); zmiana i tak
-wymaga decyzji ABI (dual-ABI albo pilotaż na `nes`/`6510`), bo łamie ręczne `.s` i obiekty.
+Konwencje są opisane jawnie w `CpuModel`. ABI v1 pozostaje domyślne: argumenty w `cc_argN`, wynik w `cc_ret` (lub HL na Z80/8080).
+`--abi v2` działa opt-in na NES (argumenty w A/X) i 6809 (argumenty W2 z pozycji 0–2 w X/Y/U; W1 i dalsze w `cc_argN`, wynik nadal w `cc_ret`).
+6809 v2 wymaga dokładnie jednego modułu C; helpery runtime pozostają ABI v1, a pośrednie wywołanie korzysta z `cc_fp`/`__icall`.
+Pozostałe cele odrzucają v2; zmiana domyślnej konwencji nadal wymaga osobnej decyzji i zgodności modułów `.s`.

@@ -41,6 +41,7 @@ emulator w `tests/CathodeRay.Tests/` (`Mos6502.cs`, `Z80Cpu.cs`, …) i `docs/`.
 
 - Aktualizacja dokumentacji jest bramką przed commitem dla zmian codegen/CPU: odśwież `docs/codegen/opt-<cpu>.md` i checklistę `docs/technical/mini-c-status.md`.
 - Zmiana lub dodanie celu/ABI wymaga też aktualizacji `docs/codegen/targets.md` i indeksu `docs/codegen/README.md`.
+- Zmiana ABI wymaga aktualizacji specyfikacji w `docs/codegen/stub-calling-conv.md` i `docs/technical/targets-and-abi.md`.
 - Zmiana rozmiarów wymaga odświeżenia `docs/target-sizes.md` i/lub `docs/vreg-sizes.md` zgodnie z testami goldenów; metryki i odrzucone warianty zapisuj w planie.
 - Renderuj zmieniony plan przez `python3 tools/plan.py render <plan>` i przed commitem wymagaj `python3 tools/plan.py hygiene`.
 

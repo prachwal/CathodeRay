@@ -11,18 +11,21 @@ Rejestr celów: `CTargets.All`. Źródła: [../targets.md](../codegen/targets.md
 | `z80` | Zilog Z80 | LE | argumenty `cc_argN`, wynik W≤2 w HL (L dla 1 B), HL jako rejestr adresowy | `Z80Cpu` |
 | `8080` | Intel 8080 | LE | jak `z80`, mnemoniki Intel | `Z80Cpu(intel8080: true)` |
 | `6800` | Motorola 6800 | BE | argumenty `cc_argN`, wynik `cc_ret`, rejestr X | `Mc6800Cpu` |
+| `6809` | Motorola 6809 | BE | domyślnie argumenty `cc_argN`, wynik `cc_ret`; ABI v2 opt-in: argumenty W2 w X/Y/U; DP=$00 | `Mc6809Cpu` |
 
 Warianty `65c02`, `nes` i `6510` to flagi tej samej klasy `Mos6502Target`, a nie osobne selektory. Mają ten sam kod co `6502`,
 a różnią się układem pamięci i crt0 (np. `nes` bez BCD, `6510` z portem I/O). Rozmiary kodu `nes` i `6510` są co do bajta równe `6502`.
 
-## Konwencja wołań (ABI v1)
+## Konwencja wołań (ABI v1 i opt-in ABI v2)
 
-ABI jest zamrożone. Zmiana konwencji (np. wynik w HL zamiast A/X) wymaga przebudowy wszystkich modułów, ręcznego asemblera i runtime,
-więc zmiany przechodzą przez okres podwójnego ABI albo pełną przebudowę.
+ABI v1 pozostaje domyślne. `--abi v2` jest trybem opt-in dla NES i 6809; wymaga dokładnie jednego modułu C (runtime-helpery są nadal kompilowane w ABI v1).
+NES przekazuje argumenty w A/X. 6809 przekazuje argumenty W2 z pozycji 0–2 w X/Y/U; argumenty W1 i dalsze są w pamięci, wynik nadal w `cc_ret`. Wywołania wskaźników na 6809 używają pomocnika `__icall` i komórki `cc_fp`.
+Pozostałe cele odrzucają v2. Zmiana domyślnego ABI wymaga osobnej decyzji i przebudowy/zgodności ręcznych modułów asemblerowych.
 
-- Argumenty trafiają do komórek `cc_arg1`…`cc_arg6` (+ `_h` dla starszego bajtu `int`), maksymalnie 6.
+- W ABI v1 argumenty trafiają do komórek `cc_arg1`…`cc_arg6` (+ `_h` dla starszego bajtu `int`), maksymalnie 6.
   Na stubie pierwszy argument idzie w `A` (int: `A`=lo, `X`=hi).
-- Wynik: `cc_ret` (+ `_h`) na 6502 i 6800, w `HL` na Z80 i 8080 (plan 35), w `A`/`X` na stubie.
+- Wynik: `cc_ret` (+ `_h`) na 6502, 6800 i 6809; w `HL` na Z80 i 8080 (plan 35), w `A`/`X` na stubie.
+- W ABI v2 NES przekazuje argumenty w A/X; 6809 przekazuje argumenty W2 z pozycji 0–2 w X/Y/U. Argumenty W1 i dalsze pozostają w `cc_argN`; wynik 6809 nadal wraca przez `cc_ret`.
 - Caller niczego nie zachowuje, a callee zachowuje własne komórki (parametry, lokale, tempy) na stosie sprzętowym w prologu i odtwarza je w epilogu.
   Dzięki temu rekurencja działa do wyczerpania stosu (stub: ok. 256 B).
 - Globale są współdzielone i nie są odkładane.
@@ -48,7 +51,7 @@ Jawny kontrakt rejestrowy dla optymalizatora (`src/CathodeRay.C/Cpu*.cs`):
 
 - rejestry i aliasy (np. `hl=[h,l]`, pary `bc`, `de`),
 - co niszczy wywołanie (`ClobberedByCall`) i czym „drapią” prymitywy (`Scratch`),
-- gdzie wraca wynik (`ResultReg`) i dokąd idą argumenty (`ArgRegs`; dziś puste, czyli ABI v1),
+- gdzie wraca wynik (`ResultReg`) i dokąd idą argumenty (`ArgRegs`; ABI v1 używa pamięci, NES/6809 mają mapy dla opt-in v2),
 - efekty prymitywów (`PrimEffects`: czytane i zapisywane rejestry, flagi).
 
 Selektor czyta model zamiast zgadywać (zajętość przez aliasy, komórki argumentów, walidacja przydziału rejestrów).

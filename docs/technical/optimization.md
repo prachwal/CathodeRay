@@ -59,15 +59,13 @@ Pełna tabela jest w `compare.md`. Odświeża ją `python3 tools/compare.py --wr
 
 Rozmiary na wszystkich celach i programach przykładowych: [../target-sizes.md](../target-sizes.md) (generowane testem `TargetSizeTests`).
 
-## Kierunki (plan 40 closed; plan 43, DJNZ, w kolejce)
+## Kierunki i aktualne plany
 
-Plan 40 domyka lukę do SDCC na Z80 i 8080. Zrobione: `xor a` zamiast `ld a,0` i martwa stopka po skoku końcowym (1), częściowo `ex de,hl` (2),
-skoki po stałej ze znakiem i redukcja siły dla `x+x` (3, 4), `LDIR` dla pętli kopiujących: copy 48 → 22 B (5), zawężenie `switch` na `uchar` do 1 bajta (11).
-Zostały: DJNZ (6), RST (7, świadomie odroczone), tail-call przez join (8), ramka i indukcja w parach rejestrów (9, zadanie największe) i pomiary zamykające (10).
-Szczegółowa analiza: [../plans/40-z80-codegen.md](../plans/40-z80-codegen.md).
+Plany 40–43 są zamknięte: Z80/8080 mają alokację, tail-call i optymalizacje pętli; plan 43 dodał `djnz` na Z80 (8080 bez zmian). Plan 45 domknął bezpieczne łańcuchy `jmp` na stubie. RST dla helperów pozostaje świadomie odrzucone ze względu na niski zysk i stały koszt wektorów/runtime.
 
-Dalej: nowe ABI z argumentami w rejestrach (`ArgRegs` w `CpuModel`, pilotaż na NES/6510 jako osobny plan) oraz SSA/GVN i alokacja grafowa
-wyłącznie wtedy, gdy pomiary je uzasadnią.
+Plan 47 jest zamknięty: ABI v2 z argumentami W2 w X/Y/U, direct-page `TryStep` oraz kopie przez X/Y z U jako licznikiem. Wynik W≤2 w D i TFR do ustawienia drugiego wskaźnika odrzucono po pomiarze. Dane i status per CPU: [opt-6809.md](../codegen/opt-6809.md).
+
+Plan 34 (VM bytecode) pozostaje w kolejce. ABI v2 nie staje się domyślne: pilot NES nie przeszedł bramki rozmiaru, a 6809 udostępnia v2 tylko opt-in. SSA/GVN, LICM i alokator grafowy pozostają odłożone do czasu pojawienia się pozytywnego pomiaru.
 
 ## Ograniczenia ekosystemu
 

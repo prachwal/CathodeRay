@@ -110,6 +110,13 @@ internal sealed partial class ByteSelector
                 continue;
             }
 
+            if (call.ParamWidths[i] == 2 && WordOf(call.Args[i]) is { } word
+                && ((IRegArgs)_isa).TryStoreArgWord(CallArgCell(call, i, 0, call.ParamWidths[i]), word))
+            {
+                _acc.Clear();
+                continue;
+            }
+
             // wartość do A, potem do rejestru; części od starszej (A kończy z młodszym)
             for (int part = call.ParamWidths[i] - 1; part >= 0; part--)
             {

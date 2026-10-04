@@ -10,9 +10,10 @@ Flagi statusu: `closed` (zrobione), `queued` (plan istnieje, czeka), `partial` (
 
 | Gap | Plan / task |
 | --- | --- |
-| DJNZ + dług splitów | plan 43 (queued, 0/8) |
-| VM bytecode | plan 34 (queued, 0/4) |
-| Łańcuchy `jmp` | GO z P4 → plan 45 (propozycja) |
+| DJNZ + dług splitów | plan 43 (closed): DJNZ na Z80; bez zmian na 8080 |
+| VM bytecode | plan 34 (queued, 0/10) |
+| Łańcuchy `jmp` | plan 45 (closed): bezpieczne łańcuchy wdrożone na stubie |
+| Optymalizacje 6809 | plan 47 (closed): ABI v2 argumentów, `TryStep` direct-page, kopie X/Y z licznikiem U |
 | Wynik w A/X (6502/6800) | P1: NO-GO (max 10,6% < 15%) |
 | ABI v2 cd., bramka −15% | P2: NO-GO (najlepszy bench −5,2%) |
 | CSE/LICM, SSA/GVN | P3: NO-GO (dostępne 2,7%, niezmienniki 1,8%) |
@@ -20,7 +21,7 @@ Flagi statusu: `closed` (zrobione), `queued` (plan istnieje, czeka), `partial` (
 
 ## Zasada: najpierw pomiar, potem plan
 
-Taski P1–P4 i T1 są w planie 44 ([../plans/44-gap-measurements.md](../plans/44-gap-measurements.md), queued). Wynik wpisz tu (liczba + komenda),
+Taski P1–P4 i T1 są zamknięte w planie 44 ([../plans/44-gap-measurements.md](../plans/44-gap-measurements.md)). Wynik wpisz tu (liczba + komenda),
 a dopiero na jego podstawie otwórz **jeden** plan (reguła repo: jeden plan w locie). Bez liczb nie ma planu.
 
 - [x] **P1 — koszt `cc_ret` na 6502/6800**: NO-GO. Ruch `cc_ret(_h)` to 0,3–5,2% CODE na 6502
@@ -32,17 +33,16 @@ a dopiero na jego podstawie otwórz **jeden** plan (reguła repo: jeden plan w l
   ale dostępne tylko 2,7%; niezmienniki pętli 1,8% — oba poniżej 3%. SSA/GVN zostaje odłożone.
 - [x] **P4 — łańcuchy `jmp`**: GO z warunkami. 569 łańcuchów jednopoprzednikowych bez fall-through na stubie
   (1707 B, ~2–3% CODE na program; JMP=3 B) + 19 z ryzykiem spadku (wykluczyć). Historyczne +3 B z planu 32
-  to artefakt (przekierowanie bez usuwania martwej etykiety). Plan: 45 (propozycja).
+  wynikało z braku usuwania martwej etykiety; poprawka i testy są w zamkniętym planie 45.
 
 ## Kolejność realizacji (najpierw pomiar, potem bajty za najmniejsze ryzyko)
 
-1. **P1–P4 + T1 (plan 44)** — równolegle, rozmiar S, zero zmiany codegenu. T1 jak najwcześniej: każda zmiana ramek/alokatora bez niego to zgadywanie.
-2. **Plan 43 (DJNZ)** — pętle to trzeci koszt po wywołaniach i ramkach; ma własną bramkę go/no-go (poz. 4). Przed grzebaniem w 6502, bo rusza współdzielony alokator/liveness.
-3. **Przy GO z fazy 0, po stosunku zysk/koszt**: wynik W≤2 w A/X na 6502 (GO z P1) → ParamAlias rejestrowy + re-bramka v2 (GO z P2) → LICM prostych niezmienników (GO z P3) → łańcuchy `jmp` (GO z P4).
-4. **Ogony i 6800** (małe, niezależne): ParamAlias BE + tail call 6800 (każde po micro-pomiarze) → tail call z ramką (rozpoznanie) → relaksacja form w asemblerze (największe ryzyko regresji, na końcu).
-5. **Tor równoległy**: plan 34 (VM) — niezależny od codegen AOT, nie konkuruje o priorytet. **Koniec kolejki**: alokator grafowy (dopiero gdy bramka linear-scan vs greedy pokaże lukę).
+1. **Plan 47 (6809, closed)** — wdrożono tylko warianty zmniejszające CODE bez wzrostu w żadnym programie; wynik D i TFR odrzucone.
+2. **Plan 34 (VM bytecode, queued)** — niezależny od codegen AOT i po planie 47.
+3. **Ogony i 6800** — ParamAlias BE, tail-call 6800 / z ramką i relaksacja form wymagają osobnego pomiaru oraz planu.
+4. **SSA/GVN/LICM i alokator grafowy** — pozostają odłożone do czasu, gdy porównania wskażą konkretny zysk.
 
-Nie zaczynać od ABI v2 ani SSA „bo to właściwe rozwiązanie” — oba mają przegrane bramki (v2: +1,7 B; SSA: brak pomiaru).
+Nie ustawiać ABI v2 jako domyślnego bez ponownej bramki rozmiaru (pilot NES z planu 39: +1,7 B); 6809 ma osobny opt-in wyłącznie dla argumentów. SSA/GVN również czeka na pomiar.
 
 ## Bez pomiaru nie ruszać (decyzje)
 
@@ -52,11 +52,12 @@ Nie zaczynać od ABI v2 ani SSA „bo to właściwe rozwiązanie” — oba maj�
 - **Forward-ref = najdłuższa forma** — relaksacja częściowa; zrobić tylko jeśli `compare.py` pokaże ≥1% na asemblerze.
 - ~~Ślepa wyrocznia ramek~~ — zrobione w T1 (`FrameModelTests`, plan 44).
 
-## Odłożone / kolejka (plany istnieją)
+## Plany (status i kolejka)
 
-- [ ] `queued` Plan 43 (DJNZ, 0/8).
-- [ ] `queued` Plan 34 (VM bytecode, 0/4).
-- [ ] `propozycja` Plan 45 (łańcuchy `jmp`, GO z P4).
+- [x] `closed` Plan 43 (DJNZ Z80; port 8080 nie zmieniony).
+- [ ] `queued` Plan 34 (VM bytecode, 0/10).
+- [x] `closed` Plan 47 (6809; argumenty W2 w X/Y/U przez opt-in v2, direct-page i X/Y copy-loop z licznikiem U; wynik D/TFR odrzucone, goldeny bez wzrostu).
+- [x] `closed` Plan 45 (łańcuchy `jmp`, GO z P4).
 
 ## Zamknięte (referencja, nie odznaczać)
 
@@ -65,3 +66,4 @@ Nie zaczynać od ABI v2 ani SSA „bo to właściwe rozwiązanie” — oba maj�
 - [x] `closed` Wynik w HL (Z80/8080) — plan 35. Tail call Z80/8080/6502 — plan 36/40.
 - [x] `closed` Pilot ABI v2 `nes` + flaga `--abi` — plan 39 (bramka nie przeszła, default v1).
 - [x] `closed` Pomiary P1–P3 (NO-GO) i P4 (GO → plan 45) + T1 (`FrameModelTests`, mutacja kontrolna) — plan 44.
+- [x] `closed` Bazowy target 6809, assembler, emulator, macierz i ABI v2 argumentów opt-in — plan 46 / 47.

@@ -1,6 +1,6 @@
 # Mini-C — co zaimplementowane, a co przed nami
 
-Stan na main: plan 46 zamknięty; plan 43 (DJNZ) i plan 45 (łańcuchy `jmp`) zamknięte. W kolejce są plan 34 (VM bytecode) i plan 47 (optymalizacje 6809). Plan 32 ma status queued i jedną historyczną pozycję partial; jej cel zrealizował później plan 45. Specyfikacja języka: [../minic.md](../minic.md).
+Stan na main: plany 43 (DJNZ), 45 (łańcuchy `jmp`), 46 (bazowy 6809) i 47 (optymalizacje 6809) zamknięte; w kolejce plan 34 (VM bytecode). Plan 32 pozostaje queued z jedną historyczną pozycją partial, której cel zrealizował później plan 45. Specyfikacja języka: [../minic.md](../minic.md).
 Szczegóły architektury: [architecture.md](architecture.md), cele i ABI: [targets-and-abi.md](targets-and-abi.md),
 optymalizacje: [optimization.md](optimization.md).
 
@@ -15,7 +15,7 @@ optymalizacje: [optimization.md](optimization.md).
 - **Frontend** nie zna CPU; **cel** to ~150 linii (`XxxIsa : ByteIsa`) + `XxxTarget : ByteTarget` + crt0.
 - **Cell IR** (produkcyjny, default) — komórki absolutne W=1/2/4; wyrocznia `IrInterpreter`.
 - **VReg IR** (plan 37, flaga `--ir vreg`) — opada do Cell IR, więc ABI/crt0 działają bez zmian.
-- Cele: `stub 6502 65c02 nes 6510 z80 8080 6800 6809` (LE, oprócz 6800/6809 BE; 6809 używa ABI v1 i DP=$00).
+- Cele: `stub 6502 65c02 nes 6510 z80 8080 6800 6809` (LE, oprócz 6800/6809 BE; 6809 domyślnie ABI v1, opt-in v2 dla argumentów W2 w X/Y/U, wynik przez `cc_ret`; DP=$00).
 
 ## 2. Funkcjonalności języka — co działa (wszystko closed, plany 17–31)
 
@@ -49,6 +49,7 @@ funkcja zwracająca wskaźnik do funkcji, struktury > 64 B przez wartość.
 | Martwe tempy, forward temps | ✅ | ✅ | ✅ | ✅ | ✅ |
 | Inlining liści (≤10 instr. IR; `static` z 1 wołaniem: 40) | ✅ `IrInliner` | ✅ | ✅ | ✅ | ✅ |
 | ParamAlias (parametr = `cc_argN`) | ✅ LE | ✅ | ✅ | ❌ (BE, czeka) | ❌ (BE, czeka) |
+| Argumenty rejestrowe ABI v2 | — | ✅ pilot NES (A/X) | ❌ | ❌ | ✅ opt-in: W2 0–2 w X/Y/U; W1/dalsze przez pamięć |
 | Alokator komórek w rejestry | — | ❌ (czeka na liveness, plan 40/42) | ✅ BC/DE (+HL wynik) | ❌ | ❌ |
 | Wynik W≤2 w rejestrze | — | ❌ (`cc_ret`; v2: A/X w planie) | ✅ HL (plan 35) | ❌ (`cc_ret`) | ❌ (`cc_ret`) |
 | Słowa przez pary (`add hl,de`) | — | ❌ | ✅ Z80 (`TryAddWord`); 8080 częściowo | ❌ | ❌ |
@@ -71,8 +72,8 @@ Szczegóły per CPU: [`../codegen/opt-z80.md`](../codegen/opt-z80.md), [`../code
 
 ## 4. Pomiary (skrót; pełne: [`../compare.md`](../compare.md))
 
-Średnia geometryczna (bez mnożenia/dzielenia/przesunięć): **mini-C / cc65 = 1.23**, **mini-C / SDCC = 1.12**.
-Największe luki: wywołania i rekurencja (`fib`, `sw`, `fnptr`). ABI v2 pozostaje eksperymentalne tylko na `nes`; optymalizacje 6809 mają osobny plan 47.
+Średnia geometryczna (bez mnożenia/dzielenia/przesunięć): **mini-C / cc65 = 1.19**, **mini-C / SDCC = 1.36** (`docs/compare.md`, 26 benchy).
+Największe luki: wywołania i rekurencja (`fib`, `sw`, `fnptr`). ABI v2 pozostaje opt-in na NES i 6809; v1 jest nadal domyślne. Plan 47 mierzy dalsze optymalizacje 6809.
 
 ## 5. Co przed nami
 
@@ -81,11 +82,11 @@ Największe luki: wywołania i rekurencja (`fib`, `sw`, `fnptr`). ABI v2 pozosta
 | Liczniki pętli + DJNZ (Z80) | ✅ plan 43 zamknięty | Matcher, pre-kolor licznika do B i emisja `djnz`; 8080 bez zmian |
 | Maszyna wirtualna (bytecode) | plan 34 queued, 0/10 | format IR, interpreter, fuzz bytecode vs AOT i porty asemblerowe |
 | Łańcuchy `jmp` | ✅ plan 45 zamknięty | 569 bezpiecznych łańcuchów; `07_control.c` stub 623→605 B; ryzykowne wejścia zachowane |
-| ABI v2 jako default | brak planu (plan 39 closed: flaga + pilot `nes`) | bramka −15% na wołaniowych nie przeszła (+1.7 B śr.; po planie 42 baseline v1 się zmienił — wymaga re-pomiaru); dalsze w `abi-v2-design.md` item 5 |
+| ABI v2 jako default | odroczone (plan 39 closed) | Bramka dla pilota NES nie przeszła; v2 pozostaje opt-in na NES i 6809, v1 jest domyślne |
 | SSA / GVN / LICM | odroczone decyzją pomiarową | tylko gdy pomiary wskażą globalne straty (plan 37) |
 | Alokator grafowy | odroczony | jw. — linear-scan wystarcza na 8-bitowce |
 | COBOL / Fortran | propozycje (`../language/`) | osobne semantic IR → VReg; nie zaczęte |
-| Optymalizacje 6809 | plan 47 queued, 0/6 | baseline, wynik D, argumenty X/Y/U, TFR, drugi wskaźnik i direct-page |
+| Optymalizacje 6809 | plan 47 closed, 7/7 | ABI v2 argumentów, direct-page `TryStep` i pętla kopii X/Y; full suite, goldeny bez wzrostu, leaf i recursion fuzz 60/60 zielone |
 | Nowe CPU | plan 46 zamknięty dla 6809 | Bazowy target, assembler, emulator, testy i goldeny; kolejne porty według [targets-and-abi.md](targets-and-abi.md) |
 
 Historia prac: [`../plans/`](../plans/) (`NN-nazwa.json` jest źródłem planu, `.md` to render).

@@ -129,18 +129,29 @@ public sealed class CpuModelConsistencyTests
         }
     }
 
-    /// <summary>Plan 38, zadanie 5 + plan 39: puste <c>ArgRegs</c> to dzisiejsze ABI (komórki <c>cc_argN</c>);
-    /// pilot v2 (<c>nes</c>) trzyma tu rejestry argumentów. Opt 1 (argumenty w rejestrach) wypełni resztę,
-    /// a <c>ByteIsa.ArgCell</c> już je czyta.</summary>
+    /// <summary>Sprawdza konfigurację rejestrów argumentów oraz pamięciowy fallback ABI v1.</summary>
     [Fact]
-    public void Empty_ArgRegs_Means_Memory_ABI()
+    public void ArgRegs_Describes_Register_ABIs()
     {
         foreach (ByteTarget target in CTargets.All.OfType<ByteTarget>())
         {
             ByteIsa isa = target.CreateIsa();
-            IReadOnlyList<string> expected = target.Name == "nes" ? ["a", "x"] : [];
+            IReadOnlyList<string> expected = target.Name switch
+            {
+                "nes" => ["a", "x"],
+                "6809" => ["x", "y", "u"],
+                _ => [],
+            };
             CpuModels.For(target).ArgRegs.Should().BeEquivalentTo(expected, target.Name);
-            if (expected.Count == 0)
+            if (target.Name == "6809")
+            {
+                for (int i = 0; i < 6; i++)
+                {
+                    isa.ArgCell(i, 0, 2).Should().Be($"cc_arg{i + 1}", target.Name);
+                    isa.ArgCell(i, 1, 2).Should().Be($"cc_arg{i + 1}_h", target.Name);
+                }
+            }
+            else if (expected.Count == 0)
             {
                 for (int i = 0; i < 6; i++)
                 {

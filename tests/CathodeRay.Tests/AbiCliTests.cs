@@ -4,7 +4,7 @@ using FluentAssertions;
 
 namespace CathodeRay.Tests;
 
-/// <summary>Plan 39, zadanie 1: flaga <c>--abi</c> sterownika <c>cc</c> (faza 0: v2 jeszcze nigdzie nie działa).</summary>
+/// <summary>Flaga <c>--abi</c> sterownika <c>cc</c>; v2 jest opt-in na NES i 6809.</summary>
 public sealed class AbiCliTests
 {
     private static (int Exit, string Output, string Stderr) Invoke(params string[] args)
@@ -51,9 +51,9 @@ public sealed class AbiCliTests
     }
 
     [Fact]
-    public void Only_Nes_Supports_V2()
+    public void Nes_And_6809_Support_V2()
     {
-        CTargets.All.Where(static t => t.SupportsAbiV2).Select(static t => t.Name).Should().BeEquivalentTo("nes");
+        CTargets.All.Where(static t => t.SupportsAbiV2).Select(static t => t.Name).Should().BeEquivalentTo("nes", "6809");
     }
 
     [Fact]

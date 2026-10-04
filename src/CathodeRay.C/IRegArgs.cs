@@ -19,4 +19,16 @@ internal interface IRegArgs
     /// <summary>Rejestr argumentu ← A (wołanie v2; wołane tuż po załadowaniu wartości do A).</summary>
     /// <param name="reg">Rejestr argumentu z modelu.</param>
     void StoreArg(string reg);
+
+    /// <summary>Przenosi całe słowo do rejestru argumentu; implementacja domyślna zostawia ścieżkę bajtową.</summary>
+    /// <param name="reg">Rejestr argumentu z modelu.</param>
+    /// <param name="value">Źródło słowa.</param>
+    /// <returns><see langword="true"/>, jeśli słowo zostało przeniesione jedną sekwencją.</returns>
+    bool TryStoreArgWord(string reg, Word value) => false;
+
+    /// <summary>Zapisuje całe słowo z rejestru argumentu do parametru; implementacja domyślna zostawia ścieżkę bajtową.</summary>
+    /// <param name="reg">Rejestr argumentu z modelu.</param>
+    /// <param name="dst">Cel w pamięci.</param>
+    /// <returns><see langword="true"/>, jeśli słowo zostało zapisane jedną sekwencją.</returns>
+    bool TryFetchArgWord(string reg, Word dst) => false;
 }

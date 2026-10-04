@@ -10,7 +10,7 @@ kodu pośredniego IR) nie zna procesora; cel drukuje IR jako asembler swojego CP
 | `z80` | Zilog Z80 | LE | argumenty `cc_argN`, wynik W<=2 w HL (L dla 1 B; plan 35), HL jako rejestr adresowy | `Z80Cpu` |
 | `8080` | Intel 8080 | LE | jak `z80` (wynik w HL), mnemoniki Intel | `Z80Cpu(intel8080: true)` |
 | `6800` | Motorola 6800 | BE | argumenty `cc_argN`, wynik `cc_ret`, rejestr X | `Mc6800Cpu` (tablice z JSON ISA) |
-| `6809` | Motorola 6809 | BE | ABI v1 przez `cc_argN`/`cc_ret`, DP ustawione na `$00`, wskaźnik X | `Mc6809Cpu` (tablice z JSON ISA) |
+| `6809` | Motorola 6809 | BE | Domyślnie ABI v1; opt-in v2: argumenty W2 z pozycji 0–2 w X/Y/U, W1/dalsze w pamięci, wynik `cc_ret`; DP=$00 | `Mc6809Cpu` (tablice z JSON ISA) |
 
 Rozmiar kodu programów przykładowych na każdym celu: [target-sizes.md](../target-sizes.md).
 
@@ -55,7 +55,7 @@ Rozmiar kodu programów przykładowych na każdym celu: [target-sizes.md](../tar
 
 Jawny model maszyny dla optymalizatora (`src/CathodeRay.C/Cpu*.cs`): rejestry i aliasy (`hl=[h,l]`),
 co wołanie niszczy (`ClobberedByCall`), czym prymitywy drapią (`Scratch`, dawne `Clobbers`),
-gdzie wraca wynik (`ResultReg`), dokąd idą argumenty (`ArgRegs`, dziś puste = ABI v1)
+gdzie wraca wynik (`ResultReg`) i dokąd idą argumenty (`ArgRegs`; v1 nadal używa pamięci, NES/6809 mapują argumenty tylko przy opt-in v2)
 i efekty prymitywów (`PrimEffects`: czytane/zapisywane rejestry, flagi — sprawdzone fuzzem
 `PrimEffectsFuzzTests` przeciw emulatorom, ~9k sekwencji). Selektor czyta model zamiast zgadywać
 (`Taken` przez aliasy, `ArgCell`, walidacja w `AssignRegisters`).
@@ -63,7 +63,7 @@ i efekty prymitywów (`PrimEffects`: czytane/zapisywane rejestry, flagi — spra
 ## Ograniczenia celów bajtowych
 
 - Komórki leżą w pamięci absolutnej (6502: najczęściej używane skalarne i wskaźniki trafiają na stronę zerową, prefiks `z:`), więc kod jest
-  większy niż ręcznie pisany (miara: `docs/compare.md` — ok. 1,27× cc65 na 6502, ok. 1,15× SDCC na Z80).
+  większy niż ręcznie pisany; aktualne pomiary mini-C/cc65 i mini-C/SDCC są w `docs/compare.md`.
 - Skoki warunkowe 6502 i 6800 są relaksowane: krótki skok, gdy cel jest w zasięgu, inaczej odwrócony skok + `JMP`.
 - `float`, `long long` i dzielenie/mnożenie 32-bitowe są programowe, więc wolne; `float` i `long long` na `stub` (24 KB kodu) mieszczą się
   tylko w małych programach.

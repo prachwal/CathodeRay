@@ -62,6 +62,13 @@ internal sealed partial class ByteSelector
                 continue;
             }
 
+            if (param.W == 2 && _isa is IRegArgs regArgs && WordOf(param) is { } word
+                && regArgs.TryFetchArgWord(_isa.ArgCell(i, 0, param.W), word))
+            {
+                _acc.Clear();
+                continue;
+            }
+
             for (int part = 0; part < param.W; part++)
             {
                 string reg = _isa.ArgCell(i, part, param.W);
