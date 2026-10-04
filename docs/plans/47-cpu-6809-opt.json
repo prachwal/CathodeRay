@@ -34,9 +34,15 @@
     },
     {
       "id": "6",
-      "title": "Uruchomić pełne testy, target/vreg goldeny, fuzz i udokumentować wynik; odłożyć warianty bez zysku",
+      "title": "Uruchomić pełne testy, target/vreg goldeny i fuzz; zakończyć pomiary i decyzje",
       "status": "todo",
       "note": "Gotowe gdy: full suite, target/vreg golden no-growth, leaf/recursion fuzz i hygiene są zielone; raport podaje wszystkie wzrosty/odrzucone warianty."
+    },
+    {
+      "id": "7",
+      "title": "Zaktualizować dokumentację przed commitem",
+      "status": "todo",
+      "note": "Gotowe gdy: docs/codegen/opt-6809.md odzwierciedla wdrożone/odrzucone optymalizacje i pomiary; docs/technical/mini-c-status.md ma aktualne checklisty i status planu; jeśli zmienił się cel/ABI, zaktualizowane są docs/codegen/targets.md i docs/codegen/README.md; jeśli zmieniły się rozmiary, docs/target-sizes.md i docs/vreg-sizes.md odpowiadają goldenom. Plan wyrenderowany, hygiene OK."
     }
   ]
 }

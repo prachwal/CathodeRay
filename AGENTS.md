@@ -14,7 +14,7 @@ Asembler multi-CPU + kompilator mini-C (C → IR → legalizer → selektor bajt
 
 `dotnet run --project src/CathodeRay.Cli/CathodeRay.Cli.csproj -- cc <plik.c> --cpu <cel> --listing /tmp/x.lst`,
 opcjonalnie `--ir vreg`, `--abi v1|v2`, `--stats`, `--incdir samples/minic`. Listingu użyj, żeby **zobaczyć** kod przed/po, nie zgadywać.
-Cele: `stub 6502 65c02 nes 6510 z80 8080 6800`.
+Cele: `stub 6502 65c02 nes 6510 z80 8080 6800 6809`.
 
 ## Zanim wyprowadzisz semantykę — przeczytaj źródło
 
@@ -39,6 +39,11 @@ emulator w `tests/CathodeRay.Tests/` (`Mos6502.cs`, `Z80Cpu.cs`, …) i `docs/`.
 `docs/minic.md` (język mini-C), `docs/codegen/targets.md` (cele/formaty), `docs/compare.md` (rozmiary vs cc65/SDCC),
 `docs/ir-vreg-abi/ir-vreg-plan.md` + `docs/ir-vreg-abi/vreg-design.md` (VReg), `docs/codegen/stub-calling-conv.md` (ABI).
 
+- Aktualizacja dokumentacji jest bramką przed commitem dla zmian codegen/CPU: odśwież `docs/codegen/opt-<cpu>.md` i checklistę `docs/technical/mini-c-status.md`.
+- Zmiana lub dodanie celu/ABI wymaga też aktualizacji `docs/codegen/targets.md` i indeksu `docs/codegen/README.md`.
+- Zmiana rozmiarów wymaga odświeżenia `docs/target-sizes.md` i/lub `docs/vreg-sizes.md` zgodnie z testami goldenów; metryki i odrzucone warianty zapisuj w planie.
+- Renderuj zmieniony plan przez `python3 tools/plan.py render <plan>` i przed commitem wymagaj `python3 tools/plan.py hygiene`.
+
 ## Styl kodu
 
 - Jeden typ na plik (SA1402); kolejność członków — statyczne/prywatne wg SA1204 (statyczne przed instancyjnymi).
@@ -49,7 +54,7 @@ emulator w `tests/CathodeRay.Tests/` (`Mos6502.cs`, `Z80Cpu.cs`, …) i `docs/`.
 
 - Pracuj na gałęzi serii (`opt/…`, `vreg/…`); konfigurację i dokumentację trzymaj z dala od zmian codegen.
 - Commit/PR tylko na wyraźne polecenie.
-- Bramki przed commitem: `build -warnaserror`, pełna suita zielona, goldeny bez wzrostu, fuzz zielony.
+- Bramki przed commitem: aktualna dokumentacja (albo uzasadnienie braku zmian w planie), `build -warnaserror`, pełna suita zielona, goldeny bez wzrostu, fuzz zielony.
 
 <!-- gitnexus:start -->
 # GitNexus — Code Intelligence
