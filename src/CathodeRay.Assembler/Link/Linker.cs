@@ -1,8 +1,7 @@
 namespace CathodeRay.Assembler.Link;
 
 /// <summary>Linker modułów obiektu: składa segmenty z modułów (kolejność CLI),
-/// liczy adresy z konfiguracji i aplikuje relokacje. Endianness: little-endian
-/// (wszystkie wspierane CPU).</summary>
+/// liczy adresy z konfiguracji i aplikuje relokacje w kolejności bajtów celu.</summary>
 public static class Linker
 {
     /// <summary>Składa moduły w obraz.</summary>
@@ -178,7 +177,7 @@ public static class Linker
         {
             foreach (Relocation reloc in modules[m].Module.Relocations)
             {
-                int width = reloc.Kind == RelocKind.Abs16 ? 2 : 1;
+                int width = reloc.Kind is RelocKind.Abs16 or RelocKind.Disp16 or RelocKind.Rel16 ? 2 : 1;
                 for (int i = 0; i < width; i++)
                 {
                     patched.Add((m, reloc.Segment, reloc.Offset + i));
@@ -229,6 +228,10 @@ public static class Linker
                 image[position] = endianness == Isa.Endianness.Little ? (byte)value : (byte)(value >> 8);
                 image[position + 1] = endianness == Isa.Endianness.Little ? (byte)(value >> 8) : (byte)value;
                 break;
+            case RelocKind.Disp16 when value is >= short.MinValue and <= short.MaxValue:
+                image[position] = endianness == Isa.Endianness.Little ? (byte)value : (byte)(value >> 8);
+                image[position + 1] = endianness == Isa.Endianness.Little ? (byte)(value >> 8) : (byte)value;
+                break;
             case RelocKind.Lo8 when value is >= 0 and <= ushort.MaxValue:
                 image[position] = (byte)value;
                 break;
@@ -244,6 +247,19 @@ public static class Linker
                 }
 
                 throw new LinkerException($"Branch in {file} to '{reloc.Symbol}' out of range ({offset} bytes).");
+            case RelocKind.Rel16:
+            {
+                int offset16 = value - (position + 2);
+                if (offset16 is >= short.MinValue and <= short.MaxValue)
+                {
+                    image[position] = endianness == Isa.Endianness.Little ? (byte)offset16 : (byte)(offset16 >> 8);
+                    image[position + 1] = endianness == Isa.Endianness.Little ? (byte)(offset16 >> 8) : (byte)offset16;
+                    break;
+                }
+
+                throw new LinkerException($"Long branch in {file} to '{reloc.Symbol}' out of range ({offset16} bytes).");
+            }
+
             default:
                 throw new LinkerException($"Value {value} for '{reloc.Symbol}' in {file} out of range for {reloc.Kind}.");
         }

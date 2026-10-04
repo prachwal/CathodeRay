@@ -1,30 +1,30 @@
 {
   "title": "Cel Motorola 6809: asembler (lwasm jako wyrocznia) i kompilator mini-C, wzór: 6800",
-  "status": "queued",
+  "status": "active",
   "items": [
     {
       "id": "1",
       "title": "[S] Rozpoznanie i decyzje (bez kodu produkcyjnego): zainstaluj lwtools (lwasm) ze źródeł (nie ma w apt 24.04), przeczytaj M6800Set.cs, OperandPattern, IsaEntry, Motorola.cs, M6800Isa.cs (Crt0, Relax, PtrSetup), CpuModels.cs (M6800Effects), ByteTarget i TargetLayout. Zapisz w nocie: (a) czy OperandPattern wyraża postbajt trybu indeksowanego, prefiksy opcodów 10/11, maski PSHS/PULS i pary TFR/EXG, czy trzeba go rozszerzyć albo wyliczyć formy statycznie; (b) jak wybierać formę offsetu 5/8/16-bit i skoku krótkiego/długiego (relaksacja jak BranchRelaxer); (c) model rejestrów kompilatora: A, B, D, X, Y, U, S, DP; (d) strona bezpośrednia przez DP: stałe adresy 0x00xx jak 6800 czy ustawiany DP. Akceptacja: nota z decyzjami, drzewo bez zmian.",
-      "status": "todo",
-      "note": ""
+      "status": "done",
+      "note": "Rozpoznanie (bez zmian kodu produkcyjnego). Oracle: LWTools 4.25 z oficjalnego tarballa; zbudowany i zainstalowany wyłącznie do /tmp/opencode/lwtools-install/usr/local/bin/lwasm (SHA256 archiwum 9bb97e987d486d7abd85d04cb98a53f666f02785c108647b795c4a111c5eb09f). Motorola M6809PM §§1.4–1.10, 2.2: A/B 8-bit, D=A:B big-endian, X/Y/U/S/PC 16-bit, DP/CC 8-bit; DP to MSB strony bezpośredniej i resetuje się do 0; indexed addressing używa postbyte. (a) IsaEntry Opcode[] obsługuje prefiksy 10/11, InstructionForm.Layout stałe bajty i pola scalar; OperandPattern nie składa bit-pakowanych indexed postbytes, nibble TFR/EXG, maski PSH/PUL ani Rel16. Decyzja: wąski deklaratywny mechanizm composite/postbyte fields specyficzny dla M6809 zamiast enumerowania offsetów/permutacji; dodać Rel16 big-endian. (b) branch short rel8 [-128,+127] i long rel16 [-32768,+32767] od PC następnej instrukcji; target emituje długie formy i relaksuje lokalne cele do krótkich; relokowalne skoki zostają długie. (c) model: A,B (8), D alias [A,B] (16), X,Y,U,S (16), DP (8); PC/CC specjalne, nie alokowalne; ABI v1, bez alokacji komórek na początek. (d) DP stałe 0, crt0 jawnie zeruje DP, C_ZP=$0010..$00FF jak 6800. Źródło: Motorola M6809PM §§1.4–1.10 i 2.2, https://www.maddes.net/m6809pm/sections.htm."
     },
     {
       "id": "2",
       "title": "[M] Tabela ISA: tools/make_6809_isa.py generuje data/instructions/mcp_6809_instructions.json (format jak mcp_6800: opcode jako tablica bajtów z prefiksem 10/11, szablon mnemonic, cycles, words, group). Każdy wpis weryfikowany bajt w bajt przeciw lwasm (golden), zarezerwowane opcody pominięte, bez 6309. Akceptacja: JSON przechodzi walidację (mcp instructions validate), liczba wpisów zgodna z dokumentacją 6809.",
-      "status": "todo",
-      "note": ""
+      "status": "done",
+      "note": "tools/make_6809_isa.py generuje 267 unikalnych rodzin instrukcji ze źródeł opcodów LWTools 4.25 i cykli Motorola M6809PM Appendix F. JSON schema/unikalność OK; instructions MCP smoke widzi 6809 i waliduje 11 zestawów. Asm/6809/opcodes.s/.bin generuje lwasm --6809 i test odtwarza wszystkie 267 wpisów bajt w bajt."
     },
     {
       "id": "3",
       "title": "[L] Asembler: M6809Set.cs + wiersz w AssemblerTargets.cs (endianness Big, dialekt Motorola, małe litery mnemoników). Tryby: immediate, direct, extended, relative, long-relative, indeksowane (offsety 0/5/8/16, akumulatorowe A/B/D, auto-inc/dec, PC-relative, pośrednie w nawiasach), TFR/EXG/PSHS/PULS/PSHU/PULU z listą rejestrów, prefiksy 10/11, DP. Forma offsetu i skoku wybierana relaksacją (dla symbolu relokowalnego najdłuższa forma, jak z: w 6800). Testy: M6809AsmTests + Asm/6809 (opcodes.s/.bin, program.s/.bin, rejected.txt), bajty zgodne z lwasm. Akceptacja: wszystkie wpisy z poz. 2 asemblują się, rejected.txt odrzuca błędne operandy, linker big-endian działa (LinkerEndiannessTests).",
-      "status": "todo",
-      "note": ""
+      "status": "done",
+      "note": "Assembler M6809Set obsługuje opcode prefix 10/11, big-endian, direct/extended/immediate, short/long relative, wszystkie indexed postbyte (5/8/16, A/B/D, auto inc/dec, PCR, indirect), TFR/EXG i PSH/PUL. Linker ma Disp16/Rel16 BE. Asm/6809/opcodes.s/.bin obejmuje 267 opcode families i zgadza się bajt w bajt z LWTools 4.25; program.s i rejected.txt też porównane. M6809AsmTests + M6800AsmTests + assembler core/linker endianness: 103 passed."
     },
     {
       "id": "4",
       "title": "[L] Emulator Mc6809Cpu.cs + Mc6809CpuTests.cs + Mc6809Runner.cs (ICpuRunner): rejestry A B D X Y U S PC DP CC, flagi E F H I N Z V C, wszystkie udokumentowane rozkazy z poz. 2, stosy S i U. Semantykę flag czytaj z dokumentacji i testuj tablicowo (ADDA, SUBA, CMPA, DAA, MUL, SEX, ABX, LSR, ASR, ROL, ROR, NEG, COM), nie z pamięci. Akceptacja: testy flag V/C/H/Z/N na krawędziach (0x7F+1, 0x80-1, 0xFF+1); bajty z lwasm uruchomione w emulatorze dają wynik programu referencyjnego.",
-      "status": "todo",
-      "note": ""
+      "status": "partial",
+      "note": "Emulator initial subset is in place and compiles. Targeted Mc6809CpuTests: 9 passed, including ADDA/SUBA edge flags, relative branch, BSR/RTS stack round trip and execution of the assembler program golden. Not complete: coverage of all 267 opcode families and tabulated DAA/MUL/SEX/ABX/unary flag semantics remains. · Bramka różnicowa repo (Leaf fuzz 60) ma znany, odtwarzalny problem bazowy: seed p44 z80 kończy się błędem linkera dla gałęzi do n1__l5_while__c10 (-131 B); ten sam wynik występuje w czystym HEAD 775741c. Recursion fuzz 60 zaliczył się."
     },
     {
       "id": "5",

@@ -36,6 +36,7 @@ STORES = {
     "65c02": REPO / "data/instructions/mcp_65c02_instructions.json",
     "8080": REPO / "data/instructions/mcp_8080_instructions.json",
     "6800": REPO / "data/instructions/mcp_6800_instructions.json",
+    "6809": REPO / "data/instructions/mcp_6809_instructions.json",
     "1802": REPO / "data/instructions/cosmac_vip_cdp1802_isa.json",
     "stub": REPO / "data/instructions/mcp_stub_instructions.json",
     "z80": REPO / "data/instructions/mcp_z80_instructions.json",

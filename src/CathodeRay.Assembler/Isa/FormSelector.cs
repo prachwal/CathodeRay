@@ -9,7 +9,7 @@ namespace CathodeRay.Assembler.Isa;
 /// a nie wyrażenie w nawiasach — jak w oryginalnych asemblerach.</summary>
 internal static class FormSelector
 {
-    public static FormChoice Select(InstructionSet isa, string mnemonic, string? operand, Func<string, int?> evaluate)
+    public static FormChoice Select(InstructionSet isa, string mnemonic, string? operand, Func<string, int?> evaluate, int programCounter)
     {
         IReadOnlyList<InstructionForm> forms = isa.FormsFor(mnemonic);
         var matches = new List<FormChoice>();
@@ -22,12 +22,15 @@ internal static class FormSelector
         }
 
         int weight = matches.Count > 0 ? matches.Max(static m => m.Form.Pattern.LiteralWeight) : -1;
-        OperandPattern? shape = isa.Patterns
-            .Where(p => p.LiteralWeight > weight && p.TryMatch(operand, out _))
-            .MaxBy(static p => p.LiteralWeight);
-        if (shape is not null && operand is not null && forms.Any(static f => f.Pattern.Template.Length > 0))
+        if (!matches.Any(static m => m.Form.Pattern.IsEncoded))
         {
-            throw new FormatException($"addressing mode {shape.Template} is not available for {mnemonic}.");
+            OperandPattern? shape = isa.Patterns
+                .Where(p => p.LiteralWeight > weight && p.TryMatch(operand, out _))
+                .MaxBy(static p => p.LiteralWeight);
+            if (shape is not null && operand is not null && forms.Any(static f => f.Pattern.Template.Length > 0))
+            {
+                throw new FormatException($"addressing mode {shape.Template} is not available for {mnemonic}.");
+            }
         }
 
         if (matches.Count == 0)
@@ -45,7 +48,7 @@ internal static class FormSelector
                 return candidates[^1];
             }
 
-            if (Fits(candidate.Form.Pattern.Fields, values))
+            if (Fits(candidate.Form.Pattern.Fields, values, candidate.Form.Size, programCounter))
             {
                 return candidate;
             }
@@ -72,12 +75,16 @@ internal static class FormSelector
                 $"'{match.Captures[i]}' must be known at this point (it selects the {mnemonic} opcode).")) == required)
             .All(static ok => ok);
 
-    private static bool Fits(IReadOnlyList<FieldKind> fields, int?[] values) =>
+    private static bool Fits(IReadOnlyList<FieldKind> fields, int?[] values, int size, int programCounter) =>
         fields.Select((field, i) => field switch
         {
             FieldKind.Byte => values[i] is >= 0 and <= byte.MaxValue,
             FieldKind.Word => values[i] is >= 0 and <= ushort.MaxValue,
             FieldKind.Displacement8 => values[i] is >= sbyte.MinValue and <= sbyte.MaxValue,
+            FieldKind.Displacement16 => values[i] is >= short.MinValue and <= short.MaxValue,
+            FieldKind.Indexed5X or FieldKind.Indexed5Y or FieldKind.Indexed5U or FieldKind.Indexed5S => values[i] is >= -16 and <= 15,
+            FieldKind.Relative8 => values[i] - (programCounter + size) is >= sbyte.MinValue and <= sbyte.MaxValue,
+            FieldKind.Relative16 => values[i] - (programCounter + size) is >= short.MinValue and <= short.MaxValue,
             _ => true,
         }).All(static fits => fits);
 

@@ -66,6 +66,7 @@ async def main() -> int:
                 not procs["success"]
                 or "6502" not in procs["processors"]
                 or "1802" not in procs["processors"]
+                or "6809" not in procs["processors"]
             ):
                 print(f"FAIL: processors -> {procs}", file=sys.stderr)
                 return 1
@@ -81,12 +82,17 @@ async def main() -> int:
                 return 1
 
             validate = as_json(await call("validate", {}))
-            if not validate["success"] or validate["checked"] != 9:
+            if not validate["success"] or validate["checked"] != 11:
                 print(f"FAIL: validate -> {validate}", file=sys.stderr)
                 return 1
             bad = {k: v for k, v in validate["results"].items() if not v["ok"]}
             if bad:
                 print(f"FAIL: validate zgłasza błędy -> {bad}", file=sys.stderr)
+                return 1
+
+            m6809 = as_json(await call("read", {"processor": "6809", "opcode": "10AE"}))
+            if m6809.get("instruction", {}).get("mnemonic") != "LDY indexed":
+                print(f"FAIL: read 6809 10AE -> {m6809}", file=sys.stderr)
                 return 1
 
             cov = as_json(await call("coverage", {"processor": "8080"}))
@@ -112,7 +118,7 @@ async def main() -> int:
             render_text = (
                 getattr(render.content[0], "text", "") if render.content else ""
             )
-            if "| Opcode |" not in render_text or "BRN" not in render_text:
+            if "| Opcode |" not in render_text or "BRA" not in render_text:
                 print("FAIL: render 6800", file=sys.stderr)
                 return 1
 

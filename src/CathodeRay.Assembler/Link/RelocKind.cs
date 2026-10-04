@@ -20,4 +20,10 @@ public enum RelocKind
 
     /// <summary>Starszy bajt adresu (<c>#&gt;sym</c>).</summary>
     Hi8,
+
+    /// <summary>Indeksowe przesunięcie ze znakiem −32768..32767.</summary>
+    Disp16,
+
+    /// <summary>Względny skok 16-bit: cel − adres następnej instrukcji (−32768..32767).</summary>
+    Rel16,
 }

@@ -17,7 +17,7 @@ public sealed record InstructionForm(string Mnemonic, OperandPattern Pattern, by
     ];
 
     /// <summary>Rozmiar instrukcji w bajtach.</summary>
-    public int Size => Encoding.Sum(p => p.IsField && Pattern.Fields[p.Field] == FieldKind.Word ? 2 : 1);
+    public int Size => Encoding.Sum(p => p.IsField && Pattern.Fields[p.Field] is FieldKind.Word or FieldKind.Relative16 or FieldKind.Displacement16 ? 2 : 1);
 
     /// <summary>Sprawdza, że układ odwołuje się do każdego pola (poza stałymi) dokładnie raz.</summary>
     /// <exception cref="InvalidDataException">Brakujące, powtórzone lub niepoprawne pole.</exception>

@@ -15,6 +15,7 @@ i Asm/z80u (wszystkie, z80asm -mz80). Linie z szablonów mcp_z80_instructions.js
 
 Wymaga ca65 i ld65 w PATH oraz z88dk w /opt/z88dk-2.4. Uruchamiać z katalogu repo: python3 tools/make_asm_golden.py
 """
+
 import os
 import re
 import json
@@ -26,10 +27,22 @@ ROOT = pathlib.Path(__file__).resolve().parent.parent
 OUT = ROOT / "tests" / "CathodeRay.Tests" / "Asm"
 CPUS = {"6502": "6502", "6502x": "6502X", "65c02": "65C02"}
 OPERANDS = {
-    "Implied": "", "Accumulator": "a", "Immediate": "#$12", "ZeroPage": "$12", "ZeroPageX": "$12,x",
-    "ZeroPageY": "$12,y", "Absolute": "$1234", "AbsoluteX": "$1234,x", "AbsoluteY": "$1234,y",
-    "Indirect": "($1234)", "IndirectX": "($12,x)", "IndirectY": "($12),y", "ZeroPageIndirect": "($12)",
-    "AbsoluteIndexedIndirect": "($1234,x)", "Relative": "*+5", "ZeroPageRelative": "$12,{self}",
+    "Implied": "",
+    "Accumulator": "a",
+    "Immediate": "#$12",
+    "ZeroPage": "$12",
+    "ZeroPageX": "$12,x",
+    "ZeroPageY": "$12,y",
+    "Absolute": "$1234",
+    "AbsoluteX": "$1234,x",
+    "AbsoluteY": "$1234,y",
+    "Indirect": "($1234)",
+    "IndirectX": "($12,x)",
+    "IndirectY": "($12),y",
+    "ZeroPageIndirect": "($12)",
+    "AbsoluteIndexedIndirect": "($1234,x)",
+    "Relative": "*+5",
+    "ZeroPageRelative": "$12,{self}",
 }
 # BBR/BBS: etykieta zamiast *, bo ca65 w drugim operandzie tych instrukcji podstawia pod * adres o 2 dalszy
 # niż początek instrukcji (w pozostałych instrukcjach * = początek). Nasz asembler traktuje * jednolicie.
@@ -42,16 +55,35 @@ def ca65(cpu: str, source: str) -> bytes | None:
         t = pathlib.Path(tmp)
         (t / "p.s").write_text(source)
         (t / "raw.cfg").write_text(CONFIG)
-        ok = subprocess.run(["ca65", "--cpu", cpu, "p.s", "-o", "p.o"], cwd=t, capture_output=True).returncode == 0
-        ok = ok and subprocess.run(["ld65", "-C", "raw.cfg", "p.o", "-o", "p.bin"], cwd=t, capture_output=True).returncode == 0
+        ok = (
+            subprocess.run(
+                ["ca65", "--cpu", cpu, "p.s", "-o", "p.o"], cwd=t, capture_output=True
+            ).returncode
+            == 0
+        )
+        ok = (
+            ok
+            and subprocess.run(
+                ["ld65", "-C", "raw.cfg", "p.o", "-o", "p.bin"],
+                cwd=t,
+                capture_output=True,
+            ).returncode
+            == 0
+        )
         return (t / "p.bin").read_bytes() if ok else None
 
 
 def candidates() -> list[str]:
     lines = []
     for name in ("mcp_6502_instructions.json", "mcp_65c02_instructions.json"):
-        for e in json.loads((ROOT / "data" / "instructions" / name).read_text())["instructions"]:
-            mode = "AbsoluteIndexedIndirect" if e["opcode"] == "7C" and e["mnemonic"] == "JMP" else e["encoding"]
+        for e in json.loads((ROOT / "data" / "instructions" / name).read_text())[
+            "instructions"
+        ]:
+            mode = (
+                "AbsoluteIndexedIndirect"
+                if e["opcode"] == "7C" and e["mnemonic"] == "JMP"
+                else e["encoding"]
+            )
             line = f"{ALIASES.get(e['mnemonic'], e['mnemonic']).lower()} {OPERANDS[mode]}".rstrip()
             if "{self}" in line:
                 label = "self_" + e["mnemonic"].lower()
@@ -62,11 +94,23 @@ def candidates() -> list[str]:
 
 
 def z80asm(cpu: str, source: str) -> bytes | None:
-    env = dict(os.environ, PATH="/opt/z88dk-2.4/bin:" + os.environ["PATH"], ZCCCFG="/opt/z88dk-2.4/lib/config")
+    env = dict(
+        os.environ,
+        PATH="/opt/z88dk-2.4/bin:" + os.environ["PATH"],
+        ZCCCFG="/opt/z88dk-2.4/lib/config",
+    )
     with tempfile.TemporaryDirectory() as tmp:
         t = pathlib.Path(tmp)
         (t / "p.asm").write_text(source)
-        ok = subprocess.run(["z80asm", f"-m{cpu}", "-b", "p.asm"], cwd=t, env=env, capture_output=True).returncode == 0
+        ok = (
+            subprocess.run(
+                ["z80asm", f"-m{cpu}", "-b", "p.asm"],
+                cwd=t,
+                env=env,
+                capture_output=True,
+            ).returncode
+            == 0
+        )
         return (t / "p.bin").read_bytes() if ok and (t / "p.bin").exists() else None
 
 
@@ -80,14 +124,30 @@ def z80asm_8080(source: str) -> bytes:
 def golden_z80() -> None:
     sample = re.compile(r"\b(nn|n|e)\b|\+d\)")
     values = {"nn": "1234h", "n": "12h", "e": "$+5", "+d)": "+5)"}
-    entries = json.loads((ROOT / "data" / "instructions" / "mcp_z80_instructions.json").read_text())["instructions"]
-    lines = [(sample.sub(lambda m: values[m.group(0)], e["mnemonic"]), e.get("variants") == "undocumented") for e in entries]
+    entries = json.loads(
+        (ROOT / "data" / "instructions" / "mcp_z80_instructions.json").read_text()
+    )["instructions"]
+    lines = [
+        (
+            sample.sub(lambda m: values[m.group(0)], e["mnemonic"]),
+            e.get("variants") == "undocumented",
+        )
+        for e in entries
+    ]
     documented = list(dict.fromkeys(line for line, undoc in lines if not undoc))
-    undocumented = list(dict.fromkeys(line for line, undoc in lines if undoc and line not in documented))
-    for folder, cpu, lines in (("z80", "z80_strict", documented), ("z80u", "z80", documented + undocumented)):
+    undocumented = list(
+        dict.fromkeys(line for line, undoc in lines if undoc and line not in documented)
+    )
+    for folder, cpu, lines in (
+        ("z80", "z80_strict", documented),
+        ("z80u", "z80", documented + undocumented),
+    ):
         out = OUT / folder
         out.mkdir(parents=True, exist_ok=True)
-        source = f"; Wygenerowane przez tools/make_asm_golden.py z z80asm -m{cpu}\n\tORG 0600H\n" + "".join(f"\t{l}\n" for l in lines)
+        source = (
+            f"; Wygenerowane przez tools/make_asm_golden.py z z80asm -m{cpu}\n\tORG 0600H\n"
+            + "".join(f"\t{l}\n" for l in lines)
+        )
         binary = z80asm(cpu, source)
         if binary is None:
             raise SystemExit(f"z80asm -m{cpu} rejects Asm/{folder}/opcodes.s")
@@ -100,20 +160,31 @@ def golden_z80() -> None:
             if binary is None:
                 raise SystemExit(f"z80asm -mz80_strict rejects {hand}")
             hand.with_suffix(".bin").write_bytes(binary)
-    rejected = [line for line in undocumented if z80asm("z80_strict", f"\t{line}\n") is None]
+    rejected = [
+        line for line in undocumented if z80asm("z80_strict", f"\t{line}\n") is None
+    ]
     (OUT / "z80" / "rejected.txt").write_text("\n".join(rejected) + "\n")
-    print(f"z80: {len(rejected)} of {len(undocumented)} undocumented rejected by -mz80_strict")
+    print(
+        f"z80: {len(rejected)} of {len(undocumented)} undocumented rejected by -mz80_strict"
+    )
 
 
 def golden_8080() -> None:
     out = OUT / "8080"
     out.mkdir(parents=True, exist_ok=True)
     lines = []
-    for e in json.loads((ROOT / "data" / "instructions" / "mcp_8080_instructions.json").read_text())["instructions"]:
-        line = re.sub(r"\bd8\b", "12h", re.sub(r"\b(d16|a16)\b", "1234h", e["mnemonic"]))
+    for e in json.loads(
+        (ROOT / "data" / "instructions" / "mcp_8080_instructions.json").read_text()
+    )["instructions"]:
+        line = re.sub(
+            r"\bd8\b", "12h", re.sub(r"\b(d16|a16)\b", "1234h", e["mnemonic"])
+        )
         if line.split()[0] not in ("RST", "JP", "CP") and line not in lines:
             lines.append(line)
-    source = "; Wygenerowane przez tools/make_asm_golden.py z z80asm -m8080\n\tORG 0600H\n" + "".join(f"\t{l}\n" for l in lines)
+    source = (
+        "; Wygenerowane przez tools/make_asm_golden.py z z80asm -m8080\n\tORG 0600H\n"
+        + "".join(f"\t{l}\n" for l in lines)
+    )
     (out / "opcodes.s").write_text(source)
     (out / "opcodes.bin").write_bytes(z80asm_8080(source))
     print(f"8080: {len(lines)} instructions")
@@ -181,19 +252,110 @@ def golden_6800() -> None:
             hand.with_suffix(".bin").write_bytes(binary)
 
 
+def lwasm_6809(source: str) -> bytes | None:
+    assembler = os.environ.get("LWASM", "lwasm")
+    with tempfile.TemporaryDirectory() as tmp:
+        t = pathlib.Path(tmp)
+        (t / "p.s").write_text(source)
+        result = subprocess.run(
+            [assembler, "--6809", "--raw", "--output=p.bin", "p.s"],
+            cwd=t,
+            capture_output=True,
+            text=True,
+        )
+        binary = t / "p.bin"
+        return (
+            binary.read_bytes() if result.returncode == 0 and binary.is_file() else None
+        )
+
+
+def golden_6809() -> None:
+    out = OUT / "6809"
+    out.mkdir(parents=True, exist_ok=True)
+    rows = json.loads(
+        (ROOT / "data" / "instructions" / "mcp_6809_instructions.json").read_text()
+    )["instructions"]
+    lines = []
+    for index, entry in enumerate(rows):
+        mnemonic = entry["mnemonic"].split()[0]
+        mode = entry["encoding"]
+        operand = {
+            "direct": "$12",
+            "extended": "$1234",
+            "indexed": ",X",
+            "immediate8": "#$12",
+            "immediate16": "#$1234",
+            "registerpair": "A,B" if mnemonic == "TFR" else "D,X",
+            "registermask": "CC,A,B,X,Y,U,PC"
+            if mnemonic.endswith("S")
+            else "CC,A,B,X,Y,S,PC",
+        }.get(mode)
+        if mode in ("relative8", "relative16"):
+            label = f"e{index:03}"
+            lines += [f"\t{mnemonic} {label}", f"{label}:"]
+        else:
+            lines.append(f"\t{mnemonic}" + (f" {operand}" if operand else ""))
+
+    source = (
+        "; Generated by tools/make_asm_golden.py using LWTools 4.25\n"
+        + "\n".join(lines)
+        + "\n"
+    )
+    binary = lwasm_6809(source)
+    if binary is None:
+        raise SystemExit("lwasm --6809 rejects generated Asm/6809/opcodes.s")
+    (out / "opcodes.s").write_text(source)
+    (out / "opcodes.bin").write_bytes(binary)
+
+    program = """; Small executable reference for the 6809 emulator.
+\tLDS #$0FFF
+\tLDX #$2000
+\tLDA #$2A
+\tSTA ,X
+\tLDA #0
+\tLDA ,X
+\tCMPA #$2A
+\tBNE fail
+\tBRA done
+fail: \tLDA #$FF
+done: \tSYNC
+"""
+    program_binary = lwasm_6809(program)
+    if program_binary is None:
+        raise SystemExit("lwasm --6809 rejects Asm/6809/program.s")
+    (out / "program.s").write_text(program)
+    (out / "program.bin").write_bytes(program_binary)
+
+    rejected = ["TFR A,Z", "PSHS S", "PSHU U", "LDA #$1234", "LDA 1,Z"]
+    for line in rejected:
+        if lwasm_6809(f"\t{line}\n") is not None:
+            raise SystemExit(f"lwasm --6809 accepts rejected line '{line}'")
+    (out / "rejected.txt").write_text("\n".join(rejected) + "\n")
+    print(
+        f"6809: {len(rows)} opcodes matched against lwasm; wrote opcodes/program goldens"
+    )
 
 
 def main() -> None:
     golden_z80()
     golden_8080()
     golden_6800()
+    golden_6809()
     lines = candidates()
     for folder, cpu in CPUS.items():
         out = OUT / folder
         out.mkdir(parents=True, exist_ok=True)
-        accepted = [line for line in lines if ca65(cpu, f".org $0600\n{line}\n") is not None]
+        accepted = [
+            line for line in lines if ca65(cpu, f".org $0600\n{line}\n") is not None
+        ]
         rejected = [line for line in lines if line not in accepted]
-        source = "; Wygenerowane przez tools/make_asm_golden.py z ca65 --cpu " + cpu + "\n.org $0600\n" + "\n".join(accepted) + "\n"
+        source = (
+            "; Wygenerowane przez tools/make_asm_golden.py z ca65 --cpu "
+            + cpu
+            + "\n.org $0600\n"
+            + "\n".join(accepted)
+            + "\n"
+        )
         (out / "opcodes.s").write_text(source)
         (out / "opcodes.bin").write_bytes(ca65(cpu, source))
         (out / "rejected.txt").write_text("\n".join(rejected) + "\n")

@@ -43,6 +43,17 @@ public sealed class LinkerEndiannessTests
     }
 
     [Fact]
+    public void M6809_Rel16_And_Indexed16_Relocations_Are_Big_Endian()
+    {
+        ObjectModule main = Obj("6809", ".extern far\n.global start\n.segment \"CODE\"\nstart: LBNE far\nLDA far,X\n");
+        ObjectModule lib = Obj("6809", ".global far\n.segment \"CODE\"\nfar: NOP\n");
+
+        ObjectModule restored = ObjectModule.FromJson(main.ToJson());
+        restored.Relocations.Select(static r => r.Kind).Should().Equal(RelocKind.Rel16, RelocKind.Disp16);
+        Link(main, lib).Image[..8].Should().Equal(0x10, 0x26, 0x00, 0x04, 0xA6, 0x89, 0x10, 0x08);
+    }
+
+    [Fact]
     public void Low_And_High_Byte_Immediates_Relocate_For_External_And_Local_Symbols()
     {
         ObjectModule main = Obj("6502", ".extern far\n.global start\n.segment \"CODE\"\nstart: LDA #<far\nLDX #>far\nLDY #<near\nLDA #>near\nNOP\n.global near\nnear: NOP\n");

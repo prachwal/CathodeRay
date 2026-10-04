@@ -531,7 +531,11 @@ public sealed class TwoPassAssembler(InstructionSet isa, SyntaxDialect dialect)
                 {
                     FieldKind.Word => RelocKind.Abs16,
                     FieldKind.Relative8 => RelocKind.Rel8,
+                    FieldKind.Relative16 => RelocKind.Rel16,
                     FieldKind.Displacement8 => RelocKind.Disp8,
+                    FieldKind.Displacement16 => RelocKind.Disp16,
+                    FieldKind.Indexed5X or FieldKind.Indexed5Y or FieldKind.Indexed5U or FieldKind.Indexed5S
+                        => throw Error("5-bit indexed offset cannot be relocated; use a wider indexed form."),
                     _ => RelocKind.Abs8,
                 },
             };
@@ -926,7 +930,7 @@ public sealed class TwoPassAssembler(InstructionSet isa, SyntaxDialect dialect)
             int start = ProgramCounter;
             if (!final)
             {
-                choices[index] = FormSelector.Select(owner.Isa, line.Keyword!.ToUpperInvariant(), line.Operand, TryEvaluate);
+                choices[index] = FormSelector.Select(owner.Isa, line.Keyword!.ToUpperInvariant(), line.Operand, TryEvaluate, ProgramCounter);
             }
 
             (InstructionForm form, string[] captures) = choices[index];
@@ -965,12 +969,44 @@ public sealed class TwoPassAssembler(InstructionSet isa, SyntaxDialect dialect)
                     Emit(first);
                     Emit(second);
                     break;
+                case FieldKind.Relative16:
+                {
+                    int relativeOffset = checkRange ? value - nextInstruction : value;
+                    if (check && relativeOffset is < short.MinValue or > short.MaxValue)
+                    {
+                        throw Error($"branch target out of range ({relativeOffset} bytes, allowed -32768..32767).");
+                    }
+
+                    EmitWord(relativeOffset);
+                    break;
+                }
+
                 case FieldKind.Constant:
                     break;
                 case FieldKind.Displacement8:
                     Emit(check && value is < sbyte.MinValue or > sbyte.MaxValue
                         ? throw Error($"displacement {value} out of range -128..127.")
                         : (byte)value);
+                    break;
+                case FieldKind.Displacement16:
+                    if (check && value is < short.MinValue or > short.MaxValue)
+                    {
+                        throw Error($"displacement {value} out of range -32768..32767.");
+                    }
+
+                    EmitWord(value);
+                    break;
+                case FieldKind.Indexed5X:
+                    EmitIndexed5(value, 0x00, check);
+                    break;
+                case FieldKind.Indexed5Y:
+                    EmitIndexed5(value, 0x20, check);
+                    break;
+                case FieldKind.Indexed5U:
+                    EmitIndexed5(value, 0x40, check);
+                    break;
+                case FieldKind.Indexed5S:
+                    EmitIndexed5(value, 0x60, check);
                     break;
                 default:
                     int offset = checkRange ? value - nextInstruction : value;
@@ -979,6 +1015,25 @@ public sealed class TwoPassAssembler(InstructionSet isa, SyntaxDialect dialect)
                         : (byte)offset);
                     break;
             }
+        }
+
+        private void EmitIndexed5(int value, byte registerBits, bool check)
+        {
+            if (check && value is < -16 or > 15)
+            {
+                throw Error($"indexed displacement {value} out of range -16..15.");
+            }
+
+            Emit((byte)(registerBits | (value & 0x1F)));
+        }
+
+        private void EmitWord(int value)
+        {
+            (byte first, byte second) = Endianness == Endianness.Little
+                ? ((byte)value, (byte)(value >> 8))
+                : ((byte)(value >> 8), (byte)value);
+            Emit(first);
+            Emit(second);
         }
 
         private sealed class SegmentState

@@ -10,17 +10,20 @@ namespace CathodeRay.Assembler.Isa;
 /// (np. numer bitu w Z80 <c>BIT {c=3},A</c>): musi być znana w pierwszym przebiegu, nie trafia do kodu. Literały bez rozróżniania wielkości liter i spacji.
 /// Slot nie obejmuje przecinka spoza apostrofów: przecinek rozdziela części operandu we wszystkich obsługiwanych składniach.
 /// Przykłady: <c>#{b}</c>, <c>({b}),Y</c>, <c>{w},X</c>, <c>B,{b}</c>, pusty = brak operandu.</summary>
-public sealed class OperandPattern
+public sealed partial class OperandPattern
 {
     private readonly Regex _regex;
 
-    private OperandPattern(string template, IReadOnlyList<FieldKind> fields, IReadOnlyList<int?> constants, int literalWeight, Regex regex)
+    private readonly Func<string, int?>? _encodedByte;
+
+    private OperandPattern(string template, IReadOnlyList<FieldKind> fields, IReadOnlyList<int?> constants, int literalWeight, Regex regex, Func<string, int?>? encodedByte = null)
     {
         Template = template;
         Fields = fields;
         Constants = constants;
         LiteralWeight = literalWeight;
         _regex = regex;
+        _encodedByte = encodedByte;
     }
 
     /// <summary>Wzorzec źródłowy (np. <c>({b}),Y</c>).</summary>
@@ -34,6 +37,9 @@ public sealed class OperandPattern
 
     /// <summary>Liczba znaków literalnych (bez spacji); więcej = wzorzec bardziej szczegółowy.</summary>
     public int LiteralWeight { get; }
+
+    /// <summary>Czy wzorzec koduje operand do pola bajtowego własnym adapterem.</summary>
+    internal bool IsEncoded => _encodedByte is not null;
 
     /// <summary>Parsuje wzorzec.</summary>
     /// <param name="template">Wzorzec; pusty lub <see langword="null"/> = brak operandu.</param>
@@ -60,7 +66,13 @@ public sealed class OperandPattern
                     "b" => FieldKind.Byte,
                     "w" => FieldKind.Word,
                     "r" => FieldKind.Relative8,
+                    "r16" => FieldKind.Relative16,
                     "d" => FieldKind.Displacement8,
+                    "d16" => FieldKind.Displacement16,
+                    "i5x" => FieldKind.Indexed5X,
+                    "i5y" => FieldKind.Indexed5Y,
+                    "i5u" => FieldKind.Indexed5U,
+                    "i5s" => FieldKind.Indexed5S,
                     _ when constants[^1] is not null => FieldKind.Constant,
                     _ => throw new FormatException($"Unknown slot '{{{slot}}}' in pattern '{template}'."),
                 });
@@ -90,10 +102,33 @@ public sealed class OperandPattern
     public bool TryMatch(string? operand, out string[] captures)
     {
         Match match = _regex.Match(operand ?? string.Empty);
-        captures = match.Success ? [.. match.Groups.Values.Skip(1).Select(static g => g.Value)] : [];
-        return match.Success;
+        if (!match.Success)
+        {
+            captures = [];
+            return false;
+        }
+
+        if (_encodedByte is not null)
+        {
+            int? encoded = _encodedByte(match.Groups[1].Value);
+            captures = encoded is { } value ? [value.ToString(CultureInfo.InvariantCulture)] : [];
+            return encoded is not null;
+        }
+
+        captures = [.. match.Groups.Values.Skip(1).Select(static g => g.Value)];
+        return true;
     }
 
     /// <inheritdoc/>
     public override string ToString() => Template;
+
+    /// <summary>Tworzy wzorzec całego operandu kodowanego do jednego bajtu.</summary>
+    /// <param name="template">Opis wzorca do diagnostyki.</param>
+    /// <param name="encode">Koduje operand albo zwraca <see langword="null"/> dla błędnej składni.</param>
+    /// <returns>Wzorzec z jednym polem bajtowym.</returns>
+    internal static OperandPattern EncodedByte(string template, Func<string, int?> encode) =>
+        new(template, [FieldKind.Byte], [null], 0, EncodedByteRegex(), encode);
+
+    [GeneratedRegex(@"^\s*(.*?)\s*$", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
+    private static partial Regex EncodedByteRegex();
 }

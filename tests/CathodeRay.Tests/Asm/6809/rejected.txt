@@ -1,0 +1,5 @@
+TFR A,Z
+PSHS S
+PSHU U
+LDA #$1234
+LDA 1,Z

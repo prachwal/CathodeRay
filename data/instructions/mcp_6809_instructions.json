@@ -1,0 +1,4124 @@
+{
+  "$schema": "isa.schema.json",
+  "processor": "M6809",
+  "format_version": "1.0",
+  "description": "Motorola 6809 (udokumentowane instrukcje; bez 6309).",
+  "notes": "Opcode zawiera prefiksy 10/11. Cykle stałe wg Motorola M6809PM Appendix F; TFR=7, JMP extended=3, CWAI=20. Indexed: words/cycles podają bazę; postbyte może dodać bajty/cykle (Appendix F-2). Warunkowy long branch ma +1 cykl, gdy jest wzięty. LBxx to long-relative. Direct page=$00 ustawiana przez crt0.",
+  "instructions": [
+    {
+      "opcode": "00",
+      "mnemonic": "NEG d8",
+      "cycles": 6,
+      "words": 2,
+      "semantics": null,
+      "group": "arithmetic",
+      "encoding": "direct",
+      "operands": [
+        {
+          "name": "d8",
+          "type": "address8"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "03",
+      "mnemonic": "COM d8",
+      "cycles": 6,
+      "words": 2,
+      "semantics": null,
+      "group": "arithmetic",
+      "encoding": "direct",
+      "operands": [
+        {
+          "name": "d8",
+          "type": "address8"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "04",
+      "mnemonic": "LSR d8",
+      "cycles": 6,
+      "words": 2,
+      "semantics": null,
+      "group": "arithmetic",
+      "encoding": "direct",
+      "operands": [
+        {
+          "name": "d8",
+          "type": "address8"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "06",
+      "mnemonic": "ROR d8",
+      "cycles": 6,
+      "words": 2,
+      "semantics": null,
+      "group": "arithmetic",
+      "encoding": "direct",
+      "operands": [
+        {
+          "name": "d8",
+          "type": "address8"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "07",
+      "mnemonic": "ASR d8",
+      "cycles": 6,
+      "words": 2,
+      "semantics": null,
+      "group": "arithmetic",
+      "encoding": "direct",
+      "operands": [
+        {
+          "name": "d8",
+          "type": "address8"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "09",
+      "mnemonic": "ROL d8",
+      "cycles": 6,
+      "words": 2,
+      "semantics": null,
+      "group": "arithmetic",
+      "encoding": "direct",
+      "operands": [
+        {
+          "name": "d8",
+          "type": "address8"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "0A",
+      "mnemonic": "DEC d8",
+      "cycles": 6,
+      "words": 2,
+      "semantics": null,
+      "group": "arithmetic",
+      "encoding": "direct",
+      "operands": [
+        {
+          "name": "d8",
+          "type": "address8"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "0C",
+      "mnemonic": "INC d8",
+      "cycles": 6,
+      "words": 2,
+      "semantics": null,
+      "group": "arithmetic",
+      "encoding": "direct",
+      "operands": [
+        {
+          "name": "d8",
+          "type": "address8"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "0D",
+      "mnemonic": "TST d8",
+      "cycles": 6,
+      "words": 2,
+      "semantics": null,
+      "group": "arithmetic",
+      "encoding": "direct",
+      "operands": [
+        {
+          "name": "d8",
+          "type": "address8"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "0E",
+      "mnemonic": "JMP d8",
+      "cycles": 3,
+      "words": 2,
+      "semantics": null,
+      "group": "jump",
+      "encoding": "direct",
+      "operands": [
+        {
+          "name": "d8",
+          "type": "address8"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "0F",
+      "mnemonic": "CLR d8",
+      "cycles": 6,
+      "words": 2,
+      "semantics": null,
+      "group": "arithmetic",
+      "encoding": "direct",
+      "operands": [
+        {
+          "name": "d8",
+          "type": "address8"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "12",
+      "mnemonic": "NOP",
+      "cycles": 2,
+      "words": 1,
+      "semantics": null,
+      "group": "system",
+      "encoding": "inherent",
+      "operands": null,
+      "variants": null
+    },
+    {
+      "opcode": "13",
+      "mnemonic": "SYNC",
+      "cycles": 2,
+      "words": 1,
+      "semantics": null,
+      "group": "system",
+      "encoding": "inherent",
+      "operands": null,
+      "variants": null
+    },
+    {
+      "opcode": "16",
+      "mnemonic": "LBRA rel16",
+      "cycles": 5,
+      "words": 3,
+      "semantics": null,
+      "group": "branch",
+      "encoding": "relative16",
+      "operands": [
+        {
+          "name": "rel16",
+          "type": "relative16"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "17",
+      "mnemonic": "LBSR rel16",
+      "cycles": 9,
+      "words": 3,
+      "semantics": null,
+      "group": "jump",
+      "encoding": "relative16",
+      "operands": [
+        {
+          "name": "rel16",
+          "type": "relative16"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "19",
+      "mnemonic": "DAA",
+      "cycles": 2,
+      "words": 1,
+      "semantics": null,
+      "group": "system",
+      "encoding": "inherent",
+      "operands": null,
+      "variants": null
+    },
+    {
+      "opcode": "1A",
+      "mnemonic": "ORCC #d8",
+      "cycles": 3,
+      "words": 2,
+      "semantics": null,
+      "group": "system",
+      "encoding": "immediate8",
+      "operands": [
+        {
+          "name": "d8",
+          "type": "immediate8"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "1C",
+      "mnemonic": "ANDCC #d8",
+      "cycles": 3,
+      "words": 2,
+      "semantics": null,
+      "group": "system",
+      "encoding": "immediate8",
+      "operands": [
+        {
+          "name": "d8",
+          "type": "immediate8"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "1D",
+      "mnemonic": "SEX",
+      "cycles": 2,
+      "words": 1,
+      "semantics": null,
+      "group": "system",
+      "encoding": "inherent",
+      "operands": null,
+      "variants": null
+    },
+    {
+      "opcode": "1E",
+      "mnemonic": "EXG src,dst",
+      "cycles": 8,
+      "words": 2,
+      "semantics": null,
+      "group": "system",
+      "encoding": "registerpair",
+      "operands": [
+        {
+          "name": "src",
+          "type": "register"
+        },
+        {
+          "name": "dst",
+          "type": "register"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "1F",
+      "mnemonic": "TFR src,dst",
+      "cycles": 7,
+      "words": 2,
+      "semantics": null,
+      "group": "system",
+      "encoding": "registerpair",
+      "operands": [
+        {
+          "name": "src",
+          "type": "register"
+        },
+        {
+          "name": "dst",
+          "type": "register"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "20",
+      "mnemonic": "BRA rel",
+      "cycles": 3,
+      "words": 2,
+      "semantics": null,
+      "group": "branch",
+      "encoding": "relative8",
+      "operands": [
+        {
+          "name": "rel",
+          "type": "relative8"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "21",
+      "mnemonic": "BRN rel",
+      "cycles": 3,
+      "words": 2,
+      "semantics": null,
+      "group": "branch",
+      "encoding": "relative8",
+      "operands": [
+        {
+          "name": "rel",
+          "type": "relative8"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "22",
+      "mnemonic": "BHI rel",
+      "cycles": 3,
+      "words": 2,
+      "semantics": null,
+      "group": "branch",
+      "encoding": "relative8",
+      "operands": [
+        {
+          "name": "rel",
+          "type": "relative8"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "23",
+      "mnemonic": "BLS rel",
+      "cycles": 3,
+      "words": 2,
+      "semantics": null,
+      "group": "branch",
+      "encoding": "relative8",
+      "operands": [
+        {
+          "name": "rel",
+          "type": "relative8"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "24",
+      "mnemonic": "BCC rel",
+      "cycles": 3,
+      "words": 2,
+      "semantics": null,
+      "group": "branch",
+      "encoding": "relative8",
+      "operands": [
+        {
+          "name": "rel",
+          "type": "relative8"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "25",
+      "mnemonic": "BCS rel",
+      "cycles": 3,
+      "words": 2,
+      "semantics": null,
+      "group": "branch",
+      "encoding": "relative8",
+      "operands": [
+        {
+          "name": "rel",
+          "type": "relative8"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "26",
+      "mnemonic": "BNE rel",
+      "cycles": 3,
+      "words": 2,
+      "semantics": null,
+      "group": "branch",
+      "encoding": "relative8",
+      "operands": [
+        {
+          "name": "rel",
+          "type": "relative8"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "27",
+      "mnemonic": "BEQ rel",
+      "cycles": 3,
+      "words": 2,
+      "semantics": null,
+      "group": "branch",
+      "encoding": "relative8",
+      "operands": [
+        {
+          "name": "rel",
+          "type": "relative8"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "28",
+      "mnemonic": "BVC rel",
+      "cycles": 3,
+      "words": 2,
+      "semantics": null,
+      "group": "branch",
+      "encoding": "relative8",
+      "operands": [
+        {
+          "name": "rel",
+          "type": "relative8"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "29",
+      "mnemonic": "BVS rel",
+      "cycles": 3,
+      "words": 2,
+      "semantics": null,
+      "group": "branch",
+      "encoding": "relative8",
+      "operands": [
+        {
+          "name": "rel",
+          "type": "relative8"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "2A",
+      "mnemonic": "BPL rel",
+      "cycles": 3,
+      "words": 2,
+      "semantics": null,
+      "group": "branch",
+      "encoding": "relative8",
+      "operands": [
+        {
+          "name": "rel",
+          "type": "relative8"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "2B",
+      "mnemonic": "BMI rel",
+      "cycles": 3,
+      "words": 2,
+      "semantics": null,
+      "group": "branch",
+      "encoding": "relative8",
+      "operands": [
+        {
+          "name": "rel",
+          "type": "relative8"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "2C",
+      "mnemonic": "BGE rel",
+      "cycles": 3,
+      "words": 2,
+      "semantics": null,
+      "group": "branch",
+      "encoding": "relative8",
+      "operands": [
+        {
+          "name": "rel",
+          "type": "relative8"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "2D",
+      "mnemonic": "BLT rel",
+      "cycles": 3,
+      "words": 2,
+      "semantics": null,
+      "group": "branch",
+      "encoding": "relative8",
+      "operands": [
+        {
+          "name": "rel",
+          "type": "relative8"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "2E",
+      "mnemonic": "BGT rel",
+      "cycles": 3,
+      "words": 2,
+      "semantics": null,
+      "group": "branch",
+      "encoding": "relative8",
+      "operands": [
+        {
+          "name": "rel",
+          "type": "relative8"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "2F",
+      "mnemonic": "BLE rel",
+      "cycles": 3,
+      "words": 2,
+      "semantics": null,
+      "group": "branch",
+      "encoding": "relative8",
+      "operands": [
+        {
+          "name": "rel",
+          "type": "relative8"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "30",
+      "mnemonic": "LEAX indexed",
+      "cycles": 4,
+      "words": 2,
+      "semantics": null,
+      "group": "load",
+      "encoding": "indexed",
+      "operands": [
+        {
+          "name": "indexed",
+          "type": "indexed"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "31",
+      "mnemonic": "LEAY indexed",
+      "cycles": 4,
+      "words": 2,
+      "semantics": null,
+      "group": "load",
+      "encoding": "indexed",
+      "operands": [
+        {
+          "name": "indexed",
+          "type": "indexed"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "32",
+      "mnemonic": "LEAS indexed",
+      "cycles": 4,
+      "words": 2,
+      "semantics": null,
+      "group": "load",
+      "encoding": "indexed",
+      "operands": [
+        {
+          "name": "indexed",
+          "type": "indexed"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "33",
+      "mnemonic": "LEAU indexed",
+      "cycles": 4,
+      "words": 2,
+      "semantics": null,
+      "group": "load",
+      "encoding": "indexed",
+      "operands": [
+        {
+          "name": "indexed",
+          "type": "indexed"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "34",
+      "mnemonic": "PSHS registers",
+      "cycles": 5,
+      "words": 2,
+      "semantics": null,
+      "group": "stack",
+      "encoding": "registermask",
+      "operands": [
+        {
+          "name": "registers",
+          "type": "register-list"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "35",
+      "mnemonic": "PULS registers",
+      "cycles": 5,
+      "words": 2,
+      "semantics": null,
+      "group": "stack",
+      "encoding": "registermask",
+      "operands": [
+        {
+          "name": "registers",
+          "type": "register-list"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "36",
+      "mnemonic": "PSHU registers",
+      "cycles": 5,
+      "words": 2,
+      "semantics": null,
+      "group": "stack",
+      "encoding": "registermask",
+      "operands": [
+        {
+          "name": "registers",
+          "type": "register-list"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "37",
+      "mnemonic": "PULU registers",
+      "cycles": 5,
+      "words": 2,
+      "semantics": null,
+      "group": "stack",
+      "encoding": "registermask",
+      "operands": [
+        {
+          "name": "registers",
+          "type": "register-list"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "39",
+      "mnemonic": "RTS",
+      "cycles": 5,
+      "words": 1,
+      "semantics": null,
+      "group": "jump",
+      "encoding": "inherent",
+      "operands": null,
+      "variants": null
+    },
+    {
+      "opcode": "3A",
+      "mnemonic": "ABX",
+      "cycles": 3,
+      "words": 1,
+      "semantics": null,
+      "group": "arithmetic",
+      "encoding": "inherent",
+      "operands": null,
+      "variants": null
+    },
+    {
+      "opcode": "3B",
+      "mnemonic": "RTI",
+      "cycles": 6,
+      "words": 1,
+      "semantics": null,
+      "group": "system",
+      "encoding": "inherent",
+      "operands": null,
+      "variants": null
+    },
+    {
+      "opcode": "3C",
+      "mnemonic": "CWAI #d8",
+      "cycles": 20,
+      "words": 2,
+      "semantics": null,
+      "group": "system",
+      "encoding": "immediate8",
+      "operands": [
+        {
+          "name": "d8",
+          "type": "immediate8"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "3D",
+      "mnemonic": "MUL",
+      "cycles": 11,
+      "words": 1,
+      "semantics": null,
+      "group": "arithmetic",
+      "encoding": "inherent",
+      "operands": null,
+      "variants": null
+    },
+    {
+      "opcode": "3F",
+      "mnemonic": "SWI",
+      "cycles": 19,
+      "words": 1,
+      "semantics": null,
+      "group": "system",
+      "encoding": "inherent",
+      "operands": null,
+      "variants": null
+    },
+    {
+      "opcode": "40",
+      "mnemonic": "NEGA",
+      "cycles": 2,
+      "words": 1,
+      "semantics": null,
+      "group": "arithmetic",
+      "encoding": "inherent",
+      "operands": null,
+      "variants": null
+    },
+    {
+      "opcode": "43",
+      "mnemonic": "COMA",
+      "cycles": 2,
+      "words": 1,
+      "semantics": null,
+      "group": "arithmetic",
+      "encoding": "inherent",
+      "operands": null,
+      "variants": null
+    },
+    {
+      "opcode": "44",
+      "mnemonic": "LSRA",
+      "cycles": 2,
+      "words": 1,
+      "semantics": null,
+      "group": "arithmetic",
+      "encoding": "inherent",
+      "operands": null,
+      "variants": null
+    },
+    {
+      "opcode": "46",
+      "mnemonic": "RORA",
+      "cycles": 2,
+      "words": 1,
+      "semantics": null,
+      "group": "arithmetic",
+      "encoding": "inherent",
+      "operands": null,
+      "variants": null
+    },
+    {
+      "opcode": "47",
+      "mnemonic": "ASRA",
+      "cycles": 2,
+      "words": 1,
+      "semantics": null,
+      "group": "arithmetic",
+      "encoding": "inherent",
+      "operands": null,
+      "variants": null
+    },
+    {
+      "opcode": "48",
+      "mnemonic": "ASLA",
+      "cycles": 2,
+      "words": 1,
+      "semantics": null,
+      "group": "arithmetic",
+      "encoding": "inherent",
+      "operands": null,
+      "variants": null
+    },
+    {
+      "opcode": "49",
+      "mnemonic": "ROLA",
+      "cycles": 2,
+      "words": 1,
+      "semantics": null,
+      "group": "arithmetic",
+      "encoding": "inherent",
+      "operands": null,
+      "variants": null
+    },
+    {
+      "opcode": "4A",
+      "mnemonic": "DECA",
+      "cycles": 2,
+      "words": 1,
+      "semantics": null,
+      "group": "arithmetic",
+      "encoding": "inherent",
+      "operands": null,
+      "variants": null
+    },
+    {
+      "opcode": "4C",
+      "mnemonic": "INCA",
+      "cycles": 2,
+      "words": 1,
+      "semantics": null,
+      "group": "arithmetic",
+      "encoding": "inherent",
+      "operands": null,
+      "variants": null
+    },
+    {
+      "opcode": "4D",
+      "mnemonic": "TSTA",
+      "cycles": 2,
+      "words": 1,
+      "semantics": null,
+      "group": "arithmetic",
+      "encoding": "inherent",
+      "operands": null,
+      "variants": null
+    },
+    {
+      "opcode": "4F",
+      "mnemonic": "CLRA",
+      "cycles": 2,
+      "words": 1,
+      "semantics": null,
+      "group": "arithmetic",
+      "encoding": "inherent",
+      "operands": null,
+      "variants": null
+    },
+    {
+      "opcode": "50",
+      "mnemonic": "NEGB",
+      "cycles": 2,
+      "words": 1,
+      "semantics": null,
+      "group": "arithmetic",
+      "encoding": "inherent",
+      "operands": null,
+      "variants": null
+    },
+    {
+      "opcode": "53",
+      "mnemonic": "COMB",
+      "cycles": 2,
+      "words": 1,
+      "semantics": null,
+      "group": "arithmetic",
+      "encoding": "inherent",
+      "operands": null,
+      "variants": null
+    },
+    {
+      "opcode": "54",
+      "mnemonic": "LSRB",
+      "cycles": 2,
+      "words": 1,
+      "semantics": null,
+      "group": "arithmetic",
+      "encoding": "inherent",
+      "operands": null,
+      "variants": null
+    },
+    {
+      "opcode": "56",
+      "mnemonic": "RORB",
+      "cycles": 2,
+      "words": 1,
+      "semantics": null,
+      "group": "arithmetic",
+      "encoding": "inherent",
+      "operands": null,
+      "variants": null
+    },
+    {
+      "opcode": "57",
+      "mnemonic": "ASRB",
+      "cycles": 2,
+      "words": 1,
+      "semantics": null,
+      "group": "arithmetic",
+      "encoding": "inherent",
+      "operands": null,
+      "variants": null
+    },
+    {
+      "opcode": "58",
+      "mnemonic": "ASLB",
+      "cycles": 2,
+      "words": 1,
+      "semantics": null,
+      "group": "arithmetic",
+      "encoding": "inherent",
+      "operands": null,
+      "variants": null
+    },
+    {
+      "opcode": "59",
+      "mnemonic": "ROLB",
+      "cycles": 2,
+      "words": 1,
+      "semantics": null,
+      "group": "arithmetic",
+      "encoding": "inherent",
+      "operands": null,
+      "variants": null
+    },
+    {
+      "opcode": "5A",
+      "mnemonic": "DECB",
+      "cycles": 2,
+      "words": 1,
+      "semantics": null,
+      "group": "arithmetic",
+      "encoding": "inherent",
+      "operands": null,
+      "variants": null
+    },
+    {
+      "opcode": "5C",
+      "mnemonic": "INCB",
+      "cycles": 2,
+      "words": 1,
+      "semantics": null,
+      "group": "arithmetic",
+      "encoding": "inherent",
+      "operands": null,
+      "variants": null
+    },
+    {
+      "opcode": "5D",
+      "mnemonic": "TSTB",
+      "cycles": 2,
+      "words": 1,
+      "semantics": null,
+      "group": "arithmetic",
+      "encoding": "inherent",
+      "operands": null,
+      "variants": null
+    },
+    {
+      "opcode": "5F",
+      "mnemonic": "CLRB",
+      "cycles": 2,
+      "words": 1,
+      "semantics": null,
+      "group": "arithmetic",
+      "encoding": "inherent",
+      "operands": null,
+      "variants": null
+    },
+    {
+      "opcode": "60",
+      "mnemonic": "NEG indexed",
+      "cycles": 6,
+      "words": 2,
+      "semantics": null,
+      "group": "arithmetic",
+      "encoding": "indexed",
+      "operands": [
+        {
+          "name": "indexed",
+          "type": "indexed"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "63",
+      "mnemonic": "COM indexed",
+      "cycles": 6,
+      "words": 2,
+      "semantics": null,
+      "group": "arithmetic",
+      "encoding": "indexed",
+      "operands": [
+        {
+          "name": "indexed",
+          "type": "indexed"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "64",
+      "mnemonic": "LSR indexed",
+      "cycles": 6,
+      "words": 2,
+      "semantics": null,
+      "group": "arithmetic",
+      "encoding": "indexed",
+      "operands": [
+        {
+          "name": "indexed",
+          "type": "indexed"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "66",
+      "mnemonic": "ROR indexed",
+      "cycles": 6,
+      "words": 2,
+      "semantics": null,
+      "group": "arithmetic",
+      "encoding": "indexed",
+      "operands": [
+        {
+          "name": "indexed",
+          "type": "indexed"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "67",
+      "mnemonic": "ASR indexed",
+      "cycles": 6,
+      "words": 2,
+      "semantics": null,
+      "group": "arithmetic",
+      "encoding": "indexed",
+      "operands": [
+        {
+          "name": "indexed",
+          "type": "indexed"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "68",
+      "mnemonic": "ASL indexed",
+      "cycles": 6,
+      "words": 2,
+      "semantics": null,
+      "group": "arithmetic",
+      "encoding": "indexed",
+      "operands": [
+        {
+          "name": "indexed",
+          "type": "indexed"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "69",
+      "mnemonic": "ROL indexed",
+      "cycles": 6,
+      "words": 2,
+      "semantics": null,
+      "group": "arithmetic",
+      "encoding": "indexed",
+      "operands": [
+        {
+          "name": "indexed",
+          "type": "indexed"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "6A",
+      "mnemonic": "DEC indexed",
+      "cycles": 6,
+      "words": 2,
+      "semantics": null,
+      "group": "arithmetic",
+      "encoding": "indexed",
+      "operands": [
+        {
+          "name": "indexed",
+          "type": "indexed"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "6C",
+      "mnemonic": "INC indexed",
+      "cycles": 6,
+      "words": 2,
+      "semantics": null,
+      "group": "arithmetic",
+      "encoding": "indexed",
+      "operands": [
+        {
+          "name": "indexed",
+          "type": "indexed"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "6D",
+      "mnemonic": "TST indexed",
+      "cycles": 6,
+      "words": 2,
+      "semantics": null,
+      "group": "arithmetic",
+      "encoding": "indexed",
+      "operands": [
+        {
+          "name": "indexed",
+          "type": "indexed"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "6E",
+      "mnemonic": "JMP indexed",
+      "cycles": 3,
+      "words": 2,
+      "semantics": null,
+      "group": "jump",
+      "encoding": "indexed",
+      "operands": [
+        {
+          "name": "indexed",
+          "type": "indexed"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "6F",
+      "mnemonic": "CLR indexed",
+      "cycles": 6,
+      "words": 2,
+      "semantics": null,
+      "group": "arithmetic",
+      "encoding": "indexed",
+      "operands": [
+        {
+          "name": "indexed",
+          "type": "indexed"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "70",
+      "mnemonic": "NEG a16",
+      "cycles": 7,
+      "words": 3,
+      "semantics": null,
+      "group": "arithmetic",
+      "encoding": "extended",
+      "operands": [
+        {
+          "name": "a16",
+          "type": "address16"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "73",
+      "mnemonic": "COM a16",
+      "cycles": 7,
+      "words": 3,
+      "semantics": null,
+      "group": "arithmetic",
+      "encoding": "extended",
+      "operands": [
+        {
+          "name": "a16",
+          "type": "address16"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "74",
+      "mnemonic": "LSR a16",
+      "cycles": 7,
+      "words": 3,
+      "semantics": null,
+      "group": "arithmetic",
+      "encoding": "extended",
+      "operands": [
+        {
+          "name": "a16",
+          "type": "address16"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "76",
+      "mnemonic": "ROR a16",
+      "cycles": 7,
+      "words": 3,
+      "semantics": null,
+      "group": "arithmetic",
+      "encoding": "extended",
+      "operands": [
+        {
+          "name": "a16",
+          "type": "address16"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "77",
+      "mnemonic": "ASR a16",
+      "cycles": 7,
+      "words": 3,
+      "semantics": null,
+      "group": "arithmetic",
+      "encoding": "extended",
+      "operands": [
+        {
+          "name": "a16",
+          "type": "address16"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "78",
+      "mnemonic": "ASL a16",
+      "cycles": 7,
+      "words": 3,
+      "semantics": null,
+      "group": "arithmetic",
+      "encoding": "extended",
+      "operands": [
+        {
+          "name": "a16",
+          "type": "address16"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "79",
+      "mnemonic": "ROL a16",
+      "cycles": 7,
+      "words": 3,
+      "semantics": null,
+      "group": "arithmetic",
+      "encoding": "extended",
+      "operands": [
+        {
+          "name": "a16",
+          "type": "address16"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "7A",
+      "mnemonic": "DEC a16",
+      "cycles": 7,
+      "words": 3,
+      "semantics": null,
+      "group": "arithmetic",
+      "encoding": "extended",
+      "operands": [
+        {
+          "name": "a16",
+          "type": "address16"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "7C",
+      "mnemonic": "INC a16",
+      "cycles": 7,
+      "words": 3,
+      "semantics": null,
+      "group": "arithmetic",
+      "encoding": "extended",
+      "operands": [
+        {
+          "name": "a16",
+          "type": "address16"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "7D",
+      "mnemonic": "TST a16",
+      "cycles": 7,
+      "words": 3,
+      "semantics": null,
+      "group": "arithmetic",
+      "encoding": "extended",
+      "operands": [
+        {
+          "name": "a16",
+          "type": "address16"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "7E",
+      "mnemonic": "JMP a16",
+      "cycles": 3,
+      "words": 3,
+      "semantics": null,
+      "group": "jump",
+      "encoding": "extended",
+      "operands": [
+        {
+          "name": "a16",
+          "type": "address16"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "7F",
+      "mnemonic": "CLR a16",
+      "cycles": 7,
+      "words": 3,
+      "semantics": null,
+      "group": "arithmetic",
+      "encoding": "extended",
+      "operands": [
+        {
+          "name": "a16",
+          "type": "address16"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "80",
+      "mnemonic": "SUBA #d8",
+      "cycles": 2,
+      "words": 2,
+      "semantics": null,
+      "group": "arithmetic",
+      "encoding": "immediate8",
+      "operands": [
+        {
+          "name": "d8",
+          "type": "immediate8"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "81",
+      "mnemonic": "CMPA #d8",
+      "cycles": 2,
+      "words": 2,
+      "semantics": null,
+      "group": "compare",
+      "encoding": "immediate8",
+      "operands": [
+        {
+          "name": "d8",
+          "type": "immediate8"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "82",
+      "mnemonic": "SBCA #d8",
+      "cycles": 2,
+      "words": 2,
+      "semantics": null,
+      "group": "arithmetic",
+      "encoding": "immediate8",
+      "operands": [
+        {
+          "name": "d8",
+          "type": "immediate8"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "83",
+      "mnemonic": "SUBD #d16",
+      "cycles": 4,
+      "words": 3,
+      "semantics": null,
+      "group": "arithmetic",
+      "encoding": "immediate16",
+      "operands": [
+        {
+          "name": "d16",
+          "type": "immediate16"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "84",
+      "mnemonic": "ANDA #d8",
+      "cycles": 2,
+      "words": 2,
+      "semantics": null,
+      "group": "logic",
+      "encoding": "immediate8",
+      "operands": [
+        {
+          "name": "d8",
+          "type": "immediate8"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "85",
+      "mnemonic": "BITA #d8",
+      "cycles": 2,
+      "words": 2,
+      "semantics": null,
+      "group": "compare",
+      "encoding": "immediate8",
+      "operands": [
+        {
+          "name": "d8",
+          "type": "immediate8"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "86",
+      "mnemonic": "LDA #d8",
+      "cycles": 2,
+      "words": 2,
+      "semantics": null,
+      "group": "load",
+      "encoding": "immediate8",
+      "operands": [
+        {
+          "name": "d8",
+          "type": "immediate8"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "88",
+      "mnemonic": "EORA #d8",
+      "cycles": 2,
+      "words": 2,
+      "semantics": null,
+      "group": "logic",
+      "encoding": "immediate8",
+      "operands": [
+        {
+          "name": "d8",
+          "type": "immediate8"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "89",
+      "mnemonic": "ADCA #d8",
+      "cycles": 2,
+      "words": 2,
+      "semantics": null,
+      "group": "arithmetic",
+      "encoding": "immediate8",
+      "operands": [
+        {
+          "name": "d8",
+          "type": "immediate8"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "8A",
+      "mnemonic": "ORA #d8",
+      "cycles": 2,
+      "words": 2,
+      "semantics": null,
+      "group": "logic",
+      "encoding": "immediate8",
+      "operands": [
+        {
+          "name": "d8",
+          "type": "immediate8"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "8B",
+      "mnemonic": "ADDA #d8",
+      "cycles": 2,
+      "words": 2,
+      "semantics": null,
+      "group": "arithmetic",
+      "encoding": "immediate8",
+      "operands": [
+        {
+          "name": "d8",
+          "type": "immediate8"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "8C",
+      "mnemonic": "CMPX #d16",
+      "cycles": 4,
+      "words": 3,
+      "semantics": null,
+      "group": "compare",
+      "encoding": "immediate16",
+      "operands": [
+        {
+          "name": "d16",
+          "type": "immediate16"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "8D",
+      "mnemonic": "BSR rel",
+      "cycles": 7,
+      "words": 2,
+      "semantics": null,
+      "group": "jump",
+      "encoding": "relative8",
+      "operands": [
+        {
+          "name": "rel",
+          "type": "relative8"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "8E",
+      "mnemonic": "LDX #d16",
+      "cycles": 3,
+      "words": 3,
+      "semantics": null,
+      "group": "load",
+      "encoding": "immediate16",
+      "operands": [
+        {
+          "name": "d16",
+          "type": "immediate16"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "90",
+      "mnemonic": "SUBA d8",
+      "cycles": 4,
+      "words": 2,
+      "semantics": null,
+      "group": "arithmetic",
+      "encoding": "direct",
+      "operands": [
+        {
+          "name": "d8",
+          "type": "address8"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "91",
+      "mnemonic": "CMPA d8",
+      "cycles": 4,
+      "words": 2,
+      "semantics": null,
+      "group": "compare",
+      "encoding": "direct",
+      "operands": [
+        {
+          "name": "d8",
+          "type": "address8"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "92",
+      "mnemonic": "SBCA d8",
+      "cycles": 4,
+      "words": 2,
+      "semantics": null,
+      "group": "arithmetic",
+      "encoding": "direct",
+      "operands": [
+        {
+          "name": "d8",
+          "type": "address8"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "93",
+      "mnemonic": "SUBD d8",
+      "cycles": 6,
+      "words": 2,
+      "semantics": null,
+      "group": "arithmetic",
+      "encoding": "direct",
+      "operands": [
+        {
+          "name": "d8",
+          "type": "address8"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "94",
+      "mnemonic": "ANDA d8",
+      "cycles": 4,
+      "words": 2,
+      "semantics": null,
+      "group": "logic",
+      "encoding": "direct",
+      "operands": [
+        {
+          "name": "d8",
+          "type": "address8"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "95",
+      "mnemonic": "BITA d8",
+      "cycles": 4,
+      "words": 2,
+      "semantics": null,
+      "group": "compare",
+      "encoding": "direct",
+      "operands": [
+        {
+          "name": "d8",
+          "type": "address8"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "96",
+      "mnemonic": "LDA d8",
+      "cycles": 4,
+      "words": 2,
+      "semantics": null,
+      "group": "load",
+      "encoding": "direct",
+      "operands": [
+        {
+          "name": "d8",
+          "type": "address8"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "97",
+      "mnemonic": "STA d8",
+      "cycles": 4,
+      "words": 2,
+      "semantics": null,
+      "group": "load",
+      "encoding": "direct",
+      "operands": [
+        {
+          "name": "d8",
+          "type": "address8"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "98",
+      "mnemonic": "EORA d8",
+      "cycles": 4,
+      "words": 2,
+      "semantics": null,
+      "group": "logic",
+      "encoding": "direct",
+      "operands": [
+        {
+          "name": "d8",
+          "type": "address8"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "99",
+      "mnemonic": "ADCA d8",
+      "cycles": 4,
+      "words": 2,
+      "semantics": null,
+      "group": "arithmetic",
+      "encoding": "direct",
+      "operands": [
+        {
+          "name": "d8",
+          "type": "address8"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "9A",
+      "mnemonic": "ORA d8",
+      "cycles": 4,
+      "words": 2,
+      "semantics": null,
+      "group": "logic",
+      "encoding": "direct",
+      "operands": [
+        {
+          "name": "d8",
+          "type": "address8"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "9B",
+      "mnemonic": "ADDA d8",
+      "cycles": 4,
+      "words": 2,
+      "semantics": null,
+      "group": "arithmetic",
+      "encoding": "direct",
+      "operands": [
+        {
+          "name": "d8",
+          "type": "address8"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "9C",
+      "mnemonic": "CMPX d8",
+      "cycles": 6,
+      "words": 2,
+      "semantics": null,
+      "group": "compare",
+      "encoding": "direct",
+      "operands": [
+        {
+          "name": "d8",
+          "type": "address8"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "9D",
+      "mnemonic": "JSR d8",
+      "cycles": 7,
+      "words": 2,
+      "semantics": null,
+      "group": "jump",
+      "encoding": "direct",
+      "operands": [
+        {
+          "name": "d8",
+          "type": "address8"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "9E",
+      "mnemonic": "LDX d8",
+      "cycles": 5,
+      "words": 2,
+      "semantics": null,
+      "group": "load",
+      "encoding": "direct",
+      "operands": [
+        {
+          "name": "d8",
+          "type": "address8"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "9F",
+      "mnemonic": "STX d8",
+      "cycles": 5,
+      "words": 2,
+      "semantics": null,
+      "group": "load",
+      "encoding": "direct",
+      "operands": [
+        {
+          "name": "d8",
+          "type": "address8"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "A0",
+      "mnemonic": "SUBA indexed",
+      "cycles": 4,
+      "words": 2,
+      "semantics": null,
+      "group": "arithmetic",
+      "encoding": "indexed",
+      "operands": [
+        {
+          "name": "indexed",
+          "type": "indexed"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "A1",
+      "mnemonic": "CMPA indexed",
+      "cycles": 4,
+      "words": 2,
+      "semantics": null,
+      "group": "compare",
+      "encoding": "indexed",
+      "operands": [
+        {
+          "name": "indexed",
+          "type": "indexed"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "A2",
+      "mnemonic": "SBCA indexed",
+      "cycles": 4,
+      "words": 2,
+      "semantics": null,
+      "group": "arithmetic",
+      "encoding": "indexed",
+      "operands": [
+        {
+          "name": "indexed",
+          "type": "indexed"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "A3",
+      "mnemonic": "SUBD indexed",
+      "cycles": 6,
+      "words": 2,
+      "semantics": null,
+      "group": "arithmetic",
+      "encoding": "indexed",
+      "operands": [
+        {
+          "name": "indexed",
+          "type": "indexed"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "A4",
+      "mnemonic": "ANDA indexed",
+      "cycles": 4,
+      "words": 2,
+      "semantics": null,
+      "group": "logic",
+      "encoding": "indexed",
+      "operands": [
+        {
+          "name": "indexed",
+          "type": "indexed"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "A5",
+      "mnemonic": "BITA indexed",
+      "cycles": 4,
+      "words": 2,
+      "semantics": null,
+      "group": "compare",
+      "encoding": "indexed",
+      "operands": [
+        {
+          "name": "indexed",
+          "type": "indexed"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "A6",
+      "mnemonic": "LDA indexed",
+      "cycles": 4,
+      "words": 2,
+      "semantics": null,
+      "group": "load",
+      "encoding": "indexed",
+      "operands": [
+        {
+          "name": "indexed",
+          "type": "indexed"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "A7",
+      "mnemonic": "STA indexed",
+      "cycles": 4,
+      "words": 2,
+      "semantics": null,
+      "group": "load",
+      "encoding": "indexed",
+      "operands": [
+        {
+          "name": "indexed",
+          "type": "indexed"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "A8",
+      "mnemonic": "EORA indexed",
+      "cycles": 4,
+      "words": 2,
+      "semantics": null,
+      "group": "logic",
+      "encoding": "indexed",
+      "operands": [
+        {
+          "name": "indexed",
+          "type": "indexed"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "A9",
+      "mnemonic": "ADCA indexed",
+      "cycles": 4,
+      "words": 2,
+      "semantics": null,
+      "group": "arithmetic",
+      "encoding": "indexed",
+      "operands": [
+        {
+          "name": "indexed",
+          "type": "indexed"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "AA",
+      "mnemonic": "ORA indexed",
+      "cycles": 4,
+      "words": 2,
+      "semantics": null,
+      "group": "logic",
+      "encoding": "indexed",
+      "operands": [
+        {
+          "name": "indexed",
+          "type": "indexed"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "AB",
+      "mnemonic": "ADDA indexed",
+      "cycles": 4,
+      "words": 2,
+      "semantics": null,
+      "group": "arithmetic",
+      "encoding": "indexed",
+      "operands": [
+        {
+          "name": "indexed",
+          "type": "indexed"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "AC",
+      "mnemonic": "CMPX indexed",
+      "cycles": 6,
+      "words": 2,
+      "semantics": null,
+      "group": "compare",
+      "encoding": "indexed",
+      "operands": [
+        {
+          "name": "indexed",
+          "type": "indexed"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "AD",
+      "mnemonic": "JSR indexed",
+      "cycles": 7,
+      "words": 2,
+      "semantics": null,
+      "group": "jump",
+      "encoding": "indexed",
+      "operands": [
+        {
+          "name": "indexed",
+          "type": "indexed"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "AE",
+      "mnemonic": "LDX indexed",
+      "cycles": 5,
+      "words": 2,
+      "semantics": null,
+      "group": "load",
+      "encoding": "indexed",
+      "operands": [
+        {
+          "name": "indexed",
+          "type": "indexed"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "AF",
+      "mnemonic": "STX indexed",
+      "cycles": 5,
+      "words": 2,
+      "semantics": null,
+      "group": "load",
+      "encoding": "indexed",
+      "operands": [
+        {
+          "name": "indexed",
+          "type": "indexed"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "B0",
+      "mnemonic": "SUBA a16",
+      "cycles": 5,
+      "words": 3,
+      "semantics": null,
+      "group": "arithmetic",
+      "encoding": "extended",
+      "operands": [
+        {
+          "name": "a16",
+          "type": "address16"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "B1",
+      "mnemonic": "CMPA a16",
+      "cycles": 5,
+      "words": 3,
+      "semantics": null,
+      "group": "compare",
+      "encoding": "extended",
+      "operands": [
+        {
+          "name": "a16",
+          "type": "address16"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "B2",
+      "mnemonic": "SBCA a16",
+      "cycles": 5,
+      "words": 3,
+      "semantics": null,
+      "group": "arithmetic",
+      "encoding": "extended",
+      "operands": [
+        {
+          "name": "a16",
+          "type": "address16"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "B3",
+      "mnemonic": "SUBD a16",
+      "cycles": 7,
+      "words": 3,
+      "semantics": null,
+      "group": "arithmetic",
+      "encoding": "extended",
+      "operands": [
+        {
+          "name": "a16",
+          "type": "address16"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "B4",
+      "mnemonic": "ANDA a16",
+      "cycles": 5,
+      "words": 3,
+      "semantics": null,
+      "group": "logic",
+      "encoding": "extended",
+      "operands": [
+        {
+          "name": "a16",
+          "type": "address16"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "B5",
+      "mnemonic": "BITA a16",
+      "cycles": 5,
+      "words": 3,
+      "semantics": null,
+      "group": "compare",
+      "encoding": "extended",
+      "operands": [
+        {
+          "name": "a16",
+          "type": "address16"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "B6",
+      "mnemonic": "LDA a16",
+      "cycles": 5,
+      "words": 3,
+      "semantics": null,
+      "group": "load",
+      "encoding": "extended",
+      "operands": [
+        {
+          "name": "a16",
+          "type": "address16"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "B7",
+      "mnemonic": "STA a16",
+      "cycles": 5,
+      "words": 3,
+      "semantics": null,
+      "group": "load",
+      "encoding": "extended",
+      "operands": [
+        {
+          "name": "a16",
+          "type": "address16"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "B8",
+      "mnemonic": "EORA a16",
+      "cycles": 5,
+      "words": 3,
+      "semantics": null,
+      "group": "logic",
+      "encoding": "extended",
+      "operands": [
+        {
+          "name": "a16",
+          "type": "address16"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "B9",
+      "mnemonic": "ADCA a16",
+      "cycles": 5,
+      "words": 3,
+      "semantics": null,
+      "group": "arithmetic",
+      "encoding": "extended",
+      "operands": [
+        {
+          "name": "a16",
+          "type": "address16"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "BA",
+      "mnemonic": "ORA a16",
+      "cycles": 5,
+      "words": 3,
+      "semantics": null,
+      "group": "logic",
+      "encoding": "extended",
+      "operands": [
+        {
+          "name": "a16",
+          "type": "address16"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "BB",
+      "mnemonic": "ADDA a16",
+      "cycles": 5,
+      "words": 3,
+      "semantics": null,
+      "group": "arithmetic",
+      "encoding": "extended",
+      "operands": [
+        {
+          "name": "a16",
+          "type": "address16"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "BC",
+      "mnemonic": "CMPX a16",
+      "cycles": 7,
+      "words": 3,
+      "semantics": null,
+      "group": "compare",
+      "encoding": "extended",
+      "operands": [
+        {
+          "name": "a16",
+          "type": "address16"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "BD",
+      "mnemonic": "JSR a16",
+      "cycles": 8,
+      "words": 3,
+      "semantics": null,
+      "group": "jump",
+      "encoding": "extended",
+      "operands": [
+        {
+          "name": "a16",
+          "type": "address16"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "BE",
+      "mnemonic": "LDX a16",
+      "cycles": 6,
+      "words": 3,
+      "semantics": null,
+      "group": "load",
+      "encoding": "extended",
+      "operands": [
+        {
+          "name": "a16",
+          "type": "address16"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "BF",
+      "mnemonic": "STX a16",
+      "cycles": 6,
+      "words": 3,
+      "semantics": null,
+      "group": "load",
+      "encoding": "extended",
+      "operands": [
+        {
+          "name": "a16",
+          "type": "address16"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "C0",
+      "mnemonic": "SUBB #d8",
+      "cycles": 2,
+      "words": 2,
+      "semantics": null,
+      "group": "arithmetic",
+      "encoding": "immediate8",
+      "operands": [
+        {
+          "name": "d8",
+          "type": "immediate8"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "C1",
+      "mnemonic": "CMPB #d8",
+      "cycles": 2,
+      "words": 2,
+      "semantics": null,
+      "group": "compare",
+      "encoding": "immediate8",
+      "operands": [
+        {
+          "name": "d8",
+          "type": "immediate8"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "C2",
+      "mnemonic": "SBCB #d8",
+      "cycles": 2,
+      "words": 2,
+      "semantics": null,
+      "group": "arithmetic",
+      "encoding": "immediate8",
+      "operands": [
+        {
+          "name": "d8",
+          "type": "immediate8"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "C3",
+      "mnemonic": "ADDD #d16",
+      "cycles": 4,
+      "words": 3,
+      "semantics": null,
+      "group": "arithmetic",
+      "encoding": "immediate16",
+      "operands": [
+        {
+          "name": "d16",
+          "type": "immediate16"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "C4",
+      "mnemonic": "ANDB #d8",
+      "cycles": 2,
+      "words": 2,
+      "semantics": null,
+      "group": "logic",
+      "encoding": "immediate8",
+      "operands": [
+        {
+          "name": "d8",
+          "type": "immediate8"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "C5",
+      "mnemonic": "BITB #d8",
+      "cycles": 2,
+      "words": 2,
+      "semantics": null,
+      "group": "compare",
+      "encoding": "immediate8",
+      "operands": [
+        {
+          "name": "d8",
+          "type": "immediate8"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "C6",
+      "mnemonic": "LDB #d8",
+      "cycles": 2,
+      "words": 2,
+      "semantics": null,
+      "group": "load",
+      "encoding": "immediate8",
+      "operands": [
+        {
+          "name": "d8",
+          "type": "immediate8"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "C8",
+      "mnemonic": "EORB #d8",
+      "cycles": 2,
+      "words": 2,
+      "semantics": null,
+      "group": "logic",
+      "encoding": "immediate8",
+      "operands": [
+        {
+          "name": "d8",
+          "type": "immediate8"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "C9",
+      "mnemonic": "ADCB #d8",
+      "cycles": 2,
+      "words": 2,
+      "semantics": null,
+      "group": "arithmetic",
+      "encoding": "immediate8",
+      "operands": [
+        {
+          "name": "d8",
+          "type": "immediate8"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "CA",
+      "mnemonic": "ORB #d8",
+      "cycles": 2,
+      "words": 2,
+      "semantics": null,
+      "group": "logic",
+      "encoding": "immediate8",
+      "operands": [
+        {
+          "name": "d8",
+          "type": "immediate8"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "CB",
+      "mnemonic": "ADDB #d8",
+      "cycles": 2,
+      "words": 2,
+      "semantics": null,
+      "group": "arithmetic",
+      "encoding": "immediate8",
+      "operands": [
+        {
+          "name": "d8",
+          "type": "immediate8"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "CC",
+      "mnemonic": "LDD #d16",
+      "cycles": 3,
+      "words": 3,
+      "semantics": null,
+      "group": "load",
+      "encoding": "immediate16",
+      "operands": [
+        {
+          "name": "d16",
+          "type": "immediate16"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "CE",
+      "mnemonic": "LDU #d16",
+      "cycles": 3,
+      "words": 3,
+      "semantics": null,
+      "group": "load",
+      "encoding": "immediate16",
+      "operands": [
+        {
+          "name": "d16",
+          "type": "immediate16"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "D0",
+      "mnemonic": "SUBB d8",
+      "cycles": 4,
+      "words": 2,
+      "semantics": null,
+      "group": "arithmetic",
+      "encoding": "direct",
+      "operands": [
+        {
+          "name": "d8",
+          "type": "address8"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "D1",
+      "mnemonic": "CMPB d8",
+      "cycles": 4,
+      "words": 2,
+      "semantics": null,
+      "group": "compare",
+      "encoding": "direct",
+      "operands": [
+        {
+          "name": "d8",
+          "type": "address8"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "D2",
+      "mnemonic": "SBCB d8",
+      "cycles": 4,
+      "words": 2,
+      "semantics": null,
+      "group": "arithmetic",
+      "encoding": "direct",
+      "operands": [
+        {
+          "name": "d8",
+          "type": "address8"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "D3",
+      "mnemonic": "ADDD d8",
+      "cycles": 6,
+      "words": 2,
+      "semantics": null,
+      "group": "arithmetic",
+      "encoding": "direct",
+      "operands": [
+        {
+          "name": "d8",
+          "type": "address8"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "D4",
+      "mnemonic": "ANDB d8",
+      "cycles": 4,
+      "words": 2,
+      "semantics": null,
+      "group": "logic",
+      "encoding": "direct",
+      "operands": [
+        {
+          "name": "d8",
+          "type": "address8"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "D5",
+      "mnemonic": "BITB d8",
+      "cycles": 4,
+      "words": 2,
+      "semantics": null,
+      "group": "compare",
+      "encoding": "direct",
+      "operands": [
+        {
+          "name": "d8",
+          "type": "address8"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "D6",
+      "mnemonic": "LDB d8",
+      "cycles": 4,
+      "words": 2,
+      "semantics": null,
+      "group": "load",
+      "encoding": "direct",
+      "operands": [
+        {
+          "name": "d8",
+          "type": "address8"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "D7",
+      "mnemonic": "STB d8",
+      "cycles": 4,
+      "words": 2,
+      "semantics": null,
+      "group": "load",
+      "encoding": "direct",
+      "operands": [
+        {
+          "name": "d8",
+          "type": "address8"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "D8",
+      "mnemonic": "EORB d8",
+      "cycles": 4,
+      "words": 2,
+      "semantics": null,
+      "group": "logic",
+      "encoding": "direct",
+      "operands": [
+        {
+          "name": "d8",
+          "type": "address8"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "D9",
+      "mnemonic": "ADCB d8",
+      "cycles": 4,
+      "words": 2,
+      "semantics": null,
+      "group": "arithmetic",
+      "encoding": "direct",
+      "operands": [
+        {
+          "name": "d8",
+          "type": "address8"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "DA",
+      "mnemonic": "ORB d8",
+      "cycles": 4,
+      "words": 2,
+      "semantics": null,
+      "group": "logic",
+      "encoding": "direct",
+      "operands": [
+        {
+          "name": "d8",
+          "type": "address8"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "DB",
+      "mnemonic": "ADDB d8",
+      "cycles": 4,
+      "words": 2,
+      "semantics": null,
+      "group": "arithmetic",
+      "encoding": "direct",
+      "operands": [
+        {
+          "name": "d8",
+          "type": "address8"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "DC",
+      "mnemonic": "LDD d8",
+      "cycles": 5,
+      "words": 2,
+      "semantics": null,
+      "group": "load",
+      "encoding": "direct",
+      "operands": [
+        {
+          "name": "d8",
+          "type": "address8"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "DD",
+      "mnemonic": "STD d8",
+      "cycles": 5,
+      "words": 2,
+      "semantics": null,
+      "group": "load",
+      "encoding": "direct",
+      "operands": [
+        {
+          "name": "d8",
+          "type": "address8"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "DE",
+      "mnemonic": "LDU d8",
+      "cycles": 5,
+      "words": 2,
+      "semantics": null,
+      "group": "load",
+      "encoding": "direct",
+      "operands": [
+        {
+          "name": "d8",
+          "type": "address8"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "DF",
+      "mnemonic": "STU d8",
+      "cycles": 5,
+      "words": 2,
+      "semantics": null,
+      "group": "load",
+      "encoding": "direct",
+      "operands": [
+        {
+          "name": "d8",
+          "type": "address8"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "E0",
+      "mnemonic": "SUBB indexed",
+      "cycles": 4,
+      "words": 2,
+      "semantics": null,
+      "group": "arithmetic",
+      "encoding": "indexed",
+      "operands": [
+        {
+          "name": "indexed",
+          "type": "indexed"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "E1",
+      "mnemonic": "CMPB indexed",
+      "cycles": 4,
+      "words": 2,
+      "semantics": null,
+      "group": "compare",
+      "encoding": "indexed",
+      "operands": [
+        {
+          "name": "indexed",
+          "type": "indexed"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "E2",
+      "mnemonic": "SBCB indexed",
+      "cycles": 4,
+      "words": 2,
+      "semantics": null,
+      "group": "arithmetic",
+      "encoding": "indexed",
+      "operands": [
+        {
+          "name": "indexed",
+          "type": "indexed"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "E3",
+      "mnemonic": "ADDD indexed",
+      "cycles": 6,
+      "words": 2,
+      "semantics": null,
+      "group": "arithmetic",
+      "encoding": "indexed",
+      "operands": [
+        {
+          "name": "indexed",
+          "type": "indexed"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "E4",
+      "mnemonic": "ANDB indexed",
+      "cycles": 4,
+      "words": 2,
+      "semantics": null,
+      "group": "logic",
+      "encoding": "indexed",
+      "operands": [
+        {
+          "name": "indexed",
+          "type": "indexed"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "E5",
+      "mnemonic": "BITB indexed",
+      "cycles": 4,
+      "words": 2,
+      "semantics": null,
+      "group": "compare",
+      "encoding": "indexed",
+      "operands": [
+        {
+          "name": "indexed",
+          "type": "indexed"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "E6",
+      "mnemonic": "LDB indexed",
+      "cycles": 4,
+      "words": 2,
+      "semantics": null,
+      "group": "load",
+      "encoding": "indexed",
+      "operands": [
+        {
+          "name": "indexed",
+          "type": "indexed"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "E7",
+      "mnemonic": "STB indexed",
+      "cycles": 4,
+      "words": 2,
+      "semantics": null,
+      "group": "load",
+      "encoding": "indexed",
+      "operands": [
+        {
+          "name": "indexed",
+          "type": "indexed"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "E8",
+      "mnemonic": "EORB indexed",
+      "cycles": 4,
+      "words": 2,
+      "semantics": null,
+      "group": "logic",
+      "encoding": "indexed",
+      "operands": [
+        {
+          "name": "indexed",
+          "type": "indexed"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "E9",
+      "mnemonic": "ADCB indexed",
+      "cycles": 4,
+      "words": 2,
+      "semantics": null,
+      "group": "arithmetic",
+      "encoding": "indexed",
+      "operands": [
+        {
+          "name": "indexed",
+          "type": "indexed"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "EA",
+      "mnemonic": "ORB indexed",
+      "cycles": 4,
+      "words": 2,
+      "semantics": null,
+      "group": "logic",
+      "encoding": "indexed",
+      "operands": [
+        {
+          "name": "indexed",
+          "type": "indexed"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "EB",
+      "mnemonic": "ADDB indexed",
+      "cycles": 4,
+      "words": 2,
+      "semantics": null,
+      "group": "arithmetic",
+      "encoding": "indexed",
+      "operands": [
+        {
+          "name": "indexed",
+          "type": "indexed"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "EC",
+      "mnemonic": "LDD indexed",
+      "cycles": 5,
+      "words": 2,
+      "semantics": null,
+      "group": "load",
+      "encoding": "indexed",
+      "operands": [
+        {
+          "name": "indexed",
+          "type": "indexed"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "ED",
+      "mnemonic": "STD indexed",
+      "cycles": 5,
+      "words": 2,
+      "semantics": null,
+      "group": "load",
+      "encoding": "indexed",
+      "operands": [
+        {
+          "name": "indexed",
+          "type": "indexed"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "EE",
+      "mnemonic": "LDU indexed",
+      "cycles": 5,
+      "words": 2,
+      "semantics": null,
+      "group": "load",
+      "encoding": "indexed",
+      "operands": [
+        {
+          "name": "indexed",
+          "type": "indexed"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "EF",
+      "mnemonic": "STU indexed",
+      "cycles": 5,
+      "words": 2,
+      "semantics": null,
+      "group": "load",
+      "encoding": "indexed",
+      "operands": [
+        {
+          "name": "indexed",
+          "type": "indexed"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "F0",
+      "mnemonic": "SUBB a16",
+      "cycles": 5,
+      "words": 3,
+      "semantics": null,
+      "group": "arithmetic",
+      "encoding": "extended",
+      "operands": [
+        {
+          "name": "a16",
+          "type": "address16"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "F1",
+      "mnemonic": "CMPB a16",
+      "cycles": 5,
+      "words": 3,
+      "semantics": null,
+      "group": "compare",
+      "encoding": "extended",
+      "operands": [
+        {
+          "name": "a16",
+          "type": "address16"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "F2",
+      "mnemonic": "SBCB a16",
+      "cycles": 5,
+      "words": 3,
+      "semantics": null,
+      "group": "arithmetic",
+      "encoding": "extended",
+      "operands": [
+        {
+          "name": "a16",
+          "type": "address16"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "F3",
+      "mnemonic": "ADDD a16",
+      "cycles": 7,
+      "words": 3,
+      "semantics": null,
+      "group": "arithmetic",
+      "encoding": "extended",
+      "operands": [
+        {
+          "name": "a16",
+          "type": "address16"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "F4",
+      "mnemonic": "ANDB a16",
+      "cycles": 5,
+      "words": 3,
+      "semantics": null,
+      "group": "logic",
+      "encoding": "extended",
+      "operands": [
+        {
+          "name": "a16",
+          "type": "address16"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "F5",
+      "mnemonic": "BITB a16",
+      "cycles": 5,
+      "words": 3,
+      "semantics": null,
+      "group": "compare",
+      "encoding": "extended",
+      "operands": [
+        {
+          "name": "a16",
+          "type": "address16"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "F6",
+      "mnemonic": "LDB a16",
+      "cycles": 5,
+      "words": 3,
+      "semantics": null,
+      "group": "load",
+      "encoding": "extended",
+      "operands": [
+        {
+          "name": "a16",
+          "type": "address16"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "F7",
+      "mnemonic": "STB a16",
+      "cycles": 5,
+      "words": 3,
+      "semantics": null,
+      "group": "load",
+      "encoding": "extended",
+      "operands": [
+        {
+          "name": "a16",
+          "type": "address16"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "F8",
+      "mnemonic": "EORB a16",
+      "cycles": 5,
+      "words": 3,
+      "semantics": null,
+      "group": "logic",
+      "encoding": "extended",
+      "operands": [
+        {
+          "name": "a16",
+          "type": "address16"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "F9",
+      "mnemonic": "ADCB a16",
+      "cycles": 5,
+      "words": 3,
+      "semantics": null,
+      "group": "arithmetic",
+      "encoding": "extended",
+      "operands": [
+        {
+          "name": "a16",
+          "type": "address16"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "FA",
+      "mnemonic": "ORB a16",
+      "cycles": 5,
+      "words": 3,
+      "semantics": null,
+      "group": "logic",
+      "encoding": "extended",
+      "operands": [
+        {
+          "name": "a16",
+          "type": "address16"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "FB",
+      "mnemonic": "ADDB a16",
+      "cycles": 5,
+      "words": 3,
+      "semantics": null,
+      "group": "arithmetic",
+      "encoding": "extended",
+      "operands": [
+        {
+          "name": "a16",
+          "type": "address16"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "FC",
+      "mnemonic": "LDD a16",
+      "cycles": 6,
+      "words": 3,
+      "semantics": null,
+      "group": "load",
+      "encoding": "extended",
+      "operands": [
+        {
+          "name": "a16",
+          "type": "address16"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "FD",
+      "mnemonic": "STD a16",
+      "cycles": 6,
+      "words": 3,
+      "semantics": null,
+      "group": "load",
+      "encoding": "extended",
+      "operands": [
+        {
+          "name": "a16",
+          "type": "address16"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "FE",
+      "mnemonic": "LDU a16",
+      "cycles": 6,
+      "words": 3,
+      "semantics": null,
+      "group": "load",
+      "encoding": "extended",
+      "operands": [
+        {
+          "name": "a16",
+          "type": "address16"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "FF",
+      "mnemonic": "STU a16",
+      "cycles": 6,
+      "words": 3,
+      "semantics": null,
+      "group": "load",
+      "encoding": "extended",
+      "operands": [
+        {
+          "name": "a16",
+          "type": "address16"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "1021",
+      "mnemonic": "LBRN rel16",
+      "cycles": 5,
+      "words": 4,
+      "semantics": null,
+      "group": "branch",
+      "encoding": "relative16",
+      "operands": [
+        {
+          "name": "rel16",
+          "type": "relative16"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "1022",
+      "mnemonic": "LBHI rel16",
+      "cycles": 5,
+      "words": 4,
+      "semantics": null,
+      "group": "branch",
+      "encoding": "relative16",
+      "operands": [
+        {
+          "name": "rel16",
+          "type": "relative16"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "1023",
+      "mnemonic": "LBLS rel16",
+      "cycles": 5,
+      "words": 4,
+      "semantics": null,
+      "group": "branch",
+      "encoding": "relative16",
+      "operands": [
+        {
+          "name": "rel16",
+          "type": "relative16"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "1024",
+      "mnemonic": "LBCC rel16",
+      "cycles": 5,
+      "words": 4,
+      "semantics": null,
+      "group": "branch",
+      "encoding": "relative16",
+      "operands": [
+        {
+          "name": "rel16",
+          "type": "relative16"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "1025",
+      "mnemonic": "LBCS rel16",
+      "cycles": 5,
+      "words": 4,
+      "semantics": null,
+      "group": "branch",
+      "encoding": "relative16",
+      "operands": [
+        {
+          "name": "rel16",
+          "type": "relative16"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "1026",
+      "mnemonic": "LBNE rel16",
+      "cycles": 5,
+      "words": 4,
+      "semantics": null,
+      "group": "branch",
+      "encoding": "relative16",
+      "operands": [
+        {
+          "name": "rel16",
+          "type": "relative16"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "1027",
+      "mnemonic": "LBEQ rel16",
+      "cycles": 5,
+      "words": 4,
+      "semantics": null,
+      "group": "branch",
+      "encoding": "relative16",
+      "operands": [
+        {
+          "name": "rel16",
+          "type": "relative16"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "1028",
+      "mnemonic": "LBVC rel16",
+      "cycles": 5,
+      "words": 4,
+      "semantics": null,
+      "group": "branch",
+      "encoding": "relative16",
+      "operands": [
+        {
+          "name": "rel16",
+          "type": "relative16"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "1029",
+      "mnemonic": "LBVS rel16",
+      "cycles": 5,
+      "words": 4,
+      "semantics": null,
+      "group": "branch",
+      "encoding": "relative16",
+      "operands": [
+        {
+          "name": "rel16",
+          "type": "relative16"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "102A",
+      "mnemonic": "LBPL rel16",
+      "cycles": 5,
+      "words": 4,
+      "semantics": null,
+      "group": "branch",
+      "encoding": "relative16",
+      "operands": [
+        {
+          "name": "rel16",
+          "type": "relative16"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "102B",
+      "mnemonic": "LBMI rel16",
+      "cycles": 5,
+      "words": 4,
+      "semantics": null,
+      "group": "branch",
+      "encoding": "relative16",
+      "operands": [
+        {
+          "name": "rel16",
+          "type": "relative16"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "102C",
+      "mnemonic": "LBGE rel16",
+      "cycles": 5,
+      "words": 4,
+      "semantics": null,
+      "group": "branch",
+      "encoding": "relative16",
+      "operands": [
+        {
+          "name": "rel16",
+          "type": "relative16"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "102D",
+      "mnemonic": "LBLT rel16",
+      "cycles": 5,
+      "words": 4,
+      "semantics": null,
+      "group": "branch",
+      "encoding": "relative16",
+      "operands": [
+        {
+          "name": "rel16",
+          "type": "relative16"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "102E",
+      "mnemonic": "LBGT rel16",
+      "cycles": 5,
+      "words": 4,
+      "semantics": null,
+      "group": "branch",
+      "encoding": "relative16",
+      "operands": [
+        {
+          "name": "rel16",
+          "type": "relative16"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "102F",
+      "mnemonic": "LBLE rel16",
+      "cycles": 5,
+      "words": 4,
+      "semantics": null,
+      "group": "branch",
+      "encoding": "relative16",
+      "operands": [
+        {
+          "name": "rel16",
+          "type": "relative16"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "103F",
+      "mnemonic": "SWI2",
+      "cycles": 20,
+      "words": 2,
+      "semantics": null,
+      "group": "system",
+      "encoding": "inherent",
+      "operands": null,
+      "variants": null
+    },
+    {
+      "opcode": "1083",
+      "mnemonic": "CMPD #d16",
+      "cycles": 5,
+      "words": 4,
+      "semantics": null,
+      "group": "compare",
+      "encoding": "immediate16",
+      "operands": [
+        {
+          "name": "d16",
+          "type": "immediate16"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "108C",
+      "mnemonic": "CMPY #d16",
+      "cycles": 5,
+      "words": 4,
+      "semantics": null,
+      "group": "compare",
+      "encoding": "immediate16",
+      "operands": [
+        {
+          "name": "d16",
+          "type": "immediate16"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "108E",
+      "mnemonic": "LDY #d16",
+      "cycles": 4,
+      "words": 4,
+      "semantics": null,
+      "group": "load",
+      "encoding": "immediate16",
+      "operands": [
+        {
+          "name": "d16",
+          "type": "immediate16"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "1093",
+      "mnemonic": "CMPD d8",
+      "cycles": 7,
+      "words": 3,
+      "semantics": null,
+      "group": "compare",
+      "encoding": "direct",
+      "operands": [
+        {
+          "name": "d8",
+          "type": "address8"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "109C",
+      "mnemonic": "CMPY d8",
+      "cycles": 7,
+      "words": 3,
+      "semantics": null,
+      "group": "compare",
+      "encoding": "direct",
+      "operands": [
+        {
+          "name": "d8",
+          "type": "address8"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "109E",
+      "mnemonic": "LDY d8",
+      "cycles": 6,
+      "words": 3,
+      "semantics": null,
+      "group": "load",
+      "encoding": "direct",
+      "operands": [
+        {
+          "name": "d8",
+          "type": "address8"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "109F",
+      "mnemonic": "STY d8",
+      "cycles": 6,
+      "words": 3,
+      "semantics": null,
+      "group": "load",
+      "encoding": "direct",
+      "operands": [
+        {
+          "name": "d8",
+          "type": "address8"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "10A3",
+      "mnemonic": "CMPD indexed",
+      "cycles": 7,
+      "words": 3,
+      "semantics": null,
+      "group": "compare",
+      "encoding": "indexed",
+      "operands": [
+        {
+          "name": "indexed",
+          "type": "indexed"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "10AC",
+      "mnemonic": "CMPY indexed",
+      "cycles": 7,
+      "words": 3,
+      "semantics": null,
+      "group": "compare",
+      "encoding": "indexed",
+      "operands": [
+        {
+          "name": "indexed",
+          "type": "indexed"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "10AE",
+      "mnemonic": "LDY indexed",
+      "cycles": 6,
+      "words": 3,
+      "semantics": null,
+      "group": "load",
+      "encoding": "indexed",
+      "operands": [
+        {
+          "name": "indexed",
+          "type": "indexed"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "10AF",
+      "mnemonic": "STY indexed",
+      "cycles": 6,
+      "words": 3,
+      "semantics": null,
+      "group": "load",
+      "encoding": "indexed",
+      "operands": [
+        {
+          "name": "indexed",
+          "type": "indexed"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "10B3",
+      "mnemonic": "CMPD a16",
+      "cycles": 8,
+      "words": 4,
+      "semantics": null,
+      "group": "compare",
+      "encoding": "extended",
+      "operands": [
+        {
+          "name": "a16",
+          "type": "address16"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "10BC",
+      "mnemonic": "CMPY a16",
+      "cycles": 8,
+      "words": 4,
+      "semantics": null,
+      "group": "compare",
+      "encoding": "extended",
+      "operands": [
+        {
+          "name": "a16",
+          "type": "address16"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "10BE",
+      "mnemonic": "LDY a16",
+      "cycles": 7,
+      "words": 4,
+      "semantics": null,
+      "group": "load",
+      "encoding": "extended",
+      "operands": [
+        {
+          "name": "a16",
+          "type": "address16"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "10BF",
+      "mnemonic": "STY a16",
+      "cycles": 7,
+      "words": 4,
+      "semantics": null,
+      "group": "load",
+      "encoding": "extended",
+      "operands": [
+        {
+          "name": "a16",
+          "type": "address16"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "10CE",
+      "mnemonic": "LDS #d16",
+      "cycles": 4,
+      "words": 4,
+      "semantics": null,
+      "group": "load",
+      "encoding": "immediate16",
+      "operands": [
+        {
+          "name": "d16",
+          "type": "immediate16"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "10DE",
+      "mnemonic": "LDS d8",
+      "cycles": 6,
+      "words": 3,
+      "semantics": null,
+      "group": "load",
+      "encoding": "direct",
+      "operands": [
+        {
+          "name": "d8",
+          "type": "address8"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "10DF",
+      "mnemonic": "STS d8",
+      "cycles": 6,
+      "words": 3,
+      "semantics": null,
+      "group": "load",
+      "encoding": "direct",
+      "operands": [
+        {
+          "name": "d8",
+          "type": "address8"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "10EE",
+      "mnemonic": "LDS indexed",
+      "cycles": 6,
+      "words": 3,
+      "semantics": null,
+      "group": "load",
+      "encoding": "indexed",
+      "operands": [
+        {
+          "name": "indexed",
+          "type": "indexed"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "10EF",
+      "mnemonic": "STS indexed",
+      "cycles": 6,
+      "words": 3,
+      "semantics": null,
+      "group": "load",
+      "encoding": "indexed",
+      "operands": [
+        {
+          "name": "indexed",
+          "type": "indexed"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "10FE",
+      "mnemonic": "LDS a16",
+      "cycles": 7,
+      "words": 4,
+      "semantics": null,
+      "group": "load",
+      "encoding": "extended",
+      "operands": [
+        {
+          "name": "a16",
+          "type": "address16"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "10FF",
+      "mnemonic": "STS a16",
+      "cycles": 7,
+      "words": 4,
+      "semantics": null,
+      "group": "load",
+      "encoding": "extended",
+      "operands": [
+        {
+          "name": "a16",
+          "type": "address16"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "113F",
+      "mnemonic": "SWI3",
+      "cycles": 20,
+      "words": 2,
+      "semantics": null,
+      "group": "system",
+      "encoding": "inherent",
+      "operands": null,
+      "variants": null
+    },
+    {
+      "opcode": "1183",
+      "mnemonic": "CMPU #d16",
+      "cycles": 5,
+      "words": 4,
+      "semantics": null,
+      "group": "compare",
+      "encoding": "immediate16",
+      "operands": [
+        {
+          "name": "d16",
+          "type": "immediate16"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "118C",
+      "mnemonic": "CMPS #d16",
+      "cycles": 5,
+      "words": 4,
+      "semantics": null,
+      "group": "compare",
+      "encoding": "immediate16",
+      "operands": [
+        {
+          "name": "d16",
+          "type": "immediate16"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "1193",
+      "mnemonic": "CMPU d8",
+      "cycles": 7,
+      "words": 3,
+      "semantics": null,
+      "group": "compare",
+      "encoding": "direct",
+      "operands": [
+        {
+          "name": "d8",
+          "type": "address8"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "119C",
+      "mnemonic": "CMPS d8",
+      "cycles": 7,
+      "words": 3,
+      "semantics": null,
+      "group": "compare",
+      "encoding": "direct",
+      "operands": [
+        {
+          "name": "d8",
+          "type": "address8"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "11A3",
+      "mnemonic": "CMPU indexed",
+      "cycles": 7,
+      "words": 3,
+      "semantics": null,
+      "group": "compare",
+      "encoding": "indexed",
+      "operands": [
+        {
+          "name": "indexed",
+          "type": "indexed"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "11AC",
+      "mnemonic": "CMPS indexed",
+      "cycles": 7,
+      "words": 3,
+      "semantics": null,
+      "group": "compare",
+      "encoding": "indexed",
+      "operands": [
+        {
+          "name": "indexed",
+          "type": "indexed"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "11B3",
+      "mnemonic": "CMPU a16",
+      "cycles": 8,
+      "words": 4,
+      "semantics": null,
+      "group": "compare",
+      "encoding": "extended",
+      "operands": [
+        {
+          "name": "a16",
+          "type": "address16"
+        }
+      ],
+      "variants": null
+    },
+    {
+      "opcode": "11BC",
+      "mnemonic": "CMPS a16",
+      "cycles": 8,
+      "words": 4,
+      "semantics": null,
+      "group": "compare",
+      "encoding": "extended",
+      "operands": [
+        {
+          "name": "a16",
+          "type": "address16"
+        }
+      ],
+      "variants": null
+    }
+  ]
+}
