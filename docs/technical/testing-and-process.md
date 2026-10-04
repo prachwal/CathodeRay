@@ -2,12 +2,12 @@
 
 ## Strategia testów
 
-Projekt ma ponad 2900 testów (xUnit + FluentAssertions; wynik pełnego zestawu po planie 38: 2932/2932).
+Testy są w xUnit + FluentAssertions. Końcowy runner sharduje kosztowne macierze target/VReg oraz zgodność IR po celu, bez pomijania żadnego celu ani trybu optymalizacji.
 Warstwy, od najtańszej:
 
 | Warstwa | Co sprawdza | Gdzie |
 | --- | --- | --- |
-| Wyrocznia IR | `IrInterpreter` wykonuje IR bez procesora, a wynik programu musi zgadzać się z wykonaniem na emulatorze celu | `IrOracle`, `IrConformanceTests` |
+| Wyrocznia IR | `IrInterpreter` wykonuje IR bez procesora, a wynik programu musi zgadzać się z wykonaniem na emulatorze celu | `IrOracle`, `IrConformanceTests`, shardy `CATHODERAY_IR_TARGET` |
 | Matryca celów | ten sam program na każdym celu (wartość i konsola) | `TargetMatrixTests`, `VRegMatrixTests` (26 programów × 5 celów) |
 | Dokumentacja jako test | przykłady w `minic.md` (bloki ` ```c expect=N `) są kompilowane i uruchamiane | `MiniCDocsTests` |
 | Goldeny rozmiaru kodu | bramka przed regresją: tabela bajtów na program i cel | `TargetSizeTests` → `docs/target-sizes.md`, `VRegSizeTests` → `docs/vreg-sizes.md` |
@@ -17,6 +17,22 @@ Warstwy, od najtańszej:
 
 Zasada praktyczna: zmiana w generatorze kodu nie może zwiększyć rozmiaru w goldenach bez świadomej decyzji.
 Tabele odświeża się jawnie, np. `UPDATE_TARGET_SIZES=1 dotnet test --filter TargetSizeTests`.
+
+## Kanoniczny flow (`tools/test_gate.py`)
+
+```bash
+python3 tools/test_gate.py changed [--base main]  # build + testy dobrane do diffu
+python3 tools/test_gate.py changed --dry-run      # pokaż dobór bez uruchamiania
+python3 tools/test_gate.py smoke                  # 5 seedów leaf + recursion
+python3 tools/test_gate.py goldens                # target-sizes + vreg-sizes, bez UPDATE
+python3 tools/test_gate.py full                   # jedyna końcowa bramka
+```
+
+`changed` mapuje znane pliki na klasy i cele; nierozpoznana zmiana kodu bezpiecznie uruchamia `full`.
+Macierze target/VReg i testy IR są dzielone po celach i uruchamiane maksymalnie czterema procesami naraz. `full` buduje z `-warnaserror`,
+uruchamia oba fuzzery po 60 seedów, macierze i pełną macierz IR w shardach, resztę suity raz, a na końcu plan hygiene i kontrolę diffu.
+Po zielonym `full` nie zmieniaj kodu produkcyjnego; jeśli to nastąpi, uruchom `full` ponownie. Zmiany docs lub generatora fuzz
+wymagają testów celowanych i kontroli dokumentacji, nie powtórzenia całej suity.
 
 ## Narzędzia pomocnicze (`tools/`)
 
@@ -44,12 +60,9 @@ Całość rozwoju jest prowadzona w planach w `docs/plans/` (obecnie 43). Każdy
 - Pomiary (rozmiar kodu, porównania z cc65 i SDCC) są częścią zadań zamykających plan. Decyzje o większych krokach (SSA, alokator grafowy)
   zapadają dopiero na podstawie liczb.
 
-## Typowy przepływ pracy
+## Pozostałe narzędzia
 
 ```bash
-dotnet build
-dotnet test                                      # pełny zestaw
-dotnet test --filter TargetSizeTests             # tylko bramka rozmiarów
 cathode cc samples/bench/fib.c -o fib.bin --cpu z80
 python3 tools/compare.py --write                 # wymaga cc65 i SDCC
 ```

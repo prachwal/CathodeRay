@@ -11,6 +11,10 @@ public sealed class IrConformanceTests
     private static readonly int[] Words = [0, 1, 255, 256, 1000, 0x7FFF, 0x8000, 0xC001, 0xFFFF];
     private static readonly int[] ShiftCounts = [0, 1, 2, 3, 4, 8, 9, 15, 16, 17, 31];
 
+    private static string? SelectedTarget => Environment.GetEnvironmentVariable("CATHODERAY_IR_TARGET");
+
+    private static void AssertConforms(IrProgram program, string what) => program.AssertConforms(what, SelectedTarget);
+
     public static TheoryData<Ir.BinOp, int> ArithmeticOps()
     {
         var data = new TheoryData<Ir.BinOp, int>();
@@ -47,7 +51,7 @@ public sealed class IrConformanceTests
             }
         }
 
-        program.AssertConforms($"{op} W{width}");
+        AssertConforms(program, $"{op} W{width}");
     }
 
     [Theory]
@@ -74,7 +78,7 @@ public sealed class IrConformanceTests
             }
         }
 
-        program.AssertConforms($"{op} narrow");
+        AssertConforms(program, $"{op} narrow");
     }
 
     [Theory]
@@ -92,7 +96,7 @@ public sealed class IrConformanceTests
             program.Emit(new Ir.Mov(program.A(width), new Ir.Imm(a, width)), new Ir.Un(op, program.A(width), program.A(width))).Record(program.A(width), $"{op} W{width} in place {a:X}");
         }
 
-        program.AssertConforms($"{op} W{width}");
+        AssertConforms(program, $"{op} W{width}");
     }
 
     [Fact]
@@ -113,7 +117,7 @@ public sealed class IrConformanceTests
             }
         }
 
-        program.AssertConforms("Mov");
+        AssertConforms(program, "Mov");
     }
 
     [Theory]
@@ -157,7 +161,7 @@ public sealed class IrConformanceTests
             }
         }
 
-        program.AssertConforms($"{cond} W{wa}/W{wb}");
+        AssertConforms(program, $"{cond} W{wa}/W{wb}");
     }
 
     private static void EmitBranchCase(IrProgram program, Ir.Cell result, Ir.Cond cond, Ir.Op a, Ir.Op b, string description)
@@ -201,7 +205,7 @@ public sealed class IrConformanceTests
             }
         }
 
-        program.AssertConforms($"{op} long");
+        AssertConforms(program, $"{op} long");
     }
 
     [Theory]
@@ -223,7 +227,7 @@ public sealed class IrConformanceTests
             }
         }
 
-        program.AssertConforms($"{op} long shifts");
+        AssertConforms(program, $"{op} long shifts");
     }
 
     [Theory]
@@ -239,7 +243,7 @@ public sealed class IrConformanceTests
             program.Emit(new Ir.Un(op, program.A(4), program.A(4))).Record(program.A(4), $"{op} L in place {a:X}");
         }
 
-        program.AssertConforms($"{op} long");
+        AssertConforms(program, $"{op} long");
     }
 
     [Theory]
@@ -266,7 +270,7 @@ public sealed class IrConformanceTests
             EmitBranchCase(program, result, cond, new Ir.Imm(a, 4), new Ir.Imm(0x8000, 2), $"{cond} L imm {a:X} vs word");
         }
 
-        program.AssertConforms($"{cond} long");
+        AssertConforms(program, $"{cond} long");
     }
 
     [Fact]
@@ -283,6 +287,6 @@ public sealed class IrConformanceTests
             program.Emit(new Ir.Mov(program.A(2), new Ir.Imm(a, 2)), new Ir.Mov(result, program.A(2))).Record(result, $"Widen word {a:X}");
         }
 
-        program.AssertConforms("long moves");
+        AssertConforms(program, "long moves");
     }
 }

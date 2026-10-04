@@ -63,15 +63,25 @@ public sealed class IrProgram
         return new Ir.Module([new Ir.Function("main", false, [], 0, [], body), .. _extraFunctions], data, [], [], ObjectMode: false);
     }
 
-    /// <summary>Uruchamia na interpreterze IR i na każdym celu; wyniki muszą być bajt w bajt równe.</summary>
-    public void AssertConforms(string what)
+    /// <summary>Uruchamia na interpreterze IR i na celach; wyniki muszą być bajt w bajt równe.</summary>
+    /// <param name="what">Opis przypadku testowego.</param>
+    /// <param name="targetName">Opcjonalny cel do selektywnego uruchomienia sharda.</param>
+    public void AssertConforms(string what, string? targetName = null)
     {
         Ir.Module module = Build();
         var interpreter = IrInterpreter.Load([module]);
         interpreter.RunMain();
         int size = Math.Max(_names.Count * 4, 4);
         byte[] expected = interpreter.Peek("c_res", size);
-        foreach (ICTarget target in TargetHarness.Targets)
+        ICTarget[] targets = targetName is null
+            ? [.. TargetHarness.Targets]
+            : [.. TargetHarness.Targets.Where(t => string.Equals(t.Name, targetName, StringComparison.OrdinalIgnoreCase))];
+        if (targets.Length == 0)
+        {
+            throw new ArgumentException($"Nieznany cel IR: {targetName}.", nameof(targetName));
+        }
+
+        foreach (ICTarget target in targets)
         {
             foreach (bool optimize in new[] { true, false })
             {

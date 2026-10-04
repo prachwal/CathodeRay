@@ -4,11 +4,12 @@ Asembler multi-CPU + kompilator mini-C (C → IR → legalizer → selektor bajt
 
 ## Weryfikacja (kolejność)
 
-- Build: `dotnet build -warnaserror` (StyleCop/Roslynator to błędy, nie ostrzeżenia).
-- W trakcie pracy testy **celowane**: `dotnet test tests/CathodeRay.Tests/CathodeRay.Tests.csproj --filter "<Klasa>"`. Pełna suita (~8 min) dopiero przed commitem.
-- Komendy pomocnicze: `/verify <filtr>`, `/bench [funkcja]`, `/golden`, `/fuzz`.
-- Zmiana codegen → `/fuzz` (różnicowo vs gcc) i `/bench` (mean/SDCC to główna metryka).
-- Zmiana rozmiarów → `/golden` (odśwież goldeny i sprawdź brak wzrostów).
+- Kanoniczny runner testów: `python3 tools/test_gate.py`.
+- Pętla zmian: `python3 tools/test_gate.py changed [--base main]` dobiera testy do diffu; nieznany kod bezpiecznie przechodzi do pełnego flow.
+- Szybki fuzz: `python3 tools/test_gate.py smoke`; goldeny: `python3 tools/test_gate.py goldens`.
+- Końcowa bramka przed commitem: `python3 tools/test_gate.py full`. Buduje z `-warnaserror`, uruchamia fuzz, pełną macierz target/VReg i IR shardami per CPU (maks. 4 równolegle), resztę suity raz, potem hygiene.
+- Pełny flow uruchamiaj raz po zakończeniu zmian. Po zmianie kodu produkcyjnego po tej bramce powtórz `full`; dokumentacja/generator fuzz wymagają tylko testów celowanych i kontroli dokumentacji.
+- Rozmiary: odświeżanie goldenów pozostaje jawne przez `UPDATE_TARGET_SIZES=1` lub `UPDATE_VREG_SIZES=1`; runner `goldens` tylko je sprawdza.
 
 ## Ręczne inspekcje (CLI)
 
