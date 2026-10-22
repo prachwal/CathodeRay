@@ -446,59 +446,30 @@ public sealed class Parser
                 continue;
             }
 
-            int stars = baseStars + Stars();
-            if (TryArrayPointer(ref typeName, ref stars, out string globalArrayName))
+            while (true)
             {
-                globals.Add(DeclRest(typeName, globalArrayName, stars, type.Line, flags, (0, false, null), Peek()));
-                Expect(";");
-                continue;
-            }
-
-            if (TryFnPtr(typeName, stars, out string fnType, out string fnName, out int fnLength, out Ast.Expr? fnLengthExpr))
-            {
-                globals.Add(DeclRest(fnType, fnName, 0, type.Line, flags, (fnLength, false, fnLengthExpr), Peek()));
-                Expect(";");
-                continue;
-            }
-
-            string name = ExpectKind(TokenKind.Ident, "name").Text;
-            if (Peek() is { Kind: TokenKind.Punct, Text: "(" })
-            {
-                Ast.Function function = FunctionRest(typeName, name, type.Line, stars, flags.HasFlag(DeclFlags.Static));
-                functions.Add(function);
-                while (function.IsExtern && Take(","))
+                (Ast.Function? function, Ast.Decl? decl) = Declarator(typeName, baseStars, type.Line, flags, allowFunction: true, "name");
+                if (function is not null)
                 {
-                    // prototyp z kolejnymi deklaratorami: L eval(L,L),parse();
-                    int nextStars = baseStars + Stars();
-                    string nextName = ExpectKind(TokenKind.Ident, "name").Text;
-                    if (Peek() is { Kind: TokenKind.Punct, Text: "(" })
+                    functions.Add(function);
+                    if (!function.IsExtern || _tokens[_pos - 1] is { Kind: TokenKind.Punct, Text: ";" })
                     {
-                        function = FunctionRest(typeName, nextName, type.Line, nextStars, flags.HasFlag(DeclFlags.Static));
-                        functions.Add(function);
-                        continue;
+                        break;
                     }
 
-                    globals.Add(DeclTail(typeName, nextName, nextStars, type.Line, flags));
-                    while (Take(","))
-                    {
-                        globals.Add(DeclTail(typeName, ExpectKind(TokenKind.Ident, "name").Text, baseStars + Stars(), type.Line, flags));
-                    }
-
-                    Expect(";");
-                    break;
+                    // prototyp z kolejnymi deklaratorami (L eval(L,L),parse();): FunctionRest zostawił przecinek
+                    Expect(",");
+                    continue;
                 }
-            }
-            else
-            {
-                globals.Add(DeclTail(typeName, name, stars, type.Line, flags));
-                while (Take(","))
+
+                globals.Add(decl!);
+                if (Take(","))
                 {
-                    int nextStars = baseStars + Stars();
-                    string nextName = ExpectKind(TokenKind.Ident, "name").Text;
-                    globals.Add(DeclTail(typeName, nextName, nextStars, type.Line, flags));
+                    continue;
                 }
 
                 Expect(";");
+                break;
             }
         }
 
@@ -933,30 +904,39 @@ public sealed class Parser
     {
         Token typeToken = Peek();
         (string type, int baseStars) = TypeSpec();
-        int stars = baseStars + Stars();
-        Ast.Decl decl;
-        if (TryArrayPointer(ref type, ref stars, out string arrayName))
+        Ast.Decl decl = Declarator(type, baseStars, typeToken.Line, flags, allowFunction: false, "variable name").Decl!;
+        while (Take(","))
         {
-            decl = DeclRest(type, arrayName, stars, typeToken.Line, flags, (0, false, null), Peek());
-        }
-        else if (TryFnPtr(type, stars, out string fnType, out string fnName, out int fnLength, out Ast.Expr? fnLengthExpr))
-        {
-            decl = DeclRest(fnType, fnName, 0, typeToken.Line, flags, (fnLength, false, fnLengthExpr), Peek());
-        }
-        else
-        {
-            string name = ExpectKind(TokenKind.Ident, "variable name").Text;
-            decl = DeclTail(type, name, stars, typeToken.Line, flags);
-            while (Take(","))
-            {
-                int nextStars = baseStars + Stars();
-                string nextName = ExpectKind(TokenKind.Ident, "variable name").Text;
-                _pendingDecls.Add(DeclTail(type, nextName, nextStars, typeToken.Line, flags));
-            }
+            _pendingDecls.Add(Declarator(type, baseStars, typeToken.Line, flags, allowFunction: false, "variable name").Decl!);
         }
 
         Expect(";");
         return decl;
+    }
+
+    /// <summary>Jeden deklarator po typie bazowym: <c>*p</c>, <c>a[3]</c>, <c>(*f)(int)</c>, <c>(*m)[4]</c> albo (gdy <paramref name="allowFunction"/>)
+    /// nagłówek funkcji; każdy deklarator na liście rozdzielonej przecinkami zaczyna od typu bazowego i własnych gwiazdek.</summary>
+    private (Ast.Function? Function, Ast.Decl? Decl) Declarator(string typeName, int baseStars, int line, DeclFlags flags, bool allowFunction, string what)
+    {
+        string type = typeName;
+        int stars = baseStars + Stars();
+        if (TryArrayPointer(ref type, ref stars, out string arrayName))
+        {
+            return (null, DeclRest(type, arrayName, stars, line, flags, (0, false, null), Peek()));
+        }
+
+        if (TryFnPtr(type, stars, out string fnType, out string fnName, out int fnLength, out Ast.Expr? fnLengthExpr))
+        {
+            return (null, DeclRest(fnType, fnName, 0, line, flags, (fnLength, false, fnLengthExpr), Peek()));
+        }
+
+        string name = ExpectKind(TokenKind.Ident, what).Text;
+        if (allowFunction && Peek() is { Kind: TokenKind.Punct, Text: "(" })
+        {
+            return (FunctionRest(type, name, line, stars, flags.HasFlag(DeclFlags.Static)), null);
+        }
+
+        return (null, DeclTail(type, name, stars, line, flags));
     }
 
     /// <summary>Reszta deklaracji po nazwie: <c>[n]</c> lub <c>[]</c>, opcjonalnie <c>= init</c>

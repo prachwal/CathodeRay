@@ -124,7 +124,7 @@ internal static partial class CcCommand
 
                 if (!parse.GetValue(noStdlib))
                 {
-                    LinkStdlib(target, cTarget, modules, includePaths, !parse.GetValue(noOpt), vreg);
+                    LinkStdlib(target, cTarget, modules, includePaths, !parse.GetValue(noOpt), vreg, ParseDefines(parse.GetValue(define)!));
                 }
 
                 error.Write(warningText.ToString());
@@ -261,8 +261,12 @@ internal static partial class CcCommand
     /// <summary>Dokłada moduły biblioteki standardowej definiujące symbole, do których odwołują się
     /// dotychczasowe moduły (także moduły biblioteki między sobą); moduł, którego funkcję zdefiniował
     /// użytkownik, nie jest potrzebny.</summary>
-    private static void LinkStdlib(AssemblerTarget target, ICTarget cTarget, List<(string File, ObjectModule Module)> modules, string[] includePaths, bool optimize, bool vreg)
+    private static void LinkStdlib(AssemblerTarget target, ICTarget cTarget, List<(string File, ObjectModule Module)> modules, string[] includePaths, bool optimize, bool vreg, Dictionary<string, string> userDefines)
     {
+        // z makr użytkownika biblioteka widzi tylko CC_DOUBLE64 (zmienia znaczenie double, więc sscanf musi wiedzieć, ile bajtów zapisać)
+        IReadOnlyDictionary<string, string>? libraryDefines = userDefines.ContainsKey("CC_DOUBLE64")
+            ? new Dictionary<string, string>(StringComparer.Ordinal) { ["CC_DOUBLE64"] = "1" }
+            : null;
         var added = new HashSet<string>(StringComparer.Ordinal);
         while (true)
         {
@@ -292,7 +296,7 @@ internal static partial class CcCommand
             {
                 // Helpery C stdlib zawsze v1: wołający (RegCall) marszuje je przez cc_argN/cc_ret, więc ich
                 // prologi też muszą czytać pamięć (rejestry v2 są same-module).
-                CheckedProgram program = TypeChecker.Check(Parser.Parse(source, StdLib.HeaderReader));
+                CheckedProgram program = TypeChecker.Check(Parser.Parse(source, StdLib.HeaderReader, libraryDefines));
                 source = vreg
                     ? VRegPipeline.Emit(program, cTarget, next.Name, objectMode: true, optimize: optimize, abiV2: false)
                     : Codegen.Emit(program, cTarget, next.Name, objectMode: true, optimize: optimize, abiV2: false);
