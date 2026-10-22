@@ -167,7 +167,7 @@ internal static class RegisterAllocator
                 }
 
                 List<(int Start, int End)> runs = Runs(live, body.Count, sym);
-                if (runs.Count < 2)
+                if (runs.Count < 2 || FlowsBetweenRuns(live, runs, sym))
                 {
                     continue;
                 }
@@ -288,6 +288,46 @@ internal static class RegisterAllocator
         }
 
         return runs;
+    }
+
+    /// <summary>Czy wartość symbolu płynie z jednego przedziału do innego po krawędzi grafu przepływu (skok wsteczny albo w przód).
+    /// Przedziały są liczone po indeksach instrukcji, więc zakres żywy przez krawędź wsteczną (zapis na końcu pętli, odczyt w
+    /// nagłówku, martwy pomiędzy) wygląda jak dwa rozłączne; dzielenie go odcięłoby zapis od odczytu.</summary>
+    private static bool FlowsBetweenRuns(IrLiveness live, List<(int Start, int End)> runs, string sym)
+    {
+        int RunOf(int index)
+        {
+            for (int r = 0; r < runs.Count; r++)
+            {
+                if (index >= runs[r].Start && index <= runs[r].End)
+                {
+                    return r;
+                }
+            }
+
+            return -1;
+        }
+
+        foreach ((int start, int end) in runs)
+        {
+            for (int i = start; i <= end; i++)
+            {
+                if (!live.LiveOut(i).Contains(sym))
+                {
+                    continue;
+                }
+
+                foreach (int next in live.Successors(i))
+                {
+                    if (live.LiveIn(next).Contains(sym) && RunOf(next) != RunOf(i))
+                    {
+                        return true;
+                    }
+                }
+            }
+        }
+
+        return false;
     }
 
     /// <summary>Podmienia symbole komórek w instrukcji.</summary>

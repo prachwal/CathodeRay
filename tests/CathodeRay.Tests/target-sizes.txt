@@ -102,8 +102,8 @@
 13_strings.c 65c02 2232
 13_strings.c nes 2232
 13_strings.c 6510 2232
-13_strings.c z80 1656
-13_strings.c 8080 2055
+13_strings.c z80 1670
+13_strings.c 8080 2069
 13_strings.c 6800 2438
 13_strings.c 6809 2412
 14_macros.c stub 218
@@ -147,8 +147,8 @@
 18_voidptr.c 65c02 857
 18_voidptr.c nes 857
 18_voidptr.c 6510 857
-18_voidptr.c z80 535
-18_voidptr.c 8080 649
+18_voidptr.c z80 540
+18_voidptr.c 8080 654
 18_voidptr.c 6800 910
 18_voidptr.c 6809 893
 19_struct_value.c stub 6487

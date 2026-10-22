@@ -9,11 +9,13 @@ internal sealed class IrLiveness
 {
     private readonly HashSet<string>[] _in;
     private readonly HashSet<string>[] _out;
+    private readonly int[][] _successors;
 
-    private IrLiveness(HashSet<string>[] liveIn, HashSet<string>[] liveOut)
+    private IrLiveness(HashSet<string>[] liveIn, HashSet<string>[] liveOut, int[][] successors)
     {
         _in = liveIn;
         _out = liveOut;
+        _successors = successors;
     }
 
     /// <summary>Liczy żywość dla ciała funkcji.</summary>
@@ -85,7 +87,7 @@ internal sealed class IrLiveness
             }
         }
 
-        return new IrLiveness(liveIn, liveOut);
+        return new IrLiveness(liveIn, liveOut, successors);
     }
 
     /// <summary>Symbol obiektu bez przesunięcia połówki (<c>x+4</c> to część obiektu <c>x</c>).</summary>
@@ -116,4 +118,9 @@ internal sealed class IrLiveness
     /// <param name="index">Indeks instrukcji.</param>
     /// <returns>Symbole bazowe.</returns>
     public IReadOnlySet<string> LiveOut(int index) => _out[index];
+
+    /// <summary>Następniki instrukcji w grafie przepływu (skok, obie strony rozgałęzienia albo kolejna instrukcja).</summary>
+    /// <param name="index">Indeks instrukcji.</param>
+    /// <returns>Indeksy następników.</returns>
+    public IReadOnlyList<int> Successors(int index) => _successors[index];
 }
