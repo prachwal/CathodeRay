@@ -250,4 +250,21 @@ public sealed class CSyntaxTests
             """;
         Run(Source).Should().Be('b');
     }
+
+    [Fact]
+    public void Several_Declarators_Share_One_Type_Globally_And_Locally()
+    {
+        const string Source = """
+            int a = 1, b = 2, c[3];
+            int main() {
+                int x = 3, y = 4;
+                int *p, q;
+                q = 5;
+                p = &q;
+                c[1] = 7;
+                return a + b + x * y + *p + c[1];
+            }
+            """;
+        Run(Source).Should().Be(27);
+    }
 }

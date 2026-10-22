@@ -43,7 +43,7 @@ internal sealed partial class Lowering
                 widths = [.. paramTypes.Select(static t => ArgWidth(t))];
                 while (target.Def.IsVariadic && widths.Count < args.Count)
                 {
-                    widths.Add(Math.Max(Width(TypeOf(args[widths.Count]).Decay()), 2));
+                    widths.Add(TypeOf(args[widths.Count]).IsDouble ? 2 : Math.Max(Width(TypeOf(args[widths.Count]).Decay()), 2));
                 }
 
                 break;
@@ -67,9 +67,9 @@ internal sealed partial class Lowering
         for (int i = count - 1; i >= 0; i--)
         {
             int at = depth + 1 + (count - 1 - i);
-            if (i < paramTypes.Count && IsLL(paramTypes[i]))
+            if (i < paramTypes.Count ? IsLL(paramTypes[i]) : TypeOf(args[i]).IsDouble)
             {
-                Ir.Op copyValue = Convert(Value(args[i], at), TypeOf(args[i]), paramTypes[i], at + count + 2);
+                Ir.Op copyValue = Convert(Value(args[i], at), TypeOf(args[i]), i < paramTypes.Count ? paramTypes[i] : TypeOf(args[i]), at + count + 2);
                 var copyAddress = new Ir.AddrOf(NewAggregate(8), 0);
                 Emit(new Ir.Store(copyAddress, 0, copyValue, 8));
                 values[i] = copyAddress;

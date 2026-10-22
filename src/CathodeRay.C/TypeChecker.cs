@@ -786,17 +786,17 @@ public sealed partial class TypeChecker
             return;
         }
 
-        if ((target.IsFloat && value.Kind is "llong" or "ullong") || (value.IsFloat && target.Kind is "llong" or "ullong"))
+        if ((target.IsReal && value.Kind is "llong" or "ullong") || (value.IsReal && target.Kind is "llong" or "ullong"))
         {
             throw new CTypeException($"{where}: conversion between float and long long is not supported.");
         }
 
-        if (target.IsFloat && value.IsInteger)
+        if (target.IsReal && (value.IsInteger || value.IsReal))
         {
             return;
         }
 
-        if (target.IsInteger && value.IsFloat)
+        if (target.IsInteger && value.IsReal)
         {
             _warnings.Add($"{where}: converting float to {target.Kind}.");
             return;
@@ -1026,7 +1026,7 @@ public sealed partial class TypeChecker
             return target;
         }
 
-        if (target.Kind is "struct" or "array" || source.Kind is "struct" or "void" || (target.IsFloat && source.Kind is "ptr" or "fptr" or "llong" or "ullong") || (source.IsFloat && target.Kind is "ptr" or "fptr" or "llong" or "ullong"))
+        if (target.Kind is "struct" or "array" || source.Kind is "struct" or "void" || (target.IsReal && source.Kind is "ptr" or "fptr") || (source.IsReal && target.Kind is "ptr" or "fptr"))
         {
             throw new CTypeException($"cannot cast {source} to {target}.");
         }
@@ -1112,7 +1112,7 @@ public sealed partial class TypeChecker
 
         return unary.Op switch
         {
-            "-" or "~" => operand.Kind is "void" or "ptr" or "array" or "fptr" || (operand.IsFloat && unary.Op == "~")
+            "-" or "~" => operand.Kind is "void" or "ptr" or "array" or "fptr" || (operand.IsReal && unary.Op == "~")
                 ? throw new CTypeException($"operator '{unary.Op}' needs arithmetic operands.")
                 : operand,
             "!" => operand.Kind == "void"
@@ -1172,7 +1172,7 @@ public sealed partial class TypeChecker
             return SameShape(left.Base!, right.Base!) ? CType.Int : throw new CTypeException("pointer difference needs pointers to the same type.");
         }
 
-        if (binary.Op is "+" or "-" && ((left.Kind == "ptr" && right.IsFloat) || (right.Kind == "ptr" && left.IsFloat)))
+        if (binary.Op is "+" or "-" && ((left.Kind == "ptr" && right.IsReal) || (right.Kind == "ptr" && left.IsReal)))
         {
             throw new CTypeException($"operator '{binary.Op}' needs an integer offset.");
         }
@@ -1195,7 +1195,7 @@ public sealed partial class TypeChecker
             throw new CTypeException($"operator '{binary.Op}' is not supported for pointers.");
         }
 
-        if ((left.IsFloat || right.IsFloat) && binary.Op is not ("+" or "-" or "*" or "/"))
+        if ((left.IsReal || right.IsReal) && binary.Op is not ("+" or "-" or "*" or "/"))
         {
             throw new CTypeException($"operator '{binary.Op}' is not supported for float.");
         }
@@ -1320,7 +1320,7 @@ public sealed partial class TypeChecker
             throw new CTypeException("cannot index a void pointer.");
         }
 
-        if (offset.Kind is "void" or "ptr" or "float")
+        if (offset.Kind is "void" or "ptr" or "float" or "double")
         {
             throw new CTypeException("index needs an arithmetic offset.");
         }

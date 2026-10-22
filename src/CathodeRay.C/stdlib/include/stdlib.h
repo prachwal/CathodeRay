@@ -3,6 +3,8 @@
 #define _STDLIB_H
 #include <stddef.h>
 #define RAND_MAX 65535
+void exit(int code);
+void abort();
 int abs(int x);
 int min(int a, int b);
 int max(int a, int b);

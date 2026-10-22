@@ -7,6 +7,7 @@ public sealed class Parser
     private readonly IReadOnlyList<Token> _tokens;
     private readonly Dictionary<Ast.Node, int> _lines = new(ReferenceEqualityComparer.Instance);
     private readonly Dictionary<Ast.Expr, Ast.Expr> _postfix = new(ReferenceEqualityComparer.Instance);
+    private readonly List<Ast.Stmt> _pendingDecls = [];
     private readonly Dictionary<string, Ast.Expr> _enums = new(StringComparer.Ordinal);
     private readonly Dictionary<string, (string Type, int Stars)> _typedefs = new(StringComparer.Ordinal);
     private readonly List<Ast.StructDef> _structs = [];
@@ -23,7 +24,7 @@ public sealed class Parser
     /// <exception cref="CParseException">Błąd składni z pozycją.</exception>
     /// <exception cref="CPreprocessException">Błąd dyrektywy.</exception>
     public static Ast.Program Parse(string source, Func<string, string?>? reader = null, IReadOnlyDictionary<string, string>? defines = null) =>
-        new Parser(Lexer.Tokenize(CPreprocessor.Process(source, reader, defines))).Program();
+        new Parser(Lexer.Tokenize(CPreprocessor.Process(source, reader, defines), defines?.ContainsKey("CC_DOUBLE64") == true)).Program();
 
     private static bool TryValue(Ast.Expr expr, out int value)
     {
@@ -83,7 +84,7 @@ public sealed class Parser
     };
 
     private static bool IsBuiltinType(Token token) =>
-        token is { Kind: TokenKind.Keyword } && token.Text is "uchar" or "int" or "uint" or "long" or "ulong" or "short" or "unsigned" or "signed" or "float" or "void" or "struct" or "union";
+        token is { Kind: TokenKind.Keyword } && token.Text is "uchar" or "int" or "uint" or "long" or "ulong" or "short" or "unsigned" or "signed" or "float" or "double" or "void" or "struct" or "union";
 
     private bool IsType(Token token) =>
         IsBuiltinType(token) || (token is { Kind: TokenKind.Keyword, Text: "const" or "volatile" }) || (token.Kind == TokenKind.Ident && _typedefs.ContainsKey(token.Text));
@@ -463,11 +464,41 @@ public sealed class Parser
             string name = ExpectKind(TokenKind.Ident, "name").Text;
             if (Peek() is { Kind: TokenKind.Punct, Text: "(" })
             {
-                functions.Add(FunctionRest(typeName, name, type.Line, stars, flags.HasFlag(DeclFlags.Static)));
+                Ast.Function function = FunctionRest(typeName, name, type.Line, stars, flags.HasFlag(DeclFlags.Static));
+                functions.Add(function);
+                while (function.IsExtern && Take(","))
+                {
+                    // prototyp z kolejnymi deklaratorami: L eval(L,L),parse();
+                    int nextStars = baseStars + Stars();
+                    string nextName = ExpectKind(TokenKind.Ident, "name").Text;
+                    if (Peek() is { Kind: TokenKind.Punct, Text: "(" })
+                    {
+                        function = FunctionRest(typeName, nextName, type.Line, nextStars, flags.HasFlag(DeclFlags.Static));
+                        functions.Add(function);
+                        continue;
+                    }
+
+                    globals.Add(DeclTail(typeName, nextName, nextStars, type.Line, flags));
+                    while (Take(","))
+                    {
+                        globals.Add(DeclTail(typeName, ExpectKind(TokenKind.Ident, "name").Text, baseStars + Stars(), type.Line, flags));
+                    }
+
+                    Expect(";");
+                    break;
+                }
             }
             else
             {
-                globals.Add(GlobalRest(typeName, name, stars, type.Line, flags));
+                globals.Add(DeclTail(typeName, name, stars, type.Line, flags));
+                while (Take(","))
+                {
+                    int nextStars = baseStars + Stars();
+                    string nextName = ExpectKind(TokenKind.Ident, "name").Text;
+                    globals.Add(DeclTail(typeName, nextName, nextStars, type.Line, flags));
+                }
+
+                Expect(";");
             }
         }
 
@@ -482,13 +513,6 @@ public sealed class Parser
             functions,
             new Dictionary<Ast.Node, int>(_lines, ReferenceEqualityComparer.Instance),
             _structs);
-    }
-
-    private Ast.Decl GlobalRest(string type, string name, int stars, int line, DeclFlags flags)
-    {
-        Ast.Decl decl = DeclTail(type, name, stars, line, flags);
-        Expect(";");
-        return decl;
     }
 
     /// <summary><c>enum [nazwa] { A, B = 5, C };</c> — stałe podstawiane w miejscu użycia (typ zostaje int).</summary>
@@ -546,6 +570,7 @@ public sealed class Parser
         Expect("(");
         var parameters = new List<Ast.Param>();
         bool variadic = false;
+        Token? firstUnnamed = null;
         if (!Take(")"))
         {
             do
@@ -586,7 +611,18 @@ public sealed class Parser
                     continue;
                 }
 
-                string paramName = ExpectKind(TokenKind.Ident, "parameter name").Text;
+                string paramName;
+                if (Peek() is { Kind: TokenKind.Punct, Text: "," or ")" } unnamed)
+                {
+                    // bez nazwy wolno tylko w prototypie (sprawdzane po ')')
+                    firstUnnamed ??= unnamed;
+                    paramName = $"__unnamed{parameters.Count}";
+                }
+                else
+                {
+                    paramName = ExpectKind(TokenKind.Ident, "parameter name").Text;
+                }
+
                 if (Take("["))
                 {
                     // parametr tablicowy: pierwszy wymiar znika (wskaźnik), pozostałe wchodzą do typu elementu
@@ -613,9 +649,14 @@ public sealed class Parser
             Expect(")");
         }
 
-        if (Take(";"))
+        if (Take(";") || Peek() is { Kind: TokenKind.Punct, Text: "," })
         {
             return At(line, new Ast.Function(type, name, parameters, new Ast.Block([]), IsExtern: true, ReturnStars: returnStars, IsStatic: isStatic, IsVariadic: variadic));
+        }
+
+        if (firstUnnamed is not null)
+        {
+            throw new CParseException(firstUnnamed.Line, firstUnnamed.Column, $"expected parameter name, got '{firstUnnamed.Text}'.");
         }
 
         if (variadic)
@@ -639,10 +680,18 @@ public sealed class Parser
                 throw new CParseException(token.Line, token.Column, "expected '}'.");
             }
 
-            items.Add(Statement());
+            AddStatement(items);
         }
 
         return new Ast.Block(items);
+    }
+
+    /// <summary>Dodaje instrukcję, a po deklaracji z kilkoma deklaratorami (<c>int a, b = 1;</c>) także pozostałe deklaracje.</summary>
+    private void AddStatement(List<Ast.Stmt> sink)
+    {
+        sink.Add(Statement());
+        sink.AddRange(_pendingDecls);
+        _pendingDecls.Clear();
     }
 
     private Ast.Stmt Statement()
@@ -784,7 +833,7 @@ public sealed class Parser
                     throw new CParseException(end.Line, end.Column, "expected '}'.");
                 }
 
-                body.Add(Statement());
+                AddStatement(body);
             }
 
             cases.Add(At(label.Line, new Ast.SwitchCase(caseValue, body)));
@@ -830,7 +879,18 @@ public sealed class Parser
     private Ast.Stmt ForInit()
     {
         Token first = Peek();
-        return IsType(first) ? Decl() : At(first.Line, new Ast.ExprStmt(Discard(Expression())));
+        if (!IsType(first))
+        {
+            return At(first.Line, new Ast.ExprStmt(Discard(Expression())));
+        }
+
+        Ast.Decl decl = Decl();
+        if (_pendingDecls.Count > 0)
+        {
+            throw new CParseException(first.Line, first.Column, "several declarators in a 'for' initializer are not supported.");
+        }
+
+        return decl;
     }
 
     private Ast.Stmt DeclOrTypeOnly()
@@ -887,6 +947,12 @@ public sealed class Parser
         {
             string name = ExpectKind(TokenKind.Ident, "variable name").Text;
             decl = DeclTail(type, name, stars, typeToken.Line, flags);
+            while (Take(","))
+            {
+                int nextStars = baseStars + Stars();
+                string nextName = ExpectKind(TokenKind.Ident, "variable name").Text;
+                _pendingDecls.Add(DeclTail(type, nextName, nextStars, typeToken.Line, flags));
+            }
         }
 
         Expect(";");
@@ -1290,7 +1356,7 @@ public sealed class Parser
                 string bareType = TypeQualifiers.Split(sizeType, out _, out _);
                 size = bareType.StartsWith("struct ", StringComparison.Ordinal) && stars == 0
                     ? new Ast.SizeOfType(bareType, stars)
-                    : new Ast.Number(stars > 0 || bareType is "int" or "uint" ? "2" : bareType is "long" or "ulong" or "float" ? "4" : bareType is "llong" or "ullong" ? "8" : "1");
+                    : new Ast.Number(stars > 0 || bareType is "int" or "uint" ? "2" : bareType is "long" or "ulong" or "float" ? "4" : bareType is "llong" or "ullong" or "double" ? "8" : "1");
             }
             else
             {

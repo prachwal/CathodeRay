@@ -202,9 +202,25 @@ internal sealed partial class Lowering
     {
         Ir.Op value = Value(cast.Value, depth);
         int width = WidthOf(cast);
-        if (TypeOf(cast).IsFloat || TypeOf(cast.Value).IsFloat)
+        CType sourceType = TypeOf(cast.Value);
+        CType targetType = TypeOf(cast);
+        if (targetType.IsReal && sourceType.Kind is "llong" or "ullong")
         {
-            return Convert(value, TypeOf(cast.Value), TypeOf(cast), depth);
+            // liczba rzeczywista <- long long: przez long (tracimy starsze 32 bity)
+            Ir.Cell low = Temp(depth, 4);
+            Emit(new Ir.Mov(low, value));
+            return Convert(low, CType.Long, targetType, depth);
+        }
+
+        if (sourceType.IsReal && targetType.Kind is "llong" or "ullong")
+        {
+            // long long <- liczba rzeczywista: przez long (zakres ±2^31)
+            return Widen(Convert(value, sourceType, CType.Long, depth), CType.Long, width, depth);
+        }
+
+        if (targetType.IsReal || sourceType.IsReal)
+        {
+            return Convert(value, sourceType, targetType, depth);
         }
 
         value = Widen(value, TypeOf(cast.Value), width, depth);
@@ -277,6 +293,14 @@ internal sealed partial class Lowering
         }
 
         Ir.Op operand = Value(unary.Operand, depth);
+        if (TypeOf(unary).IsDouble && unary.Op == "-")
+        {
+            Ir.Op single = Convert(operand, CType.Double, CType.Float, depth + 1);
+            Ir.Cell negated = Temp(depth + 2, 4);
+            Emit(new Ir.Bin(Ir.BinOp.Xor, negated, single, new Ir.Imm(unchecked((int)0x80000000), 4)));
+            return Convert(negated, CType.Float, CType.Double, depth);
+        }
+
         int width = WidthOf(unary);
         Ir.Cell dst = Dst(into, width, depth);
         if (TypeOf(unary).IsFloat)
@@ -340,9 +364,10 @@ internal sealed partial class Lowering
             return dst;
         }
 
-        if (result.IsFloat)
+        if (result.IsReal)
         {
-            return FloatArith(op, leftType, rightType, left, right, depth);
+            Ir.Op real = FloatArith(op, leftType, rightType, left, right, depth + (result.IsDouble ? 1 : 0));
+            return result.IsDouble ? Convert(real, CType.Float, CType.Double, depth) : real;
         }
 
         int width = Width(result);
@@ -491,7 +516,7 @@ internal sealed partial class Lowering
         int extra = bitField is null ? 0 : 3;
         Ir.Op operand = Value(assign.Value, depth + 2 + extra);
         Ir.Op result = Arith(assign.Op, TypeOf(assign.Combined), element, TypeOf(assign.Value), current, operand, depth + 1 + extra, null);
-        if (element.IsFloat || TypeOf(assign.Combined).IsFloat)
+        if (element.IsReal || TypeOf(assign.Combined).IsReal)
         {
             result = Convert(result, TypeOf(assign.Combined), element, depth + 4);
         }

@@ -21,8 +21,53 @@ internal sealed partial class Lowering
     }
 
     /// <summary>Konwersja wartości między typami skalarnymi: <c>float</c> przez procedury wykonawcze, reszta przez rozszerzenie znakiem/zerem.</summary>
-    private Ir.Op Convert(Ir.Op value, CType from, CType to, int depth) =>
-        from.IsFloat || to.IsFloat ? FloatConvert(value, from, to, depth) : Widen(value, from, Width(to), depth);
+    private Ir.Op Convert(Ir.Op value, CType from, CType to, int depth)
+    {
+        if (to.IsReal && from.Kind is "llong" or "ullong")
+        {
+            // liczba rzeczywista <- long long: przez long (tracimy starsze 32 bity)
+            Ir.Cell low = Temp(depth + 1, 4);
+            Emit(new Ir.Mov(low, value));
+            return Convert(low, CType.Long, to, depth);
+        }
+
+        if (from.IsReal && to.Kind is "llong" or "ullong")
+        {
+            // long long <- liczba rzeczywista: przez long (zakres ±2^31)
+            return Widen(Convert(value, from, CType.Long, depth + 1), CType.Long, 8, depth);
+        }
+
+        return ConvertScalar(value, from, to, depth);
+    }
+
+    private Ir.Op ConvertScalar(Ir.Op value, CType from, CType to, int depth) =>
+        from.IsDouble || to.IsDouble ? DoubleConvert(value, from, to, depth)
+        : from.IsFloat || to.IsFloat ? FloatConvert(value, from, to, depth)
+        : Widen(value, from, Width(to), depth);
+
+    /// <summary><c>double</c> (64-bitowa pamięć) tylko przez <c>float</c>: <c>__cc_dtof</c> przy odczycie, <c>__cc_ftod</c> przy zapisie.</summary>
+    private Ir.Op DoubleConvert(Ir.Op value, CType from, CType to, int depth)
+    {
+        if (from.IsDouble && to.IsDouble)
+        {
+            return value;
+        }
+
+        if (from.IsDouble)
+        {
+            var copy = new Ir.AddrOf(NewAggregate(8), 0);
+            Emit(new Ir.Store(copy, 0, value, 8));
+            Ir.Cell single = CallRt("__cc_dtof", 4, depth + 1, (copy, 2));
+            return Convert(single, CType.Float, to, depth);
+        }
+
+        Ir.Op real = Convert(value, from, CType.Float, depth + 1);
+        var slot = new Ir.AddrOf(NewAggregate(8), 0);
+        Emit(new Ir.Call("__cc_ftod", null, [real, slot], [4, 2], null));
+        Ir.Cell wide = Temp(depth, 8);
+        Emit(new Ir.Load(wide, slot, 0, 8));
+        return wide;
+    }
 
     private Ir.Op FloatConvert(Ir.Op value, CType from, CType to, int depth)
     {
