@@ -160,9 +160,9 @@ internal sealed partial class Lowering
 
     private static string GlobalLabel(string name) => $"cc_g_{name}";
 
-    private static int Width(CType type) => type.Kind is "uchar" or "schar" ? 1 : type.Kind is "long" or "ulong" or "float" ? 4 : type.Kind is "llong" or "ullong" ? 8 : 2;
+    private static int Width(CType type) => type.Kind is "uchar" or "schar" ? 1 : type.Kind is "long" or "ulong" or "float" ? 4 : type.Kind is "llong" or "ullong" or "double" ? 8 : 2;
 
-    private static bool IsLL(CType type) => type.Kind is "llong" or "ullong";
+    private static bool IsLL(CType type) => type.Kind is "llong" or "ullong" or "double";
 
     private static bool IsWide(CType type) => type.Kind is "int" or "uint" or "long" or "ulong" or "ptr" or "fptr";
 
@@ -185,7 +185,7 @@ internal sealed partial class Lowering
         return def.ReturnStars > 0 ? 2
             : bare == "void" || bare.StartsWith("struct ", StringComparison.Ordinal) ? 0
             : bare is "uchar" or "schar" ? 1
-            : bare is "llong" or "ullong" ? 0
+            : bare is "llong" or "ullong" or "double" ? 0
             : bare is "long" or "ulong" or "float" ? 4
             : 2;
     }
@@ -217,7 +217,7 @@ internal sealed partial class Lowering
     }
 
     private static bool ReturnsLL(Ast.Function def) =>
-        def.ReturnStars == 0 && TypeQualifiers.Split(def.ReturnType, out _, out _) is "llong" or "ullong";
+        def.ReturnStars == 0 && TypeQualifiers.Split(def.ReturnType, out _, out _) is "llong" or "ullong" or "double";
 
     private static bool ReturnsStruct(Ast.Function def) =>
         def.ReturnStars == 0 && TypeQualifiers.Split(def.ReturnType, out _, out _).StartsWith("struct ", StringComparison.Ordinal);

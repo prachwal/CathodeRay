@@ -94,7 +94,7 @@ internal sealed partial class Lowering
                 }
 
                 Ir.Op right = Value(compare.Right, depth + 1);
-                if (KindOf(compare.Left) == "float" || KindOf(compare.Right) == "float")
+                if (KindOf(compare.Left) is "float" or "double" || KindOf(compare.Right) is "float" or "double")
                 {
                     FloatBranch(compare, left, right, target, whenTrue, depth);
                     return;
@@ -120,9 +120,9 @@ internal sealed partial class Lowering
             default:
             {
                 Ir.Op value = Value(condition, depth);
-                if (KindOf(condition) == "float")
+                if (KindOf(condition) is "float" or "double")
                 {
-                    FloatTruth(value, target, whenTrue, depth);
+                    FloatTruth(Convert(value, TypeOf(condition), CType.Float, depth + 1), target, whenTrue, depth);
                     return;
                 }
 

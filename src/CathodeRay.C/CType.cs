@@ -37,6 +37,10 @@ public sealed record CType(string Kind, CType? Base = null, int Length = 0, Stru
     /// <summary>32-bitowa liczba zmiennoprzecinkowa IEEE-754 (<c>float</c>; <c>double</c> to ten sam typ).</summary>
     public static CType Float { get; } = new("float");
 
+    /// <summary>64-bitowy <c>double</c> (tylko z <c>-D CC_DOUBLE64</c>): pamięć jak <c>long long</c>, działania liczone jako <c>float</c>
+    /// (konwersje <c>__cc_dtof</c>/<c>__cc_ftod</c>), więc zachowuje wzorce bitowe (NaN-boxing), ale ma 24-bitową mantysę.</summary>
+    public static CType Double { get; } = new("double");
+
     /// <summary>Bez typu (wynik procedur).</summary>
     public static CType Void { get; } = new("void");
 
@@ -45,7 +49,7 @@ public sealed record CType(string Kind, CType? Base = null, int Length = 0, Stru
     {
         "uchar" or "schar" => 1,
         "long" or "ulong" or "float" => 4,
-        "llong" or "ullong" => 8,
+        "llong" or "ullong" or "double" => 8,
         "array" => Length * (Base?.Size ?? 0),
         "struct" => Info?.Size ?? 0,
         _ => 2,
@@ -56,6 +60,12 @@ public sealed record CType(string Kind, CType? Base = null, int Length = 0, Stru
 
     /// <summary>Typ zmiennoprzecinkowy.</summary>
     public bool IsFloat => Kind == "float";
+
+    /// <summary><c>double</c> (64-bitowa pamięć, działania jak na <c>float</c>).</summary>
+    public bool IsDouble => Kind == "double";
+
+    /// <summary><c>float</c> albo <c>double</c>.</summary>
+    public bool IsReal => Kind is "float" or "double";
 
     /// <summary>Wskaźnik.</summary>
     /// <param name="base">Typ bazowy.</param>
@@ -84,7 +94,8 @@ public sealed record CType(string Kind, CType? Base = null, int Length = 0, Stru
     /// <param name="b">Drugi typ.</param>
     /// <returns>Typ wyniku.</returns>
     public static CType Promote(CType a, CType b) =>
-        a.Kind == "float" || b.Kind == "float" ? Float
+        a.Kind == "double" || b.Kind == "double" ? Double
+        : a.Kind == "float" || b.Kind == "float" ? Float
         : (a.Kind == "schar" && b.Kind is "schar" or "uchar") || (b.Kind == "schar" && a.Kind == "uchar") ? SChar
         : a.Kind == "ullong" || b.Kind == "ullong" ? ULLong
         : a.Kind == "llong" || b.Kind == "llong" ? LLong
@@ -120,6 +131,7 @@ public sealed record CType(string Kind, CType? Base = null, int Length = 0, Stru
         "long" => Long,
         "ulong" => ULong,
         "float" => Float,
+        "double" => Double,
         "llong" => LLong,
         "ullong" => ULLong,
         "void" => Void,

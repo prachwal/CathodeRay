@@ -26,9 +26,10 @@ public static class Lexer
 
     /// <summary>Tokenizuje źródło.</summary>
     /// <param name="source">Tekst programu.</param>
+    /// <param name="double64"><c>double</c> zostaje osobnym typem (64-bitowa pamięć, <c>-D CC_DOUBLE64</c>) zamiast aliasu <c>float</c>.</param>
     /// <returns>Tokeny z końcowym <c>End</c>.</returns>
     /// <exception cref="CParseException">Zły znak lub niezamknięty komentarz/stała.</exception>
-    public static IReadOnlyList<Token> Tokenize(string source)
+    public static IReadOnlyList<Token> Tokenize(string source, bool double64 = false)
     {
         ArgumentNullException.ThrowIfNull(source);
         var tokens = new List<Token>();
@@ -103,7 +104,7 @@ public static class Lexer
                 {
                     text = "uchar";
                 }
-                else if (text == "double")
+                else if (text == "double" && !double64)
                 {
                     text = "float";
                 }

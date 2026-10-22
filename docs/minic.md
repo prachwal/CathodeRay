@@ -425,6 +425,18 @@ int main() {
 }
 ```
 
+## Zgodność z kodem spoza projektu
+
+- Deklaracje z kilkoma deklaratorami (`int a = 1, b, c[3];`, także lokalne i prototypy `int f(int), g(int);`); parametry bez nazwy tylko w
+  prototypach. W nagłówku pętli `for` kilka deklaratorów nie jest obsługiwane.
+- Nazwy będące słowami asemblera (`equ`, `org`, `end`, `db` …) dostają w kodzie przedrostek `cc_r_`, więc funkcja `equ` jest dozwolona.
+- Rzutowanie `float` ↔ `long long` idzie przez `long` (zakres ±2^31).
+- Biblioteka: `exit`/`abort` (pętla w miejscu), `getchar` (bufor `__in_buf` zakończony zerem, EOF po zerze; leży w DATA, więc host
+  może go wpisać przed startem) i `sscanf` (`%d %g %f %lg %n`, do 3 wskaźników).
+- `-D CC_DOUBLE64`: `double` ma 8 bajtów pamięci (jak `long long`), ale działania są liczone jako `float` (konwersje
+  `__cc_dtof`/`__cc_ftod` w `rt_double.c`), więc wzorce bitowe (NaN-boxing) zostają, a mantysa ma 24 bity. Kod jest duży: 8-bajtowe
+  kopie są rozwinięte, a `double` w wywołaniu wariadycznym jedzie jako adres kopii.
+
 ## Diagnostyka
 
 Błędy mają `plik:linia`. Ostrzeżenia (nieużywane nazwy, brak `return`, martwy kod, przypisanie w warunku, zawężenie,

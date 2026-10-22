@@ -250,4 +250,50 @@ public sealed class CSyntaxTests
             """;
         Run(Source).Should().Be('b');
     }
+
+    [Fact]
+    public void Several_Declarators_Share_One_Type_Globally_And_Locally()
+    {
+        const string Source = """
+            int a = 1, b = 2, c[3];
+            int main() {
+                int x = 3, y = 4;
+                int *p, q;
+                q = 5;
+                p = &q;
+                c[1] = 7;
+                return a + b + x * y + *p + c[1];
+            }
+            """;
+        Run(Source).Should().Be(27);
+    }
+
+    [Fact]
+    public void Declarator_List_Mixes_Prototypes_Objects_And_Pointers()
+    {
+        const string Source = """
+            int f(int a), x = 2, *p, g(int b);
+            int f(int a) { return a + x; }
+            int g(int b) { return b * 2; }
+            int main() {
+                p = &x;
+                return f(1) + *p + g(3);
+            }
+            """;
+        Run(Source).Should().Be(11);
+    }
+
+    [Fact]
+    public void Declarator_List_Starts_With_Function_Pointer()
+    {
+        const string Source = """
+            int twice(int a) { return a * 2; }
+            int (*gfp)(int) = twice, gv = 5;
+            int main() {
+                int (*lfp)(int) = twice, lv = 7;
+                return gfp(gv) + lfp(lv);
+            }
+            """;
+        Run(Source).Should().Be(24);
+    }
 }

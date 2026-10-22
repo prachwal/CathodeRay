@@ -7,6 +7,11 @@ namespace CathodeRay.C;
 /// pochodna zna tylko składnię i instrukcje swojego CPU (rejestr A, jeden rejestr adresowy dla wskaźników).</summary>
 internal abstract class ByteIsa
 {
+    /// <summary>Słowa kluczowe i dyrektywy asemblerów (wszystkie dialekty), których też nie wolno użyć jako nazwy symbolu (<c>equ</c>, <c>org</c> …).</summary>
+    private static readonly HashSet<string> AssemblerWords = new(
+        ["EQU", "SET", "DEFL", "ORG", "END", "DB", "DW", "DS", "DEFB", "DEFW", "DEFS", "DEFM", "BYTE", "WORD", "RES", "ALIGN", "ASSERT", "INCLUDE", "INCBIN", "MACRO", "ENDM", "SEGMENT", "SCOPE", "ENDSCOPE", "GLOBAL", "EXTERN", "ERROR", "WARNING", "IF", "IFDEF", "IFNDEF", "ELSE", "ENDIF"],
+        StringComparer.OrdinalIgnoreCase);
+
     private readonly StringBuilder _out = new();
 
     private int _localLabels;
@@ -84,7 +89,7 @@ internal abstract class ByteIsa
     /// <summary>Nazwa symbolu w asemblerze: nazwy zastrzeżone CPU (rejestry, mnemoniki, operatory) dostają przedrostek.</summary>
     /// <param name="name">Nazwa z kodu pośredniego.</param>
     /// <returns>Nazwa bezpieczna dla asemblera.</returns>
-    public string Sym(string name) => Reserved.Contains(name) ? "cc_r_" + name : name;
+    public string Sym(string name) => Reserved.Contains(name) || AssemblerWords.Contains(name) ? "cc_r_" + name : name;
 
     /// <summary>Adres symbolu z przesunięciem.</summary>
     /// <param name="sym">Symbol.</param>

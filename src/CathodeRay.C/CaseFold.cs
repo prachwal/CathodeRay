@@ -17,6 +17,13 @@ internal static class CaseFold
             return name;
         }
 
+        // przesunięcie bajtu (x+4, x+4+2) zostaje na końcu, żeby nie trafiło do środka nazwy
+        int offset = name.IndexOf('+', StringComparison.Ordinal);
+        if (offset > 0)
+        {
+            return Name(name[..offset]) + name[offset..];
+        }
+
         var mask = new StringBuilder();
         for (int i = 0; i < name.Length; i += 4)
         {

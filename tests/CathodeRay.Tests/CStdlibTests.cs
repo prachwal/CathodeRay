@@ -138,4 +138,89 @@ public sealed class CStdlibTests
         FluentActions.Invoking(() => CcRun.Run("#include <string.h>\nint main() { return strlen(\"a\"); }", "--nostdlib"))
             .Should().Throw<Exception>();
     }
+
+    [Fact]
+    public void Sscanf_Parses_Numbers_And_Reports_Eof_And_Limits()
+    {
+        const string Source = """
+            #include <stdio.h>
+            int main() {
+                float f;
+                float big;
+                int a;
+                int b;
+                int c;
+                int n;
+                int r = 0;
+                r += (sscanf("  -2.5e1x", "%g%n", &f, &n) == 1) * 1;
+                r += ((int)f == 0 - 25) * 2;
+                r += (n == 8) * 4;
+                r += (sscanf("", "x") == EOF) * 8;
+                r += (sscanf("", "%d", &a) == EOF) * 16;
+                r += (sscanf("7", "%d %d", &a, &b) == 1) * 32;
+                r += (sscanf("1e32767", "%g", &big) == 1) * 64;
+                r += (sscanf("1 2 3 4", "%d %d %d %d", &a, &b, &c) == 3) * 128;
+                r += (a + b + c == 6) * 256;
+                return r;
+            }
+            """;
+        CcRun.Run(Source).Value.Should().Be(1 + 2 + 4 + 8 + 16 + 32 + 64 + 128 + 256);
+    }
+
+    [Fact]
+    public void Sscanf_Lg_Writes_A_Whole_Double_With_Double64()
+    {
+        const string Source = """
+            #include <stdio.h>
+            int main() {
+                double d = 100;
+                float f = 1;
+                int r = sscanf("2.5", "%lg", &d);
+                int s = sscanf("1.5", "%g", &f);
+                return r * 1000 + s * 100 + (int)(d * 2) * 10 + (int)(f * 2);
+            }
+            """;
+        CcRun.RunOn(Source, "z80", "-D", "CC_DOUBLE64").Value.Should().Be(1000 + 100 + 50 + 3);
+    }
+
+    [Fact]
+    public void Getchar_Reads_The_Input_Buffer_And_Stops_At_Zero_Or_After_256_Bytes()
+    {
+        const string Source = """
+            #include <stdio.h>
+            extern uchar __in_buf[256];
+            int main() {
+                int r = 0;
+                int i;
+                __in_buf[0] = 'a';
+                __in_buf[1] = 'b';
+                r += (getchar() == 'a') * 1;
+                r += (getchar() == 'b') * 2;
+                r += (getchar() == EOF) * 4;
+                return r;
+            }
+            """;
+        CcRun.Run(Source).Value.Should().Be(7);
+    }
+
+    [Fact]
+    public void Getchar_Returns_Eof_When_The_Buffer_Is_Full()
+    {
+        const string Source = """
+            #include <stdio.h>
+            extern uchar __in_buf[256];
+            int main() {
+                int i;
+                int seen = 0;
+                for (i = 0; i < 256; i++) {
+                    __in_buf[i] = 'x';
+                }
+                for (i = 0; i < 256; i++) {
+                    seen += (getchar() == 'x');
+                }
+                return seen + (getchar() == EOF) * 1000;
+            }
+            """;
+        CcRun.Run(Source).Value.Should().Be(1256);
+    }
 }

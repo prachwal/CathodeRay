@@ -136,6 +136,13 @@ internal sealed partial class Lowering
             return ok;
         }
 
+        if (target.IsDouble)
+        {
+            bool ok = TryFloatConstant(expr, out uint singleBits);
+            value = BitConverter.DoubleToInt64Bits(BitConverter.Int32BitsToSingle((int)singleBits));
+            return ok;
+        }
+
         if (expr is Ast.Number number && Literal.TryParse(number.Text, out Literal literal) && literal.IsLong)
         {
             value = literal.Type.IsFloat ? (long)BitConverter.Int32BitsToSingle((int)literal.Value) : literal.Value;
