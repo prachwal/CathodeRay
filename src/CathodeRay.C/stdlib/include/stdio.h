@@ -18,6 +18,7 @@ extern FILE __stderr_f;
 #define stdout (&__stdout_f)
 #define stderr (&__stderr_f)
 FILE *fopen(const uchar *path, const uchar *mode);
+FILE *freopen(const uchar *path, const uchar *mode, FILE *f);
 int fclose(FILE *f);
 int fflush(FILE *f);
 int fputc(int c, FILE *f);
