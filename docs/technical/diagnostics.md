@@ -35,6 +35,8 @@ Stub ma osobną komendę `cathode stub run`.
 - `-l`: z listingu odczytuje `cc_ret` (wynik `main`) oraz bufor konsoli `__io_buf`.
 - Kod wyjścia: 0 zatrzymany, 2 limit kroków (`--max-steps`), 1 błąd (np. nieobsługiwany opkod).
 
+Przykłady z oczekiwanymi wynikami: `samples/diag/` (opis w README tamże), testowane przez `DiagnosticsSamplesTests` na pięciu procesorach.
+
 ## Kod: `ICompilerTrace`
 
 Biblioteka `CathodeRay.C` udostępnia `CompilerTrace.Begin(ICompilerTrace)`; bez odbiornika kompilator nie liczy ani nie wypisuje niczego.
