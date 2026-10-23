@@ -216,6 +216,7 @@ public static class CPreprocessor
         }
 
         string[]? parameters = null;
+        bool variadic = false;
         if (end < rest.Length && rest[end] == '(')
         {
             int close = rest.IndexOf(')', end);
@@ -226,9 +227,14 @@ public static class CPreprocessor
 
             parameters = [.. rest[(end + 1)..close].Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries)];
             end = close + 1;
+            if (parameters.Length > 0 && parameters[^1] == "...")
+            {
+                variadic = true;
+                parameters[^1] = "__VA_ARGS__";
+            }
         }
 
-        var macro = new Macro(parameters, rest[end..].Trim());
+        var macro = new Macro(parameters, rest[end..].Trim(), variadic);
         if (state.Macros.TryGetValue(name, out Macro? existing) && !existing.Equals(macro))
         {
             throw new CPreprocessException(line, $"macro '{name}' redefined differently.");
@@ -372,6 +378,20 @@ public static class CPreprocessor
                 if (args.Count == 1 && args[0].Length == 0 && macro.Parameters.Length == 0)
                 {
                     args.Clear();
+                }
+
+                if (macro.Variadic)
+                {
+                    int fixedCount = macro.Parameters.Length - 1;
+                    if (args.Count < fixedCount)
+                    {
+                        throw new CPreprocessException(line, $"macro '{ident}' takes at least {fixedCount} arguments, got {args.Count}.");
+                    }
+
+                    // nadmiarowe argumenty (z przecinkami) tworzą jeden argument __VA_ARGS__; brak argumentów wariadycznych = pusty
+                    string tail = string.Join(", ", args.Skip(fixedCount));
+                    args.RemoveRange(fixedCount, args.Count - fixedCount);
+                    args.Add(tail);
                 }
 
                 if (args.Count != macro.Parameters.Length)
@@ -669,10 +689,10 @@ public static class CPreprocessor
         return parser.Parse();
     }
 
-    private sealed record Macro(string[]? Parameters, string Body)
+    private sealed record Macro(string[]? Parameters, string Body, bool Variadic = false)
     {
         public bool Equals(Macro? other) =>
-            other is not null && Body == other.Body && (Parameters is null ? other.Parameters is null : other.Parameters is not null && Parameters.SequenceEqual(other.Parameters));
+            other is not null && Body == other.Body && Variadic == other.Variadic && (Parameters is null ? other.Parameters is null : other.Parameters is not null && Parameters.SequenceEqual(other.Parameters));
 
         public override int GetHashCode() => Body.GetHashCode(StringComparison.Ordinal);
     }

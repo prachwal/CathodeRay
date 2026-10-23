@@ -14,3 +14,4 @@ i wykonuje go na emulatorach (domyślnie z80, 8080, 6502, 6800, 6809).
 | Plik | Funkcjonalność |
 |---|---|
 | `a1_include_comment.c` | komentarze `/* */` i `//` w dyrektywach preprocesora |
+| `a2_variadic_macros.c` | makra wariadyczne (`...`, `__VA_ARGS__`) |
