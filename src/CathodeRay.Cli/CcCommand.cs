@@ -28,11 +28,12 @@ internal static partial class CcCommand
         var noStdlib = new Option<bool>("--nostdlib") { Description = "Nie linkuj biblioteki standardowej (nagłówki <...> z --incdir nadal działają)." };
         var noOpt = new Option<bool>("--no-opt", "-O0") { Description = "Wyłącza optymalizator okienkowy asemblera." };
         var werror = new Option<bool>("-Werror", "--werror") { Description = "Traktuj ostrzeżenia kompilatora jak błędy." };
+        var asmOnly = new Option<bool>("-S", "--asm-only") { Description = "Tylko C→asembler: zapisuje wygenerowany asembler (-o, domyślnie <plik>.s) bez asemblacji i linkowania — pokazuje, że program się skompilował, także gdy po zasemblowaniu nie zmieściłby się w pamięci celu." };
         var stats = new Option<bool>("--stats") { Description = "Wypisz rozmiary segmentów zlinkowanego programu." };
         var cpu = new Option<string>("--cpu") { Description = "Cel kompilatora: nazwa z rejestru celów (domyślnie stub).", DefaultValueFactory = _ => CTargets.Default.Name };
         var ir = new Option<string>("--ir") { Description = "Reprezentacja pośrednia: cell (domyślnie) albo vreg; --ir list wypisuje rodzaje.", DefaultValueFactory = _ => "cell" };
         var abi = new Option<string>("--abi") { Description = "Konwencja wołań: v1 (domyślnie) albo v2 (rejestry, tylko wybrane cele); --abi list wypisuje rodzaje.", DefaultValueFactory = _ => "v1" };
-        var command = new Command("cc", "Kompiluje program mini-C na wybrany cel (domyślnie stub): C→obiekt→link.") { inputs, output, format, listing, map, config, incdir, define, noStdlib, noOpt, werror, cpu, ir, abi, stats };
+        var command = new Command("cc", "Kompiluje program mini-C na wybrany cel (domyślnie stub): C→obiekt→link.") { inputs, output, format, listing, map, config, incdir, define, noStdlib, noOpt, werror, cpu, ir, abi, stats, asmOnly };
         command.SetAction(parse =>
         {
             TextWriter error = parse.InvocationConfiguration.Error;
@@ -116,6 +117,11 @@ internal static partial class CcCommand
             var warningText = new StringWriter();
             try
             {
+                if (parse.GetValue(asmOnly))
+                {
+                    return WriteAssembly(parse, files, output, includePaths, cTarget, warningText, ParseDefines(parse.GetValue(define)!), !parse.GetValue(noOpt), vreg, useV2, werror);
+                }
+
                 modules.Add(("crt0.s", AssembleObject(target, cTarget.Crt0For(useV2), "crt0.s", _ => null, includePaths)));
                 foreach (FileInfo input in files)
                 {
@@ -321,6 +327,87 @@ internal static partial class CcCommand
     private static string Where(string? file, int line) =>
         file is null ? string.Empty : line > 0 ? $"{file}:{line}: " : $"{file}: ";
 
+    /// <summary>Tryb <c>-S</c>: dla każdego pliku .c zapisuje asembler wygenerowany przez kompilator (bez asemblacji i linkowania).</summary>
+    private static int WriteAssembly(ParseResult parse, FileInfo[] files, Option<FileInfo?> output, string[] includePaths, ICTarget cTarget, StringWriter warningText, Dictionary<string, string> defines, bool optimize, bool vreg, bool abiV2, Option<bool> werror)
+    {
+        TextWriter error = parse.InvocationConfiguration.Error;
+        if (files.Any(static f => !f.Extension.Equals(".c", StringComparison.OrdinalIgnoreCase)))
+        {
+            error.WriteLine("cc: -S needs .c inputs only.");
+            return 1;
+        }
+
+        FileInfo? requested = parse.GetValue(output);
+        if (requested is not null && files.Length > 1)
+        {
+            error.WriteLine("cc: -S with several inputs writes <file>.s next to each input; do not pass -o.");
+            return 1;
+        }
+
+        foreach (FileInfo input in files)
+        {
+            string asm = GenerateAssembly(cTarget, input, includePaths, warningText, defines, optimize, vreg, abiV2);
+            string path = requested?.FullName ?? Path.ChangeExtension(input.FullName, ".s");
+            File.WriteAllText(path, asm);
+            parse.InvocationConfiguration.Output.WriteLine(string.Create(
+                CultureInfo.InvariantCulture,
+                $"{input.Name} -> {Path.GetFileName(path)} ({asm.Split('\n').Length} lines of {cTarget.Name} assembly)"));
+        }
+
+        error.Write(warningText.ToString());
+        if (parse.GetValue(werror) && warningText.ToString().Length > 0)
+        {
+            error.WriteLine("cc: warnings treated as errors (-Werror).");
+            return 1;
+        }
+
+        return 0;
+    }
+
+    private static string GenerateAssembly(ICTarget cTarget, FileInfo input, string[] includePaths, TextWriter warnings, Dictionary<string, string> defines, bool optimize, bool vreg, bool abiV2)
+    {
+        string? dir = Path.GetDirectoryName(input.FullName);
+        Func<string, string?> reader = path =>
+        {
+            bool system = path.StartsWith('<');
+            string relative = system ? path[1..^1] : path;
+            foreach (string baseDir in system ? includePaths : new[] { dir ?? ".", "." }.Concat(includePaths))
+            {
+                string full = Path.Combine(baseDir, relative);
+                if (File.Exists(full))
+                {
+                    return File.ReadAllText(full);
+                }
+            }
+
+            return system ? StdLib.Header(relative) : null;
+        };
+
+        try
+        {
+            CheckedProgram program = TypeChecker.Check(Parser.Parse(File.ReadAllText(input.FullName), reader, defines));
+            string asm = vreg
+                ? VRegPipeline.Emit(program, cTarget, input.Name, objectMode: true, optimize: optimize, abiV2: abiV2)
+                : Codegen.Emit(program, cTarget, input.Name, objectMode: true, optimize: optimize, abiV2: abiV2);
+            foreach (string warning in program.Warnings)
+            {
+                warnings.WriteLine($"{input.Name}: warning: {warning}");
+            }
+
+            return asm;
+        }
+        catch (CTypeException e)
+        {
+            e.File = input.Name;
+            throw;
+        }
+        catch (CCodegenException e)
+        {
+            e.File = input.Name;
+            throw;
+        }
+    }
+
     private static ObjectModule AssembleModule(AssemblerTarget target, ICTarget cTarget, FileInfo input, string[] includePaths, TextWriter warnings, Dictionary<string, string> defines, bool optimize, bool vreg, bool abiV2)
     {
         string? dir = Path.GetDirectoryName(input.FullName);
@@ -342,29 +429,7 @@ internal static partial class CcCommand
 
         if (input.Extension.Equals(".c", StringComparison.OrdinalIgnoreCase))
         {
-            string asm;
-            try
-            {
-                CheckedProgram program = TypeChecker.Check(Parser.Parse(File.ReadAllText(input.FullName), reader, defines));
-                asm = vreg
-                    ? VRegPipeline.Emit(program, cTarget, input.Name, objectMode: true, optimize: optimize, abiV2: abiV2)
-                    : Codegen.Emit(program, cTarget, input.Name, objectMode: true, optimize: optimize, abiV2: abiV2);
-                foreach (string warning in program.Warnings)
-                {
-                    warnings.WriteLine($"{input.Name}: warning: {warning}");
-                }
-            }
-            catch (CTypeException e)
-            {
-                e.File = input.Name;
-                throw;
-            }
-            catch (CCodegenException e)
-            {
-                e.File = input.Name;
-                throw;
-            }
-
+            string asm = GenerateAssembly(cTarget, input, includePaths, warnings, defines, optimize, vreg, abiV2);
             return AssembleObject(target, asm, input.Name, _ => null, includePaths);
         }
 

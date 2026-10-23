@@ -1,10 +1,11 @@
 #include <string.h>
 
-uchar *strchr(uchar *s, uchar c) {
+/* strchr: jak w C przyjmuje const napis, a zwraca zwykły wskaźnik do znaku w nim. */
+uchar *strchr(const uchar *s, uchar c) {
     while (*s) {
-        if (*s == c) return s;
+        if (*s == c) return (uchar *)s;
         s++;
     }
-    if (c == 0) return s;
+    if (c == 0) return (uchar *)s;
     return 0;
 }

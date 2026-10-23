@@ -10,6 +10,10 @@ FILE *fopen(const uchar *path, const uchar *mode) {
     return 0;
 }
 
+FILE *freopen(const uchar *path, const uchar *mode, FILE *f) {
+    return 0;
+}
+
 int fclose(FILE *f) {
     return 0;
 }

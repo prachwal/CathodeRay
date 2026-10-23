@@ -14,9 +14,21 @@ public sealed class Parser
     /// <summary>Aliasy typedef typu tablicowego (<c>typedef int jmp_buf[8];</c>): długość pierwszego wymiaru i sufiks dalszych.</summary>
     private readonly Dictionary<string, (int Length, string Suffix)> _arrayTypedefs = new(StringComparer.Ordinal);
 
+    /// <summary>Zakresy nazw lokalnych bieżącej funkcji (od zewnętrznego): nazwa w źródle → nazwa komórki. Lokalna, której nazwa
+    /// została już użyta w funkcji (blok obok albo zacieniająca), dostaje unikalną nazwę <c>x@N</c>, bo komórki są płaskie.</summary>
+    private readonly List<Dictionary<string, string>> _blockNames = [];
+
+    /// <summary>Nazwy globalne widoczne dotąd w pliku (zmienne, funkcje): lokalna o takiej nazwie dostaje własną nazwę komórki,
+    /// żeby po zakończeniu bloku nazwa znów oznaczała obiekt globalny.</summary>
+    private readonly HashSet<string> _globalNames = new(StringComparer.Ordinal);
+
     private readonly List<Ast.StructDef> _structs = [];
     private int _anonymous;
     private int _pos;
+
+    /// <summary>Nazwy komórek już użyte w bieżącej funkcji (null poza funkcją).</summary>
+    private HashSet<string>? _functionNames;
+    private int _renames;
 
     /// <summary>Alias tablicowy użyty w ostatniej specyfikacji typu (null, gdy typ nie jest takim aliasem).</summary>
     private (int Length, string Suffix)? _arrayAlias;
@@ -91,7 +103,7 @@ public sealed class Parser
     };
 
     private static bool IsBuiltinType(Token token) =>
-        token is { Kind: TokenKind.Keyword } && token.Text is "uchar" or "int" or "uint" or "long" or "ulong" or "short" or "unsigned" or "signed" or "float" or "double" or "void" or "struct" or "union";
+        token is { Kind: TokenKind.Keyword } && token.Text is "uchar" or "int" or "uint" or "long" or "ulong" or "short" or "unsigned" or "signed" or "float" or "double" or "void" or "struct" or "union" or "enum";
 
     private bool IsType(Token token) =>
         IsBuiltinType(token) || (token is { Kind: TokenKind.Keyword, Text: "const" or "volatile" }) || (token.Kind == TokenKind.Ident && _typedefs.ContainsKey(token.Text));
@@ -131,6 +143,11 @@ public sealed class Parser
             }
 
             spec = ($"struct {name}", 0);
+        }
+        else if (token is { Kind: TokenKind.Keyword, Text: "enum" })
+        {
+            EnumBody();
+            spec = ("int", 0);
         }
         else if (token is { Kind: TokenKind.Keyword, Text: "uchar" or "int" or "uint" or "long" or "ulong" or "short" or "unsigned" or "signed" })
         {
@@ -451,7 +468,7 @@ public sealed class Parser
         {
             DeclFlags flags = Modifiers();
             Token type = Peek();
-            if (type is { Kind: TokenKind.Keyword, Text: "enum" })
+            if (type is { Kind: TokenKind.Keyword, Text: "enum" } && IsEnumDefinitionOnly())
             {
                 EnumDecl();
                 continue;
@@ -491,6 +508,7 @@ public sealed class Parser
                 }
 
                 globals.Add(decl!);
+                _globalNames.Add(decl!.Name);
                 if (Take(","))
                 {
                     continue;
@@ -518,12 +536,24 @@ public sealed class Parser
     private void EnumDecl()
     {
         Next();
+        EnumBody();
+        Expect(";");
+    }
+
+    /// <summary>Po słowie <c>enum</c>: opcjonalna nazwa i opcjonalna lista stałych <c>{ A, B = 3 }</c> (stałe trafiają do <c>_enums</c>);
+    /// typ enum to <c>int</c>.</summary>
+    private void EnumBody()
+    {
         if (Peek().Kind == TokenKind.Ident)
         {
             Next();
         }
 
-        Expect("{");
+        if (!Take("{"))
+        {
+            return;
+        }
+
         Ast.Expr next = new Ast.Number("0");
         while (!Take("}"))
         {
@@ -548,8 +578,34 @@ public sealed class Parser
                 break;
             }
         }
+    }
 
-        Expect(";");
+    /// <summary>Czy <c>enum [nazwa] [{…}]</c> od bieżącego tokenu kończy się średnikiem (sama definicja stałych), a nie deklaracją zmiennej.</summary>
+    private bool IsEnumDefinitionOnly()
+    {
+        int at = 1;
+        if (Peek(at).Kind == TokenKind.Ident)
+        {
+            at++;
+        }
+
+        if (Peek(at) is { Kind: TokenKind.Punct, Text: "{" })
+        {
+            int depth = 0;
+            do
+            {
+                Token token = Peek(at++);
+                if (token.Kind == TokenKind.End)
+                {
+                    return true;
+                }
+
+                depth += token is { Kind: TokenKind.Punct, Text: "{" } ? 1 : token is { Kind: TokenKind.Punct, Text: "}" } ? -1 : 0;
+            }
+            while (depth > 0);
+        }
+
+        return Peek(at) is { Kind: TokenKind.Punct, Text: ";" };
     }
 
     private int Stars()
@@ -566,6 +622,7 @@ public sealed class Parser
 
     private Ast.Function FunctionRest(string type, string name, int line, int returnStars = 0, bool isStatic = false)
     {
+        _globalNames.Add(name);
         Expect("(");
         var parameters = new List<Ast.Param>();
         bool variadic = false;
@@ -676,12 +733,66 @@ public sealed class Parser
             throw new CParseException(at.Line, at.Column, "a variadic function can only be declared (prototype), not defined.");
         }
 
-        return At(line, new Ast.Function(type, name, parameters, Block(), ReturnStars: returnStars, IsStatic: isStatic));
+        _functionNames = new HashSet<string>(parameters.Select(static p => p.Name), StringComparer.Ordinal);
+        _blockNames.Clear();
+        PushNames();
+        foreach (Ast.Param parameter in parameters)
+        {
+            _blockNames[0][parameter.Name] = parameter.Name;
+        }
+
+        Ast.Block body = Block();
+        _functionNames = null;
+        _blockNames.Clear();
+        return At(line, new Ast.Function(type, name, parameters, body, ReturnStars: returnStars, IsStatic: isStatic));
+    }
+
+    private void PushNames() => _blockNames.Add(new Dictionary<string, string>(StringComparer.Ordinal));
+
+    private void PopNames() => _blockNames.RemoveAt(_blockNames.Count - 1);
+
+    /// <summary>Nazwa komórki dla identyfikatora użytego w wyrażeniu (zewnętrzne nazwy zostają bez zmian).</summary>
+    private string Resolve(string name)
+    {
+        for (int i = _blockNames.Count - 1; i >= 0; i--)
+        {
+            if (_blockNames[i].TryGetValue(name, out string? cell))
+            {
+                return cell;
+            }
+        }
+
+        return name;
+    }
+
+    /// <summary>Rejestruje zmienną lokalną w bieżącym zakresie; powtórzona nazwa w funkcji dostaje unikalną nazwę komórki.</summary>
+    private Ast.Decl DeclareLocal(Ast.Decl decl)
+    {
+        if (_functionNames is null || _blockNames.Count == 0 || decl.Flags.HasFlag(DeclFlags.Extern))
+        {
+            return decl;
+        }
+
+        if (_blockNames[^1].ContainsKey(decl.Name))
+        {
+            // powtórzenie w tym samym zakresie: nazwa zostaje, błąd zgłosi kontrola typów
+            return decl;
+        }
+
+        string unique = decl.Name;
+        while (_globalNames.Contains(unique) || !_functionNames.Add(unique))
+        {
+            unique = $"{decl.Name}@{++_renames}";
+        }
+
+        _blockNames[^1][decl.Name] = unique;
+        return unique == decl.Name ? decl : decl with { Name = unique };
     }
 
     private Ast.Block Block()
     {
         Expect("{");
+        PushNames();
         var items = new List<Ast.Stmt>();
         while (!Take("}"))
         {
@@ -694,6 +805,7 @@ public sealed class Parser
             AddStatement(items);
         }
 
+        PopNames();
         return new Ast.Block(items);
     }
 
@@ -750,7 +862,7 @@ public sealed class Parser
             return Switch();
         }
 
-        if (token is { Kind: TokenKind.Keyword, Text: "enum" })
+        if (token is { Kind: TokenKind.Keyword, Text: "enum" } && IsEnumDefinitionOnly())
         {
             EnumDecl();
             return At(token.Line, new Ast.Nop());
@@ -874,6 +986,7 @@ public sealed class Parser
     {
         Token keyword = Next();
         Expect("(");
+        PushNames();
         Ast.Stmt? init = Peek() is { Kind: TokenKind.Punct, Text: ";" } ? null : ForInit();
         if (init is not Ast.Decl)
         {
@@ -884,7 +997,9 @@ public sealed class Parser
         Expect(";");
         Ast.Expr? step = Peek() is { Kind: TokenKind.Punct, Text: ")" } ? null : Discard(Expression());
         Expect(")");
-        return At(keyword.Line, new Ast.For(init, cond, step, Statement()));
+        Ast.Stmt body = Statement();
+        PopNames();
+        return At(keyword.Line, new Ast.For(init, cond, step, body));
     }
 
     private Ast.Stmt ForInit()
@@ -944,10 +1059,10 @@ public sealed class Parser
     {
         Token typeToken = Peek();
         (string type, int baseStars) = TypeSpec();
-        Ast.Decl decl = Declarator(type, baseStars, typeToken.Line, flags, allowFunction: false, "variable name").Decl!;
+        Ast.Decl decl = DeclareLocal(Declarator(type, baseStars, typeToken.Line, flags, allowFunction: false, "variable name").Decl!);
         while (Take(","))
         {
-            _pendingDecls.Add(Declarator(type, baseStars, typeToken.Line, flags, allowFunction: false, "variable name").Decl!);
+            _pendingDecls.Add(DeclareLocal(Declarator(type, baseStars, typeToken.Line, flags, allowFunction: false, "variable name").Decl!));
         }
 
         Expect(";");
@@ -1471,10 +1586,10 @@ public sealed class Parser
                     Expect(")");
                 }
 
-                return new Ast.Call(token.Text, args);
+                return new Ast.Call(Resolve(token.Text), args);
             }
 
-            return new Ast.Var(token.Text);
+            return new Ast.Var(Resolve(token.Text));
         }
 
         if (Take("("))

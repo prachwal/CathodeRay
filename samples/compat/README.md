@@ -23,3 +23,8 @@ i wykonuje go na emulatorach (domyślnie z80, 8080, 6502, 6800, 6809).
 | `c4_double64.c` | `strtod`/`sscanf %lg` z `-D CC_DOUBLE64` i bity NaN-boxingu w unii |
 | `b1_array_typedef_nested.c` | alias tablicowy z własnym wymiarem (`row m[3]`), parametr `row r[]` |
 | `c3_stream_ref.c` | odwołanie tylko do `stderr` dołącza moduł; `snprintf(NULL, 0, ...)` nic nie wypisuje |
+| `b2_block_scope.c` | bloki obok siebie i zacienianie nazw, `for (int i...)`, statyczne w blokach |
+| `b3_pointer_ternary.c` | `?:` ze wskaźnikami: 0/NULL, tablica, void*, zagnieżdżone |
+| `b4_switch_long.c` | `switch` na wartości 32-bitowej (long/ulong) |
+| `b5_enum_types.c` | `enum` jako typ: pole struktury, `enum Nazwa x`, `typedef enum`, tablica anonimowych struktur |
+| `c5_libc_extras.c` | `memmove` (nakładanie), `strchr` na `const`, `freopen` |

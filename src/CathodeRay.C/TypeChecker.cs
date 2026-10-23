@@ -650,7 +650,7 @@ public sealed partial class TypeChecker
     private void CheckSwitch(Ast.Switch stmt)
     {
         CType type = TypeOf(stmt.Value);
-        if (type.Kind is not ("uchar" or "schar" or "int" or "uint"))
+        if (type.Kind is not ("uchar" or "schar" or "int" or "uint" or "long" or "ulong"))
         {
             throw new CTypeException("switch needs an integer value.");
         }
@@ -1250,11 +1250,34 @@ public sealed partial class TypeChecker
             throw new CTypeException("ternary branches need values.");
         }
 
-        if (then.Kind == "ptr" || els.Kind == "ptr")
+        CType thenValue = then.Decay();
+        CType elseValue = els.Decay();
+        if (thenValue.Kind == "ptr" || elseValue.Kind == "ptr")
         {
-            if (then == els && then.Kind == "ptr")
+            // wskaźniki: ten sam typ, void* z dowolnym wskaźnikiem (wynik void*), tablica rozpada się na wskaźnik, a 0 jest wskaźnikiem pustym
+            if (thenValue.Kind == "ptr" && ternary.Else is Ast.Number { Text: "0" })
             {
-                return then;
+                return thenValue;
+            }
+
+            if (elseValue.Kind == "ptr" && ternary.Then is Ast.Number { Text: "0" })
+            {
+                return elseValue;
+            }
+
+            if (thenValue.Kind == "ptr" && elseValue.Kind == "ptr")
+            {
+                if (thenValue == elseValue)
+                {
+                    return thenValue;
+                }
+
+                if (thenValue.Base?.Kind == "void" || elseValue.Base?.Kind == "void")
+                {
+                    return thenValue.Base?.Kind == "void" ? thenValue : elseValue;
+                }
+
+                throw new CTypeException($"ternary branches have incompatible pointer types ({thenValue} and {elseValue}).");
             }
 
             throw new CTypeException("ternary branches need arithmetic values.");
