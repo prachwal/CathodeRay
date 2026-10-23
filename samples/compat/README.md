@@ -16,3 +16,4 @@ i wykonuje go na emulatorach (domyślnie z80, 8080, 6502, 6800, 6809).
 | `a1_include_comment.c` | komentarze `/* */` i `//` w dyrektywach preprocesora |
 | `a2_variadic_macros.c` | makra wariadyczne (`...`, `__VA_ARGS__`) |
 | `b1_array_typedef.c` | `typedef` typu tablicowego (jednowymiarowy i dwuwymiarowy, parametr, sizeof) |
+| `c1_stdint.c` | `<stdint.h>`: typy o stałej szerokości, zawijanie, znak |
