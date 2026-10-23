@@ -1,6 +1,8 @@
-/* snprintf: ten sam formatter co printf (_format.h) z ograniczeniem liczby zapisanych znaków. Osobny moduł, żeby programy
+/* snprintf: ten sam formatter co printf (_format.h) z ograniczeniem liczby zapisanych znaków oraz %f/%g/%e dla float (2 słowa
+   argumentów; flagi, szerokość i precyzja są pomijane, %g/%e obcina końcowe zera ułamka; printf nie ma float, żeby nie rosnąć). Osobny moduł, żeby programy
    z samym printf nie płaciły za ten kod. */
 #define FMT_LIMIT 1
+#define FMT_FLOAT 1
 #include <_format.h>
 
 /* Zapisuje najwyżej n-1 znaków i kończy zerem (n == 0: nic); wynik to długość pełnego tekstu, jak w C99. */

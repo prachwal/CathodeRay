@@ -19,3 +19,5 @@ i wykonuje go na emulatorach (domyślnie z80, 8080, 6502, 6800, 6809).
 | `c1_stdint.c` | `<stdint.h>`: typy o stałej szerokości, zawijanie, znak |
 | `c2_setjmp.c` | `<setjmp.h>`: setjmp/longjmp na wszystkich celach |
 | `c3_stdio.c` | `<stdio.h>`: FILE, stdin/stdout/stderr, fprintf, snprintf, getc, ungetc, fopen |
+| `c4_strtod.c` | `strtod`/`atof`, `sscanf` z `%f`/`%n`, `snprintf` z `%g`/`%f` (float) |
+| `c4_double64.c` | `strtod`/`sscanf %lg` z `-D CC_DOUBLE64` i bity NaN-boxingu w unii |

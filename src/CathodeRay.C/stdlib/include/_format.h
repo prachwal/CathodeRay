@@ -2,6 +2,9 @@
    Dodatkowe argumenty to 16-bit w cc_arg2..cc_arg6, więc format() ma stałą liczbę parametrów. FMT_LIMIT włącza ograniczenie liczby
    zapisanych znaków (snprintf); bez niego kod jest bajt w bajt taki jak dotąd, więc programy z samym printf nie rosną. */
 #include <stdio.h>
+#ifdef FMT_FLOAT
+#include <stdlib.h>
+#endif
 
 
 static uchar *dst;
@@ -96,6 +99,15 @@ static int format(const uchar *fmt, int a1, int a2, int a3, int a4, int a5) {
             out('%');
             continue;
         }
+#ifdef FMT_FLOAT
+        /* flagi, szerokość i precyzja (%.17lg) są pomijane */
+        while (c == '-' || c == '+' || c == ' ' || c == '#' || c == '.' || (c >= '0' && c <= '9')) {
+            c = *fmt;
+            if (c == 0) break;
+            fmt++;
+        }
+        if (c == 0) break;
+#endif
         uchar wide = 0;
         if (c == 'l') {
             wide = 1;
@@ -103,6 +115,9 @@ static int format(const uchar *fmt, int a1, int a2, int a3, int a4, int a5) {
             if (c == 0) break;
             fmt++;
         }
+#ifdef FMT_FLOAT
+        if (c == 'f' || c == 'g' || c == 'e') wide = 1;
+#endif
         int v = next < 5 ? args[next] : 0;
         next++;
         ulong big = (ulong)(uint)v;
@@ -126,6 +141,28 @@ static int format(const uchar *fmt, int a1, int a2, int a3, int a4, int a5) {
             case 'c':
                 out(v);
                 break;
+#ifdef FMT_FLOAT
+            case 'f':
+            case 'g':
+            case 'e': {
+                uchar tmp[24];
+                uchar n = 0;
+                uchar i;
+                uchar dot = 0;
+                ftoa(*(float *)&big, tmp);
+                while (tmp[n]) n++;
+                for (i = 0; i < n; i++) {
+                    if (tmp[i] == '.') dot = 1;
+                }
+                /* %g i %e: bez końcowych zer ułamka (ftoa zawsze daje 6 cyfr) */
+                if (c != 'f' && dot) {
+                    while (tmp[n - 1] == '0') n--;
+                    if (tmp[n - 1] == '.') n--;
+                }
+                for (i = 0; i < n; i++) out(tmp[i]);
+                break;
+            }
+#endif
             case 's':
                 outstr((const uchar *)v);
                 break;
