@@ -633,6 +633,11 @@ public sealed class Parser
                     }
 
                     string rest = DimSuffix();
+                    if (paramArrayAlias is { } restAlias)
+                    {
+                        rest += $"[{restAlias.Length}]{restAlias.Suffix}";
+                    }
+
                     if (rest.Length > 0)
                     {
                         paramTypeName += new string('*', stars) + rest;
@@ -981,14 +986,22 @@ public sealed class Parser
         Token open = Peek();
         int length = ArrayLength(out bool unsized, out Ast.Expr? lengthExpr);
         string suffix = length > 0 || unsized ? DimSuffix() : string.Empty;
-        if (length == 0 && !unsized && _arrayAlias is { } alias)
+        if (_arrayAlias is { } alias)
         {
             if (stars > 0)
             {
                 throw new CParseException(open.Line, open.Column, "pointer to an array typedef is not supported.");
             }
 
-            (length, suffix) = alias;
+            if (length == 0 && !unsized)
+            {
+                (length, suffix) = alias;
+            }
+            else
+            {
+                // row m[3] z typedef int row[4]: wymiary deklaratora, potem wymiary aliasu (int[3][4])
+                suffix += $"[{alias.Length}]{alias.Suffix}";
+            }
         }
 
         if (suffix.Length > 0)
