@@ -483,3 +483,5 @@ $RECYCLE.BIN/
 
 # Binarki z asemblera (cathode stub asm)
 samples/**/*.bin
+
+dist/

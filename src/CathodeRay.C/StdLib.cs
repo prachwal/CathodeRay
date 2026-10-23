@@ -57,13 +57,22 @@ public static partial class StdLib
 
     private static string? Read(string resource)
     {
-        using Stream? stream = typeof(StdLib).Assembly.GetManifestResourceStream(resource);
+        Assembly assembly = typeof(StdLib).Assembly;
+        Stream? stream = assembly.GetManifestResourceStream(resource);
+        if (stream is null)
+        {
+            // %(RecursiveDir) daje na Windowsie nazwy z ukośnikiem wstecznym (stdlib/target/6502\rt_mul.s), więc szukamy też po nazwie znormalizowanej.
+            string? alias = assembly.GetManifestResourceNames().FirstOrDefault(n => n.Replace('\\', '/') == resource);
+            stream = alias is null ? null : assembly.GetManifestResourceStream(alias);
+        }
+
         if (stream is null)
         {
             return null;
         }
 
-        using var reader = new StreamReader(stream);
+        using Stream owned = stream;
+        using var reader = new StreamReader(owned);
         return reader.ReadToEnd();
     }
 
