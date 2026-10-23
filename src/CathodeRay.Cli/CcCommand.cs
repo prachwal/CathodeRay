@@ -410,7 +410,7 @@ internal static partial class CcCommand
         Func<string, string?> reader,
         string[] includePaths)
     {
-        using FileStream json = File.OpenRead(Path.Combine(AppContext.BaseDirectory, target.IsaFile));
+        using Stream json = BundledIsa.Open(null, target.IsaFile);
         return new TwoPassAssembler(target.Load(json), target.DefaultSyntax)
             .AssembleObject(target.Name, source, name, reader, includePaths);
     }

@@ -1,0 +1,41 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  build-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+      - name: Build
+        run: dotnet build CathodeRay.slnx -c Release -warnaserror
+      - name: Test
+        run: dotnet test CathodeRay.slnx -c Release --no-build
+
+  publish-smoke:
+    # Sprawdza, że pojedynczy plik wykonywalny buduje się i kompiluje próbkę na Linuksie i Windowsie.
+    strategy:
+      matrix:
+        include:
+          - { os: ubuntu-latest, rid: linux-x64, exe: cathode }
+          - { os: windows-latest, rid: win-x64, exe: cathode.exe }
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+      - name: Publish
+        run: dotnet publish src/CathodeRay.Cli -c Release -r ${{ matrix.rid }} --self-contained -p:PublishSingleFile=true -o dist
+      - name: Smoke test
+        shell: bash
+        run: |
+          printf 'int main(void) { return 0; }\n' > smoke.c
+          ./dist/${{ matrix.exe }} cc smoke.c -o smoke.bin --cpu z80
+          test -s smoke.bin

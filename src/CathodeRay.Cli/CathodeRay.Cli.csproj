@@ -5,7 +5,18 @@
     <OutputType>Exe</OutputType>
     <AssemblyName>cathode</AssemblyName>
     <RootNamespace>CathodeRay.Cli</RootNamespace>
+    <Version>0.1.0</Version>
+    <!-- dotnet tool install -g cathode (dotnet pack -c Release). -->
+    <PackAsTool>true</PackAsTool>
+    <ToolCommandName>cathode</ToolCommandName>
+    <PackageId>cathode</PackageId>
+    <Description>CathodeRay: mini-C compiler, assembler and emulator runner for 6502/65C02/Z80/8080/6800/6809.</Description>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
   </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="..\..\README.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="System.CommandLine" />
@@ -26,6 +37,11 @@
 
   <ItemGroup>
     <InternalsVisibleTo Include="CathodeRay.Tests" />
+  </ItemGroup>
+
+  <!-- ISA wbudowane w program: pojedynczy plik wykonywalny działa bez plików obok (BundledIsa). -->
+  <ItemGroup>
+    <EmbeddedResource Include="..\..\data\instructions\mcp_*_instructions.json" LogicalName="isa/%(Filename)%(Extension)" />
   </ItemGroup>
 
   <!-- Pliki ISA obok binarki (asm i run; nadpisywalne opcją isa). -->
