@@ -15,8 +15,7 @@ public static partial class StdLib
         .. new[] { "rt_mul.c", "rt_mul8.c", "rt_div.c", "rt_divs.c", "rt_div8.c", "rt_shift.c", "rt_mem.c", "rt_mul32.c", "rt_div32.c", "rt_shift32.c", "rt_float.c", "rt_double.c", "rt_ll64.c" }.Select(static name =>
         {
             string source = Portable(name);
-            HashSet<string> defines = [.. Parser.Parse(source, HeaderReader).Functions.Where(static f => !f.IsExtern && !f.IsStatic).Select(static f => f.Name)];
-            return new StdModule(name, source, false, defines);
+            return new StdModule(name, source, false, CDefinitions(source, null));
         }),
     ]);
 
@@ -55,6 +54,18 @@ public static partial class StdLib
     public static string Portable(string name) =>
         Read($"stdlib/portable/{name}") ?? throw new InvalidOperationException($"missing embedded resource 'stdlib/portable/{name}'.");
 
+    /// <summary>Symbole definiowane przez moduł C: funkcje i zmienne globalne (nie static, nie extern) pod nazwą symbolu asemblera (<c>cc_g_</c> + nazwa), np. <c>cc_g___stderr_f</c> —
+    /// program odwołujący się tylko do obiektu danych też dołącza moduł.</summary>
+    private static HashSet<string> CDefinitions(string source, IReadOnlyDictionary<string, string>? defines)
+    {
+        Ast.Program program = Parser.Parse(source, HeaderReader, defines);
+        return
+        [
+            .. program.Functions.Where(static f => !f.IsExtern && !f.IsStatic).Select(static f => f.Name),
+            .. program.Globals.Where(static g => (g.Flags & (DeclFlags.Static | DeclFlags.Extern)) == 0).Select(static g => $"cc_g_{g.Name}"),
+        ];
+    }
+
     private static string? Read(string resource)
     {
         using Stream? stream = typeof(StdLib).Assembly.GetManifestResourceStream(resource);
@@ -77,7 +88,7 @@ public static partial class StdLib
             bool asm = name.EndsWith(".s", StringComparison.Ordinal);
             HashSet<string> defines = asm
                 ? [.. GlobalDirective().Matches(source).Select(static m => m.Groups[1].Value)]
-                : [.. Parser.Parse(source, HeaderReader).Functions.Where(static f => !f.IsExtern && !f.IsStatic).Select(static f => f.Name)];
+                : CDefinitions(source, null);
             modules.Add(new StdModule(name, source, asm, defines));
         }
 

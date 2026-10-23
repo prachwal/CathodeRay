@@ -22,3 +22,4 @@ i wykonuje go na emulatorach (domyślnie z80, 8080, 6502, 6800, 6809).
 | `c4_strtod.c` | `strtod`/`atof`, `sscanf` z `%f`/`%n`, `snprintf` z `%g`/`%f` (float) |
 | `c4_double64.c` | `strtod`/`sscanf %lg` z `-D CC_DOUBLE64` i bity NaN-boxingu w unii |
 | `b1_array_typedef_nested.c` | alias tablicowy z własnym wymiarem (`row m[3]`), parametr `row r[]` |
+| `c3_stream_ref.c` | odwołanie tylko do `stderr` dołącza moduł; `snprintf(NULL, 0, ...)` nic nie wypisuje |
