@@ -103,7 +103,7 @@ public sealed class Parser
     };
 
     private static bool IsBuiltinType(Token token) =>
-        token is { Kind: TokenKind.Keyword } && token.Text is "uchar" or "int" or "uint" or "long" or "ulong" or "short" or "unsigned" or "signed" or "float" or "double" or "void" or "struct" or "union";
+        token is { Kind: TokenKind.Keyword } && token.Text is "uchar" or "int" or "uint" or "long" or "ulong" or "short" or "unsigned" or "signed" or "float" or "double" or "void" or "struct" or "union" or "enum";
 
     private bool IsType(Token token) =>
         IsBuiltinType(token) || (token is { Kind: TokenKind.Keyword, Text: "const" or "volatile" }) || (token.Kind == TokenKind.Ident && _typedefs.ContainsKey(token.Text));
@@ -143,6 +143,11 @@ public sealed class Parser
             }
 
             spec = ($"struct {name}", 0);
+        }
+        else if (token is { Kind: TokenKind.Keyword, Text: "enum" })
+        {
+            EnumBody();
+            spec = ("int", 0);
         }
         else if (token is { Kind: TokenKind.Keyword, Text: "uchar" or "int" or "uint" or "long" or "ulong" or "short" or "unsigned" or "signed" })
         {
@@ -463,7 +468,7 @@ public sealed class Parser
         {
             DeclFlags flags = Modifiers();
             Token type = Peek();
-            if (type is { Kind: TokenKind.Keyword, Text: "enum" })
+            if (type is { Kind: TokenKind.Keyword, Text: "enum" } && IsEnumDefinitionOnly())
             {
                 EnumDecl();
                 continue;
@@ -531,12 +536,24 @@ public sealed class Parser
     private void EnumDecl()
     {
         Next();
+        EnumBody();
+        Expect(";");
+    }
+
+    /// <summary>Po słowie <c>enum</c>: opcjonalna nazwa i opcjonalna lista stałych <c>{ A, B = 3 }</c> (stałe trafiają do <c>_enums</c>);
+    /// typ enum to <c>int</c>.</summary>
+    private void EnumBody()
+    {
         if (Peek().Kind == TokenKind.Ident)
         {
             Next();
         }
 
-        Expect("{");
+        if (!Take("{"))
+        {
+            return;
+        }
+
         Ast.Expr next = new Ast.Number("0");
         while (!Take("}"))
         {
@@ -561,8 +578,34 @@ public sealed class Parser
                 break;
             }
         }
+    }
 
-        Expect(";");
+    /// <summary>Czy <c>enum [nazwa] [{…}]</c> od bieżącego tokenu kończy się średnikiem (sama definicja stałych), a nie deklaracją zmiennej.</summary>
+    private bool IsEnumDefinitionOnly()
+    {
+        int at = 1;
+        if (Peek(at).Kind == TokenKind.Ident)
+        {
+            at++;
+        }
+
+        if (Peek(at) is { Kind: TokenKind.Punct, Text: "{" })
+        {
+            int depth = 0;
+            do
+            {
+                Token token = Peek(at++);
+                if (token.Kind == TokenKind.End)
+                {
+                    return true;
+                }
+
+                depth += token is { Kind: TokenKind.Punct, Text: "{" } ? 1 : token is { Kind: TokenKind.Punct, Text: "}" } ? -1 : 0;
+            }
+            while (depth > 0);
+        }
+
+        return Peek(at) is { Kind: TokenKind.Punct, Text: ";" };
     }
 
     private int Stars()
@@ -819,7 +862,7 @@ public sealed class Parser
             return Switch();
         }
 
-        if (token is { Kind: TokenKind.Keyword, Text: "enum" })
+        if (token is { Kind: TokenKind.Keyword, Text: "enum" } && IsEnumDefinitionOnly())
         {
             EnumDecl();
             return At(token.Line, new Ast.Nop());
