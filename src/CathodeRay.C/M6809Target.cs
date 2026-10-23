@@ -16,6 +16,7 @@ public sealed class M6809Target : M6800Target
     private static readonly IReadOnlyList<StdModule> AssemblyModules =
     [
         new("icall.s", IndirectCallSource, true, new HashSet<string>(["__icall", "cc_fp"], StringComparer.Ordinal)),
+        StdLib.TargetModule("6809", "setjmp.s", "setjmp", "longjmp"),
     ];
 
     /// <inheritdoc/>

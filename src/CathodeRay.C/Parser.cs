@@ -10,9 +10,16 @@ public sealed class Parser
     private readonly List<Ast.Stmt> _pendingDecls = [];
     private readonly Dictionary<string, Ast.Expr> _enums = new(StringComparer.Ordinal);
     private readonly Dictionary<string, (string Type, int Stars)> _typedefs = new(StringComparer.Ordinal);
+
+    /// <summary>Aliasy typedef typu tablicowego (<c>typedef int jmp_buf[8];</c>): długość pierwszego wymiaru i sufiks dalszych.</summary>
+    private readonly Dictionary<string, (int Length, string Suffix)> _arrayTypedefs = new(StringComparer.Ordinal);
+
     private readonly List<Ast.StructDef> _structs = [];
     private int _anonymous;
     private int _pos;
+
+    /// <summary>Alias tablicowy użyty w ostatniej specyfikacji typu (null, gdy typ nie jest takim aliasem).</summary>
+    private (int Length, string Suffix)? _arrayAlias;
 
     private Parser(IReadOnlyList<Token> tokens) => _tokens = tokens;
 
@@ -111,6 +118,7 @@ public sealed class Parser
     /// <summary>Nazwa typu (słowo kluczowe albo alias <c>typedef</c>) z gwiazdkami aliasu.</summary>
     private (string Type, int Stars) TypeSpec()
     {
+        _arrayAlias = null;
         (bool isConst, bool isVolatile) = ConsumeQualifiers();
         Token token = Next();
         (string Type, int Stars) spec;
@@ -133,6 +141,10 @@ public sealed class Parser
             spec = token.Kind == TokenKind.Ident && _typedefs.TryGetValue(token.Text, out (string Type, int Stars) alias)
                 ? alias
                 : (token.Text, 0);
+            if (token.Kind == TokenKind.Ident && _arrayTypedefs.TryGetValue(token.Text, out (int Length, string Suffix) arrayAlias))
+            {
+                _arrayAlias = arrayAlias;
+            }
         }
 
         (bool laterConst, bool laterVolatile) = ConsumeQualifiers();
@@ -293,7 +305,23 @@ public sealed class Parser
         }
         else
         {
-            _typedefs[ExpectKind(TokenKind.Ident, "type name").Text] = (type, stars);
+            string aliasName = ExpectKind(TokenKind.Ident, "type name").Text;
+            _typedefs[aliasName] = (type, stars);
+            Token open = Peek();
+            int length = ArrayLength(out bool unsized, out Ast.Expr? lengthExpr);
+            if (unsized || lengthExpr is not null)
+            {
+                throw new CParseException(open.Line, open.Column, "typedef array length must be a positive literal.");
+            }
+
+            if (length > 0)
+            {
+                _arrayTypedefs[aliasName] = (length, DimSuffix());
+            }
+            else
+            {
+                _arrayTypedefs.Remove(aliasName);
+            }
         }
 
         Expect(";");
@@ -559,6 +587,7 @@ public sealed class Parser
                 }
 
                 (string paramTypeName, int paramBase) = TypeSpec();
+                (int Length, string Suffix)? paramArrayAlias = _arrayAlias;
                 int stars = paramBase + Stars();
                 if (TryArrayPointer(ref paramTypeName, ref stars, out string arrayParamName))
                 {
@@ -604,6 +633,11 @@ public sealed class Parser
                     }
 
                     string rest = DimSuffix();
+                    if (paramArrayAlias is { } restAlias)
+                    {
+                        rest += $"[{restAlias.Length}]{restAlias.Suffix}";
+                    }
+
                     if (rest.Length > 0)
                     {
                         paramTypeName += new string('*', stars) + rest;
@@ -611,6 +645,12 @@ public sealed class Parser
                     }
 
                     stars++;
+                }
+                else if (paramArrayAlias is { } aliasParam && stars == 0)
+                {
+                    // parametr typu tablicowego (jmp_buf env) rozpada się na wskaźnik do elementu
+                    paramTypeName += aliasParam.Suffix;
+                    stars = 1;
                 }
 
                 parameters.Add(new Ast.Param(paramTypeName, paramName, stars));
@@ -946,6 +986,24 @@ public sealed class Parser
         Token open = Peek();
         int length = ArrayLength(out bool unsized, out Ast.Expr? lengthExpr);
         string suffix = length > 0 || unsized ? DimSuffix() : string.Empty;
+        if (_arrayAlias is { } alias)
+        {
+            if (stars > 0)
+            {
+                throw new CParseException(open.Line, open.Column, "pointer to an array typedef is not supported.");
+            }
+
+            if (length == 0 && !unsized)
+            {
+                (length, suffix) = alias;
+            }
+            else
+            {
+                // row m[3] z typedef int row[4]: wymiary deklaratora, potem wymiary aliasu (int[3][4])
+                suffix += $"[{alias.Length}]{alias.Suffix}";
+            }
+        }
+
         if (suffix.Length > 0)
         {
             type += new string('*', stars) + suffix;
@@ -1337,6 +1395,21 @@ public sealed class Parser
                 size = bareType.StartsWith("struct ", StringComparison.Ordinal) && stars == 0
                     ? new Ast.SizeOfType(bareType, stars)
                     : new Ast.Number(stars > 0 || bareType is "int" or "uint" ? "2" : bareType is "long" or "ulong" or "float" ? "4" : bareType is "llong" or "ullong" or "double" ? "8" : "1");
+                if (_arrayAlias is { } sizeAlias && stars == 0)
+                {
+                    if (size is not Ast.Number elementSize)
+                    {
+                        throw new CParseException(operand.Line, operand.Column, "sizeof of an array typedef of structs is not supported.");
+                    }
+
+                    int count = sizeAlias.Length;
+                    foreach (string dimension in sizeAlias.Suffix.Split(['[', ']'], StringSplitOptions.RemoveEmptyEntries))
+                    {
+                        count *= int.Parse(dimension, System.Globalization.CultureInfo.InvariantCulture);
+                    }
+
+                    size = new Ast.Number((int.Parse(elementSize.Text, System.Globalization.CultureInfo.InvariantCulture) * count).ToString(System.Globalization.CultureInfo.InvariantCulture));
+                }
             }
             else
             {

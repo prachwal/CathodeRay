@@ -26,6 +26,12 @@ public class M6800Target : ByteTarget
         [.. FlatLayout.Segments, new TargetSegment("ZP", "C_ZP")]);
 
     /// <inheritdoc/>
+    protected override IReadOnlyList<StdModule> AssemblyRuntime { get; } =
+    [
+        StdLib.TargetModule("6800", "setjmp.s", "setjmp", "longjmp"),
+    ];
+
+    /// <inheritdoc/>
     internal override ByteIsa CreateIsa() => new M6800Isa();
 
     /// <inheritdoc/>
