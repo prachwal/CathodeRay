@@ -24,6 +24,10 @@ optymalizacje: [optimization.md](optimization.md).
 | Typy 8/16-bit | `uchar/schar/int/uint`, arytmetyka, promocje | 17, 18, 26 |
 | Wskaźniki i tablice | `*p`, `p[i]`, `p-q`, wielowymiarowe, `sizeof` | 24, 27, 30 |
 | Struktury | pola, `typedef`, `sizeof`, kopiowanie, **przez wartość** (limit 64 B, `cc_retbuf`) | 28, 30 |
+| Preprocesor: komentarze w dyrektywach, makra wariadyczne | `/* */` i `//` po `#include`/`#define`/`#if`; `...` i `__VA_ARGS__` | 48 |
+| `typedef` typu tablicowego | `typedef int jmp_buf[3]`: zmienne, parametry (rozpad na wskaźnik), `sizeof` | 48 |
+| `setjmp`/`longjmp` | z80, 8080, 6502, 6800, 6809; funkcja z `setjmp` trzyma komórki w pamięci | 48 |
+| `stdint.h`, `FILE` i strumienie, `snprintf`, `strtod`/`atof` | konsola jako `stdout`/`stderr`, `fopen` zwraca NULL; `%g/%f/%e` tylko w `snprintf` | 48 |
 | `long`/`ulong` | 32 bity, `WideLegalizer` (połówki 16-bit), `%ld/%lu/%lx` | 30 |
 | `float`/`double` | IEEE-754 programowo (`rt_float.c`), bez `%f` | 31 |
 | `long long` | 64 bity (`Wide8Legalizer` + `rt_ll64.c`), bez `%lld` | 31 |

@@ -462,3 +462,17 @@ struct S { uchar a[100]; };
 struct S f() { struct S s; return s; }
 int main() { return 0; }
 ```
+
+## Zgodność z C (plan 48)
+
+Przykłady z oczekiwanymi wynikami: `samples/compat/` (testuje je `CompatSamplesTests` na z80, 8080, 6502, 6800 i 6809).
+
+- **Preprocesor:** komentarze `/* */` (także wielowierszowe) i `//` po `#include`, `#define`, `#if`; makra wariadyczne `#define F(a, ...)` z `__VA_ARGS__`
+  i `#__VA_ARGS__` (zero argumentów wariadycznych dozwolone).
+- **`typedef` tablicowy:** `typedef int vec[4]; typedef uchar grid[2][3];` — zmienne, parametry (rozpad na wskaźnik) i `sizeof`; wskaźnik do takiego aliasu nie jest obsługiwany.
+- **`<stdint.h>`:** `int8_t` … `uint64_t`, limity do 32 bitów.
+- **`<setjmp.h>`:** `jmp_buf` (`int[3]`), `setjmp`, `longjmp` (`longjmp(env, 0)` daje 1). Funkcja wołająca `setjmp` trzyma wszystkie komórki w pamięci.
+- **`<stdio.h>`:** `FILE`, `stdin` (bufor wejściowy hosta), `stdout`/`stderr` (konsola), `fopen` → NULL, `fputc/putc/fputs/fgetc/getc/ungetc`, `fprintf` (4 słowa
+  argumentów), `snprintf` (3 słowa; jako jedyny formatuje `%f/%g/%e` dla `float`, pomijając flagi, szerokość i precyzję).
+- **`<stdlib.h>`:** `strtod`, `atof` (precyzja float). `double` w wywołaniu wariadycznym jedzie jako adres kopii — do `snprintf("%g")` przekazuj `float`.
+- Znane odstępstwo: `sizeof("literał")` zwraca 2 (rozmiar wskaźnika), nie długość napisu.
