@@ -59,7 +59,13 @@ internal static class RegisterAllocator
             (map, saves) = Allocate(split, isa);
         }
 
+        Dictionary<string, List<(string Sym, string Cause)>>? causes = CompilerTrace.Current is null ? null : Report(split, isa);
         isa.Cells.AssignRegisters(map, saves.Select(static p => (p.Key, (IReadOnlyList<string>)p.Value)));
+        if (causes is not null)
+        {
+            CompilerTrace.Current!.Allocation(split, map, causes);
+        }
+
         return split with
         {
             Functions = [.. split.Functions.Select(f => f.Saved.Any(o => map.ContainsKey(o.Sym)) ? f with { Saved = [.. f.Saved.Where(o => !map.ContainsKey(o.Sym))] } : f)],

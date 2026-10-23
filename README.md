@@ -46,6 +46,11 @@ dotnet tool install -g cathode --add-source ./dir-with-the-nupkg
 tools/publish.sh linux-x64 win-x64        # or build everything locally into dist/
 ```
 
+## Diagnostics
+
+`cathode cc -v --emit-ir out.ir --dump-regalloc out.ra` shows what the compiler did; `cathode run prog.bin --cpu z80 -l prog.lst --trace`
+executes the image on the built-in emulator. See `docs/technical/diagnostics.md`.
+
 ## Documentation
 
 | Document | Description |

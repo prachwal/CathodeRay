@@ -1,6 +1,6 @@
 using System.Text.Json;
 
-namespace CathodeRay.Tests;
+namespace CathodeRay.Emulation;
 
 /// <summary>Interpreter MC6809 do testów celu. Opcode'y i formy operandów są ładowane z mcp_6809_instructions.json.</summary>
 public sealed class Mc6809Cpu
@@ -77,7 +77,7 @@ public sealed class Mc6809Cpu
 
     private static Dictionary<int, Entry> LoadTable()
     {
-        using JsonDocument document = JsonDocument.Parse(File.ReadAllText(Repo.IsaFile("mcp_6809_instructions.json")));
+        using JsonDocument document = JsonDocument.Parse(IsaFiles.ReadText("mcp_6809_instructions.json"));
         var result = new Dictionary<int, Entry>();
         foreach (JsonElement instruction in document.RootElement.GetProperty("instructions").EnumerateArray())
         {

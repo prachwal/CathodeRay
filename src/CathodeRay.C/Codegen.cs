@@ -39,6 +39,8 @@ public static class Codegen
     public static Ir.Module Lower(CheckedProgram program, string? fileName = null, bool objectMode = false, int? stackLimit = 256, TargetByteOrder byteOrder = TargetByteOrder.Little, int callSaveBytes = 0)
     {
         ArgumentNullException.ThrowIfNull(program);
-        return IrInliner.Run(new Lowering(program, fileName, objectMode, stackLimit, byteOrder, callSaveBytes).Run());
+        Ir.Module module = IrInliner.Run(new Lowering(program, fileName, objectMode, stackLimit, byteOrder, callSaveBytes).Run());
+        CompilerTrace.Current?.Ir("lowered", module);
+        return module;
     }
 }

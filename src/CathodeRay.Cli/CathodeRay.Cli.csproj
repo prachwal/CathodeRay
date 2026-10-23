@@ -32,6 +32,7 @@
     <ProjectReference Include="..\CathodeRay\CathodeRay.csproj" />
     <ProjectReference Include="..\CathodeRay.Assembler\CathodeRay.Assembler.csproj" />
     <ProjectReference Include="..\CathodeRay.C\CathodeRay.C.csproj" />
+    <ProjectReference Include="..\CathodeRay.Emulation\CathodeRay.Emulation.csproj" />
   </ItemGroup>
 
   <ItemGroup>

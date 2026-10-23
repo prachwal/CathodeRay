@@ -28,11 +28,14 @@ internal static partial class CcCommand
         var noStdlib = new Option<bool>("--nostdlib") { Description = "Nie linkuj biblioteki standardowej (nagłówki <...> z --incdir nadal działają)." };
         var noOpt = new Option<bool>("--no-opt", "-O0") { Description = "Wyłącza optymalizator okienkowy asemblera." };
         var werror = new Option<bool>("-Werror", "--werror") { Description = "Traktuj ostrzeżenia kompilatora jak błędy." };
+        var emitIr = new Option<string?>("--emit-ir") { Description = "Zrzut kodu pośredniego modułów użytkownika do pliku ('-' = stderr)." };
+        var dumpRegalloc = new Option<string?>("--dump-regalloc") { Description = "Zrzut przydziału rejestrów do pliku ('-' = stderr; cele z alokatorem: z80, 8080)." };
+        var verbose = new Option<bool>("--verbose", "-v") { Description = "Komunikaty o przebiegu kompilacji na stderr (cel, moduły, biblioteka standardowa, rozmiary)." };
         var stats = new Option<bool>("--stats") { Description = "Wypisz rozmiary segmentów zlinkowanego programu." };
         var cpu = new Option<string>("--cpu") { Description = "Cel kompilatora: nazwa z rejestru celów (domyślnie stub).", DefaultValueFactory = _ => CTargets.Default.Name };
         var ir = new Option<string>("--ir") { Description = "Reprezentacja pośrednia: cell (domyślnie) albo vreg; --ir list wypisuje rodzaje.", DefaultValueFactory = _ => "cell" };
         var abi = new Option<string>("--abi") { Description = "Konwencja wołań: v1 (domyślnie) albo v2 (rejestry, tylko wybrane cele); --abi list wypisuje rodzaje.", DefaultValueFactory = _ => "v1" };
-        var command = new Command("cc", "Kompiluje program mini-C na wybrany cel (domyślnie stub): C→obiekt→link.") { inputs, output, format, listing, map, config, incdir, define, noStdlib, noOpt, werror, cpu, ir, abi, stats };
+        var command = new Command("cc", "Kompiluje program mini-C na wybrany cel (domyślnie stub): C→obiekt→link.") { inputs, output, format, listing, map, config, incdir, define, noStdlib, noOpt, werror, cpu, ir, abi, stats, emitIr, dumpRegalloc, verbose };
         command.SetAction(parse =>
         {
             TextWriter error = parse.InvocationConfiguration.Error;
@@ -114,17 +117,44 @@ internal static partial class CcCommand
 
             var modules = new List<(string File, ObjectModule Module)>();
             var warningText = new StringWriter();
+            var protectedPaths = new HashSet<string>(
+                files.Select(static f => f.FullName)
+                    .Concat(new[] { parse.GetValue(output), parse.GetValue(listing), parse.GetValue(map), parse.GetValue(config) }.OfType<FileInfo>().Select(static f => f.FullName)),
+                StringComparer.OrdinalIgnoreCase);
+            foreach (string? diagnosticPath in new[] { parse.GetValue(emitIr), parse.GetValue(dumpRegalloc) })
+            {
+                if (diagnosticPath is not null && diagnosticPath != "-" && protectedPaths.Contains(Path.GetFullPath(diagnosticPath)))
+                {
+                    error.WriteLine($"cc: diagnostic output '{diagnosticPath}' would overwrite an input or an output file; choose another path.");
+                    return 1;
+                }
+            }
+
+            using var diagnosticWriters = new DiagnosticWriters(error);
+            var diagnostics = new CcDiagnostics(
+                diagnosticWriters.Open(parse.GetValue(emitIr)),
+                diagnosticWriters.Open(parse.GetValue(dumpRegalloc)),
+                parse.GetValue(verbose) ? error : null);
+            using IDisposable? traceScope = diagnostics.NeedsTrace ? CompilerTrace.Begin(diagnostics) : null;
+            diagnostics.Verbose($"target={cTarget.Name} ir={(vreg ? "vreg" : "cell")} abi={(useV2 ? "v2" : "v1")} optimize={(!parse.GetValue(noOpt) ? "on" : "off")}");
+            if (parse.GetValue(dumpRegalloc) is not null && cTarget is not (Z80Target or Intel8080Target))
+            {
+                error.WriteLine($"cc: warning: --dump-regalloc has no effect for '{cpuName}' (allocator is used by z80 and 8080 only).");
+            }
+
             try
             {
                 modules.Add(("crt0.s", AssembleObject(target, cTarget.Crt0For(useV2), "crt0.s", _ => null, includePaths)));
                 foreach (FileInfo input in files)
                 {
+                    diagnostics.Unit = input.Name;
                     modules.Add((input.Name, AssembleModule(target, cTarget, input, includePaths, warningText, ParseDefines(parse.GetValue(define)!), !parse.GetValue(noOpt), vreg, useV2)));
                 }
 
+                diagnostics.Unit = null;
                 if (!parse.GetValue(noStdlib))
                 {
-                    LinkStdlib(target, cTarget, modules, includePaths, !parse.GetValue(noOpt), vreg, ParseDefines(parse.GetValue(define)!));
+                    LinkStdlib(target, cTarget, modules, includePaths, !parse.GetValue(noOpt), vreg, ParseDefines(parse.GetValue(define)!), diagnostics);
                 }
 
                 error.Write(warningText.ToString());
@@ -222,6 +252,7 @@ internal static partial class CcCommand
             parse.InvocationConfiguration.Output.WriteLine(string.Create(
                 CultureInfo.InvariantCulture,
                 $"{dst.Name} ({result.Image.Length} B, load ${result.Origin:X4}, {modules.Count} modules)"));
+            diagnostics.Verbose(string.Create(CultureInfo.InvariantCulture, $"linked {modules.Count} modules, image {result.Image.Length} B at ${result.Origin:X4}"));
             if (parse.GetValue(stats))
             {
                 string sizes = string.Join(", ", result.Segments.GroupBy(static x => x.Name, StringComparer.OrdinalIgnoreCase).Select(static g => string.Create(CultureInfo.InvariantCulture, $"{g.Key.ToUpperInvariant()} {g.Sum(static x => x.End - x.Start)}")));
@@ -261,7 +292,7 @@ internal static partial class CcCommand
     /// <summary>Dokłada moduły biblioteki standardowej definiujące symbole, do których odwołują się
     /// dotychczasowe moduły (także moduły biblioteki między sobą); moduł, którego funkcję zdefiniował
     /// użytkownik, nie jest potrzebny.</summary>
-    private static void LinkStdlib(AssemblerTarget target, ICTarget cTarget, List<(string File, ObjectModule Module)> modules, string[] includePaths, bool optimize, bool vreg, Dictionary<string, string> userDefines)
+    private static void LinkStdlib(AssemblerTarget target, ICTarget cTarget, List<(string File, ObjectModule Module)> modules, string[] includePaths, bool optimize, bool vreg, Dictionary<string, string> userDefines, CcDiagnostics diagnostics)
     {
         // z makr użytkownika biblioteka widzi tylko CC_DOUBLE64 (zmienia znaczenie double, więc sscanf musi wiedzieć, ile bajtów zapisać)
         IReadOnlyDictionary<string, string>? libraryDefines = userDefines.ContainsKey("CC_DOUBLE64")
@@ -291,6 +322,7 @@ internal static partial class CcCommand
             }
 
             added.Add(next.Name);
+            diagnostics.Verbose($"linking stdlib module '{next.Name}' (defines {string.Join(", ", next.Defines.Where(unresolved.Contains))})");
             string source = next.Source;
             if (!next.IsAssembly)
             {

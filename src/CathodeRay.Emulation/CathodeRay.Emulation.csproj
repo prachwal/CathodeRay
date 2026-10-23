@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- TargetFramework i wspólne ustawienia: Directory.Build.props -->
+  <PropertyGroup>
+    <!-- Interpretery CPU (rejestry, flagi, pamięć) są samoopisujące się; dokumentujemy typy i rozkazy, nie każdą właściwość. -->
+    <NoWarn>$(NoWarn);CS1591;SA1600;SA1601;SA1602;SA1204</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="StyleCop.Analyzers" PrivateAssets="all" />
+    <PackageReference Include="Roslynator.Analyzers" PrivateAssets="all" />
+  </ItemGroup>
+
+  <!-- Tablice rozkazów interpreterów 6502/6800/6809 wbudowane w bibliotekę (działa poza repozytorium i bez plików obok programu). -->
+  <ItemGroup>
+    <EmbeddedResource Include="..\..\data\instructions\mcp_6502_instructions.json;..\..\data\instructions\mcp_6800_instructions.json;..\..\data\instructions\mcp_6809_instructions.json" LogicalName="isa/%(Filename)%(Extension)" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <AdditionalFiles Include="..\..\stylecop.json" />
+  </ItemGroup>
+
+</Project>

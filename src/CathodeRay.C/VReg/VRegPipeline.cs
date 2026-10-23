@@ -24,7 +24,9 @@ public static class VRegPipeline
             functions.Add(VRegPasses.Run(function, vreg.Volatile));
         }
 
-        return VRegToCell.Run(vreg with { Functions = functions });
+        Ir.Module lowered = VRegToCell.Run(vreg with { Functions = functions });
+        CompilerTrace.Current?.Ir("vreg", lowered);
+        return lowered;
     }
 
     /// <summary>Generuje tekst asemblera dla wybranego celu ścieżką VReg.</summary>

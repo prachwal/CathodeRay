@@ -1,3 +1,5 @@
+using CathodeRay.Emulation;
+
 namespace CathodeRay.Tests;
 
 /// <summary>Rejestr runnerów testowych po nazwie celu.</summary>
