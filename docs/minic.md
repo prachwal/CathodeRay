@@ -475,4 +475,5 @@ Przykłady z oczekiwanymi wynikami: `samples/compat/` (testuje je `CompatSamples
 - **`<stdio.h>`:** `FILE`, `stdin` (bufor wejściowy hosta), `stdout`/`stderr` (konsola), `fopen` → NULL, `fputc/putc/fputs/fgetc/getc/ungetc`, `fprintf` (4 słowa
   argumentów), `snprintf` (3 słowa; jako jedyny formatuje `%f/%g/%e` dla `float`, pomijając flagi, szerokość i precyzję).
 - **`<stdlib.h>`:** `strtod`, `atof` (precyzja float). `double` w wywołaniu wariadycznym jedzie jako adres kopii — do `snprintf("%g")` przekazuj `float`.
+- **`cathode cc -S`:** zapisuje tylko wygenerowany asembler (`<plik>.s` albo `-o`), bez asemblacji i linkowania — dowód, że program się skompilował, także gdy po zasemblowaniu nie zmieściłby się w pamięci celu (kod ponad 64 KB kończy się wtedy `code runs past $FFFF`).
 - Znane odstępstwo: `sizeof("literał")` zwraca 2 (rozmiar wskaźnika), nie długość napisu.
