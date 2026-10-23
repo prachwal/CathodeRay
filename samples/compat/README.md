@@ -17,3 +17,4 @@ i wykonuje go na emulatorach (domyślnie z80, 8080, 6502, 6800, 6809).
 | `a2_variadic_macros.c` | makra wariadyczne (`...`, `__VA_ARGS__`) |
 | `b1_array_typedef.c` | `typedef` typu tablicowego (jednowymiarowy i dwuwymiarowy, parametr, sizeof) |
 | `c1_stdint.c` | `<stdint.h>`: typy o stałej szerokości, zawijanie, znak |
+| `c2_setjmp.c` | `<setjmp.h>`: setjmp/longjmp na wszystkich celach |

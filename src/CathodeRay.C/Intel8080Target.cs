@@ -16,6 +16,12 @@ public sealed class Intel8080Target : ByteTarget
     public override int? StackLimit => 2048;
 
     /// <inheritdoc/>
+    protected override IReadOnlyList<StdModule> AssemblyRuntime { get; } =
+    [
+        StdLib.TargetModule("8080", "setjmp.s", "setjmp", "longjmp"),
+    ];
+
+    /// <inheritdoc/>
     internal override ByteIsa CreateIsa() => new Intel8080Isa();
 
     /// <inheritdoc/>

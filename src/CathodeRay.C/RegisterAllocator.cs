@@ -384,6 +384,8 @@ internal static class RegisterAllocator
                 Block(IrLiveness.BaseSymbol(saved.Sym), "saved-aggregate");
             }
 
+            // longjmp wraca do funkcji z setjmp z zepsutymi rejestrami: jej komórki zostają w pamięci
+            bool callsSetjmp = function.Body.OfType<Ir.Call>().Any(static c => c.Direct is "setjmp" or "_setjmp");
             foreach (Ir.Ins ins in function.Body)
             {
                 foreach (Ir.Op op in IrFacts.Operands(ins))
@@ -395,6 +397,11 @@ internal static class RegisterAllocator
                     else if (op is Ir.Cell cell)
                     {
                         string key = IrLiveness.BaseSymbol(cell.Sym);
+                        if (callsSetjmp)
+                        {
+                            Block(key, "setjmp");
+                        }
+
                         if (owner.TryGetValue(key, out int other) && other != f)
                         {
                             Block(key, "multi");

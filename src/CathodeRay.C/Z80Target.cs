@@ -20,6 +20,7 @@ public sealed class Z80Target : ByteTarget
     [
         StdLib.TargetModule("z80", "rt_mul.s", "__cc_mul"),
         StdLib.TargetModule("z80", "rt_div.s", "__cc_divu", "__cc_modu"),
+        StdLib.TargetModule("z80", "setjmp.s", "setjmp", "longjmp"),
     ];
 
     /// <inheritdoc/>

@@ -51,6 +51,7 @@ public sealed class Mos6502Target : ByteTarget
     [
         StdLib.TargetModule("6502", "rt_mul.s", "__cc_mul"),
         StdLib.TargetModule("6502", "rt_div.s", "__cc_divu", "__cc_modu"),
+        StdLib.TargetModule("6502", "setjmp.s", "setjmp", "longjmp"),
     ];
 
     /// <inheritdoc/>
