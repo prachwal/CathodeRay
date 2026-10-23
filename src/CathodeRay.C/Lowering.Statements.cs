@@ -215,11 +215,11 @@ internal sealed partial class Lowering
 
     /// <summary>switch: wartość do własnej komórki (chronionej ramką), łańcuch porównań ze stałymi,
     /// potem ciała po kolei (przechodzą dalej jak w C). Wartość <c>uchar</c> ze stałymi 0..255 porównuje się
-    /// bajtem (bez testu starszego bajtu); inaczej 16 bitów.</summary>
+    /// bajtem (bez testu starszego bajtu); inaczej 16 bitów; wartość long/ulong ma 32 bity, a stałe case to 0..65535.</summary>
     private void LowerSwitch(Ast.Switch stmt)
     {
         CType type = TypeOf(stmt.Value);
-        int width = Width(type) == 1 && type.Kind == "uchar" && CasesFitByte(stmt) ? 1 : 2;
+        int width = Width(type) == 4 ? 4 : Width(type) == 1 && type.Kind == "uchar" && CasesFitByte(stmt) ? 1 : 2;
         string sym = $"{_prefix}__sw@{_switches++}";
         AddBss(sym, width);
         _extraOwned.Add(new Ir.Owned(sym, width, false));
@@ -228,7 +228,7 @@ internal sealed partial class Lowering
         string done = Label("swend");
         var labels = new List<string>();
         string? defaultLabel = null;
-        int mask = width == 1 ? 0xFF : 0xFFFF;
+        int mask = width == 1 ? 0xFF : 0xFFFF; // switch na long/ulong porównuje ze stałymi case 0..65535
         foreach (Ast.SwitchCase item in stmt.Cases)
         {
             string label = Label("case");

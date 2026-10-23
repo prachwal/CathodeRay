@@ -650,7 +650,7 @@ public sealed partial class TypeChecker
     private void CheckSwitch(Ast.Switch stmt)
     {
         CType type = TypeOf(stmt.Value);
-        if (type.Kind is not ("uchar" or "schar" or "int" or "uint"))
+        if (type.Kind is not ("uchar" or "schar" or "int" or "uint" or "long" or "ulong"))
         {
             throw new CTypeException("switch needs an integer value.");
         }
