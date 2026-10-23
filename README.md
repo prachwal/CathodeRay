@@ -36,12 +36,14 @@ cathode cc hello.c -o hello.bin --cpu stub
 
 ## Install
 
-Release builds (tag `vX.Y.Z`) attach self-contained `cathode` binaries for linux-x64, linux-arm64, win-x64 and osx-arm64,
-plus a `dotnet tool` package. Put the binary on `PATH` and run `cathode cc prog.c -o prog.bin --cpu z80`.
+Release builds (tag `vX.Y.Z`) attach self-contained `cathode` binaries for linux-x64, linux-arm64, win-x64 and osx-arm64
+(instruction sets are bundled, so the single file is enough) plus the `dotnet tool` package. Put the binary on `PATH` and run
+`cathode cc prog.c -o prog.bin --cpu z80`.
 
 ```bash
-dotnet tool install -g cathode            # needs the .NET SDK; or use the downloaded binary
-tools/publish.sh linux-x64 win-x64        # local build into dist/
+# .NET tool (needs the .NET SDK): download cathode.<version>.nupkg from the release, then
+dotnet tool install -g cathode --add-source ./dir-with-the-nupkg
+tools/publish.sh linux-x64 win-x64        # or build everything locally into dist/
 ```
 
 ## Documentation

@@ -38,6 +38,11 @@
     <InternalsVisibleTo Include="CathodeRay.Tests" />
   </ItemGroup>
 
+  <!-- ISA wbudowane w program: pojedynczy plik wykonywalny działa bez plików obok (BundledIsa). -->
+  <ItemGroup>
+    <EmbeddedResource Include="..\..\data\instructions\mcp_*_instructions.json" LogicalName="isa/%(Filename)%(Extension)" />
+  </ItemGroup>
+
   <!-- Pliki ISA obok binarki (asm i run; nadpisywalne opcją isa). -->
   <ItemGroup>
     <None Include="..\..\data\instructions\mcp_stub_instructions.json;..\..\data\instructions\mcp_6502_instructions.json;..\..\data\instructions\mcp_65c02_instructions.json;..\..\data\instructions\mcp_8080_instructions.json;..\..\data\instructions\mcp_z80_instructions.json;..\..\data\instructions\mcp_6800_instructions.json;..\..\data\instructions\mcp_6809_instructions.json" LinkBase="." CopyToOutputDirectory="PreserveNewest" />

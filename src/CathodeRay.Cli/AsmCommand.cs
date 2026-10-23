@@ -62,7 +62,7 @@ internal static class AsmCommand
                 return 1;
             }
 
-            string isaPath = parse.GetValue(isa)?.FullName ?? Path.Combine(AppContext.BaseDirectory, target.IsaFile);
+            string? isaPath = parse.GetValue(isa)?.FullName;
             string[] includePaths = [.. parse.GetValue(incdir)!.Select(static d => d.FullName)];
             Dictionary<string, int> segmentOrigins = [];
             foreach (string entry in parse.GetValue(map)!)
@@ -98,7 +98,7 @@ internal static class AsmCommand
             AssemblyResult? assembled = null;
             try
             {
-                using FileStream json = File.OpenRead(isaPath);
+                using Stream json = BundledIsa.Open(isaPath, target.IsaFile);
                 string entryText = File.ReadAllText(src.FullName);
                 Func<string, string?> reader = path => File.Exists(path) ? File.ReadAllText(path) : null;
                 Func<string, byte[]?> binaryReader = path => File.Exists(path) ? File.ReadAllBytes(path) : null;
@@ -163,7 +163,7 @@ internal static class AsmCommand
         ParseResult parse,
         AssemblerTarget target,
         SyntaxDialect dialect,
-        string isaPath,
+        string? isaPath,
         FileInfo src,
         string[] includePaths,
         FileInfo dst)
@@ -172,7 +172,7 @@ internal static class AsmCommand
         ObjectModule module;
         try
         {
-            using FileStream json = File.OpenRead(isaPath);
+            using Stream json = BundledIsa.Open(isaPath, target.IsaFile);
             string entryText = File.ReadAllText(src.FullName);
             Func<string, string?> reader = path => File.Exists(path) ? File.ReadAllText(path) : null;
             module = new TwoPassAssembler(target.Load(json), dialect).AssembleObject(target.Name, entryText, src.FullName, reader, includePaths);
