@@ -13,6 +13,7 @@ namespace CathodeRay.Cli;
 internal static partial class RunCommand
 {
     private const int NotHalted = 2;
+    private const long MaxListingBytes = 32 * 1024 * 1024;
 
     /// <summary>Buduje komendę <c>run</c>.</summary>
     /// <returns>Komenda.</returns>
@@ -20,7 +21,7 @@ internal static partial class RunCommand
     {
         var binary = new Argument<FileInfo>("binary") { Description = "Obraz z 'cathode cc' (ładowany pod --load)." };
         binary.AcceptExistingOnly();
-        var cpu = new Option<string>("--cpu") { Description = "Cel: " + string.Join(", ", CpuRunners.Names) + ".", Required = true };
+        var cpu = new Option<string>("--cpu") { Description = "Cel: " + string.Join(", ", CpuRunners.Names) + " (65c02 działa na emulatorze NMOS: rozkazy tylko-CMOS jak STZ, BRA, PHX kończą się komunikatem o nieobsługiwanym rozkazie).", Required = true };
         cpu.AcceptOnlyFromAmong([.. CpuRunners.Names]);
         var load = new Option<string?>("--load") { Description = "Adres załadowania obrazu ($hex/0xhex/dec; domyślnie początek pamięci układu celu — jak w 'load' z cc)." };
         var start = new Option<string?>("--start") { Description = "Adres startu PC (domyślnie początek obszaru kodu celu, gdzie leży crt0)." };
@@ -40,7 +41,20 @@ internal static partial class RunCommand
             TextWriter error = parse.InvocationConfiguration.Error;
             string cpuName = parse.GetRequiredValue(cpu);
             ICTarget cTarget = CTargets.Find(cpuName)!;
-            byte[] image = File.ReadAllBytes(parse.GetRequiredValue(binary).FullName);
+            FileInfo binaryFile = parse.GetRequiredValue(binary);
+            if (binaryFile.Length > 0x10000)
+            {
+                error.WriteLine($"Binary too large: {binaryFile.Length} B (max 65536).");
+                return 1;
+            }
+
+            if (parse.GetValue(listing) is { Length: > MaxListingBytes } bigListing)
+            {
+                error.WriteLine($"Listing too large: {bigListing.Length} B (max {MaxListingBytes}).");
+                return 1;
+            }
+
+            byte[] image = File.ReadAllBytes(binaryFile.FullName);
             int loadAddress = cTarget.Layout.Areas.Min(static a => a.Start);
             int startAddress = cTarget.Layout.Areas.First(a => a.Name == cTarget.Layout.Segments.First(static s => s.Name == "CODE").Area).Start;
             if (!TryAddress(parse.GetValue(load), "--load", ref loadAddress, error) || !TryAddress(parse.GetValue(start), "--start", ref startAddress, error))
@@ -117,7 +131,8 @@ internal static partial class RunCommand
         if (Symbol(listing, "cc_ret") is int ret)
         {
             int value = runner.Read(ret) | (Symbol(listing, "cc_ret_h") is int high ? runner.Read(high) << 8 : 0);
-            output.WriteLine(string.Create(CultureInfo.InvariantCulture, $"result: {value} (0x{value:X4})"));
+            int signed = value > short.MaxValue ? value - 0x10000 : value;
+            output.WriteLine(string.Create(CultureInfo.InvariantCulture, $"result: {signed} (0x{value:X4})"));
         }
         else
         {
@@ -127,15 +142,41 @@ internal static partial class RunCommand
         if (Symbol(listing, "__io_cur") is int cursor && Symbol(listing, "__io_buf") is int buffer)
         {
             string console = new([.. Enumerable.Range(0, runner.Read(cursor)).Select(i => (char)runner.Read(buffer + i))]);
-            output.WriteLine("console: " + console);
+            output.WriteLine("console: " + Printable(console));
         }
     }
 
+    /// <summary>Zastępuje znaki sterujące (poza nową linią i tabulacją), żeby program nie sterował terminalem.</summary>
+    private static string Printable(string text) =>
+        new([.. text.Select(static c => char.IsControl(c) && c is not ('\n' or '\t') ? '.' : c)]);
+
     private static int? Symbol(string listing, string name)
     {
-        Match match = Regex.Match(listing, @"(?m)^\s*([0-9A-Fa-f]{4})\s.*\b(?:cc_g_)?" + Regex.Escape(name) + ":");
-        return match.Success ? Convert.ToInt32(match.Groups[1].Value, 16) : null;
+        foreach (string line in listing.Split('\n'))
+        {
+            Match row = ListingRow().Match(line);
+            if (!row.Success)
+            {
+                continue;
+            }
+
+            foreach (Match label in ListingLabel().Matches(line, row.Length))
+            {
+                if (label.Groups[1].Value == name || label.Groups[1].Value == "cc_g_" + name)
+                {
+                    return Convert.ToInt32(row.Groups[1].Value, 16);
+                }
+            }
+        }
+
+        return null;
     }
+
+    [GeneratedRegex(@"^\s*([0-9A-Fa-f]{4})\s")]
+    private static partial Regex ListingRow();
+
+    [GeneratedRegex(@"\b(\w+):")]
+    private static partial Regex ListingLabel();
 
     private static bool TryAddress(string? text, string option, ref int address, TextWriter error)
     {

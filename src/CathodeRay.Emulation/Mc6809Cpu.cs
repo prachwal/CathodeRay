@@ -77,7 +77,7 @@ public sealed class Mc6809Cpu
 
     private static Dictionary<int, Entry> LoadTable()
     {
-        using JsonDocument document = JsonDocument.Parse(File.ReadAllText(IsaFiles.Find("mcp_6809_instructions.json")));
+        using JsonDocument document = JsonDocument.Parse(IsaFiles.ReadText("mcp_6809_instructions.json"));
         var result = new Dictionary<int, Entry>();
         foreach (JsonElement instruction in document.RootElement.GetProperty("instructions").EnumerateArray())
         {

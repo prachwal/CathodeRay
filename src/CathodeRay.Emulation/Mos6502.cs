@@ -133,7 +133,7 @@ public sealed class Mos6502
 
     private static Dictionary<int, (string Mnemonic, string Encoding, int Cycles)> LoadTable()
     {
-        using JsonDocument doc = JsonDocument.Parse(File.ReadAllText(IsaFiles.Find("mcp_6502_instructions.json")));
+        using JsonDocument doc = JsonDocument.Parse(IsaFiles.ReadText("mcp_6502_instructions.json"));
         var table = new Dictionary<int, (string Mnemonic, string Encoding, int Cycles)>();
         foreach (JsonElement e in doc.RootElement.GetProperty("instructions").EnumerateArray())
         {

@@ -10,6 +10,7 @@ internal sealed class CcDiagnostics : ICompilerTrace
     private readonly TextWriter? _ir;
     private readonly TextWriter? _regalloc;
     private readonly TextWriter? _verbose;
+    private string? _unit;
 
     public CcDiagnostics(TextWriter? ir, TextWriter? regalloc, TextWriter? verbose)
     {
@@ -22,7 +23,11 @@ internal sealed class CcDiagnostics : ICompilerTrace
     public bool NeedsTrace => _ir is not null || _regalloc is not null;
 
     /// <summary>Nazwa modułu, którego dotyczą kolejne zrzuty; null = pomijaj (biblioteka standardowa).</summary>
-    public string? Unit { get; set; }
+    public string? Unit
+    {
+        get => _unit;
+        set => _unit = value is null ? null : new string([.. value.Select(static c => char.IsControl(c) ? '?' : c)]);
+    }
 
     /// <summary>Komunikat o przebiegu (tylko z <c>--verbose</c>).</summary>
     /// <param name="message">Tekst.</param>

@@ -60,7 +60,7 @@ public sealed class Mc6800Cpu
 
     private static Dictionary<int, Entry> Load()
     {
-        using JsonDocument doc = JsonDocument.Parse(File.ReadAllText(IsaFiles.Find("mcp_6800_instructions.json")));
+        using JsonDocument doc = JsonDocument.Parse(IsaFiles.ReadText("mcp_6800_instructions.json"));
         var table = new Dictionary<int, Entry>();
         foreach (JsonElement e in doc.RootElement.GetProperty("instructions").EnumerateArray())
         {

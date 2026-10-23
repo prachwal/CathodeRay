@@ -40,3 +40,10 @@ Stub ma osobną komendę `cathode stub run`.
 Biblioteka `CathodeRay.C` udostępnia `CompilerTrace.Begin(ICompilerTrace)`; bez odbiornika kompilator nie liczy ani nie wypisuje niczego.
 Hooki: `Codegen.Lower` (`lowered`), `VRegPipeline.Lower` (`vreg`), `RegisterAllocator.Tune` (przydział). Nowy etap = jedno wywołanie
 `CompilerTrace.Current?.Ir("nazwa", module)`. Zamiast tymczasowych `Console.Error.WriteLine` w kodzie używaj tego mechanizmu.
+
+## Ograniczenia
+
+- `run --cpu 65c02` używa emulatora NMOS 6502: rozkazy tylko-CMOS (`STZ`, `BRA`, `PHX`, …) kończą się komunikatem o nieobsługiwanym rozkazie.
+- Konsola (`__io_buf`) ma 256 bajtów z 8-bitowym kursorem; po zawinięciu `run -l` pokazuje tylko ostatnie `__io_cur` bajtów bufora.
+- Znaki sterujące w nazwach modułów i wyjściu konsoli są zastępowane, żeby niezaufany program nie sterował terminalem.
+- Ścieżki `--emit-ir` i `--dump-regalloc` nie mogą wskazywać plików wejściowych ani wyjść `-o`, `-l`, `--map`, `--config`.

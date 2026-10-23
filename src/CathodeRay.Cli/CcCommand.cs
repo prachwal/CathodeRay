@@ -117,6 +117,19 @@ internal static partial class CcCommand
 
             var modules = new List<(string File, ObjectModule Module)>();
             var warningText = new StringWriter();
+            var protectedPaths = new HashSet<string>(
+                files.Select(static f => f.FullName)
+                    .Concat(new[] { parse.GetValue(output), parse.GetValue(listing), parse.GetValue(map), parse.GetValue(config) }.OfType<FileInfo>().Select(static f => f.FullName)),
+                StringComparer.OrdinalIgnoreCase);
+            foreach (string? diagnosticPath in new[] { parse.GetValue(emitIr), parse.GetValue(dumpRegalloc) })
+            {
+                if (diagnosticPath is not null && diagnosticPath != "-" && protectedPaths.Contains(Path.GetFullPath(diagnosticPath)))
+                {
+                    error.WriteLine($"cc: diagnostic output '{diagnosticPath}' would overwrite an input or an output file; choose another path.");
+                    return 1;
+                }
+            }
+
             using var diagnosticWriters = new DiagnosticWriters(error);
             var diagnostics = new CcDiagnostics(
                 diagnosticWriters.Open(parse.GetValue(emitIr)),

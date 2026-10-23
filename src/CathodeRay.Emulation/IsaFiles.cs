@@ -1,13 +1,14 @@
 namespace CathodeRay.Emulation;
 
-/// <summary>Lokalizacja plików ISA (JSON) emulatorów: obok programu (publikacja) albo w <c>data/instructions</c> repozytorium.</summary>
+/// <summary>Opisy instrukcji (ISA JSON) interpreterów: plik obok programu albo w <c>data/instructions</c> repozytorium ma
+/// pierwszeństwo (można go podmienić), w przeciwnym razie używany jest egzemplarz wbudowany w bibliotekę.</summary>
 internal static class IsaFiles
 {
-    /// <summary>Znajduje plik ISA.</summary>
+    /// <summary>Czyta opis instrukcji.</summary>
     /// <param name="name">Nazwa pliku, np. <c>mcp_6502_instructions.json</c>.</param>
-    /// <returns>Pełna ścieżka.</returns>
-    /// <exception cref="FileNotFoundException">Pliku nie ma obok programu ani w drzewie repozytorium.</exception>
-    public static string Find(string name)
+    /// <returns>Zawartość JSON.</returns>
+    /// <exception cref="FileNotFoundException">Brak pliku na dysku i w zasobach.</exception>
+    public static string ReadText(string name)
     {
         DirectoryInfo? dir = new(AppContext.BaseDirectory);
         while (dir is not null)
@@ -16,13 +17,16 @@ internal static class IsaFiles
             {
                 if (File.Exists(candidate))
                 {
-                    return candidate;
+                    return File.ReadAllText(candidate);
                 }
             }
 
             dir = dir.Parent;
         }
 
-        throw new FileNotFoundException($"ISA file '{name}' not found next to the program or under data/instructions.", name);
+        using Stream stream = typeof(IsaFiles).Assembly.GetManifestResourceStream("isa/" + name)
+            ?? throw new FileNotFoundException($"ISA file '{name}' not found on disk or in the bundled resources.", name);
+        using var reader = new StreamReader(stream);
+        return reader.ReadToEnd();
     }
 }

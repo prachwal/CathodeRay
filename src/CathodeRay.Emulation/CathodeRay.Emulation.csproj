@@ -11,6 +11,11 @@
     <PackageReference Include="Roslynator.Analyzers" PrivateAssets="all" />
   </ItemGroup>
 
+  <!-- Tablice rozkazów interpreterów 6502/6800/6809 wbudowane w bibliotekę (działa poza repozytorium i bez plików obok programu). -->
+  <ItemGroup>
+    <EmbeddedResource Include="..\..\data\instructions\mcp_6502_instructions.json;..\..\data\instructions\mcp_6800_instructions.json;..\..\data\instructions\mcp_6809_instructions.json" LogicalName="isa/%(Filename)%(Extension)" />
+  </ItemGroup>
+
   <ItemGroup>
     <AdditionalFiles Include="..\..\stylecop.json" />
   </ItemGroup>

@@ -39,6 +39,33 @@ public sealed class DiagnosticsCliTests : IDisposable
         string ir = File.ReadAllText(Path("d.ir"));
         ir.Should().Contain("IR after 'lowered'").And.Contain("func sum(").And.Contain("br Ge").And.Contain("ret ");
         ir.Should().NotContain("<stdlib>");
+        ir.Should().MatchRegex(@"(?m)^\s+\d+: sum__s:2 = #0:1");
+    }
+
+    [Fact]
+    public void EmitIr_Excludes_Linked_Stdlib_Modules_While_Verbose_Reports_Them()
+    {
+        string path = Path("p.c");
+        File.WriteAllText(path, "#include <string.h>\nint main(void) { char a[4]; memset(a, 0, 4); return a[0]; }\n");
+
+        var (exit, _, err) = Cli("cc", path, "-o", Path("p.bin"), "--cpu", "z80", "-v", "--emit-ir", Path("p.ir"));
+
+        exit.Should().Be(0, err);
+        err.Should().Contain("linking stdlib module");
+        File.ReadAllText(Path("p.ir")).Should().NotContain("rt_mem").And.NotContain("func memset");
+    }
+
+    [Fact]
+    public void Diagnostic_Path_Cannot_Overwrite_The_Source_Or_An_Output()
+    {
+        string source = Source_c();
+
+        var (exit, _, err) = Cli("cc", source, "-o", Path("d.bin"), "--cpu", "z80", "--emit-ir", source);
+        exit.Should().Be(1);
+        err.Should().Contain("would overwrite");
+        File.ReadAllText(source).Should().Be(Source);
+
+        Cli("cc", source, "-o", Path("d.bin"), "-l", Path("d.lst"), "--cpu", "z80", "--dump-regalloc", Path("d.lst")).Exit.Should().Be(1);
     }
 
     [Fact]
@@ -59,7 +86,8 @@ public sealed class DiagnosticsCliTests : IDisposable
 
         exit.Should().Be(0, err);
         string dump = File.ReadAllText(Path("d.ra"));
-        dump.Should().Contain("register allocation").And.Contain("func main").And.Contain("register");
+        dump.Should().Contain("register allocation").And.Contain("func main");
+        dump.Should().MatchRegex(@"(?m)^\s+\S+\s+(a|b|c|d|e|h|l|bc|de|hl)\s+register$");
         dump.Should().MatchRegex(@"sum__i\s+memory\s+\w+");
     }
 
@@ -104,6 +132,19 @@ public sealed class DiagnosticsCliTests : IDisposable
 
         exit.Should().Be(0, err);
         output.Should().Contain("halted=True").And.Contain("result: 45 (0x002D)");
+    }
+
+    [Fact]
+    public void Run_Shows_Negative_Results_As_Signed()
+    {
+        string path = Path("neg.c");
+        File.WriteAllText(path, "int main(void) { return -1; }\n");
+        Cli("cc", path, "-o", Path("neg.bin"), "-l", Path("neg.lst"), "--cpu", "z80").Exit.Should().Be(0);
+
+        var (exit, output, err) = Cli("run", Path("neg.bin"), "--cpu", "z80", "-l", Path("neg.lst"));
+
+        exit.Should().Be(0, err);
+        output.Should().Contain("result: -1 (0xFFFF)");
     }
 
     [Fact]
