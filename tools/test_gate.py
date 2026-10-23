@@ -24,7 +24,62 @@ TARGETS_MATCH = re.search(
 if TARGETS_MATCH is None:
     raise RuntimeError("Nie można odczytać celów z Runners.Has.")
 TARGETS = tuple(re.findall(r'"([^"]+)"', TARGETS_MATCH["targets"]))
+TEST_DIR = ROOT / "tests/CathodeRay.Tests"
 MATRIX_TESTS = ("TargetMatrixTests", "VRegMatrixTests")
+# Wszystko poza wolnymi macierzami/fuzzem (te idą shardami albo celowanym filtrem).
+NON_SLOW_FILTER = (
+    "FullyQualifiedName!~IrConformanceTests&FullyQualifiedName!~TargetMatrixTests"
+    "&FullyQualifiedName!~VRegMatrixTests&FullyQualifiedName!~LeafFuzzTests"
+    "&FullyQualifiedName!~RecursionFuzzTests"
+)
+# Goldeny i bramka IR reagują na każdą zmianę generowanego kodu lub biblioteki.
+GENERATED_CODE_GUARDS = {"IrGateTests", "TargetSizeTests", "VRegSizeTests", "AbiV2SizeTests"}
+
+
+def existing_classes(*names: str) -> set[str]:
+    """Klasy testowe z listy, które istnieją w tym drzewie (gałęzie bez nich nie psują filtra)."""
+    return {name for name in names if (TEST_DIR / f"{name}.cs").exists()}
+
+
+def classes_matching(*patterns: str) -> set[str]:
+    return {path.stem for pattern in patterns for path in TEST_DIR.glob(pattern)}
+
+
+def frontend_classes() -> set[str]:
+    """Testy kompilatora (C*Tests, bez Cpu*), próbki zgodności/diagnostyki, CLI i strażnicy wygenerowanego kodu."""
+    result = {name for name in classes_matching("C*Tests.cs") if not name.startswith("Cpu")}
+    result |= existing_classes(
+        "CompatSamplesTests",
+        "DiagnosticsSamplesTests",
+        "DiagnosticsCliTests",
+        "AsmOnlyCliTests",
+        "BlockScopeTests",
+        "AbiCliTests",
+        "SampleProgramsTests",
+        "MiniCDocsTests",
+    )
+    return result | existing_classes(*GENERATED_CODE_GUARDS)
+
+
+def cli_classes() -> set[str]:
+    """Testy wołające CLI w procesie (CliApp/CcRun) plus strażnicy kodu."""
+    result: set[str] = set()
+    for path in TEST_DIR.glob("*Tests.cs"):
+        text = path.read_text(encoding="utf-8", errors="ignore")
+        if "CliApp" in text or "CcRun" in text:
+            result.add(path.stem)
+    return result
+
+
+FRONTEND_FILES = (
+    "src/CathodeRay.C/Parser.cs",
+    "src/CathodeRay.C/Lexer.cs",
+    "src/CathodeRay.C/CPreprocessor.cs",
+    "src/CathodeRay.C/Ast.cs",
+    "src/CathodeRay.C/Literal.cs",
+    "src/CathodeRay.C/DeclFlags.cs",
+    "src/CathodeRay.C/Token.cs",
+)
 FUZZ_TESTS = {"leaf": "LeafFuzzTests", "recursion": "RecursionFuzzTests"}
 
 
@@ -38,6 +93,7 @@ class Selection:
     fuzz: set[str] = field(default_factory=set)
     python_tests: bool = False
     full_fallback: bool = False
+    rest_of_suite: bool = False
 
 
 def changed_files(base: str) -> list[str]:
@@ -96,7 +152,15 @@ def select_changes(paths: list[str]) -> Selection:
         if path == "docs/minic.md":
             selection.classes.add("MiniCDocsTests")
             continue
-        if path.startswith("docs/") or path in {"AGENTS.md", "opencode.json"}:
+        if path.startswith("docs/") or path in {"AGENTS.md", "opencode.json", "CLAUDE.md"}:
+            continue
+        if path.startswith(".github/") or (path.endswith(".md") and "/" not in path):
+            continue
+        if path.startswith("samples/compat/"):
+            selection.classes |= existing_classes("CompatSamplesTests")
+            continue
+        if path.startswith("samples/diag/"):
+            selection.classes |= existing_classes("DiagnosticsSamplesTests")
             continue
         if path.startswith("tests/CathodeRay.Tests/") and path.endswith("Tests.cs"):
             class_name = Path(path).stem
@@ -161,6 +225,21 @@ def select_changes(paths: list[str]) -> Selection:
             selection.all_matrix_targets = True
             selection.ir_targets.update(TARGETS)
             continue
+        if (
+            path in FRONTEND_FILES
+            or path.startswith("src/CathodeRay.C/TypeChecker")
+            or path.startswith("src/CathodeRay.C/CType")
+            or path.startswith("src/CathodeRay.C/stdlib/")
+        ):
+            # kod języka i biblioteki: testy kompilatora, próbki i strażnicy wygenerowanego kodu (bez macierzy backendów)
+            selection.classes |= frontend_classes()
+            continue
+        if path.startswith("src/CathodeRay.Cli/"):
+            selection.classes |= cli_classes() | existing_classes(*GENERATED_CODE_GUARDS)
+            continue
+        if path.startswith(("src/CathodeRay.Assembler/", "src/CathodeRay.Emulation/", "src/CathodeRay/")):
+            selection.rest_of_suite = True
+            continue
         if path.startswith("src/") or path.startswith("tests/"):
             selection.full_fallback = True
             continue
@@ -172,6 +251,8 @@ def select_changes(paths: list[str]) -> Selection:
 
 
 def filter_expression(selection: Selection) -> str | None:
+    if selection.rest_of_suite:
+        return NON_SLOW_FILTER
     terms: list[str] = []
     if selection.classes:
         terms.append(
@@ -374,8 +455,7 @@ def run_full(fuzz_count: int, jobs: int) -> int:
         return 1
     if run_full_shards(jobs):
         return 1
-    non_ir = "FullyQualifiedName!~IrConformanceTests&FullyQualifiedName!~TargetMatrixTests&FullyQualifiedName!~VRegMatrixTests&FullyQualifiedName!~LeafFuzzTests&FullyQualifiedName!~RecursionFuzzTests"
-    if dotnet_filter(non_ir, clean_env()):
+    if dotnet_filter(NON_SLOW_FILTER, clean_env()):
         return 1
     return run_docs_checks()
 

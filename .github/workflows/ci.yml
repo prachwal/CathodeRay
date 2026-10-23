@@ -4,19 +4,51 @@ on:
   push:
     branches: [main]
   pull_request:
+  schedule:
+    - cron: '23 3 * * *' # nocny pełny przebieg
+  workflow_dispatch:
+
+# Nowy push do tego samego PR/gałęzi przerywa poprzedni, jeszcze trwający przebieg.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
 
 jobs:
   build-test:
+    # PR i push: tylko testy dobrane do diffu (tools/test_gate.py changed; zasady w docs/technical/ci-tests.md).
+    # Pełna suita (macierze celów, IR, fuzz) idzie nocą i na żądanie.
     runs-on: ubuntu-latest
+    timeout-minutes: 90
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
       - uses: actions/setup-dotnet@v4
         with:
           global-json-file: global.json
-      - name: Build
-        run: dotnet build CathodeRay.slnx -c Release -warnaserror
-      - name: Test
-        run: dotnet test CathodeRay.slnx -c Release --no-build
+      - name: Testy dobrane do zmian
+        env:
+          EVENT: ${{ github.event_name }}
+          BASE_REF: ${{ github.base_ref }}
+          BEFORE: ${{ github.event.before }}
+        run: |
+          case "$EVENT" in
+            schedule|workflow_dispatch)
+              python3 tools/test_gate.py full
+              ;;
+            pull_request)
+              python3 tools/test_gate.py changed --base "origin/$BASE_REF"
+              ;;
+            *)
+              base="$BEFORE"
+              if [ -z "${base//0/}" ]; then base=HEAD~1; fi
+              python3 tools/test_gate.py changed --base "$base"
+              ;;
+          esac
 
   publish-smoke:
     # Sprawdza, że pojedynczy plik wykonywalny buduje się i kompiluje próbkę na Linuksie i Windowsie.
