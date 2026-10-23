@@ -388,4 +388,51 @@ public sealed class RegisterAllocatorTests
             }
         }
     }
+
+    // 20. i jest nadpisane na końcu ciała pętli (po dziurze w żywości: między odczytem a zapisem martwe) i czytane w nagłówku:
+    // jeden zakres przez krawędź wsteczną, więc nie wolno go dzielić na niezależne przedziały
+    [Theory]
+    [MemberData(nameof(Targets))]
+    public void Value_Redefined_At_Loop_End_After_A_Liveness_Gap_Is_Not_Split(string cpu)
+    {
+        const string Source = """
+            uint cell[40];
+            uint hp = 0;
+            #define A ((uchar *)cell)
+            uint atom(uchar *s) {
+                uint i = 0;
+                uchar *p;
+                uchar *q;
+                while (i < hp) {
+                    p = A + i;
+                    q = s;
+                    while (*q && *p == *q) {
+                        p++;
+                        q++;
+                    }
+                    if (*p == *q) return i;
+                    while (*p) p++;
+                    i = (uint)(p - A) + 1;
+                }
+                p = A + hp;
+                q = s;
+                do {
+                    *p++ = *q;
+                } while (*q++);
+                i = hp;
+                hp = (uint)(p - A);
+                return i;
+            }
+            int main() {
+                putchar('0' + atom("quote"));
+                putchar('0' + atom("if"));
+                putchar('0' + atom("quote"));
+                putchar('0' + atom("if"));
+                return 0;
+            }
+            """;
+
+        // "quote\0" zajmuje 6 bajtów, więc "if" zaczyna się od 6; powtórzone nazwy wracają z tymi samymi przesunięciami
+        CcRun.RunOn(Io + Source, cpu).Console.Should().Be("0606");
+    }
 }

@@ -102,8 +102,8 @@
 13_strings.c 65c02 2224
 13_strings.c nes 2224
 13_strings.c 6510 2224
-13_strings.c z80 1654
-13_strings.c 8080 2052
+13_strings.c z80 1668
+13_strings.c 8080 2066
 13_strings.c 6800 2434
 13_strings.c 6809 2408
 14_macros.c stub 218
@@ -147,8 +147,8 @@
 18_voidptr.c 65c02 857
 18_voidptr.c nes 857
 18_voidptr.c 6510 857
-18_voidptr.c z80 535
-18_voidptr.c 8080 649
+18_voidptr.c z80 540
+18_voidptr.c 8080 654
 18_voidptr.c 6800 910
 18_voidptr.c 6809 893
 19_struct_value.c stub 6487
@@ -192,8 +192,8 @@
 23_types.c 65c02 1883
 23_types.c nes 1883
 23_types.c 6510 1883
-23_types.c z80 1670
-23_types.c 8080 1865
+23_types.c z80 1577
+23_types.c 8080 1773
 23_types.c 6800 2036
 23_types.c 6809 2032
 24_float.c stub 22090
@@ -210,7 +210,7 @@
 25_longlong.c 65c02 11399
 25_longlong.c nes 11399
 25_longlong.c 6510 11399
-25_longlong.c z80 10024
-25_longlong.c 8080 10343
+25_longlong.c z80 10041
+25_longlong.c 8080 10360
 25_longlong.c 6800 10910
 25_longlong.c 6809 10896

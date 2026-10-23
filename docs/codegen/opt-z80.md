@@ -5,7 +5,7 @@ ABI v2 nie dotyczy (pilot `nes`, flaga `--abi`).
 
 | Ficzer | Status | Dowód / uwagi |
 | --- | --- | --- |
-| Rejestry komórek (alokator) | zrobione | `CellRegisters`/`CellPairs` + `RegisterAllocator.Tune`; parametry w puli (plan 40, item 9-część); `SavedAround` push/pop; testy `Z80RegisterIsaTests`, `ParamRegisterTests` |
+| Rejestry komórek (alokator) | zrobione | `CellRegisters`/`CellPairs` + `RegisterAllocator.Tune`; parametry w puli (plan 40, item 9-część); `SavedAround` push/pop; testy `Z80RegisterIsaTests`, `ParamRegisterTests`; dzielenie przedziałów nie przecina krawędzi przepływu (`FlowsBetweenRuns`, test `RegisterAllocatorTests`) |
 | ParamAlias (liście → `cc_argN`) | zrobione | Jak wyżej: globalne pomijanie odrzucone po regresji |
 | Wynik w rejestrze | zrobione | `ReturnsInResultReg`; `TryMoveTo/FromResultReg`; zamiana do DE przez `ex de,hl` |
 | Kopie słów (`TryMoveWord`) | zrobione | Przez HL; `ResultRegFreshTests` (świeży wynik bez przeładowania) |
