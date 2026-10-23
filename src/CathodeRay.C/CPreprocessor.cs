@@ -49,8 +49,12 @@ public static class CPreprocessor
             string trimmed = line.TrimStart();
             if (!state.InBlockComment && trimmed.StartsWith('#'))
             {
+                _ = StripComment(trimmed, out bool opensComment);
                 Directive(trimmed[1..].TrimStart(), i + 1, state, stack, file, conditions, active, output);
-                output.Add(string.Empty);
+
+                // komentarz otwarty w dyrektywie obejmuje kolejne linie (lexer dostaje jego początek), ale nie dołączany plik (#include)
+                output.Add(opensComment ? "/*" : string.Empty);
+                state.InBlockComment |= opensComment;
             }
             else
             {
@@ -78,7 +82,7 @@ public static class CPreprocessor
         }
 
         string name = text[..end];
-        string rest = StripComment(text[end..]).Trim();
+        string rest = StripComment(text[end..], out _).Trim();
         switch (name)
         {
             case "if":
@@ -233,10 +237,47 @@ public static class CPreprocessor
         state.Macros[name] = macro;
     }
 
-    private static string StripComment(string text)
+    /// <summary>Usuwa komentarze z linii dyrektywy: <c>//</c> do końca linii oraz <c>/* */</c> (zastępowany spacją).
+    /// Komentarz blokowy, który nie kończy się w tej linii, ucina resztę i zostaje otwarty dla kolejnych linii.
+    /// Napisy i znaki nie są ruszane (<c>#define URL "a//b"</c>).</summary>
+    private static string StripComment(string text, out bool opensBlockComment)
     {
-        int at = text.IndexOf("//", StringComparison.Ordinal);
-        return at < 0 ? text : text[..at];
+        opensBlockComment = false;
+        var result = new StringBuilder();
+        int i = 0;
+        while (i < text.Length)
+        {
+            char c = text[i];
+            if (c is '"' or '\'')
+            {
+                int stop = SkipLiteral(text, i);
+                result.Append(text, i, stop - i);
+                i = stop;
+            }
+            else if (c == '/' && i + 1 < text.Length && text[i + 1] == '/')
+            {
+                break;
+            }
+            else if (c == '/' && i + 1 < text.Length && text[i + 1] == '*')
+            {
+                int close = text.IndexOf("*/", i + 2, StringComparison.Ordinal);
+                if (close < 0)
+                {
+                    opensBlockComment = true;
+                    break;
+                }
+
+                result.Append(' ');
+                i = close + 2;
+            }
+            else
+            {
+                result.Append(c);
+                i++;
+            }
+        }
+
+        return result.ToString();
     }
 
     /// <summary>Rozwija makra w tekście; napisy, znaki i komentarze zostają. <paramref name="hidden"/> to makra
