@@ -505,7 +505,6 @@ internal static class RegisterAllocator
         var naturalSaves = new Dictionary<Ir.Call, List<string>>(ReferenceEqualityComparer.Instance);
         RunColor(null, null, natural, naturalSaves);
         RunColor(precolor, null, map, saves);
-        System.Console.Error.WriteLine("DBG natural=" + string.Join(",", natural.Select(kv => kv.Key + ">" + kv.Value)) + " pre=" + string.Join(",", map.Select(kv => kv.Key + ">" + kv.Value)));
         var callFunc = new Dictionary<Ir.Call, int>(ReferenceEqualityComparer.Instance);
         for (int f = 0; f < module.Functions.Count; f++)
         {
@@ -516,7 +515,6 @@ internal static class RegisterAllocator
         }
 
         var dropped = new HashSet<int>();
-        System.Console.Error.WriteLine("DBG precolor=" + string.Join(";", precolor.Select(kv => kv.Key + ":" + string.Join(",", kv.Value))));
         foreach ((int f, _) in precolor)
         {
             foreach ((string sym, _) in baseline)
@@ -563,7 +561,6 @@ internal static class RegisterAllocator
             saves.Remove(call);
         }
 
-        System.Console.Error.WriteLine("DBG dropped=" + string.Join(",", dropped) + " map=" + string.Join(",", map.Select(kv => kv.Key + ">" + kv.Value)));
         return (map, saves);
 
         void RunColor(Dictionary<int, HashSet<string>>? pre, HashSet<string>? excluded, Dictionary<string, string> intoMap, Dictionary<Ir.Call, List<string>> intoSaves)
@@ -658,7 +655,6 @@ internal static class RegisterAllocator
         }
 
         // pary zapisywane wokół wołań tej funkcji (indeks instrukcji → pary)
-        System.Console.Error.WriteLine("DBG order " + function.Name + ": " + string.Join(",", pool.OrderByDescending(s => weight.GetValueOrDefault(s)).ThenBy(static s => s, StringComparer.Ordinal).Select(s => s + "=" + weight.GetValueOrDefault(s))));
         var saved = new Dictionary<int, HashSet<string>>();
         foreach (string sym in pool
             .OrderByDescending(s => precolored is not null && precolored.Contains(s))
