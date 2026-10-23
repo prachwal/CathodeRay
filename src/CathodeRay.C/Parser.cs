@@ -28,6 +28,8 @@ public sealed class Parser
 
     /// <summary>Nazwy komórek już użyte w bieżącej funkcji (null poza funkcją).</summary>
     private HashSet<string>? _functionNames;
+    private HashSet<string> _parameterNames = [];
+    private bool _keepSign;
     private int _renames;
 
     /// <summary>Alias tablicowy użyty w ostatniej specyfikacji typu (null, gdy typ nie jest takim aliasem).</summary>
@@ -734,6 +736,7 @@ public sealed class Parser
         }
 
         _functionNames = new HashSet<string>(parameters.Select(static p => p.Name), StringComparer.Ordinal);
+        _parameterNames = [.. _functionNames];
         _blockNames.Clear();
         PushNames();
         foreach (Ast.Param parameter in parameters)
@@ -765,28 +768,34 @@ public sealed class Parser
         return name;
     }
 
-    /// <summary>Rejestruje zmienną lokalną w bieżącym zakresie; powtórzona nazwa w funkcji dostaje unikalną nazwę komórki.</summary>
-    private Ast.Decl DeclareLocal(Ast.Decl decl)
+    /// <summary>Rejestruje zmienną lokalną w bieżącym zakresie (przed jej inicjalizatorem, jak w C); powtórzona nazwa w funkcji dostaje
+    /// unikalną nazwę komórki. Zwraca nazwę komórki.</summary>
+    private string DeclareLocal(string name, DeclFlags flags)
     {
-        if (_functionNames is null || _blockNames.Count == 0 || decl.Flags.HasFlag(DeclFlags.Extern))
+        if (_functionNames is null || _blockNames.Count == 0 || flags.HasFlag(DeclFlags.Extern))
         {
-            return decl;
+            return name;
         }
 
-        if (_blockNames[^1].ContainsKey(decl.Name))
+        if (_blockNames[^1].ContainsKey(name))
         {
             // powtórzenie w tym samym zakresie: nazwa zostaje, błąd zgłosi kontrola typów
-            return decl;
+            return name;
         }
 
-        string unique = decl.Name;
+        if (_blockNames.Count == 2 && _parameterNames.Contains(name))
+        {
+            throw new CTypeException($"'{name}' is already a parameter of this function.");
+        }
+
+        string unique = name;
         while (_globalNames.Contains(unique) || !_functionNames.Add(unique))
         {
-            unique = $"{decl.Name}@{++_renames}";
+            unique = $"{name}@{++_renames}";
         }
 
-        _blockNames[^1][decl.Name] = unique;
-        return unique == decl.Name ? decl : decl with { Name = unique };
+        _blockNames[^1][name] = unique;
+        return unique;
     }
 
     private Ast.Block Block()
@@ -932,6 +941,7 @@ public sealed class Parser
         Ast.Expr value = Expression();
         Expect(")");
         Expect("{");
+        PushNames();
         var cases = new List<Ast.SwitchCase>();
         while (!Take("}"))
         {
@@ -939,7 +949,9 @@ public sealed class Parser
             Ast.Expr? caseValue = null;
             if (label is { Kind: TokenKind.Keyword, Text: "case" })
             {
+                _keepSign = true; // case -1: znak zostaje w drzewie (dla switch na long stała jest rozszerzana ze znakiem, nie 16-bitowa)
                 caseValue = Conditional();
+                _keepSign = false;
             }
             else if (label is not { Kind: TokenKind.Keyword, Text: "default" })
             {
@@ -962,6 +974,7 @@ public sealed class Parser
             cases.Add(At(label.Line, new Ast.SwitchCase(caseValue, body)));
         }
 
+        PopNames();
         return At(keyword.Line, new Ast.Switch(value, cases));
     }
 
@@ -1059,10 +1072,10 @@ public sealed class Parser
     {
         Token typeToken = Peek();
         (string type, int baseStars) = TypeSpec();
-        Ast.Decl decl = DeclareLocal(Declarator(type, baseStars, typeToken.Line, flags, allowFunction: false, "variable name").Decl!);
+        Ast.Decl decl = Declarator(type, baseStars, typeToken.Line, flags, allowFunction: false, "variable name").Decl!;
         while (Take(","))
         {
-            _pendingDecls.Add(DeclareLocal(Declarator(type, baseStars, typeToken.Line, flags, allowFunction: false, "variable name").Decl!));
+            _pendingDecls.Add(Declarator(type, baseStars, typeToken.Line, flags, allowFunction: false, "variable name").Decl!);
         }
 
         Expect(";");
@@ -1131,6 +1144,7 @@ public sealed class Parser
     private Ast.Decl DeclRest(string type, string name, int stars, int line, DeclFlags flags, (int Length, bool Unsized, Ast.Expr? Expr) array, Token open)
     {
         (int length, bool unsized, Ast.Expr? lengthExpr) = array;
+        string cell = DeclareLocal(name, flags);
         Ast.Expr? init = null;
         if (Take("="))
         {
@@ -1147,7 +1161,7 @@ public sealed class Parser
             };
         }
 
-        return At(line, new Ast.Decl(type, name, init, stars, length, lengthExpr, flags));
+        return At(line, new Ast.Decl(type, cell, init, stars, length, lengthExpr, flags));
     }
 
     private Ast.Expr ArrayInit()
@@ -1374,7 +1388,7 @@ public sealed class Parser
         {
             Next();
             Ast.Expr operand = Unary();
-            if (token.Text is "-" or "~" && TryValue(operand, out int value))
+            if (token.Text is "-" or "~" && !_keepSign && TryValue(operand, out int value))
             {
                 int folded = token.Text == "-" ? -value : ~value;
                 return new Ast.Number((folded & 0xFFFF).ToString(System.Globalization.CultureInfo.InvariantCulture));

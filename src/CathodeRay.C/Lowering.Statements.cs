@@ -215,7 +215,7 @@ internal sealed partial class Lowering
 
     /// <summary>switch: wartość do własnej komórki (chronionej ramką), łańcuch porównań ze stałymi,
     /// potem ciała po kolei (przechodzą dalej jak w C). Wartość <c>uchar</c> ze stałymi 0..255 porównuje się
-    /// bajtem (bez testu starszego bajtu); inaczej 16 bitów; wartość long/ulong ma 32 bity, a stałe case to 0..65535.</summary>
+    /// bajtem (bez testu starszego bajtu); inaczej 16 bitów; wartość long/ulong ma 32 bity (literały case w pełnym zakresie, inne stałe 16-bitowe).</summary>
     private void LowerSwitch(Ast.Switch stmt)
     {
         CType type = TypeOf(stmt.Value);
@@ -228,7 +228,7 @@ internal sealed partial class Lowering
         string done = Label("swend");
         var labels = new List<string>();
         string? defaultLabel = null;
-        int mask = width == 1 ? 0xFF : 0xFFFF; // switch na long/ulong porównuje ze stałymi case 0..65535
+        int mask = width == 1 ? 0xFF : 0xFFFF;
         foreach (Ast.SwitchCase item in stmt.Cases)
         {
             string label = Label("case");
@@ -236,6 +236,24 @@ internal sealed partial class Lowering
             if (item.Value is null)
             {
                 defaultLabel = label;
+                continue;
+            }
+
+            if (width == 4)
+            {
+                // 32 bity: literał ma pełną wartość, inne stałe (np. -1, A + 1) są 16-bitowe, a dla long rozszerzane ze znakiem
+                int wide;
+                if (item.Value is Ast.Number number && Literal.TryParse(number.Text, out Literal literal))
+                {
+                    wide = unchecked((int)literal.Value);
+                }
+                else
+                {
+                    TryConstValue(item.Value, out int folded);
+                    wide = type.Kind == "long" ? (short)folded : folded;
+                }
+
+                Emit(new Ir.BrCmp(Ir.Cond.Eq, cell, new Ir.Imm(wide, 4), label));
                 continue;
             }
 

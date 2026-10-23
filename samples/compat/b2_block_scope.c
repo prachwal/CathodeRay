@@ -1,12 +1,48 @@
 // B2: zakresy blokowe — te same nazwy w blokach obok siebie, zacienianie zmiennej zewnętrznej, parametru i globalnej,
 // `for (int i...)` kilka razy, osobne zmienne static w blokach, adres zmiennej wewnętrznej i lokalny wskaźnik do funkcji
 // o nazwie zmiennej z innego bloku.
-// expect-result: 1182
+// expect-result: 1195
 int x = 100;
 
 int twice(int v) { return v * 2; }
 
 int bump(int *p) { *p += 1; return *p; }
+
+void *self_g;
+
+/* deklaracja bezpośrednio pod case ma własny zakres */
+int switch_scope(void)
+{
+    int x = 7;
+    switch (0) {
+    case 0:
+        int x = 3;
+        x += 1;
+        break;
+    }
+    return x;                                     /* 7 */
+}
+
+/* inicjalizator widzi własną, zacieniającą zmienną: `void *self_g = &self_g` */
+int self_reference(void)
+{
+    void *self_g = &self_g;
+    return self_g == (void *)&self_g;             /* 1 */
+}
+
+/* lokalna o nazwie późniejszej globalnej nie przeszkadza jej użyciu w innej funkcji */
+int late_local(void)
+{
+    int late = 3;
+    return late;
+}
+
+int late = 5;
+
+int late_global(void)
+{
+    return late;                                  /* 5 */
+}
 
 int count_calls(void)
 {
@@ -84,5 +120,6 @@ int main(void)
         }
     }
     total += twice(3);                            /* funkcja globalna: 6 -> 580 */
+    total += switch_scope() + self_reference() + late_local() * 0 + late_global();
     return total + 601;
 }

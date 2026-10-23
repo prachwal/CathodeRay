@@ -203,7 +203,7 @@ nierozwiązane symbole (także moduły biblioteki między sobą); funkcja zdefin
 
 | nagłówek | funkcje |
 | --- | --- |
-| `string.h` | `strlen strcpy strncpy strcat strcmp strncmp strchr memcpy memset memcmp` (`uchar *` zamiast `char`/`void *`, `strchr` bierze `uchar *`) |
+| `string.h` | `strlen strcpy strncpy strcat strcmp strncmp strchr memcpy memmove memset memcmp` (`uchar *` zamiast `char`/`void *`, `strchr` bierze `const uchar *`, `memmove` kopiuje z nakładaniem) |
 | `ctype.h` | `isdigit isalpha isalnum isspace isupper islower toupper tolower` |
 | `stdlib.h` | `abs min max atoi itoa(v, buf, base) srand rand` (xorshift 16-bit) |
 | `stdio.h` | `putchar puthex putdec putstr puts printf sprintf` (`%d %u %x %c %s %%`, do 5 / 4 argumentów) |

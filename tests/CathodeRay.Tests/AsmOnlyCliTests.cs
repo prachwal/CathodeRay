@@ -59,6 +59,22 @@ public sealed class AsmOnlyCliTests : IDisposable
     }
 
     [Fact]
+    public void Dash_S_Writes_Nothing_When_Werror_Fails_Or_A_Later_Input_Is_Broken()
+    {
+        // przypisanie w warunku daje ostrzeżenie kompilatora
+        string warns = Write("warns.c", "int main(void) { int a = 0; if (a = 1) { return 1; } return 0; }\n");
+        string good = Write("good.c", "int main(void) { return 2; }\n");
+        string broken = Write("broken.c", "int f(void) { return nope; }\n");
+
+        Cli("cc", warns, "-S", "-Werror", "--cpu", "z80").Exit.Should().Be(1);
+        File.Exists(Path.Combine(_dir.FullName, "warns.s")).Should().BeFalse();
+
+        Cli("cc", good, broken, "-S", "--cpu", "z80").Exit.Should().Be(1);
+        File.Exists(Path.Combine(_dir.FullName, "good.s")).Should().BeFalse();
+        Directory.GetFiles(_dir.FullName, "*.tmp").Should().BeEmpty();
+    }
+
+    [Fact]
     public void Dash_S_Reports_Type_Errors_And_Honors_Output_And_Werror()
     {
         string bad = Write("bad.c", "int main(void) { return nope; }\n");
