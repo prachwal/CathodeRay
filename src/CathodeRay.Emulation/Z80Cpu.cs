@@ -1,4 +1,4 @@
-namespace CathodeRay.Tests;
+namespace CathodeRay.Emulation;
 
 /// <summary>Interpreter podzbioru Z80 (i 8080, gdy <c>Intel8080</c>) do testów celów: rejestry główne, pełne ALU z flagami,
 /// skoki, wołania, stos, CB (przesunięcia/bity), wybrane ED. Nieobsłużone opkody rzucają wyjątek. Zatrzymanie: HALT albo

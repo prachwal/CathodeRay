@@ -13,6 +13,7 @@ internal static class CliApp
         root.Subcommands.Add(AsmCommand.Create());
         root.Subcommands.Add(LinkCommand.Create());
         root.Subcommands.Add(CcCommand.Create());
+        root.Subcommands.Add(RunCommand.Create());
         root.Subcommands.Add(StubCommands.Create());
         return root;
     }

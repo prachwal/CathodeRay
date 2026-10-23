@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- TargetFramework i wspólne ustawienia: Directory.Build.props -->
+  <PropertyGroup>
+    <!-- Interpretery CPU (rejestry, flagi, pamięć) są samoopisujące się; dokumentujemy typy i rozkazy, nie każdą właściwość. -->
+    <NoWarn>$(NoWarn);CS1591;SA1600;SA1601;SA1602;SA1204</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="StyleCop.Analyzers" PrivateAssets="all" />
+    <PackageReference Include="Roslynator.Analyzers" PrivateAssets="all" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <AdditionalFiles Include="..\..\stylecop.json" />
+  </ItemGroup>
+
+</Project>

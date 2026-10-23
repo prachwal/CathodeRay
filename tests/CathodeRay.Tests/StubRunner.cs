@@ -10,7 +10,13 @@ public sealed class StubRunner : ICpuRunner
 
     public StubRunner() => _cpu = new StubCpu(StubIsa.FromJsonFile(Repo.IsaFile("mcp_stub_instructions.json")), _bus);
 
+    public int Pc => _cpu.State.ProgramCounter;
+
+    public long Cycles => 0;
+
     public bool Halted => _cpu.State.Halted;
+
+    public string Registers() => $"A={_cpu.State.A:X2} X={_cpu.State.X:X2}";
 
     public void Load(int address, byte[] bytes)
     {

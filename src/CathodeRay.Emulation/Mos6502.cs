@@ -1,6 +1,6 @@
 using System.Text.Json;
 
-namespace CathodeRay.Tests;
+namespace CathodeRay.Emulation;
 
 /// <summary>Minimalny interpreter NMOS 6502 do testów celu (plan 30, krok 9). Tablice dekodowania i cykle pochodzą z
 /// <c>mcp_6502_instructions.json</c>; opcody nieudokumentowane i tryb dziesiętny (D) rzucają wyjątek. Zatrzymanie: KIL
@@ -133,7 +133,7 @@ public sealed class Mos6502
 
     private static Dictionary<int, (string Mnemonic, string Encoding, int Cycles)> LoadTable()
     {
-        using JsonDocument doc = JsonDocument.Parse(File.ReadAllText(Repo.IsaFile("mcp_6502_instructions.json")));
+        using JsonDocument doc = JsonDocument.Parse(File.ReadAllText(IsaFiles.Find("mcp_6502_instructions.json")));
         var table = new Dictionary<int, (string Mnemonic, string Encoding, int Cycles)>();
         foreach (JsonElement e in doc.RootElement.GetProperty("instructions").EnumerateArray())
         {

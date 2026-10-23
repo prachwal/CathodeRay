@@ -34,6 +34,11 @@ cathode cc hello.c -o hello.bin --cpu stub
 # or: --cpu 6502 | 65c02 | z80 | 8080 | 6800
 ```
 
+## Diagnostics
+
+`cathode cc -v --emit-ir out.ir --dump-regalloc out.ra` shows what the compiler did; `cathode run prog.bin --cpu z80 -l prog.lst --trace`
+executes the image on the built-in emulator. See `docs/technical/diagnostics.md`.
+
 ## Documentation
 
 | Document | Description |

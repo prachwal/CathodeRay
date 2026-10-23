@@ -4,6 +4,7 @@
     <Project Path="src/CathodeRay.Assembler/CathodeRay.Assembler.csproj" />
     <Project Path="src/CathodeRay.C/CathodeRay.C.csproj" />
     <Project Path="src/CathodeRay.Cli/CathodeRay.Cli.csproj" />
+    <Project Path="src/CathodeRay.Emulation/CathodeRay.Emulation.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/CathodeRay.Tests/CathodeRay.Tests.csproj" />
