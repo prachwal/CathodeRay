@@ -18,3 +18,4 @@ i wykonuje go na emulatorach (domyślnie z80, 8080, 6502, 6800, 6809).
 | `b1_array_typedef.c` | `typedef` typu tablicowego (jednowymiarowy i dwuwymiarowy, parametr, sizeof) |
 | `c1_stdint.c` | `<stdint.h>`: typy o stałej szerokości, zawijanie, znak |
 | `c2_setjmp.c` | `<setjmp.h>`: setjmp/longjmp na wszystkich celach |
+| `c3_stdio.c` | `<stdio.h>`: FILE, stdin/stdout/stderr, fprintf, snprintf, getc, ungetc, fopen |
