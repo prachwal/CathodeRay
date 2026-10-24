@@ -1,11 +1,14 @@
 // B3: operator ?: ze wskaźnikami — wskaźnik i 0/NULL, tablica i wskaźnik, void* z innym wskaźnikiem, wynik jako argument,
 // wartość zwracana i łańcuch zagnieżdżonych ?:.
-// expect-result: 71
+// expect-result: 103
 #include <stddef.h>
 
 int table[3] = {10, 20, 30};
 int other[3] = {1, 2, 3};
 int value;
+
+int dbl2(int x) { return x * 2; }
+int inc1(int x) { return x + 1; }
 
 int *pick(int which)
 {
@@ -36,5 +39,16 @@ int main(void)
     total += read(value ? table : NULL);  /* -1 */
     total += r[2];                        /* 30 */
     total += *(int *)v;                   /* 10 */
+    {
+        const int *cp = value ? table : (const int *)other;     /* int* i const int* => const int* */
+        int (*fp)(int) = value ? inc1 : dbl2;                    /* dwa wskaźniki do funkcji */
+        int *z1 = value ? table : 0U;                            /* 0U, (1 - 1) to stałe zerowe */
+        int *z2 = value ? (1 - 1) : table;
+
+        total += cp[0];                       /* 1 */
+        total += fp(10);                      /* 20 */
+        total += z1 == 0;                     /* 1 */
+        total += z2[0];                       /* 10 */
+    }
     return total;
 }

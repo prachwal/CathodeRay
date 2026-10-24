@@ -665,7 +665,7 @@ public sealed partial class TypeChecker
             {
                 hasDefault = hasDefault ? throw new CTypeException("duplicate 'default'.") : true;
             }
-            else if (!seen.Add((short)ConstantOf(item.Value, "'case'")))
+            else if (!seen.Add(CaseKey(item.Value, type)))
             {
                 throw new CTypeException("duplicate 'case'.");
             }
@@ -678,6 +678,18 @@ public sealed partial class TypeChecker
 
         _scopes.Pop();
         _switches--;
+    }
+
+    /// <summary>Wartość stałej <c>case</c> do wykrywania duplikatów; w switch na long/ulong literał (także z sufiksem L/UL) ma pełne 32 bity.</summary>
+    private int CaseKey(Ast.Expr expr, CType switchType)
+    {
+        if (switchType.Kind is "long" or "ulong" && expr is Ast.Number number)
+        {
+            _ = TypeOf(expr);
+            return unchecked((int)ParseLiteral(number.Text).Value);
+        }
+
+        return (short)ConstantOf(expr, "'case'");
     }
 
     private void Condition(Ast.Expr cond)
@@ -1252,27 +1264,33 @@ public sealed partial class TypeChecker
 
         CType thenValue = then.Decay();
         CType elseValue = els.Decay();
-        if (thenValue.Kind == "ptr" || elseValue.Kind == "ptr")
+        bool thenPointer = thenValue.Kind is "ptr" or "fptr";
+        bool elsePointer = elseValue.Kind is "ptr" or "fptr";
+        if (thenPointer || elsePointer)
         {
-            // wskaźniki: ten sam typ, void* z dowolnym wskaźnikiem (wynik void*), tablica rozpada się na wskaźnik, a 0 jest wskaźnikiem pustym
-            if (thenValue.Kind == "ptr" && ternary.Else is Ast.Number { Text: "0" })
+            // wskaźniki: ten sam typ (także z różnymi kwalifikatorami const/volatile celu), void* z dowolnym wskaźnikiem (wynik void*),
+            // tablica rozpada się na wskaźnik, a stała całkowita 0 (0, 0U, (1 - 1), (void *)0) jest wskaźnikiem pustym
+            if (thenPointer && IsNullConstant(ternary.Else, elseValue))
             {
                 return thenValue;
             }
 
-            if (elseValue.Kind == "ptr" && ternary.Then is Ast.Number { Text: "0" })
+            if (elsePointer && IsNullConstant(ternary.Then, thenValue))
             {
                 return elseValue;
             }
 
-            if (thenValue.Kind == "ptr" && elseValue.Kind == "ptr")
+            if (thenPointer && elsePointer)
             {
-                if (thenValue == elseValue)
+                if (SameShape(thenValue, elseValue))
                 {
-                    return thenValue;
+                    // ten sam kształt (także różne kwalifikatory celu): wynik niesie const/volatile obu stron
+                    return thenValue.Kind == "ptr"
+                        ? CType.Pointer(thenValue.Base! with { IsConst = thenValue.Base.IsConst || elseValue.Base!.IsConst, IsVolatile = thenValue.Base.IsVolatile || elseValue.Base!.IsVolatile })
+                        : thenValue;
                 }
 
-                if (thenValue.Base?.Kind == "void" || elseValue.Base?.Kind == "void")
+                if (thenValue.Kind == "ptr" && elseValue.Kind == "ptr" && (thenValue.Base?.Kind == "void" || elseValue.Base?.Kind == "void"))
                 {
                     return thenValue.Base?.Kind == "void" ? thenValue : elseValue;
                 }
@@ -1285,6 +1303,10 @@ public sealed partial class TypeChecker
 
         return CType.Promote(then, els);
     }
+
+    /// <summary>Stała całkowita równa zeru (wskaźnik pusty) w roli operandu <c>?:</c> ze wskaźnikiem.</summary>
+    private bool IsNullConstant(Ast.Expr expr, CType type) =>
+        type.IsInteger && ConstantValue(expr) == 0;
 
     private StructInfo MemberInfo(Ast.Member member)
     {

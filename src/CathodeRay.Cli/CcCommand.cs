@@ -344,14 +344,12 @@ internal static partial class CcCommand
             return 1;
         }
 
+        // najpierw wszystko się kompiluje, pliki powstają dopiero po pomyślnym zakończeniu (także -Werror)
+        var results = new List<(FileInfo Input, string Path, string Asm)>();
         foreach (FileInfo input in files)
         {
             string asm = GenerateAssembly(cTarget, input, includePaths, warningText, defines, optimize, vreg, abiV2);
-            string path = requested?.FullName ?? Path.ChangeExtension(input.FullName, ".s");
-            File.WriteAllText(path, asm);
-            parse.InvocationConfiguration.Output.WriteLine(string.Create(
-                CultureInfo.InvariantCulture,
-                $"{input.Name} -> {Path.GetFileName(path)} ({asm.Split('\n').Length} lines of {cTarget.Name} assembly)"));
+            results.Add((input, requested?.FullName ?? Path.ChangeExtension(input.FullName, ".s"), asm));
         }
 
         error.Write(warningText.ToString());
@@ -359,6 +357,17 @@ internal static partial class CcCommand
         {
             error.WriteLine("cc: warnings treated as errors (-Werror).");
             return 1;
+        }
+
+        foreach ((FileInfo input, string path, string asm) in results)
+        {
+            // zapis przez plik tymczasowy i podmianę: równoległe wywołania nie widzą połowy pliku
+            string temporary = path + "." + Environment.ProcessId.ToString(CultureInfo.InvariantCulture) + ".tmp";
+            File.WriteAllText(temporary, asm);
+            File.Move(temporary, path, overwrite: true);
+            parse.InvocationConfiguration.Output.WriteLine(string.Create(
+                CultureInfo.InvariantCulture,
+                $"{input.Name} -> {Path.GetFileName(path)} ({asm.Split('\n').Length} lines of {cTarget.Name} assembly)"));
         }
 
         return 0;
